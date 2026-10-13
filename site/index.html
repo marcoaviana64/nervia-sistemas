@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nervia Tecnologia da Informação | Suporte, Infraestrutura e Câmeras</title>
+<meta name="description" content="Nervia TI: suporte a usuários, montagem de infraestrutura e rede, instalação de câmeras e consultoria em projetos de TI para escritórios, shopping centers e self storage no Rio de Janeiro.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#F5F7FA; --bg-alt:#FFFFFF; --surface:#FFFFFF; --text:#0F1B2D; --muted:#5B6B80;
+  --primary:#0B2545; --accent:#107E99; --accent-2:#2BB3D1; --on-accent:#FFFFFF;
+  --border:#E1E6EE; --hero-bg:linear-gradient(135deg,#0A1F2E 0%,#0E3446 60%,#107E99 130%);
+  --hero-text:#FFFFFF; --hero-muted:#C9D6EA; --radius:14px; --head-font:'Inter',sans-serif;
+  --shadow:0 6px 24px rgba(11,37,69,.08); --icon-bg:#E3F3F7;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased;transition:background .3s,color .3s}
+a{color:inherit;text-decoration:none}
+img,svg{display:block}
+.container{max-width:1160px;margin:0 auto;padding:0 20px}
+h1,h2,h3{font-family:var(--head-font);line-height:1.15;letter-spacing:-.02em}
+h2{font-size:clamp(1.7rem,3.2vw,2.4rem);margin-bottom:12px}
+.eyebrow{display:inline-block;font-size:.78rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-bottom:12px}
+.lead{color:var(--muted);font-size:1.08rem;max-width:640px}
+section{padding:88px 0}
+.section-head{margin-bottom:44px}
+
+/* Botões */
+.btn{display:inline-flex;align-items:center;gap:10px;padding:14px 22px;border-radius:var(--radius);font-weight:600;font-size:.98rem;border:2px solid transparent;cursor:pointer;transition:transform .15s,opacity .15s,background .15s;font-family:inherit}
+.btn:hover{transform:translateY(-1px);opacity:.92}
+.btn-primary{background:var(--accent);color:var(--on-accent)}
+.btn-ghost{border-color:currentColor;color:var(--hero-text);background:transparent}
+.btn-wa{background:#25D366;color:#fff}
+.btn svg{width:20px;height:20px}
+
+/* Header */
+header{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--bg-alt) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.nav{display:flex;align-items:center;justify-content:space-between;height:70px}
+.logo{display:flex;align-items:center}.logo img{height:52px;width:auto}
+.logo-mark{width:34px;height:34px;border-radius:9px;background:var(--accent);display:grid;place-items:center;color:var(--on-accent)}
+.logo small{display:block;font-size:.62rem;font-weight:600;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;margin-top:-2px}
+.nav-links{display:flex;gap:28px;font-weight:500;font-size:.95rem;color:var(--muted)}
+.nav-links a:hover{color:var(--text)}
+.nav .btn{padding:10px 18px;font-size:.9rem}
+.menu-toggle{display:none;background:none;border:0;color:var(--text);cursor:pointer}
+
+/* Hero */
+.hero{background:var(--hero-bg);color:var(--hero-text);padding:96px 0 88px;position:relative;overflow:hidden}
+.hero-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:56px;align-items:center}
+.hero h1{font-size:clamp(2.2rem,5vw,3.6rem);margin-bottom:20px}
+.hero h1 em{font-style:normal;color:var(--accent-2)}.hero .eyebrow{color:#6FD3EA}
+.hero h1 em{color:#6FD3EA}
+.hero p{color:var(--hero-muted);font-size:1.15rem;max-width:560px;margin-bottom:32px}
+.hero-ctas{display:flex;flex-wrap:wrap;gap:14px}
+.hero-card{background:color-mix(in srgb,var(--hero-text) 7%,transparent);border:1px solid color-mix(in srgb,var(--hero-text) 14%,transparent);border-radius:calc(var(--radius) + 4px);padding:28px;backdrop-filter:blur(6px)}
+.status-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px dashed color-mix(in srgb,var(--hero-text) 18%,transparent);font-size:.95rem}
+.status-row:last-child{border-bottom:0}
+.status-row span:first-child{display:flex;align-items:center;gap:10px}
+.dot{width:9px;height:9px;border-radius:50%;background:#22C55E;box-shadow:0 0 0 4px rgba(34,197,94,.18)}
+.status-ok{font-weight:600;color:#4ADE80;font-size:.85rem}
+.hero-card h3{font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;color:var(--hero-muted);margin-bottom:6px;font-family:'Inter',sans-serif}
+
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:56px;max-width:720px}
+.stat b{display:block;font-family:var(--head-font);font-size:2rem;line-height:1}
+.stat span{color:var(--hero-muted);font-size:.9rem}
+
+/* Serviços */
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:30px;box-shadow:var(--shadow);transition:transform .2s,border-color .2s}
+.card:hover{transform:translateY(-3px);border-color:var(--accent)}
+.icon{width:48px;height:48px;border-radius:12px;background:var(--icon-bg);color:var(--accent);display:grid;place-items:center;margin-bottom:18px}
+.icon svg{width:24px;height:24px}
+.card h3{font-size:1.18rem;margin-bottom:8px}
+.card p{color:var(--muted);font-size:.96rem}
+.card ul{list-style:none;margin-top:14px;display:grid;gap:6px}
+.card li{font-size:.9rem;color:var(--muted);padding-left:20px;position:relative}
+.card li::before{content:"";position:absolute;left:0;top:.6em;width:8px;height:8px;border-radius:2px;background:var(--accent-2)}
+
+/* Segmentos */
+.alt{background:var(--bg-alt)}
+.segments{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+.segment{border-radius:var(--radius);padding:34px;background:var(--surface);border:1px solid var(--border);position:relative;overflow:hidden}
+.segment .num{font-family:var(--head-font);font-size:3rem;font-weight:700;color:var(--accent);opacity:.18;position:absolute;right:20px;top:10px}
+.segment h3{font-size:1.3rem;margin-bottom:10px}
+.segment p{color:var(--muted)}
+
+/* Processo */
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:22px;counter-reset:s}
+.step{padding-top:24px;border-top:3px solid var(--border);position:relative}
+.step::before{counter-increment:s;content:"0" counter(s);font-family:var(--head-font);font-weight:700;color:var(--accent);font-size:.95rem;display:block;margin-bottom:10px}
+.step:first-child{border-top-color:var(--accent)}
+.step h3{font-size:1.1rem;margin-bottom:6px}
+.step p{color:var(--muted);font-size:.94rem}
+
+/* Sobre */
+.about{display:grid;grid-template-columns:.9fr 1.1fr;gap:56px;align-items:center}
+.about-box{background:var(--hero-bg);color:var(--hero-text);border-radius:calc(var(--radius) + 6px);padding:40px;border:1px solid var(--border)}
+.about-box .big{font-family:var(--head-font);font-size:4.2rem;font-weight:800;line-height:1;color:var(--accent-2)}
+.about-box .big{color:#6FD3EA}
+.about-box p{color:var(--hero-muted);margin-top:8px}
+.about-list{display:grid;gap:16px;margin-top:26px}
+.about-list div{display:flex;gap:14px;align-items:flex-start}
+.check{flex:none;width:26px;height:26px;border-radius:50%;background:var(--icon-bg);color:var(--accent);display:grid;place-items:center;margin-top:2px}
+.check svg{width:14px;height:14px}
+.about-text p{color:var(--muted);margin-bottom:14px}
+
+/* CTA faixa */
+.cta-band{background:var(--accent);color:var(--on-accent);border-radius:calc(var(--radius) + 6px);padding:48px;display:flex;align-items:center;justify-content:space-between;gap:28px;flex-wrap:wrap}
+.cta-band h2{margin:0;max-width:620px}
+.cta-band .btn{background:var(--on-accent);color:var(--accent)}
+
+/* Contato */
+.contact{display:grid;grid-template-columns:.9fr 1.1fr;gap:48px}
+.contact-info{display:grid;gap:18px;align-content:start}
+.contact-item{display:flex;gap:14px;align-items:center;padding:18px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface)}
+.contact-item small{display:block;color:var(--muted);font-size:.8rem}
+.contact-item b{font-weight:600}
+form{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:32px;box-shadow:var(--shadow);display:grid;gap:16px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+label{font-size:.85rem;font-weight:600;display:block;margin-bottom:6px}
+input,select,textarea{width:100%;padding:12px 14px;border-radius:calc(var(--radius) - 4px);border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:inherit;font-size:.95rem}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
+textarea{min-height:110px;resize:vertical}
+.form-actions{display:flex;gap:12px;flex-wrap:wrap}
+.form-note{font-size:.82rem;color:var(--muted)}
+.form-msg{font-size:.9rem;font-weight:600;color:var(--accent)}
+
+footer{border-top:1px solid var(--border);padding:36px 0;color:var(--muted);font-size:.9rem}
+.foot{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;align-items:center}
+
+/* WhatsApp flutuante */
+.wa-float{position:fixed;right:22px;bottom:22px;width:60px;height:60px;border-radius:50%;background:#25D366;color:#fff;display:grid;place-items:center;box-shadow:0 8px 24px rgba(0,0,0,.25);z-index:60;transition:transform .2s}
+.wa-float:hover{transform:scale(1.07)}
+.wa-float svg{width:32px;height:32px}
+
+
+@media (max-width:900px){
+  .hero-grid,.about,.contact{grid-template-columns:1fr}
+  .grid-3,.segments{grid-template-columns:1fr 1fr}
+  .steps{grid-template-columns:1fr 1fr}
+  .nav-links{display:none;position:absolute;top:70px;left:0;right:0;flex-direction:column;gap:0;background:var(--bg-alt);border-bottom:1px solid var(--border)}
+  .nav-links.open{display:flex}
+  .nav-links a{padding:14px 20px;border-top:1px solid var(--border)}
+  .menu-toggle{display:block}
+  .nav .btn{display:none}
+}
+@media (max-width:600px){
+  .logo img{height:36px}
+  section{padding:64px 0}
+  .container{padding:0 16px}
+  .grid-3,.segments,.steps,.row{grid-template-columns:1fr}
+  .stats{grid-template-columns:1fr 1fr 1fr;gap:12px}
+  .stat b{font-size:1.5rem}
+  .cta-band{padding:32px}
+  .hero{padding:64px 0}
+  
+}
+
+.nav-links a.nav-cliente{color:var(--accent);font-weight:600}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container nav">
+    <a href="#inicio" class="logo" aria-label="Nervia Tecnologia"><img class="logo-light" alt="Nervia Tecnologia" src="/img/nervia-logo.png"></a>
+    <nav class="nav-links" id="navLinks">
+      <a href="#servicos">Serviços</a>
+      <a href="#segmentos">Segmentos</a>
+      <a href="#como">Como trabalhamos</a>
+      <a href="#sobre">Sobre</a>
+      <a href="#contato">Contato</a>
+      <a href="/cliente/" class="nav-cliente">Área do Cliente</a>
+    </nav>
+    <a href="#contato" class="btn btn-primary">Solicitar orçamento</a>
+    <button class="menu-toggle" aria-label="Abrir menu" onclick="document.getElementById('navLinks').classList.toggle('open')">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+  </div>
+</header>
+
+<section class="hero" id="inicio">
+  <div class="container hero-grid">
+    <div>
+      <span class="eyebrow">TI para empresas desde 2002</span>
+      <h1>Sua TI funcionando, <em>todos os dias.</em></h1>
+      <p>Suporte a usuários, infraestrutura de rede, câmeras e consultoria em projetos de TI para escritórios, shopping centers e self storage. Do link de internet ao atendimento do dia a dia, a gente cuida para o seu ambiente não parar.</p>
+      <div class="hero-ctas">
+        <a class="btn btn-wa js-wa" href="#" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 14.4c-.3-.1-1.7-.8-2-.9-.3-.1-.5-.1-.7.1-.2.3-.8.9-.9 1.1-.2.2-.3.2-.6.1-.3-.1-1.2-.5-2.3-1.4-.9-.8-1.4-1.7-1.6-2-.2-.3 0-.5.1-.6l.4-.5c.2-.2.2-.3.3-.5.1-.2 0-.4 0-.5l-.9-2.2c-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.1.2 2.1 3.2 5.1 4.5.7.3 1.3.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.7-.7 1.9-1.4.2-.7.2-1.3.2-1.4-.1-.1-.3-.2-.6-.3zM12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2z"/></svg>
+          Falar no WhatsApp
+        </a>
+        <a class="btn btn-ghost" href="#servicos">Ver serviços</a>
+      </div>
+      <div class="stats">
+        <div class="stat"><b>24+</b><span>anos em TI corporativa</span></div>
+        <div class="stat"><b>97%</b><span>meta de disponibilidade anual</span></div>
+        <div class="stat"><b>360°</b><span>do projeto ao suporte</span></div>
+      </div>
+    </div>
+    <div class="hero-card" aria-hidden="true">
+      <h3>Status do ambiente</h3>
+      <div class="status-row"><span><i class="dot"></i>Link de internet</span><span class="status-ok">Operacional</span></div>
+      <div class="status-row"><span><i class="dot"></i>Rede e Wi-Fi</span><span class="status-ok">Operacional</span></div>
+      <div class="status-row"><span><i class="dot"></i>Firewall</span><span class="status-ok">Protegido</span></div>
+      <div class="status-row"><span><i class="dot"></i>Câmeras (CFTV)</span><span class="status-ok">Gravando</span></div>
+      <div class="status-row"><span><i class="dot"></i>E-mail e Microsoft 365</span><span class="status-ok">Operacional</span></div>
+      <div class="status-row"><span><i class="dot"></i>Backup</span><span class="status-ok">Concluído</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="servicos">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow">Serviços</span>
+      <h2>Tudo o que a TI da sua empresa precisa, em um só parceiro</h2>
+      <p class="lead">Atendemos desde o planejamento até o uso diário dos equipamentos, com foco em disponibilidade e custo sob controle.</p>
+    </div>
+    <div class="grid-3">
+      <div class="card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1v-6h3zM3 19a2 2 0 0 0 2 2h1v-6H3z"/></svg></div>
+        <h3>Suporte a usuários</h3>
+        <p>Help desk presencial e remoto para o time trabalhar sem interrupções.</p>
+        <ul><li>Computadores, impressoras e periféricos</li><li>E-mail, Microsoft 365 e contas</li><li>Atendimento com prazo acordado</li></ul>
+      </div>
+      <div class="card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="6" rx="1.5"/><rect x="2" y="15" width="20" height="6" rx="1.5"/><path d="M6 6h.01M6 18h.01M12 9v6"/></svg></div>
+        <h3>Montagem de infraestrutura</h3>
+        <p>Projetamos e implantamos a rede completa do seu escritório ou operação.</p>
+        <ul><li>Escolha e contratação do link</li><li>Cabeamento, switches e Wi-Fi</li><li>Firewall, servidores e backup</li></ul>
+      </div>
+      <div class="card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 7.5 20 6v8l-3.5-1.5"/><rect x="2" y="5" width="14.5" height="10" rx="2"/><path d="M8 15v4M5 19h6"/></svg></div>
+        <h3>Instalação de câmeras</h3>
+        <p>Sistemas de CFTV com gravação e acesso remoto pelo celular.</p>
+        <ul><li>Projeto de pontos e cobertura</li><li>Câmeras IP, NVR e armazenamento</li><li>Manutenção preventiva</li></ul>
+      </div>
+      <div class="card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3h6c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2z"/></svg></div>
+        <h3>Consultoria em projetos de TI</h3>
+        <p>Planejamento, orçamento e acompanhamento de projetos, mudanças e expansões.</p>
+        <ul><li>Diagnóstico do ambiente atual</li><li>Especificação e compra de equipamentos</li><li>Mudanças de sede sem parar a operação</li></ul>
+      </div>
+      <div class="card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6M9 10h.01M15 10h.01"/></svg></div>
+        <h3>TI para shopping centers</h3>
+        <p>Suporte à administração do shopping e manutenção dos sistemas do dia a dia.</p>
+        <ul><li>Infraestrutura da administração</li><li>Manutenção de software e sistemas</li><li>Contas e licenças Microsoft 365</li></ul>
+      </div>
+      <div class="card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></div>
+        <h3>Gestão de fornecedores</h3>
+        <p>Negociamos e acompanhamos operadoras e prestadores para reduzir custos.</p>
+        <ul><li>Links, telefonia fixa e móvel</li><li>Contratos e SLAs</li><li>Controle de despesas de TI</li></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="segmentos">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow">Segmentos</span>
+      <h2>Experiência em operações que não podem parar</h2>
+    </div>
+    <div class="segments">
+      <div class="segment"><span class="num">01</span><h3>Shopping centers</h3><p>Infraestrutura e suporte para a administração, sistemas, telefonia e fornecedores, com alta disponibilidade.</p></div>
+      <div class="segment"><span class="num">02</span><h3>Self storage</h3><p>Rede, câmeras e controle das unidades, com acesso remoto e manutenção das instalações.</p></div>
+      <div class="segment"><span class="num">03</span><h3>Escritórios e empresas</h3><p>TI completa para pequenas e médias empresas: montagem do escritório, suporte e segurança.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="como">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow">Como trabalhamos</span>
+      <h2>Do diagnóstico ao suporte contínuo</h2>
+    </div>
+    <div class="steps">
+      <div class="step"><h3>Diagnóstico</h3><p>Visitamos o local e levantamos rede, equipamentos, contratos e necessidades.</p></div>
+      <div class="step"><h3>Projeto e orçamento</h3><p>Proposta clara com escopo, fornecedores indicados e custos.</p></div>
+      <div class="step"><h3>Implantação</h3><p>Execução planejada para não interromper a sua operação.</p></div>
+      <div class="step"><h3>Suporte contínuo</h3><p>Atendimento aos usuários e manutenção para manter tudo disponível.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="sobre">
+  <div class="container about">
+    <div class="about-box">
+      <div class="big">2002</div>
+      <p>Desde então a Nervia atende empresas no Rio de Janeiro com infraestrutura, suporte e projetos de TI.</p>
+    </div>
+    <div class="about-text">
+      <span class="eyebrow">Sobre a Nervia</span>
+      <h2>Quem cuida da sua TI</h2>
+      <p>A Nervia foi fundada por Marco Viana, com mais de 18 anos como gestor de TI de um grupo de shopping centers e experiência na implantação da TI de uma grande administradora de shoppings do país, da escolha de fornecedores à unificação de redes e mudanças de datacenter sem parar a operação.</p>
+      <div class="about-list">
+        <div><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5 9-10"/></svg></span><span>Metas de disponibilidade de 97% ao ano cumpridas em ambientes corporativos</span></div>
+        <div><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5 9-10"/></svg></span><span>Coordenação de equipes de help desk com metas de atendimento</span></div>
+        <div><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12 5 5 9-10"/></svg></span><span>Formação em Administração e em Defesa Cibernética</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <div class="cta-band">
+      <h2>Vai montar um escritório, instalar câmeras ou precisa de suporte? Fale com a gente.</h2>
+      <a href="#contato" class="btn">Pedir orçamento</a>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="contato">
+  <div class="container contact">
+    <div>
+      <span class="eyebrow">Contato</span>
+      <h2>Vamos conversar sobre a sua TI</h2>
+      <p class="lead" style="margin-bottom:28px">Conte o que você precisa. Respondemos rápido pelo WhatsApp ou por e-mail.</p>
+      <div class="contact-info">
+        <a class="contact-item js-wa" href="#" target="_blank" rel="noopener">
+          <span class="icon" style="margin:0;background:#25D36622;color:#25D366"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2z"/></svg></span>
+          <span><small>WhatsApp</small><b class="js-wa-label"></b></span>
+        </a>
+        <a class="contact-item js-mail" href="#">
+          <span class="icon" style="margin:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 6 10 7 10-7"/></svg></span>
+          <span><small>E-mail</small><b class="js-mail-label"></b></span>
+        </a>
+        <div class="contact-item">
+          <span class="icon" style="margin:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s7-6.3 7-12a7 7 0 0 0-14 0c0 5.7 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg></span>
+          <span><small>Atendimento</small><b>Rio de Janeiro e região</b></span>
+        </div>
+      </div>
+    </div>
+    <form id="leadForm" novalidate>
+      <div class="row">
+        <div><label for="f-nome">Nome *</label><input id="f-nome" name="nome" required></div>
+        <div><label for="f-empresa">Empresa</label><input id="f-empresa" name="empresa"></div>
+      </div>
+      <div class="row">
+        <div><label for="f-tel">Telefone / WhatsApp *</label><input id="f-tel" name="telefone" type="tel" required></div>
+        <div><label for="f-email">E-mail</label><input id="f-email" name="email" type="email"></div>
+      </div>
+      <div>
+        <label for="f-servico">Serviço de interesse</label>
+        <select id="f-servico" name="servico">
+          <option>Suporte a usuários</option>
+          <option>Montagem de infraestrutura / rede</option>
+          <option>Instalação de câmeras</option>
+          <option>Consultoria em projeto de TI</option>
+          <option>TI para shopping center</option>
+          <option>Outro</option>
+        </select>
+      </div>
+      <div><label for="f-msg">Mensagem</label><textarea id="f-msg" name="mensagem" placeholder="Ex.: escritório com 15 pessoas, precisamos montar rede e Wi-Fi..."></textarea></div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-wa" data-send="wa">Enviar pelo WhatsApp</button>
+        <button type="button" class="btn btn-primary" data-send="mail">Enviar por e-mail</button>
+      </div>
+      <p class="form-msg" id="formMsg" role="status"></p>
+      <p class="form-note">Seus dados são usados apenas para retornar o seu contato.</p>
+    </form>
+  </div>
+</section>
+
+<footer>
+  <div class="container foot">
+    <span>© <span id="ano"></span> Nervia Tecnologia da Informação · Rio de Janeiro</span>
+    <span>Suporte · Infraestrutura · Câmeras · Consultoria</span>
+  </div>
+</footer>
+
+<a class="wa-float js-wa" href="#" target="_blank" rel="noopener" aria-label="Falar no WhatsApp">
+  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 14.4c-.3-.1-1.7-.8-2-.9-.3-.1-.5-.1-.7.1-.2.3-.8.9-.9 1.1-.2.2-.3.2-.6.1-.3-.1-1.2-.5-2.3-1.4-.9-.8-1.4-1.7-1.6-2-.2-.3 0-.5.1-.6l.4-.5c.2-.2.2-.3.3-.5.1-.2 0-.4 0-.5l-.9-2.2c-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.1.2 2.1 3.2 5.1 4.5.7.3 1.3.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.7-.7 1.9-1.4.2-.7.2-1.3.2-1.4-.1-.1-.3-.2-.6-.3zM12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2z"/></svg>
+</a>
+
+<script>
+/* ===== CONFIGURAÇÃO — edite aqui ===== */
+const CONFIG = {
+  whatsapp: "5521966869374",            // DDI+DDD+número, só dígitos
+  whatsappLabel: "(21) 96686-9374",
+  email: "atendimento@nervia.com.br",
+  formEndpoint: ""                      // opcional: URL do Formspree/Google Apps Script para guardar os leads
+};
+/* ===================================== */
+
+const waBase = "https://wa.me/" + CONFIG.whatsapp;
+document.querySelectorAll(".js-wa").forEach(a => a.href = waBase + "?text=" + encodeURIComponent("Olá! Vim pelo site da Nervia e gostaria de falar sobre TI."));
+document.querySelectorAll(".js-wa-label").forEach(el => el.textContent = CONFIG.whatsappLabel);
+document.querySelectorAll(".js-mail").forEach(a => a.href = "mailto:" + CONFIG.email);
+document.querySelectorAll(".js-mail-label").forEach(el => el.textContent = CONFIG.email);
+document.getElementById("ano").textContent = new Date().getFullYear();
+
+document.querySelectorAll(".nav-links a").forEach(a => a.addEventListener("click", () => document.getElementById("navLinks").classList.remove("open")));
+
+const form = document.getElementById("leadForm");
+const msg = document.getElementById("formMsg");
+form.querySelectorAll("[data-send]").forEach(btn => btn.addEventListener("click", async () => {
+  const d = Object.fromEntries(new FormData(form));
+  if (!d.nome.trim() || !d.telefone.trim()) { msg.textContent = "Preencha nome e telefone, por favor."; return; }
+  const texto = `Olá! Vim pelo site da Nervia.\n\nNome: ${d.nome}\nEmpresa: ${d.empresa || "-"}\nTelefone: ${d.telefone}\nE-mail: ${d.email || "-"}\nServiço: ${d.servico}\n\n${d.mensagem || ""}`;
+  if (CONFIG.formEndpoint) {
+    try { await fetch(CONFIG.formEndpoint, { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify(d) }); } catch (e) {}
+  }
+  if (btn.dataset.send === "wa") {
+    window.open(waBase + "?text=" + encodeURIComponent(texto), "_blank");
+  } else {
+    location.href = "mailto:" + CONFIG.email + "?subject=" + encodeURIComponent("Contato pelo site - " + d.servico) + "&body=" + encodeURIComponent(texto);
+  }
+  msg.textContent = "Obrigado! Finalize o envio na janela que abriu.";
+}));
+
+</script>
+</body>
+</html>

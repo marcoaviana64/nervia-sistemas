@@ -1,0 +1,6 @@
+# Cabeçalhos de segurança (Cloudflare). SAMEORIGIN: só o próprio site da Nervia pode
+# abrir estas páginas dentro de um iframe (a Área do Cliente), nenhum site de terceiros.
+/*
+  X-Frame-Options: SAMEORIGIN
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin

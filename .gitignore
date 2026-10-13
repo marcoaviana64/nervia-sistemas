@@ -1,0 +1,16 @@
+# certificados e segredos nunca vão para o repositório
+*.pfx
+*.p12
+!testes/fixtures/*.pfx
+cadeia*.pem
+.env
+supabase/.temp/
+supabase/.branches/
+# saídas de teste
+testes/saida_envEvento.xml
+testes/*.png
+# versão local
+.venv/
+__pycache__/
+dados/
+testes/fixtures/

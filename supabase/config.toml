@@ -1,0 +1,17 @@
+project_id = "nervia-sistemas"
+
+# Configuração usada pela integração GitHub ↔ Supabase: a cada push na main ela aplica
+# as migrações novas e publica as Edge Functions listadas aqui.
+# As funções validam o acesso por conta própria (admin logado ou segredo do cron),
+# por isso a verificação automática de JWT do gateway fica desligada.
+[functions.sincronizar]
+verify_jwt = false
+
+[functions.ciencia]
+verify_jwt = false
+
+[functions.certificado]
+verify_jwt = false
+
+[functions.usuarios]
+verify_jwt = false
