@@ -48,7 +48,8 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
 - 2026-10-13: versão local rodou de verdade com o A1 da Nervia: SEFAZ conectou (NF-e: 0 notas nos últimos 90 dias) e o ADN trouxe 153 NFS-e + 15 eventos.
 - 2026-10-13: v2 web (Supabase) escrita e testada: Deno 9/9 (com mTLS real contra servidor local), SQL 26/26 (RLS), tela OK, assinatura conferida, e leitor de XML idêntico à versão local nas 153 NFS-e reais (`testes/comparar_reais.ts`). Ainda não implantada no Supabase.
 - 2026-10-13: Área do Cliente + site da Nervia no mesmo repositório; testes de tela (portal, app no iframe, admin, cliente, celular) e SQL (32 verificações) OK; `wrangler dev` conferido (rotas e cabeçalhos).
-- Deploy: GitHub `nervia-sistemas` → integração GitHub do Supabase (migrações + funções) e Cloudflare (site). Ainda não implantado.
+- 2026-10-13: IMPLANTADO. Supabase `nervia-sistemas` (ref jgokdhqwtcjxcphlwtgk) com integração GitHub (migrações + funções), cron horário ativo, admin = marcoa.viana@gmail.com. Site na Cloudflare (worker `nervia-site`, importado do GitHub, app da Cloudflare liberado só para este repositório): https://nervia-site.nervia-linum.workers.dev — domínio nervia.com.br ainda NÃO ligado (DNS está no Microsoft 365, com o e-mail; migrar com cuidado).
+- Pendente: primeiro teste real (A1 da Nervia, CNPJ 32072678000176); `SITE_ORIGEM` ainda sem definir (CORS aberto durante os testes).
 
 ## Ideias (comercialização)
 - Termo de autorização/custódia do certificado A1 com cada cliente (LGPD + responsabilidade pelo uso do certificado).
