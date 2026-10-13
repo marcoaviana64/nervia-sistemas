@@ -72,6 +72,10 @@ export function clienteHttp(g: CertGuardado): Deno.HttpClient {
   return Deno.createHttpClient({
     cert: g.cert_pem,
     key: g.key_pem,
+    // Os servidores da SEFAZ (IIS) recusam HTTP/2 com certificado de cliente:
+    // "endpoint requires HTTP/1.1". Forçamos HTTP/1.1 em todas as chamadas.
+    http1: true,
+    http2: false,
     ...(extra ? { caCerts: [extra] } : {}),
   });
 }
