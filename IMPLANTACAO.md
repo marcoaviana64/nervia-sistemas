@@ -81,6 +81,21 @@ Endereços depois de publicado:
    1. Em **Administração → Logins**, crie o login e marque os apps que ele pode usar.
    2. Dentro do app Notas Fiscais, em **Quem vê cada empresa**, marque os CNPJs desse login.
 
+## 7. Ponte SEFAZ para NF-e (Google Cloud Run)
+O servidor de NF-e da SEFAZ pede o certificado por **renegociação TLS**, que as Edge Functions do Supabase não fazem. A pasta `ponte-sefaz/` é um serviço mínimo em Python/OpenSSL que só repassa a chamada. A NFS-e não precisa dela.
+1. Gere um segredo longo (ex.: `openssl rand -hex 32`). Ele vai em dois lugares: no Cloud Run e no Supabase.
+2. No Google Cloud (projeto com faturamento ativo), *Cloud Run → Implantar contêiner → Serviço*, opção **implantar continuamente a partir de um repositório**:
+   - GitHub, repositório `marcoaviana64/nervia-sistemas` (só ele), branch `^main$`;
+   - tipo de build **Dockerfile**, local `/ponte-sefaz/Dockerfile`;
+   - nome `ponte-sefaz`, região **southamerica-east1 (São Paulo)**;
+   - autenticação: **permitir acesso público** (a proteção é o segredo);
+   - mínimo de instâncias 0, máximo 2, memória 256 MiB, tempo limite 120 s;
+   - variável de ambiente `PONTE_SEGREDO` = o segredo do passo 1.
+3. Abra a URL do serviço no navegador: deve mostrar `{"ok": true, "servico": "ponte-sefaz"}`.
+4. No Supabase, *Edge Functions → Secrets*: `PONTE_URL` = URL do passo 3 e `PONTE_SEGREDO` = o mesmo segredo. A NF-e liga sozinha (não precisa de `NFE_HABILITADA`).
+5. No Buscador, clique em **Buscar NF-e agora**. Erros com `Ponte SEFAZ:` vêm da ponte (ex.: segredo diferente nos dois lados).
+- Custo: com instância mínima 0, o uso de uma chamada por hora por empresa fica dentro da cota gratuita do Cloud Run.
+
 ## Sem a integração (alternativa pela linha de comando)
 `supabase link --project-ref <REF>` → `supabase db push` → `supabase functions deploy <nome>` para cada função → `supabase secrets set ...`.
 
@@ -104,7 +119,8 @@ Endereços depois de publicado:
 ## Testes (sem internet, sem Supabase)
 ```
 python3 testes/gerar_fixtures.py                 # certificados de teste
-deno test -A testes/funcoes_test.ts              # lógica SEFAZ/ADN, mTLS real contra servidor local
+pip install pyopenssl                            # para o servidor que imita a renegociação da SEFAZ
+deno test -A testes/funcoes_test.ts              # lógica SEFAZ/ADN, mTLS real local, ponte (OpenSSL) com renegociação
 python3 testes/conferir_assinatura.py testes/saida_envEvento.xml testes/fixtures/a1_cert.pem
 PGHOST=... PGPORT=... PGUSER=postgres testes/rodar_sql.sh   # esquema + RLS num Postgres local
 python3 testes/tela_test.py                      # site, Área do Cliente e Buscador (Playwright) com Supabase simulado

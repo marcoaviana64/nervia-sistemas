@@ -3,6 +3,6 @@
 window.NERVIA_CONFIG = window.BUSCADOR_CONFIG = {
   SUPABASE_URL: "https://jgokdhqwtcjxcphlwtgk.supabase.co",
   SUPABASE_ANON_KEY: "sb_publishable_NkAoLQVK6j0JeuyFFnS8RQ_fhoNBmQS",
-  // NF-e (produtos) fica para depois: precisa da ponte com OpenSSL (ver CLAUDE.md). NFS-e funciona.
-  NFE_HABILITADA: false,
+  // NF-e (produtos) passa pela ponte com OpenSSL no Google Cloud Run (ponte-sefaz/). NFS-e vai direto.
+  NFE_HABILITADA: true,
 };

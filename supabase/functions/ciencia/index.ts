@@ -2,7 +2,8 @@
 import { admin, bancoSupabase } from "../_shared/banco.ts";
 import { clienteHttp } from "../_shared/certificado.ts";
 import { erro, json, servir } from "../_shared/http.ts";
-import { CSTAT_CIENCIA_OK, manifestarCiencia } from "../_shared/sefaz.ts";
+import { CSTAT_CIENCIA_OK, type Http, manifestarCiencia } from "../_shared/sefaz.ts";
+import { httpViaPonte, temPonte } from "../_shared/ponte.ts";
 
 const sb = admin();
 const banco = bancoSupabase(sb);
@@ -18,9 +19,11 @@ servir(async (req) => {
   if (!chaves.length) return erro("Nenhuma NF-e (resumo) pendente de ciência entre as selecionadas.");
   const cert = await banco.lerCertificado(cnpj);
   if (!cert) return erro("Certificado A1 não cadastrado para esta empresa.");
-  const client = clienteHttp(cert);
+  // NF-e: pela ponte com OpenSSL quando configurada (ver _shared/ponte.ts)
+  const client = temPonte() ? null : clienteHttp(cert);
+  const http: Http = client ? (u, i) => fetch(u, { ...i, client } as RequestInit) : httpViaPonte(cert);
   try {
-    const res = await manifestarCiencia(banco, (u, i) => fetch(u, { ...i, client } as RequestInit), cert, cnpj, chaves);
+    const res = await manifestarCiencia(banco, http, cert, cnpj, chaves);
     const ok = res.filter(([, s]) => CSTAT_CIENCIA_OK.has(s)).length;
     const falhas = res.filter(([, s]) => !CSTAT_CIENCIA_OK.has(s)).map(([c, s, m]) => `…${c.slice(-8)}: ${s} ${m}`);
     return json({
@@ -28,6 +31,6 @@ servir(async (req) => {
       mensagem: `Ciência registrada em ${ok} de ${res.length} nota(s). O XML completo chega na próxima busca de NF-e.`,
     });
   } finally {
-    client.close();
+    client?.close();
   }
 });

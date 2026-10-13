@@ -2,7 +2,7 @@
 import { admin } from "./banco.ts";
 
 /** Muda a cada correção nas funções: aparece nas mensagens de erro para saber qual versão está no ar. */
-export const VERSAO = "v3-http11";
+export const VERSAO = "v4-ponte";
 
 export const CORS = {
   "Access-Control-Allow-Origin": Deno.env.get("SITE_ORIGEM") ?? "*",

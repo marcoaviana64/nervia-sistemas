@@ -1,6 +1,6 @@
 // Testes das Edge Functions sem Supabase e sem internet.
 // Rodar (na pasta do projeto):  deno test -A testes/funcoes_test.ts
-// Antes, gere os certificados de teste:  python3 testes/gerar_fixtures.py
+// Antes, gere os certificados de teste:  python3 testes/gerar_fixtures.py   (e: pip install pyopenssl)
 import nodeAssert from "node:assert/strict";
 const assert = (c: unknown, m?: string) => nodeAssert.ok(c, m);
 const assertEquals = (a: unknown, b: unknown) => nodeAssert.deepStrictEqual(a, b);
@@ -9,6 +9,7 @@ const assertRejects = (f: () => Promise<unknown>, _t?: unknown, msg?: string) =>
 import { lerPfx, clienteHttp, CertGuardado } from "../supabase/functions/_shared/certificado.ts";
 import * as sefaz from "../supabase/functions/_shared/sefaz.ts";
 import * as adn from "../supabase/functions/_shared/adn.ts";
+import { httpViaPonte, nfeHabilitada } from "../supabase/functions/_shared/ponte.ts";
 import type { Banco, Empresa } from "../supabase/functions/_shared/banco.ts";
 import type { DadosNota } from "../supabase/functions/_shared/xml.ts";
 
@@ -208,4 +209,66 @@ Deno.test("NFS-e (ADN): baixa, lê valores, trata 404 e erro", async () => {
   assertEquals(e.ult_nsu_nfse, 7);
   const erro = JSON.stringify({ Erros: [{ Codigo: "E1", Descricao: "Certificado sem permissão" }] });
   await assertRejects(() => adn.sincronizar(b, httpFalso([() => new Response(erro, { status: 403 })]).http, CNPJ), Error, "Certificado sem permissão");
+});
+
+Deno.test("Ponte SEFAZ (OpenSSL): funções → ponte → servidor que exige certificado", async () => {
+  const PS = 18444, PP = 18445, PR = 18446;
+  const ac = Deno.readTextFileSync(new URL("ac.pem", DIR));
+  const srv = new Deno.Command("python3", { args: [new URL("./servidor_mtls.py", import.meta.url).pathname, String(PS)], stdout: "piped", stderr: "null" }).spawn();
+  const ponte = new Deno.Command("python3", {
+    args: [new URL("../ponte-sefaz/main.py", import.meta.url).pathname], stdout: "piped", stderr: "null",
+    env: { PORT: String(PP), PONTE_SEGREDO: "segredo-de-teste", CADEIA_EXTRA_PEM: ac, PONTE_HOSTS_EXTRA: "localhost" },
+  }).spawn();
+  // imita a SEFAZ de NF-e: pede o certificado só depois, por renegociação TLS (precisa de: pip install pyopenssl)
+  const reneg = new Deno.Command("python3", { args: [new URL("./servidor_renegociacao.py", import.meta.url).pathname, String(PR)], stdout: "piped", stderr: "null" }).spawn();
+  const l1 = srv.stdout.getReader(), l2 = ponte.stdout.getReader(), l3 = reneg.stdout.getReader();
+  await l1.read(); await l2.read(); await l3.read();
+  const g = lerPfx(pfx("a1_moderno.pfx"), "1234").guardado;
+  try {
+    assertEquals(nfeHabilitada(), false); // sem PONTE_URL a NF-e fica desligada
+    Deno.env.set("PONTE_URL", `http://127.0.0.1:${PP}/`);
+    Deno.env.set("PONTE_SEGREDO", "segredo-de-teste");
+    assertEquals(nfeHabilitada(), true);
+
+    // 1) chamada completa: a ponte apresenta o A1 e devolve a resposta do servidor
+    const http = httpViaPonte(g);
+    const r = await http(`https://localhost:${PS}/`, {
+      method: "POST", body: sefaz.envelopeDist(CNPJ, 33, 0), headers: { "Content-Type": "application/soap+xml; charset=utf-8" },
+    });
+    const ret = await sefaz.interpretarRetornoDist(await r.text());
+    assertEquals(ret.cStat, "137");
+    assert(ret.xMotivo.includes(`cliente: EMPRESA TESTE LTDA:${CNPJ}`), ret.xMotivo);
+    assert(ret.xMotivo.includes("recebeu CNPJ True"));
+    console.log("   via ponte, servidor viu:", ret.xMotivo);
+
+    // 2) o problema real: servidor que renegocia. Direto do Deno (rustls) falha; pela ponte (OpenSSL) funciona.
+    Deno.env.set("CADEIA_EXTRA_PEM", ac);
+    const client = clienteHttp(g);
+    await assertRejects(() => fetch(`https://localhost:${PR}/`, { method: "POST", body: "x", client } as RequestInit).then((r) => r.text()));
+    client.close();
+    Deno.env.delete("CADEIA_EXTRA_PEM");
+    const r2 = await http(`https://localhost:${PR}/`, { method: "POST", body: sefaz.envelopeDist(CNPJ, 33, 0), headers: { "Content-Type": "application/soap+xml" } });
+    const ret2 = await sefaz.interpretarRetornoDist(await r2.text());
+    assertEquals(ret2.cStat, "137");
+    assert(ret2.xMotivo.includes(`renegociou; cliente: EMPRESA TESTE LTDA:${CNPJ}`), ret2.xMotivo);
+    console.log("   renegociação: direto falha, via ponte:", ret2.xMotivo);
+
+    // 3) segredo errado → recusado
+    Deno.env.set("PONTE_SEGREDO", "errado");
+    await assertRejects(() => httpViaPonte(g)(`https://localhost:${PS}/`, { method: "POST", body: "x" }), Error, "PONTE_SEGREDO");
+    Deno.env.set("PONTE_SEGREDO", "segredo-de-teste");
+
+    // 4) servidor fora da lista (a ponte só fala com a SEFAZ) → recusado
+    await assertRejects(() => httpViaPonte(g)("https://exemplo.com/", { method: "POST", body: "x" }), Error, "não permitido");
+
+    // 5) ponte fora do ar → mensagem clara
+    Deno.env.set("PONTE_URL", "http://127.0.0.1:1/");
+    await assertRejects(() => httpViaPonte(g)(`https://localhost:${PS}/`, { method: "POST", body: "x" }), Error, "Ponte SEFAZ fora do ar");
+  } finally {
+    Deno.env.delete("PONTE_URL"); Deno.env.delete("PONTE_SEGREDO");
+    Deno.env.delete("CADEIA_EXTRA_PEM");
+    srv.kill(); ponte.kill(); reneg.kill();
+    await l1.cancel(); await l2.cancel(); await l3.cancel();
+    await srv.status; await ponte.status; await reneg.status;
+  }
 });

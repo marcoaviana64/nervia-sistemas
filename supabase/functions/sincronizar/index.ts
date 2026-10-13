@@ -6,16 +6,18 @@ import { clienteHttp } from "../_shared/certificado.ts";
 import { erro, json, mensagemDeRede, servir, VERSAO } from "../_shared/http.ts";
 import * as sefaz from "../_shared/sefaz.ts";
 import * as adn from "../_shared/adn.ts";
+import { httpViaPonte, nfeHabilitada, temPonte } from "../_shared/ponte.ts";
 
 const sb = admin();
-// NF-e desligada até existir a ponte com OpenSSL: o servidor de NF-e da SEFAZ (IIS) pede o certificado
-// por renegociação TLS, que o runtime das Edge Functions (rustls) não suporta. Ligar com o segredo NFE_HABILITADA=true.
-const NFE_HABILITADA = Deno.env.get("NFE_HABILITADA") === "true";
+// NF-e passa pela ponte com OpenSSL (Cloud Run): o servidor de NF-e da SEFAZ (IIS) pede o certificado por
+// renegociação TLS, que o runtime das Edge Functions (rustls) não suporta. Sem PONTE_URL, a NF-e fica desligada.
+const NFE_HABILITADA = nfeHabilitada();
 const banco = bancoSupabase(sb);
 
-async function comCertificado<T>(cnpj: string, fn: (http: sefaz.Http) => Promise<T>): Promise<T> {
+async function comCertificado<T>(cnpj: string, tipo: "nfe" | "nfse", fn: (http: sefaz.Http) => Promise<T>): Promise<T> {
   const cert = await banco.lerCertificado(cnpj);
   if (!cert) throw new Error("Certificado A1 não cadastrado para esta empresa.");
+  if (tipo === "nfe" && temPonte()) return await fn(httpViaPonte(cert));
   const client = clienteHttp(cert);
   try {
     return await fn((url, init) => fetch(url, { ...init, client } as RequestInit));
@@ -28,7 +30,7 @@ async function rodar(cnpj: string, tipo: "nfe" | "nfse", prazoMs: number): Promi
   const { data: travou } = await sb.rpc("nf_travar_empresa", { p_cnpj: cnpj });
   if (!travou) return { ok: false, mensagem: "Já existe uma busca em andamento para esta empresa." };
   try {
-    return await comCertificado(cnpj, (http) =>
+    return await comCertificado(cnpj, tipo, (http) =>
       tipo === "nfe" ? sefaz.sincronizar(banco, http, cnpj, { prazoMs }) : adn.sincronizar(banco, http, cnpj, { prazoMs })
     );
   } catch (e) {
@@ -72,7 +74,7 @@ servir(async (req, quem) => {
   const tipo = corpo.tipo;
   if (!cnpj || (tipo !== "nfe" && tipo !== "nfse")) return erro("Informe cnpj e tipo (nfe ou nfse).");
   if (tipo === "nfe" && !NFE_HABILITADA) {
-    return erro("A busca de NF-e (produtos) ainda não está disponível. A NFS-e (serviços) funciona normalmente.", 409);
+    return erro("A busca de NF-e (produtos) ainda não está ligada: falta configurar a ponte SEFAZ (segredos PONTE_URL e PONTE_SEGREDO no Supabase). A NFS-e funciona normalmente.", 409);
   }
   const r = await rodar(cnpj, tipo, 110_000);
   return json(r, r.ok ? 200 : 409);

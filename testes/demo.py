@@ -11,7 +11,7 @@ SITE = os.path.join(RAIZ, "site")
 FALSO = os.path.join(RAIZ, "testes", "supabase_falso.js")
 PORTA = int(os.environ.get("PORTA", "8090"))
 
-CONFIG = 'window.NERVIA_CONFIG = window.BUSCADOR_CONFIG = {SUPABASE_URL:"https://demo.supabase.co",SUPABASE_ANON_KEY:"demo",NFE_HABILITADA:false};'
+CONFIG = 'window.NERVIA_CONFIG = window.BUSCADOR_CONFIG = {SUPABASE_URL:"https://demo.supabase.co",SUPABASE_ANON_KEY:"demo",NFE_HABILITADA:true};'
 BARRA = """
 <div id="__demo" style="position:fixed;left:12px;bottom:12px;z-index:99999;background:#fff3c4;border:1px solid #e0c35a;
  border-radius:10px;padding:8px 12px;font:13px system-ui,sans-serif;color:#4a3b00;box-shadow:0 4px 16px rgba(0,0,0,.15);display:flex;gap:8px;align-items:center;flex-wrap:wrap">

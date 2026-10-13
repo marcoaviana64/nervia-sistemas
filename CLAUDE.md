@@ -19,7 +19,8 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
   - `ciencia` — evento 210210 nas NF-e selecionadas.
   - `certificado` — recebe .pfx+senha, valida com node-forge e guarda `{cert_pem,key_pem}` no Vault (senha e .pfx não são guardados).
   - `usuarios` — cria login (com apps, CNPJs e flag admin), exclui e troca senha (auth.admin). Usado pela Administração da Área do Cliente.
-  - `_shared/` — `sefaz.ts`, `adn.ts`, `xml.ts`, `certificado.ts` (mTLS via `Deno.createHttpClient({cert,key})`), `banco.ts` (interface `Banco` para testes), `http.ts`.
+  - `_shared/` — `sefaz.ts`, `adn.ts`, `xml.ts`, `certificado.ts` (mTLS via `Deno.createHttpClient({cert,key})`, usado no ADN), `ponte.ts` (NF-e via ponte), `banco.ts` (interface `Banco` para testes), `http.ts` (`VERSAO` vai nas mensagens de erro).
+- `ponte-sefaz/` — ponte Python/OpenSSL (só biblioteca padrão) no **Google Cloud Run** (southamerica-east1, deploy contínuo do GitHub pelo `ponte-sefaz/Dockerfile`). Recebe `{url,headers,body,cert_pem,key_pem}` com cabeçalho `x-ponte-segredo`, faz o POST com mTLS e devolve `{status,body}`. Só fala com hosts `*.nfe.fazenda.gov.br`; não guarda nem registra certificado. Segredos nas funções: `PONTE_URL`, `PONTE_SEGREDO` (com `PONTE_URL` definido a NF-e liga sozinha; sem ele, 409).
 - `supabase/agendar_busca.sql` — pg_cron horário (rodar uma vez, manualmente).
 - `site/` (publicado inteiro na Cloudflare)
   - `index.html` — site público da Nervia (origem: `Projects/Nervia/nervia-site.html`, com logo extraído para `img/` e o link "Área do Cliente" no menu). Editar aqui daqui em diante.
@@ -29,7 +30,7 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
   - `_headers` — `X-Frame-Options: SAMEORIGIN`: só o próprio site pode embutir as páginas.
   - `404.html`, `img/`.
 - `wrangler.jsonc` — Cloudflare (worker `nervia-site`, arquivos de `site/`).
-- `testes/` — Deno (lógica + mTLS real local), SQL (RLS num Postgres local com stubs), Playwright (tela com Supabase falso), conferência independente da assinatura.
+- `testes/` — Deno (lógica + mTLS real local + ponte contra `servidor_renegociacao.py`, que imita o IIS da SEFAZ; precisa de `pip install pyopenssl`), SQL (RLS num Postgres local com stubs), Playwright (tela com Supabase falso), conferência independente da assinatura.
 - A primeira versão (Flask, local) ficou em `Projects/BuscadorCNPJ/versao-local/`, só como referência.
 - `IMPLANTACAO.md` — passo a passo de deploy.
 
@@ -50,9 +51,9 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
 - 2026-10-13: Área do Cliente + site da Nervia no mesmo repositório; testes de tela (portal, app no iframe, admin, cliente, celular) e SQL (32 verificações) OK; `wrangler dev` conferido (rotas e cabeçalhos).
 - 2026-10-13: IMPLANTADO. Supabase `nervia-sistemas` (ref jgokdhqwtcjxcphlwtgk) com integração GitHub (migrações + funções), cron horário ativo, admin = marcoa.viana@gmail.com. Site na Cloudflare (worker `nervia-site`, importado do GitHub, app da Cloudflare liberado só para este repositório): https://nervia-site.nervia-linum.workers.dev — domínio nervia.com.br ainda NÃO ligado (DNS está no Microsoft 365, com o e-mail; migrar com cuidado).
 - 2026-10-13: primeiro teste real OK para NFS-e: 153 notas + 15 eventos (idêntico à versão local). Cron horário chamando a função (202).
-- NF-e (produtos) ADIADA por decisão do Marco. Diagnóstico: o servidor de NF-e da SEFAZ (IIS, www1.nfe.fazenda.gov.br) pede o certificado por renegociação TLS; em HTTP/2 responde "endpoint requires HTTP/1.1" e em HTTP/1.1 dá "Connection reset by peer". O runtime das Edge Functions (rustls) não suporta renegociação. A versão local (Python/OpenSSL) conecta normalmente. O evento de Ciência (www.nfe.fazenda.gov.br) deve ter o mesmo problema.
-  - Desligado por flag: `NFE_HABILITADA` (segredo da função; site em `config.js`). Cron não busca NF-e; botões de NF-e e ciência escondidos.
-  - Solução prevista: ponte pequena em Python/OpenSSL (ex.: Fly.io, região São Paulo) que só faz o POST com mTLS para a SEFAZ; ou o agente local.
+- NF-e: Marco decidiu que é essencial (só NFS-e não é comercial). Diagnóstico: o servidor de NF-e da SEFAZ (IIS, www1.nfe.fazenda.gov.br) pede o certificado por renegociação TLS; em HTTP/2 responde "endpoint requires HTTP/1.1" e em HTTP/1.1 dá "Connection reset by peer". O runtime das Edge Functions (rustls) não suporta renegociação. A versão local (Python/OpenSSL) conecta normalmente. O evento de Ciência (www.nfe.fazenda.gov.br) deve ter o mesmo problema.
+  - Solução: `ponte-sefaz/` no Google Cloud Run (escolha do Marco). Reproduzido em teste: `servidor_renegociacao.py` derruba o Deno direto e funciona pela ponte (10/10).
+  - 2026-10-13: código da ponte no GitHub; `config.js` com `NFE_HABILITADA: true`. FALTA: criar o serviço no Cloud Run e os segredos `PONTE_URL`/`PONTE_SEGREDO` no Supabase; depois testar "Buscar NF-e agora" (esperado: 0 notas, sem erro, `[v4-ponte]` só aparece em erro).
 - Pendente: `SITE_ORIGEM` ainda sem definir (CORS aberto durante os testes); domínio nervia.com.br.
 
 ## Ideias (comercialização)
