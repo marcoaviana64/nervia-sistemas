@@ -8,6 +8,9 @@ import * as sefaz from "../_shared/sefaz.ts";
 import * as adn from "../_shared/adn.ts";
 
 const sb = admin();
+// NF-e desligada até existir a ponte com OpenSSL: o servidor de NF-e da SEFAZ (IIS) pede o certificado
+// por renegociação TLS, que o runtime das Edge Functions (rustls) não suporta. Ligar com o segredo NFE_HABILITADA=true.
+const NFE_HABILITADA = Deno.env.get("NFE_HABILITADA") === "true";
 const banco = bancoSupabase(sb);
 
 async function comCertificado<T>(cnpj: string, fn: (http: sefaz.Http) => Promise<T>): Promise<T> {
@@ -52,7 +55,7 @@ async function rodarTodas() {
       await banco.registrar(e.cnpj, "CRON", "Certificado vencido — busca automática ignorada.");
       continue;
     }
-    if (!e.bloqueio_nfe || new Date(e.bloqueio_nfe) <= new Date()) await rodar(e.cnpj, "nfe", resta - 10_000);
+    if (NFE_HABILITADA && (!e.bloqueio_nfe || new Date(e.bloqueio_nfe) <= new Date())) await rodar(e.cnpj, "nfe", resta - 10_000);
     const resta2 = LIMITE - (Date.now() - inicio);
     if (resta2 > 15_000) await rodar(e.cnpj, "nfse", resta2 - 10_000);
   }
@@ -68,6 +71,9 @@ servir(async (req, quem) => {
   const cnpj = String(corpo.cnpj ?? "").toUpperCase();
   const tipo = corpo.tipo;
   if (!cnpj || (tipo !== "nfe" && tipo !== "nfse")) return erro("Informe cnpj e tipo (nfe ou nfse).");
+  if (tipo === "nfe" && !NFE_HABILITADA) {
+    return erro("A busca de NF-e (produtos) ainda não está disponível. A NFS-e (serviços) funciona normalmente.", 409);
+  }
   const r = await rodar(cnpj, tipo, 110_000);
   return json(r, r.ok ? 200 : 409);
 }, { permiteCron: true });

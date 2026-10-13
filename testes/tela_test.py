@@ -7,7 +7,7 @@ from playwright.sync_api import sync_playwright
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SAIDA = sys.argv[1] if len(sys.argv) > 1 else os.path.join(RAIZ, "testes")
 FALSO = open(os.path.join(RAIZ, "testes", "supabase_falso.js"), encoding="utf-8").read()
-CONFIG = 'window.BUSCADOR_CONFIG={SUPABASE_URL:"https://teste.supabase.co",SUPABASE_ANON_KEY:"x"};'
+CONFIG = 'window.BUSCADOR_CONFIG={SUPABASE_URL:"https://teste.supabase.co",SUPABASE_ANON_KEY:"x",NFE_HABILITADA:true};'
 
 srv = http.server.ThreadingHTTPServer(("127.0.0.1", 8811),
     functools.partial(http.server.SimpleHTTPRequestHandler, directory=os.path.join(RAIZ, "site")))

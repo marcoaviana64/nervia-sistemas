@@ -49,7 +49,11 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
 - 2026-10-13: v2 web (Supabase) escrita e testada: Deno 9/9 (com mTLS real contra servidor local), SQL 26/26 (RLS), tela OK, assinatura conferida, e leitor de XML idêntico à versão local nas 153 NFS-e reais (`testes/comparar_reais.ts`). Ainda não implantada no Supabase.
 - 2026-10-13: Área do Cliente + site da Nervia no mesmo repositório; testes de tela (portal, app no iframe, admin, cliente, celular) e SQL (32 verificações) OK; `wrangler dev` conferido (rotas e cabeçalhos).
 - 2026-10-13: IMPLANTADO. Supabase `nervia-sistemas` (ref jgokdhqwtcjxcphlwtgk) com integração GitHub (migrações + funções), cron horário ativo, admin = marcoa.viana@gmail.com. Site na Cloudflare (worker `nervia-site`, importado do GitHub, app da Cloudflare liberado só para este repositório): https://nervia-site.nervia-linum.workers.dev — domínio nervia.com.br ainda NÃO ligado (DNS está no Microsoft 365, com o e-mail; migrar com cuidado).
-- Pendente: primeiro teste real (A1 da Nervia, CNPJ 32072678000176); `SITE_ORIGEM` ainda sem definir (CORS aberto durante os testes).
+- 2026-10-13: primeiro teste real OK para NFS-e: 153 notas + 15 eventos (idêntico à versão local). Cron horário chamando a função (202).
+- NF-e (produtos) ADIADA por decisão do Marco. Diagnóstico: o servidor de NF-e da SEFAZ (IIS, www1.nfe.fazenda.gov.br) pede o certificado por renegociação TLS; em HTTP/2 responde "endpoint requires HTTP/1.1" e em HTTP/1.1 dá "Connection reset by peer". O runtime das Edge Functions (rustls) não suporta renegociação. A versão local (Python/OpenSSL) conecta normalmente. O evento de Ciência (www.nfe.fazenda.gov.br) deve ter o mesmo problema.
+  - Desligado por flag: `NFE_HABILITADA` (segredo da função; site em `config.js`). Cron não busca NF-e; botões de NF-e e ciência escondidos.
+  - Solução prevista: ponte pequena em Python/OpenSSL (ex.: Fly.io, região São Paulo) que só faz o POST com mTLS para a SEFAZ; ou o agente local.
+- Pendente: `SITE_ORIGEM` ainda sem definir (CORS aberto durante os testes); domínio nervia.com.br.
 
 ## Ideias (comercialização)
 - Termo de autorização/custódia do certificado A1 com cada cliente (LGPD + responsabilidade pelo uso do certificado).

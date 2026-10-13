@@ -225,14 +225,14 @@ function desenharPainel() {
     <div>
       <h1>${esc(e.nome)}</h1>
       <div class="meta">${fmtCnpj(e.cnpj)} · ${e.uf}${ehAdmin ? ` · busca automática <b>${e.busca_automatica ? "ligada" : "desligada"}</b>` : ""}</div>
-      <div class="meta">Última busca NF-e: ${fmtDH(e.ultima_sinc_nfe)}${bloq ? ` · próxima liberada às ${bloq}` : ""} · NFS-e: ${fmtDH(e.ultima_sinc_nfse)}</div>
+      <div class="meta">${CFG.NFE_HABILITADA ? `Última busca NF-e: ${fmtDH(e.ultima_sinc_nfe)}${bloq ? ` · próxima liberada às ${bloq}` : ""} · ` : ""}Última busca NFS-e: ${fmtDH(e.ultima_sinc_nfse)}${CFG.NFE_HABILITADA ? "" : " · NF-e (produtos): em breve"}</div>
     </div>${certBox}
   </div>
   <div class="acoes">
     ${ehAdmin ? `
-    <button id="bNfe" onclick="buscar('nfe')" ${temCert ? "" : "disabled"}>Buscar NF-e agora</button>
+    ${CFG.NFE_HABILITADA ? `<button id="bNfe" onclick="buscar('nfe')" ${temCert ? "" : "disabled"}>Buscar NF-e agora</button>` : ""}
     <button id="bNfse" onclick="buscar('nfse')" ${temCert ? "" : "disabled"}>Buscar NFS-e agora</button>
-    <button class="sec" onclick="cienciaSel()" ${temCert ? "" : "disabled"}>Dar ciência nas selecionadas</button>` : ""}
+    ${CFG.NFE_HABILITADA ? `<button class="sec" onclick="cienciaSel()" ${temCert ? "" : "disabled"}>Dar ciência nas selecionadas</button>` : ""}` : ""}
     <button class="sec" onclick="exportar()">Exportar CSV</button>
     ${ehAdmin ? `<button class="sec" onclick="alternarAuto(${!e.busca_automatica})">${e.busca_automatica ? "Desligar" : "Ligar"} busca automática</button>
     <button class="sec" onclick="alternarAtivo(${!e.ativo})" style="margin-left:auto">${e.ativo ? "Desativar empresa" : "Reativar empresa"}</button>` : ""}
@@ -322,7 +322,7 @@ async function carregarNotas() {
   const pend = lista.filter(n => n.tipo === "NFE" && !n.completo && !n.manifestada && n.situacao !== "Cancelada").length;
   $("kpis").innerHTML = `<div class="kpi"><b>${lista.length}</b><span>notas</span></div>
     <div class="kpi"><b>${fmtVal(tot)}</b><span>total (sem canceladas)</span></div>
-    ${ehAdmin ? `<div class="kpi"><b>${pend}</b><span>NF-e só com resumo — dê ciência p/ baixar o XML</span></div>` : ""}`;
+    ${ehAdmin && CFG.NFE_HABILITADA ? `<div class="kpi"><b>${pend}</b><span>NF-e só com resumo — dê ciência p/ baixar o XML</span></div>` : ""}`;
   if (!lista.length) { $("tab").innerHTML = `<div class="vazio">Nenhuma nota com esses filtros.${ehAdmin ? " Use os botões de busca acima." : " A busca roda automaticamente de hora em hora."}</div>`; return; }
   const ck = n => ehAdmin && n.tipo === "NFE" && !n.completo && !n.manifestada && n.situacao !== "Cancelada";
   $("tab").innerHTML = `<table><thead><tr>${ehAdmin ? `<th><input type="checkbox" onchange="document.querySelectorAll('.ck').forEach(c=>c.checked=this.checked)"></th>` : ""}
