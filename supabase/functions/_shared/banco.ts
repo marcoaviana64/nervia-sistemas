@@ -1,5 +1,5 @@
 // Acesso ao banco/Storage com a service_role (ignora RLS — só as funções usam).
-import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.45.4";
+import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.117.2";
 import type { DadosNota } from "./xml.ts";
 import type { CertGuardado } from "./certificado.ts";
 
@@ -22,8 +22,20 @@ export interface Banco {
   lerCertificado(cnpj: string): Promise<CertGuardado | null>;
 }
 
+/** Chave secreta: as novas (sb_secret_…, em SUPABASE_SECRET_KEYS) ou, se não houver, a service_role antiga. */
+function chaveSecreta(): string {
+  try {
+    const novas = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") ?? "{}");
+    const k = novas.default ?? Object.values(novas)[0];
+    if (typeof k === "string" && k) return k;
+  } catch { /* segue para a antiga */ }
+  const antiga = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!antiga) throw new Error("Chave secreta do Supabase não disponível na função.");
+  return antiga;
+}
+
 export function admin(): SupabaseClient {
-  return createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
+  return createClient(Deno.env.get("SUPABASE_URL")!, chaveSecreta(), {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }
