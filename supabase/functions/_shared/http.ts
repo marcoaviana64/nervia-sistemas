@@ -1,6 +1,9 @@
 // CORS, respostas JSON e verificação de quem está chamando.
 import { admin } from "./banco.ts";
 
+/** Muda a cada correção nas funções: aparece nas mensagens de erro para saber qual versão está no ar. */
+export const VERSAO = "v3-http11";
+
 export const CORS = {
   "Access-Control-Allow-Origin": Deno.env.get("SITE_ORIGEM") ?? "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret, x-region",
@@ -46,8 +49,8 @@ export function servir(
     try {
       return await handler(req, quem);
     } catch (e) {
-      console.error(e);
-      return erro(mensagemDeRede(e), 502);
+      console.error(VERSAO, e);
+      return erro(`${mensagemDeRede(e)} [${VERSAO}]`, 502);
     }
   });
 }

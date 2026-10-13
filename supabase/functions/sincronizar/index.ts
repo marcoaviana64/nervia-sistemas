@@ -3,7 +3,7 @@
 // - Cron de hora em hora: { origem: "cron" } → responde 202 e roda todas as empresas em segundo plano.
 import { admin, bancoSupabase } from "../_shared/banco.ts";
 import { clienteHttp } from "../_shared/certificado.ts";
-import { erro, json, mensagemDeRede, servir } from "../_shared/http.ts";
+import { erro, json, mensagemDeRede, servir, VERSAO } from "../_shared/http.ts";
 import * as sefaz from "../_shared/sefaz.ts";
 import * as adn from "../_shared/adn.ts";
 
@@ -29,7 +29,7 @@ async function rodar(cnpj: string, tipo: "nfe" | "nfse", prazoMs: number): Promi
       tipo === "nfe" ? sefaz.sincronizar(banco, http, cnpj, { prazoMs }) : adn.sincronizar(banco, http, cnpj, { prazoMs })
     );
   } catch (e) {
-    const msg = mensagemDeRede(e);
+    const msg = `${mensagemDeRede(e)} [${VERSAO}]`;
     await banco.registrar(cnpj, tipo.toUpperCase(), `ERRO: ${msg}`);
     return { ok: false, mensagem: msg };
   } finally {
