@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nervia Tecnologia da Informação | Suporte, Infraestrutura e Câmeras</title>
-<meta name="description" content="Nervia TI: suporte a usuários, montagem de infraestrutura e rede, instalação de câmeras e consultoria em projetos de TI para escritórios, shopping centers e self storage no Rio de Janeiro.">
+<meta name="description" content="Nervia TI: suporte a usuários, montagem de infraestrutura e rede, instalação de câmeras, consultoria em projetos de TI e aplicativos de notas fiscais (Buscador de NF e Painel de Notas) para empresas no Rio de Janeiro.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -138,8 +138,41 @@ footer{border-top:1px solid var(--border);padding:36px 0;color:var(--muted);font
 .wa-float:hover{transform:scale(1.07)}
 .wa-float svg{width:32px;height:32px}
 
+/* Aplicativos */
+.novo{display:inline-flex;align-items:center;gap:8px;margin-bottom:18px;padding:6px 14px 6px 6px;border-radius:999px;background:color-mix(in srgb,var(--hero-text) 10%,transparent);border:1px solid color-mix(in srgb,var(--hero-text) 22%,transparent);font-size:.88rem;font-weight:600;color:var(--hero-text)}
+.novo b{background:#6FD3EA;color:#06222c;border-radius:999px;padding:2px 10px;font-size:.75rem;letter-spacing:.06em;text-transform:uppercase}
+.novo:hover{background:color-mix(in srgb,var(--hero-text) 16%,transparent)}
+.apps-sec{background:var(--hero-bg);color:var(--hero-text)}
+.apps-sec .eyebrow{color:#6FD3EA}
+.apps-sec .lead{color:var(--hero-muted)}
+.apps-grid{display:grid;grid-template-columns:.95fr 1.05fr;gap:40px;align-items:start}
+.app-list{display:grid;gap:18px}
+.app-card{background:color-mix(in srgb,var(--hero-text) 6%,transparent);border:1px solid color-mix(in srgb,var(--hero-text) 14%,transparent);border-radius:var(--radius);padding:24px}
+.app-top{display:flex;align-items:center;gap:14px;margin-bottom:10px}
+.app-ic{flex:none;width:46px;height:46px;border-radius:12px;background:#2BB3D1;color:#06222c;display:grid;place-items:center;font-weight:800;font-size:.95rem}
+.app-top h3{font-size:1.2rem}
+.app-top small{display:block;color:var(--hero-muted);font-size:.85rem;font-weight:500}
+.app-preco{margin-left:auto;text-align:right;font-weight:800;font-size:1.25rem;white-space:nowrap}
+.app-preco small{display:block;font-size:.72rem;font-weight:500;color:var(--hero-muted)}
+.app-card ul{list-style:none;display:grid;gap:7px;margin-top:6px}
+.app-card li{position:relative;padding-left:22px;color:var(--hero-muted);font-size:.95rem}
+.app-card li::before{content:"";position:absolute;left:2px;top:.55em;width:9px;height:9px;border-radius:2px;background:#6FD3EA}
+.app-card li b{color:var(--hero-text);font-weight:600}
+.tela{border-radius:12px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.4);border:1px solid color-mix(in srgb,var(--hero-text) 16%,transparent);background:#fff}
+.tela .barra{height:30px;background:#e9eef2;display:flex;align-items:center;gap:6px;padding:0 12px}
+.tela .barra i{width:9px;height:9px;border-radius:50%;background:#c3ccd4}
+.tela .barra span{margin-left:10px;font-size:.72rem;color:#6b7a88;background:#fff;border-radius:5px;padding:2px 10px}
+.tela img{width:100%;height:auto}
+.tela-nota{font-size:.82rem;color:var(--hero-muted);margin-top:10px}
+.apps-ctas{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-top:34px}
+.apps-ctas .btn-primary{background:#2BB3D1;color:#06222c}
+.apps-ctas small{color:var(--hero-muted);font-size:.88rem}
+.seg-apps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:22px}
+.seg-apps div{font-size:.9rem;color:var(--hero-muted)}
+.seg-apps b{display:block;color:var(--hero-text);font-size:.95rem;margin-bottom:2px}
 
 @media (max-width:900px){
+  .apps-grid{grid-template-columns:1fr}
   .hero-grid,.about,.contact{grid-template-columns:1fr}
   .grid-3,.segments{grid-template-columns:1fr 1fr}
   .steps{grid-template-columns:1fr 1fr}
@@ -157,6 +190,8 @@ footer{border-top:1px solid var(--border);padding:36px 0;color:var(--muted);font
   .stats{grid-template-columns:1fr 1fr 1fr;gap:12px}
   .stat b{font-size:1.5rem}
   .cta-band{padding:32px}
+  .seg-apps{grid-template-columns:1fr}
+  .app-top{flex-wrap:wrap}.app-preco{margin-left:0;text-align:left;width:100%}
   .hero{padding:64px 0}
   
 }
@@ -171,6 +206,7 @@ footer{border-top:1px solid var(--border);padding:36px 0;color:var(--muted);font
     <a href="#inicio" class="logo" aria-label="Nervia Tecnologia"><img class="logo-light" alt="Nervia Tecnologia" src="/img/nervia-logo.png"></a>
     <nav class="nav-links" id="navLinks">
       <a href="#servicos">Serviços</a>
+      <a href="#aplicativos">Aplicativos</a>
       <a href="#segmentos">Segmentos</a>
       <a href="#como">Como trabalhamos</a>
       <a href="#sobre">Sobre</a>
@@ -187,6 +223,7 @@ footer{border-top:1px solid var(--border);padding:36px 0;color:var(--muted);font
 <section class="hero" id="inicio">
   <div class="container hero-grid">
     <div>
+      <a class="novo" href="#aplicativos"><b>Novo</b> Aplicativos de notas fiscais →</a><br>
       <span class="eyebrow">TI para empresas desde 2002</span>
       <h1>Sua TI funcionando, <em>todos os dias.</em></h1>
       <p>Suporte a usuários, infraestrutura de rede, câmeras e consultoria em projetos de TI para escritórios, shopping centers e self storage. Do link de internet ao atendimento do dia a dia, a gente cuida para o seu ambiente não parar.</p>
@@ -259,6 +296,51 @@ footer{border-top:1px solid var(--border);padding:36px 0;color:var(--muted);font
         <p>Negociamos e acompanhamos operadoras e prestadores para reduzir custos.</p>
         <ul><li>Links, telefonia fixa e móvel</li><li>Contratos e SLAs</li><li>Controle de despesas de TI</li></ul>
       </div>
+    </div>
+  </div>
+</section>
+
+<section class="apps-sec" id="aplicativos">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow">Aplicativos Nervia</span>
+      <h2>Suas notas fiscais chegam sozinhas</h2>
+      <p class="lead">Aplicativos na Área do Cliente para quem quer ter todas as notas de compra à mão, sem correr atrás de fornecedor, e saber para onde vai o dinheiro da empresa. Funcionam no navegador, no computador ou no celular, sem instalar nada.</p>
+    </div>
+    <div class="apps-grid">
+      <div class="app-list">
+        <div class="app-card">
+          <div class="app-top"><span class="app-ic">NF</span><div><h3>Buscador de NF</h3><small>Notas de produtos e serviços</small></div><div class="app-preco">R$ 40<small>por mês</small></div></div>
+          <ul>
+            <li><b>Busca automática de hora em hora</b> das NF-e (SEFAZ) e NFS-e (padrão nacional) emitidas contra o seu CNPJ.</li>
+            <li><b>Guarda o XML oficial</b>, mesmo depois que o prazo de ~90 dias da SEFAZ termina.</li>
+            <li><b>Espelho para impressão</b> (DANFE e DANFSe) e exportação para Excel, prontos para o contador.</li>
+          </ul>
+        </div>
+        <div class="app-card">
+          <div class="app-top"><span class="app-ic">PN</span><div><h3>Painel de Notas</h3><small>Compras e vendas em gráficos</small></div><div class="app-preco">R$ 40<small>por mês</small></div></div>
+          <ul>
+            <li><b>Compras por fornecedor</b> e vendas por cliente, mês a mês, com comparação ao período anterior.</li>
+            <li><b>Maiores fornecedores</b> e quanto cada um pesa no total: base para negociar preço e prazo.</li>
+            <li>Filtros por ano, mês, período e fornecedor. Usa as notas reunidas pelo Buscador.</li>
+          </ul>
+        </div>
+      </div>
+      <div>
+        <div class="tela"><div class="barra"><i></i><i></i><i></i><span>nervia.com.br · Painel de Notas</span></div>
+          <img src="/img/app-painel.jpg" alt="Tela do Painel de Notas com gráfico de compras por mês e maiores fornecedores" width="1440" height="825" loading="lazy"></div>
+        <p class="tela-nota">Tela real do aplicativo, com dados fictícios.</p>
+        <div class="seg-apps">
+          <div><b>Certificado protegido</b>Guardado criptografado, no Brasil, só para consulta.</div>
+          <div><b>Termo por escrito</b>Autorização e custódia do certificado assinadas com cada cliente.</div>
+          <div><b>Um login só</b>Todos os aplicativos na Área do Cliente.</div>
+        </div>
+      </div>
+    </div>
+    <div class="apps-ctas">
+      <a class="btn btn-primary" href="/demo/" target="_blank" rel="noopener">Ver demonstração</a>
+      <a class="btn btn-wa js-wa-apps" href="#" target="_blank" rel="noopener">Quero assinar</a>
+      <small>Demonstração com empresa e notas fictícias: entre e teste à vontade, sem cadastro.</small>
     </div>
   </div>
 </section>
@@ -358,6 +440,7 @@ footer{border-top:1px solid var(--border);padding:36px 0;color:var(--muted);font
           <option>Instalação de câmeras</option>
           <option>Consultoria em projeto de TI</option>
           <option>TI para shopping center</option>
+          <option>Aplicativos de notas fiscais</option>
           <option>Outro</option>
         </select>
       </div>
@@ -395,6 +478,7 @@ const CONFIG = {
 
 const waBase = "https://wa.me/" + CONFIG.whatsapp;
 document.querySelectorAll(".js-wa").forEach(a => a.href = waBase + "?text=" + encodeURIComponent("Olá! Vim pelo site da Nervia e gostaria de falar sobre TI."));
+document.querySelectorAll(".js-wa-apps").forEach(a => a.href = waBase + "?text=" + encodeURIComponent("Olá! Vi os aplicativos de notas fiscais no site da Nervia e quero saber mais."));
 document.querySelectorAll(".js-wa-label").forEach(el => el.textContent = CONFIG.whatsappLabel);
 document.querySelectorAll(".js-mail").forEach(a => a.href = "mailto:" + CONFIG.email);
 document.querySelectorAll(".js-mail-label").forEach(el => el.textContent = CONFIG.email);
