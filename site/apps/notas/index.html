@@ -187,7 +187,7 @@ async function carregarEmpresas() {
     const venc = e.cert_validade && new Date(e.cert_validade) < agora;
     return `<div class="emp ${tela === "empresa" && atual === e.cnpj ? "sel" : ""}" onclick="selecionar('${e.cnpj}')">
       <div class="n"><span class="dot ${venc ? "venc" : e.cert_secret_id ? "on" : ""}"></span>${esc(e.nome)}${e.ativo ? "" : " <span class='small'>(inativa)</span>"}</div>
-      <div class="c">${fmtCnpj(e.cnpj)}</div></div>`;
+      <div class="c">${fmtCnpj(e.cnpj)}${ehAdmin && e.termo_status === "pendente" ? ' · <span style="color:var(--warn)">termo pendente</span>' : ""}</div></div>`;
   }).join("") : `<div class="small" style="margin-bottom:8px">${ehAdmin ? "Nenhuma empresa ainda." : "Nenhuma empresa liberada para o seu login. Fale com a Nervia."}</div>`;
   if (ehAdmin && !empresas.length) novaBox.open = true;
   if (tela === "empresa") desenharPainel();
@@ -201,7 +201,7 @@ async function salvarEmpresa() {
     if (!fNome.value.trim()) throw new Error("Informe o nome.");
     checar(await sb.from("nf_empresas").insert({ cnpj, nome: fNome.value.trim(), uf: fUf.value }));
     atual = cnpj; tela = "empresa"; fNome.value = fCnpj.value = ""; novaBox.open = false; msg($("msgNova"), "", "");
-    ultimaMsg = ["info", "Empresa cadastrada. Agora envie o certificado A1 (.pfx) dela."];
+    ultimaMsg = ["info", "Empresa cadastrada. Agora gere o termo de custódia, colha a assinatura do cliente e registre-o; depois envie o certificado A1 (.pfx)."];
     await carregarEmpresas();
   } catch (e) { msg($("msgNova"), "err", e.message.includes("duplicate") ? "Esse CNPJ já está cadastrado." : e.message); }
 }
@@ -215,11 +215,25 @@ function desenharPainel() {
   const bloq = e.bloqueio_nfe && new Date(e.bloqueio_nfe) > agora ? new Date(e.bloqueio_nfe).toLocaleTimeString("pt-BR", {hour:"2-digit", minute:"2-digit"}) : null;
   const venc = e.cert_validade && new Date(e.cert_validade) < agora;
   const temCert = !!e.cert_secret_id && !venc;
-  const certBox = !ehAdmin ? "" : `<div class="cert">
+  const termoOk = e.termo_status === "assinado" || e.termo_status === "dispensado";
+  const termoTxt = e.termo_status === "assinado" ? `assinado em ${fmtDataSo(e.termo_assinado_em)}${e.termo_signatario ? " por " + esc(e.termo_signatario) : ""}`
+    : e.termo_status === "dispensado" ? `dispensado${e.termo_obs ? " (" + esc(e.termo_obs) + ")" : ""}` : "<b style='color:var(--warn)'>pendente</b>";
+  const termoBox = `<div class="small" id="termoInfo" style="margin-bottom:6px">Termo de custódia do A1: ${termoTxt}
+      · <button class="lnk" onclick="window.open('/apps/notas/termo.html?cnpj=${e.cnpj}','_blank','noopener')">Gerar termo</button>
+      · <button class="lnk" onclick="$('termoForm').classList.toggle('oculto')">Registrar</button></div>
+    <div id="termoForm" class="oculto" style="margin-bottom:8px">
+      <label>Situação do termo</label><select id="tStatus"><option value="assinado">Assinado pelo cliente</option><option value="dispensado">Dispensado (empresa da Nervia)</option><option value="pendente">Pendente</option></select>
+      <label>Data da assinatura</label><input type="date" id="tData" value="${e.termo_assinado_em || ""}">
+      <label>Assinado por (nome e cargo)</label><input id="tSign" value="${esc(e.termo_signatario || "")}">
+      <label>Observação</label><input id="tObs" value="${esc(e.termo_obs || "")}" placeholder="Ex.: original guardado na pasta do cliente">
+      <div style="margin-top:8px"><button onclick="salvarTermo()">Salvar termo</button></div>
+    </div>`;
+  const certBox = !ehAdmin ? "" : `<div class="cert">${termoBox}
       ${e.cert_secret_id
         ? `<div class="small">Certificado: <b>${esc(e.cert_titular)}</b><br>${venc ? "<span style='color:var(--err)'>VENCIDO em " : "válido até "}${fmtData(e.cert_validade)}${venc ? "</span>" : ""}</div>
-           <details><summary>Trocar certificado</summary>${formCert()}</details>`
-        : `<div class="small" style="margin-bottom:4px"><b>Envie o certificado A1 (.pfx)</b> — fica criptografado no servidor; a senha não é guardada.</div>${formCert()}`}
+           ${termoOk ? `<details><summary>Trocar certificado</summary>${formCert()}</details>` : ""}`
+        : termoOk ? `<div class="small" style="margin-bottom:4px"><b>Envie o certificado A1 (.pfx)</b> — fica criptografado no servidor; a senha não é guardada.</div>${formCert()}`
+        : `<div class="small" style="color:var(--warn)"><b>Antes do certificado:</b> gere o termo, colha a assinatura do cliente e registre-o aqui. O envio do certificado só é liberado com o termo registrado.</div>`}
     </div>`;
   painel.innerHTML = `
   <div class="topo">
@@ -253,8 +267,21 @@ function desenharPainel() {
   <div class="tab" id="tab"></div>
   <details style="margin-top:12px" ontoggle="if(this.open)carregarLog()"><summary>Histórico de buscas</summary><div class="log" id="log"></div></details>`;
   Object.entries(salvos).forEach(([k, v]) => $(k).value = v);
+  if ($("tStatus")) $("tStatus").value = e.termo_status === "pendente" ? "assinado" : e.termo_status;
   if (ultimaMsg) msg($("msgP"), ...ultimaMsg);
   carregarNotas();
+}
+
+const fmtDataSo = d => d ? d.slice(8, 10) + "/" + d.slice(5, 7) + "/" + d.slice(0, 4) : "";
+async function salvarTermo() {
+  const st = $("tStatus").value;
+  if (st === "assinado" && (!$("tData").value || !$("tSign").value.trim())) return msg($("msgP"), "err", "Informe a data e quem assinou o termo.");
+  try {
+    checar(await sb.from("nf_empresas").update({ termo_status: st, termo_assinado_em: st === "assinado" ? $("tData").value : null,
+      termo_signatario: st === "assinado" ? $("tSign").value.trim() : null, termo_obs: $("tObs").value.trim() || null }).eq("cnpj", atual));
+    ultimaMsg = ["ok", st === "pendente" ? "Termo marcado como pendente." : "Termo registrado." + (st !== "pendente" ? " O envio do certificado está liberado." : "")];
+    await carregarEmpresas();
+  } catch (e) { msg($("msgP"), "err", e.message); }
 }
 
 function formCert() {

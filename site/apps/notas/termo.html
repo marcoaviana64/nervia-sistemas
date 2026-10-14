@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Termo de autorização e custódia do certificado A1 | Nervia</title>
+<script src="/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<style>
+@page{size:A4 portrait;margin:18mm 18mm 16mm}
+*{box-sizing:border-box}
+body{margin:0;background:#e9edf0;color:#111;font:11pt/1.5 Georgia,"Times New Roman",serif}
+.barra{position:sticky;top:0;z-index:5;display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:10px 16px;background:#0B2545;color:#fff;font:14px system-ui,sans-serif}
+.barra button{font:inherit;font-weight:600;border:0;border-radius:8px;padding:8px 16px;background:#2BB3D1;color:#06222c;cursor:pointer}
+.barra .aviso{background:#fff3c4;color:#4a3b00;border-radius:6px;padding:4px 10px;font-size:12px}
+.folha{max-width:210mm;margin:14px auto;background:#fff;padding:18mm 18mm 16mm}
+.cab{display:flex;align-items:center;justify-content:space-between;border-bottom:1.5pt solid #107E99;padding-bottom:8px;margin-bottom:14px}
+.cab img{height:30px}.cab small{font:9pt system-ui,sans-serif;color:#555;text-align:right}
+h1{font-size:13pt;text-align:center;text-transform:uppercase;letter-spacing:.03em;margin:6px 0 14px}
+h2{font-size:11pt;margin:14px 0 4px;text-transform:uppercase}
+p{margin:5px 0;text-align:justify}
+ol{margin:4px 0 4px 18px;padding:0}li{margin:2px 0;text-align:justify}
+.partes p{text-align:left}
+.campo{display:inline-block;min-width:60mm;border-bottom:.6pt solid #000;padding:0 2px}
+.campo.curto{min-width:30mm}
+.ass{display:grid;grid-template-columns:1fr 1fr;gap:16mm;margin-top:16mm}
+.ass div{border-top:.6pt solid #000;padding-top:3px;font-size:9.5pt;text-align:center}
+.test{display:grid;grid-template-columns:1fr 1fr;gap:16mm;margin-top:12mm}
+.test div{border-top:.6pt solid #000;padding-top:3px;font-size:9pt}
+.rod{margin-top:10mm;font:8pt system-ui,sans-serif;color:#666;border-top:.6pt solid #ccc;padding-top:4px}
+.msg{max-width:600px;margin:40px auto;background:#fff;border-radius:10px;padding:24px;font:15px system-ui,sans-serif}
+@media print{body{background:#fff}.barra{display:none}.folha{margin:0;padding:0;max-width:none}}
+@media screen and (max-width:760px){.folha{padding:16px;margin:8px}.ass,.test{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="barra"><b>Termo de autorização e custódia do certificado A1</b><span class="aviso">Modelo: revise com o advogado antes do primeiro uso</span><button onclick="print()" style="margin-left:auto">Imprimir / salvar PDF</button></div>
+<div id="saida"><div class="msg">Carregando…</div></div>
+<script>
+// Dados da Nervia (custodiante). Ajuste aqui se mudar endereço ou razão social.
+const NERVIA = {
+  nome: "MARCO ANTONIO VIANA CONSULTORIA TÉCNICA EM TECNOLOGIA DA INFORMAÇÃO (Nervia Tecnologia)",
+  cnpj: "32.072.678/0001-76",
+  endereco: "Rua Geovani de Castro, 90, Freguesia (Jacarepaguá), Rio de Janeiro/RJ, CEP 22763-070",
+  email: "atendimento@nervia.com.br", whatsapp: "(21) 96686-9374", foro: "Rio de Janeiro/RJ",
+};
+const CFG = window.NERVIA_CONFIG || window.BUSCADOR_CONFIG || {};
+const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const docFmt = d => d && d.length === 14 ? `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8,12)}-${d.slice(12)}` : (d || "");
+const MESES = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+const campo = (v, curto) => v ? `<b>${esc(v)}</b>` : `<span class="campo${curto ? " curto" : ""}">&nbsp;</span>`;
+
+async function iniciar() {
+  const cnpj = new URLSearchParams(location.search).get("cnpj") || "";
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return falha('Entre na <a href="/cliente/">Área do Cliente</a> como equipe Nervia e gere o termo pelo app Notas Fiscais.');
+  const { data: e, error } = await sb.from("nf_empresas").select("*").eq("cnpj", cnpj).maybeSingle();
+  if (error || !e) return falha("Empresa não encontrada ou sem permissão.");
+  const hoje = new Date();
+  const titular = e.cert_titular ? e.cert_titular.split(":")[0] : "";
+  const validade = e.cert_validade ? new Date(e.cert_validade).toLocaleDateString("pt-BR") : "";
+  document.title = `Termo A1 · ${e.nome}`;
+  document.getElementById("saida").innerHTML = `<div class="folha">
+  <div class="cab"><img src="/img/nervia-logo.png" alt="Nervia Tecnologia"><small>${esc(NERVIA.email)} · WhatsApp ${esc(NERVIA.whatsapp)}<br>nervia.com.br</small></div>
+  <h1>Termo de autorização de uso e custódia<br>de certificado digital A1</h1>
+
+  <div class="partes">
+  <p><b>OUTORGANTE (CLIENTE):</b> ${campo(e.nome)}, inscrita no CNPJ sob o nº ${campo(docFmt(e.cnpj))}, com sede em ${campo("")}, neste ato representada por ${campo("")}, CPF nº ${campo("", true)}.</p>
+  <p><b>CUSTODIANTE (NERVIA):</b> ${esc(NERVIA.nome)}, inscrita no CNPJ sob o nº ${esc(NERVIA.cnpj)}, com sede em ${esc(NERVIA.endereco)}.</p>
+  </div>
+
+  <h2>1. Objeto</h2>
+  <p>O CLIENTE autoriza a NERVIA a armazenar e utilizar o certificado digital do tipo A1 ${titular ? `de titularidade de <b>${esc(titular)}</b>${validade ? `, válido até <b>${esc(validade)}</b>,` : ""}` : "do CLIENTE"} (o "Certificado") exclusivamente para:</p>
+  <ol type="a">
+    <li>consultar e baixar, nos ambientes oficiais (Ambiente Nacional da NF-e e Ambiente de Dados Nacional da NFS-e), os documentos fiscais eletrônicos emitidos contra o CNPJ do CLIENTE ou por ele emitidos, bem como seus eventos;</li>
+    <li>registrar o evento "Ciência da Operação" em NF-e destinadas ao CLIENTE, somente quando solicitado por ele, com a finalidade de liberar o download do arquivo XML completo;</li>
+    <li>disponibilizar ao CLIENTE as notas, os arquivos XML, os espelhos de impressão e os relatórios na Área do Cliente da NERVIA.</li>
+  </ol>
+
+  <h2>2. Usos proibidos</h2>
+  <p>É vedado à NERVIA usar o Certificado para qualquer outra finalidade, em especial para: emitir notas fiscais; assinar documentos, contratos ou procurações; acessar o e-CAC, portais de bancos ou de órgãos públicos; registrar eventos de confirmação, desconhecimento ou operação não realizada sem autorização escrita do CLIENTE; ou ceder, copiar ou entregar o Certificado a terceiros.</p>
+
+  <h2>3. Forma de guarda</h2>
+  <ol>
+    <li>O Certificado é armazenado criptografado em cofre de segredos de banco de dados, em servidores localizados no Brasil (região São Paulo).</li>
+    <li>A senha do Certificado e o arquivo .pfx original <b>não são armazenados</b>: são usados apenas no momento do cadastro para validar e guardar o Certificado.</li>
+    <li>O Certificado trafega somente de forma cifrada durante as consultas aos ambientes oficiais e não é gravado em nenhum outro local.</li>
+    <li>O acesso ao Certificado é restrito aos sistemas automáticos de consulta; o CLIENTE e os demais usuários da Área do Cliente não têm acesso a ele.</li>
+    <li>As consultas ficam registradas em histórico disponível ao CLIENTE.</li>
+  </ol>
+
+  <h2>4. Proteção de dados (LGPD)</h2>
+  <p>A NERVIA tratará os dados pessoais e fiscais obtidos por meio do Certificado apenas para as finalidades deste termo, na qualidade de operadora, conforme a Lei nº 13.709/2018. Em caso de incidente de segurança que envolva o Certificado ou esses dados, a NERVIA comunicará o CLIENTE em até 2 (dois) dias úteis da ciência do fato.</p>
+
+  <h2>5. Obrigações do CLIENTE</h2>
+  <ol>
+    <li>Fornecer Certificado válido e informar à NERVIA, por escrito, sua revogação, troca ou suspeita de comprometimento.</li>
+    <li>Enviar o novo Certificado antes do vencimento, se quiser manter o serviço.</li>
+    <li>Solicitar por escrito (e-mail ou Área do Cliente) os registros de Ciência da Operação.</li>
+  </ol>
+
+  <h2>6. Vigência, revogação e exclusão</h2>
+  <p>Este termo vigora enquanto durar a prestação do serviço ou até sua revogação pelo CLIENTE, a qualquer tempo, por escrito para ${esc(NERVIA.email)}. Na revogação ou no fim do serviço, a NERVIA excluirá o Certificado em até 5 (cinco) dias úteis e confirmará a exclusão por escrito. As notas e os arquivos XML já baixados ficarão disponíveis para exportação pelo CLIENTE por 30 (trinta) dias, salvo outro prazo combinado entre as partes.</p>
+
+  <h2>7. Foro</h2>
+  <p>Fica eleito o foro da comarca do ${esc(NERVIA.foro)} para dirimir questões oriundas deste termo.</p>
+
+  <p style="margin-top:10mm">${esc(NERVIA.foro.split("/")[0])}, ${hoje.getDate()} de ${MESES[hoje.getMonth()]} de ${hoje.getFullYear()}.</p>
+
+  <div class="ass">
+    <div>OUTORGANTE (CLIENTE)<br>${esc(e.nome)} · CNPJ ${esc(docFmt(e.cnpj))}<br>Nome: ____________________ CPF: ____________</div>
+    <div>CUSTODIANTE (NERVIA)<br>${esc(NERVIA.nome.split(" (")[0])}<br>CNPJ ${esc(NERVIA.cnpj)}</div>
+  </div>
+  <div class="test">
+    <div>Testemunha 1 · Nome: ____________________<br>CPF: ____________</div>
+    <div>Testemunha 2 · Nome: ____________________<br>CPF: ____________</div>
+  </div>
+  <div class="rod">Termo gerado pela Plataforma Nervia em ${hoje.toLocaleString("pt-BR")} para o CNPJ ${esc(docFmt(e.cnpj))}. Após assinado, registre-o no app Notas Fiscais (botão "Termo").</div>
+  </div>`;
+}
+function falha(html) { document.getElementById("saida").innerHTML = `<div class="msg">${html}</div>`; }
+iniciar().catch(e => falha("Erro ao montar o termo: " + esc(e.message)));
+</script>
+</body>
+</html>

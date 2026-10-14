@@ -101,11 +101,25 @@ with sync_playwright() as p:
     pg.uncheck("#ckTodas")
 
     # empresa sem certificado: botões desligados, formulário de envio
-    pg.click(".emp >> text=Linum"); pg.wait_for_selector("#cArq")
+    pg.click(".emp >> text=Linum"); pg.wait_for_selector("#termoInfo")
     assert pg.locator("#bNfe").is_disabled()
+    assert "pendente" in pg.inner_text("#termoInfo") and pg.locator("#cArq").count() == 0, "sem termo não aparece o envio do certificado"
+    assert "termo pendente" in pg.inner_text(".emp >> nth=0") or "termo pendente" in pg.inner_text("#listaEmp")
+    with pg.expect_popup() as pop:
+        pg.click("#termoInfo >> text=Gerar termo")
+    tp = pop.value
+    tp.route("**/supabase-js@*/**", lambda r: r.fulfill(body=FALSO, content_type="text/javascript"))
+    tp.route("**/config.js", lambda r: r.fulfill(body=CONFIG, content_type="text/javascript"))
+    tp.reload(); tp.wait_for_selector(".folha")
+    t = tp.inner_text(".folha")
+    assert "TERMO DE AUTORIZAÇÃO" in t and "22.222.222/0001-22" in t and "Linum" in t and "32.072.678/0001-76" in t and "não são armazenados" in t, t[:400]
+    tp.emulate_media(media="print"); tp.pdf(path=f"{SAIDA}/termo.pdf", format="A4"); tp.close()
+    pg.click("#termoInfo >> text=Registrar"); pg.click("text=Salvar termo"); pg.wait_for_selector("#msgP.err")
+    pg.fill("#tData", "2026-10-14"); pg.fill("#tSign", "Fulana de Tal - sócia"); pg.click("text=Salvar termo"); pg.wait_for_selector("#cArq")
+    assert "assinado em 14/10/2026" in pg.inner_text("#termoInfo")
     # nova empresa
     pg.click("text=+ Adicionar empresa"); pg.fill("#fNome", "iGuardei"); pg.fill("#fCnpj", "33.333.333/0001-33")
-    pg.click("#novaBox >> text=Salvar"); pg.wait_for_selector("text=Envie o certificado A1")
+    pg.click("#novaBox >> text=Salvar"); pg.wait_for_selector("text=gere o termo de custódia")
     assert pg.locator(".emp").count() == 3
     # logins
     pg.click("text=Quem vê cada empresa"); pg.wait_for_selector("h1:has-text('Quem vê cada empresa')")

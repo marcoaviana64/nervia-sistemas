@@ -74,12 +74,25 @@ insert into storage.objects (bucket_id, name) values ('nf-xml', '22222222000122/
 set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
 select pg_temp.ok((select count(*) = 1 from storage.objects), 'cliente só baixa XML do próprio CNPJ');
+do $$ begin
+  update nf_empresas set termo_status = 'dispensado' where cnpj = '22222222000122';
+  if (select termo_status from nf_empresas where cnpj = '22222222000122') = 'dispensado' then raise exception 'FALHOU: cliente mexeu no termo'; end if;
+  raise notice 'ok  cliente não altera o termo';
+exception when insufficient_privilege then raise notice 'ok  cliente não altera o termo';
+end $$;
 
 -- ---------------------------------------------------------------- RLS: admin
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
 select pg_temp.ok((select count(*) = 3 from nf_notas) and (select count(*) = 2 from storage.objects), 'admin vê tudo');
 insert into nf_empresas (cnpj, nome) values ('33333333000133', 'iGuardei');
 update nf_empresas set nome = 'Linum Ipanema' where cnpj = '22222222000122';
+select pg_temp.ok((select termo_status = 'pendente' from nf_empresas where cnpj = '33333333000133'), 'empresa nova nasce com termo pendente');
+update nf_empresas set termo_status = 'assinado', termo_assinado_em = '2026-10-14', termo_signatario = 'Sócia' where cnpj = '33333333000133';
+select pg_temp.ok((select termo_status = 'assinado' from nf_empresas where cnpj = '33333333000133'), 'admin registra o termo');
+do $$ begin
+  begin update nf_empresas set termo_status = 'qualquer' where cnpj = '33333333000133'; raise exception 'FALHOU: situação inválida aceita';
+  exception when check_violation then raise notice 'ok  situação do termo só aceita pendente/assinado/dispensado'; end;
+end $$;
 do $$ begin
   begin update nf_empresas set ult_nsu_nfe = 999 where cnpj = '22222222000122'; raise exception 'FALHOU: admin mexeu no NSU pela tela';
   exception when insufficient_privilege then raise notice 'ok  NSU protegido até do admin (só as funções mexem)'; end;

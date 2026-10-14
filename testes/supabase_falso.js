@@ -24,8 +24,8 @@
     app_acessos: [{ user_id: "u-cli", app_id: "notas" }, { user_id: "u-cli", app_id: "painel-nf" }],
     nf_acessos: [{ user_id: "u-cli", cnpj: "22222222000122" }],
     nf_empresas: [
-      { cnpj: "11111111000111", nome: "Nervia", uf: "RJ", ativo: true, busca_automatica: true, cert_secret_id: "s1", cert_titular: "NERVIA TECNOLOGIA DA INFORMACAO LTDA:11111111000111", cert_validade: futuro, ultima_sinc_nfe: new Date().toISOString(), bloqueio_nfe: new Date(Date.now() + 40 * 6e4).toISOString(), ultima_sinc_nfse: new Date().toISOString() },
-      { cnpj: "22222222000122", nome: "Linum", uf: "RJ", ativo: true, busca_automatica: true, cert_secret_id: null },
+      { cnpj: "11111111000111", nome: "Nervia", uf: "RJ", ativo: true, busca_automatica: true, cert_secret_id: "s1", cert_titular: "NERVIA TECNOLOGIA DA INFORMACAO LTDA:11111111000111", cert_validade: futuro, termo_status: "dispensado", termo_obs: "Empresa da própria Nervia.", ultima_sinc_nfe: new Date().toISOString(), bloqueio_nfe: new Date(Date.now() + 40 * 6e4).toISOString(), ultima_sinc_nfse: new Date().toISOString() },
+      { cnpj: "22222222000122", nome: "Linum", uf: "RJ", ativo: true, busca_automatica: true, cert_secret_id: null, termo_status: "pendente" },
     ],
     nf_notas: [],
     nf_log: [{ id: 1, cnpj: "11111111000111", quando: new Date().toISOString(), origem: "NFE", mensagem: "Tudo baixado. {\"nova\":4}" }],
@@ -81,7 +81,7 @@
       const t = db[tabela];
       if (op === "insert") {
         if (papel !== "admin") return { data: null, error: { message: "new row violates row-level security policy" } };
-        for (const v of valores) { if (tabela === "nf_empresas" && t.some((e) => e.cnpj === v.cnpj)) return { data: null, error: { message: "duplicate key" } }; t.push({ ...v }); }
+        for (const v of valores) { if (tabela === "nf_empresas" && t.some((e) => e.cnpj === v.cnpj)) return { data: null, error: { message: "duplicate key" } }; t.push(tabela === "nf_empresas" ? { termo_status: "pendente", ...v } : { ...v }); }
         return { data: null, error: null };
       }
       const alvo = t.filter((r) => (rls[tabela] ?? (() => true))(r) && filtros.every((f) => f(r)));

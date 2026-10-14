@@ -13,6 +13,11 @@ servir(async (req) => {
   if (pfx_base64.length > 200_000) return erro("Arquivo grande demais para um certificado A1.");
   const emp = await banco.empresa(cnpj);
   if (!emp) return erro("Empresa não cadastrada.", 404);
+  // regra da Plataforma Nervia: sem termo de autorização e custódia registrado, o certificado não entra
+  const { data: termo } = await sb.from("nf_empresas").select("termo_status").eq("cnpj", cnpj).maybeSingle();
+  if (!termo || termo.termo_status === "pendente") {
+    return erro("Registre primeiro o termo de autorização e custódia do certificado (botão \"Termo\" da empresa).", 409);
+  }
   let info;
   try {
     info = lerPfx(pfx_base64, senha ?? "");

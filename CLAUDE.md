@@ -29,6 +29,7 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
   - `cliente/index.html` — Área do Cliente: login (com "Esqueci minha senha" = e-mail pronto do próprio usuário para atendimento@nervia.com.br, e contato WhatsApp/e-mail), grade de apps, visor (`#app/<id>`, iframe, com botões "Cartão rápido" e "Manual" que abrem a ajuda num painel ao lado), administração (`#admin`: logins, apps).
   - `ajuda/ajuda.css` — estilo comum de cartões e manuais. Cada app: `apps/<nome>/ajuda/cartao.html` e `manual.html`; endereços nas colunas `apps.cartao_url` / `apps.manual_url`.
   - `apps/notas/espelho.html?ids=1,2` — espelho para impressão montado do XML guardado (DANFE da NF-e com código de barras CODE-128C conferido contra python-barcode; DANFSe v1.0 da NFS-e nacional; NF-e só resumo = "espelho de resumo, sem valor fiscal"; cancelada = marca CANCELADA). Usa a sessão e o RLS do app (Storage `download`).
+  - `apps/notas/termo.html?cnpj=` — termo de autorização e custódia do A1, preenchido com a empresa (dados da Nervia na constante `NERVIA` do arquivo). Modelo: revisar com advogado. Registro em `nf_empresas.termo_status` (pendente/assinado/dispensado), `termo_assinado_em`, `termo_signatario`, `termo_obs` (migração `..._nf_termo.sql`).
   - `apps/notas/index.html` — Buscador. Caixa de seleção em todas as linhas (espelho, CSV das marcadas, ciência só nas NF-e "só resumo" marcadas). Detecta o iframe (`EMBUTIDO`) e esconde o próprio topo. Logins são criados só na Área do Cliente; aqui só se marcam os CNPJs ("Quem vê cada empresa").
   - `apps/painel-nf/` — **Painel de Notas** (app `painel-nf`, migração `..._painel_nf.sql`): dashboard de compras (recebidas, por fornecedor) e vendas (emitidas, por cliente) a partir de `nf_notas`, mesmo RLS por CNPJ; filtros empresa, tipo, ano, mês, De/Até, fornecedor, canceladas; KPIs com comparação ao mês/ano anterior, gráficos Chart.js 4.4.1 (cdnjs; sem ele o painel funciona sem gráficos), tabelas clicáveis, CSV, link para o espelho. Layout no estilo do "Painel Linum", cores da Nervia. Tem cartão e manual em `ajuda/`.
   - `config.js` — URL + anon key, comum a tudo (`window.NERVIA_CONFIG`).
@@ -40,6 +41,7 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
 - `IMPLANTACAO.md` — passo a passo de deploy.
 
 ## Regras que não podem quebrar
+- **Sem termo, sem certificado**: a função `certificado` recusa (409) se `termo_status = 'pendente'`; a tela só mostra o envio com o termo assinado ou dispensado. "Dispensado" só para empresas da própria Nervia (32072678000176 já marcada na migração).
 - **Custos sempre registrados** (pedido do Marco, 2026-10-14): a planilha `OneDrive\Documents\Claude\Projects\Nervia\Plataforma Nervia - Investimento.xlsx` (fora do GitHub) guarda custos mensais, investimento inicial, preço por CNPJ, cenários e limites. Ao contratar, trocar de plano ou acrescentar serviço pago, atualizar a aba "Custos mensais" (linha nova antes do total) e o "Histórico", e avisar o Marco do impacto no preço por CNPJ.
 - **Todo app publicado tem cartão de referência + manual de utilização** (decisão do Marco, 2026-10-14). Cartão: cada campo/botão em uma linha, rápido, imprimível. Manual: passo a passo das tarefas, mensagens de erro e o que fazer. Ficam em `site/apps/<nome>/ajuda/`, usam `/ajuda/ajuda.css`, e são cadastrados em Administração → Aplicativos. Ao mudar um campo do app, atualizar os dois.
 - Apps internos ficam no mesmo domínio (`/apps/...`): mesma sessão do Supabase, um login só, iframe sem bloqueio. App em outro domínio pode pedir login próprio.
@@ -71,8 +73,10 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
 
 - 2026-10-14: app Painel de Notas criado e testado (tela + SQL). Para o cliente ver: Administração → Logins → marcar "Painel de Notas".
 
+- 2026-10-14: termo de autorização e custódia do A1 (gerar, registrar, bloqueio do envio sem termo). Tela e SQL OK.
+
 ## Ideias (comercialização)
-- Termo de autorização/custódia do certificado A1 com cada cliente (LGPD + responsabilidade pelo uso do certificado).
+- Termo de custódia do A1: FEITO (gerar/registrar no Buscador); falta revisão do texto por advogado.
 - Cobrança por CNPJ/mês; página do cliente com a marca Nervia.
 
 ## Ideias

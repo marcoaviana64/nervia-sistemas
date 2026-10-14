@@ -91,13 +91,15 @@
   <h3>Colocar um cliente novo no app</h3>
   <ol>
     <li>No Buscador, abra <b>+ Adicionar empresa</b>, preencha <b>Nome</b>, <b>CNPJ</b> e <b>UF</b> e clique em <b>Salvar</b>.</li>
-    <li>No quadro do certificado, escolha o <b>arquivo .pfx</b> do A1 da empresa, digite a <b>senha do certificado</b> e clique em <b>Enviar</b>. O sistema confere se o certificado é daquele CNPJ e mostra a validade.</li>
+    <li>No quadro do certificado, clique em <b>Gerar termo</b>. Abre o termo de autorização e custódia do A1 já com os dados da empresa: imprima (ou salve em PDF), complete endereço e representante e colha a assinatura do cliente.</li>
+    <li>Com o termo assinado, clique em <b>Registrar</b>, escolha "Assinado pelo cliente", informe a data e quem assinou e clique em <b>Salvar termo</b>. Guarde o original na pasta do cliente.</li>
+    <li>O envio do certificado é liberado. Escolha o <b>arquivo .pfx</b> do A1 da empresa, digite a <b>senha do certificado</b> e clique em <b>Enviar</b>. O sistema confere se o certificado é daquele CNPJ e mostra a validade.</li>
     <li>Clique em <b>Buscar NFS-e agora</b> e em <b>Buscar NF-e agora</b> para a primeira carga.</li>
     <li>Na <b>Área do Cliente → Administração → Logins</b>, crie o login do cliente (nome, e-mail, senha inicial) e marque o app <b>Notas Fiscais</b>.</li>
     <li>De volta ao Buscador, em <b>Quem vê cada empresa</b>, marque a empresa no login do cliente.</li>
     <li>Envie ao cliente o endereço <b>nervia.com.br/cliente/</b>, o e-mail e a senha inicial. Ele pode trocar a senha depois.</li>
   </ol>
-  <div class="aviso">Guarde com o cliente a autorização de uso do certificado A1. O arquivo .pfx e a senha não ficam guardados: só o certificado, criptografado no cofre.</div>
+  <div class="aviso">Sem o termo registrado o sistema não aceita o certificado. "Dispensado" vale só para empresas da própria Nervia. O arquivo .pfx e a senha não ficam guardados: só o certificado, criptografado no cofre.</div>
 
   <h3>Pedido de senha nova</h3>
   <ol>
@@ -136,6 +138,7 @@
     <tr><td>Tudo baixado. A SEFAZ libera a próxima consulta em 1h</td><td>Normal. A SEFAZ exige 1 hora de intervalo; a busca automática continua sozinha.</td></tr>
     <tr><td>A SEFAZ só permite nova consulta em N min</td><td>Aguarde o tempo indicado.</td></tr>
     <tr><td>Já existe uma busca em andamento</td><td>Outra busca desta empresa está rodando. Aguarde 2 minutos.</td></tr>
+    <tr><td>Registre primeiro o termo de autorização e custódia do certificado</td><td>Gere o termo, colha a assinatura e registre-o (botão Registrar) antes de enviar o certificado <span class="eq">EQUIPE NERVIA</span>.</td></tr>
     <tr><td>Certificado A1 não cadastrado</td><td>Envie o certificado da empresa <span class="eq">EQUIPE NERVIA</span>.</td></tr>
     <tr><td>Senha incorreta ou arquivo .pfx inválido</td><td>Confira a senha com o cliente e se o arquivo é o .pfx (não o .cer).</td></tr>
     <tr><td>Este certificado é do CNPJ … que não é da mesma empresa</td><td>O .pfx é de outra empresa. Peça o certificado certo ao cliente (matriz ou filial do mesmo CNPJ servem).</td></tr>
