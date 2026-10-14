@@ -53,7 +53,8 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
 - 2026-10-13: primeiro teste real OK para NFS-e: 153 notas + 15 eventos (idêntico à versão local). Cron horário chamando a função (202).
 - NF-e: Marco decidiu que é essencial (só NFS-e não é comercial). Diagnóstico: o servidor de NF-e da SEFAZ (IIS, www1.nfe.fazenda.gov.br) pede o certificado por renegociação TLS; em HTTP/2 responde "endpoint requires HTTP/1.1" e em HTTP/1.1 dá "Connection reset by peer". O runtime das Edge Functions (rustls) não suporta renegociação. A versão local (Python/OpenSSL) conecta normalmente. O evento de Ciência (www.nfe.fazenda.gov.br) deve ter o mesmo problema.
   - Solução: `ponte-sefaz/` no Google Cloud Run (escolha do Marco). Reproduzido em teste: `servidor_renegociacao.py` derruba o Deno direto e funciona pela ponte (10/10).
-  - 2026-10-13: código da ponte no GitHub; `config.js` com `NFE_HABILITADA: true`. FALTA: criar o serviço no Cloud Run e os segredos `PONTE_URL`/`PONTE_SEGREDO` no Supabase; depois testar "Buscar NF-e agora" (esperado: 0 notas, sem erro, `[v4-ponte]` só aparece em erro).
+  - 2026-10-13: NF-e FUNCIONANDO pela ponte. Cloud Run `ponte-sefaz` no projeto GCP **NerviaOrcamentos**, southamerica-east1, URL https://ponte-sefaz-916060726487.southamerica-east1.run.app (deploy contínuo do GitHub, conta de serviço padrão do Compute). Segredos `PONTE_URL`/`PONTE_SEGREDO` no Supabase. Teste real: SEFAZ respondeu (Nervia: 0 NF-e nos últimos 90 dias, bloqueio de 1h aplicado). Ciência ainda não testada de verdade (sem NF-e em resumo).
+  - ATENÇÃO: a conta do Google Cloud estava em teste gratuito (fim ~15/10/2026). Sem upgrade para conta paga, a ponte para e a NF-e volta a falhar ("Ponte SEFAZ fora do ar").
 - Pendente: `SITE_ORIGEM` ainda sem definir (CORS aberto durante os testes); domínio nervia.com.br.
 
 ## Ideias (comercialização)
