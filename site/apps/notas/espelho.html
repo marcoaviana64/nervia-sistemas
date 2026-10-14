@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Espelho para impressão | Notas Fiscais</title>
+<script src="/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<style>
+/* Espelho de NF-e (DANFE) e NFS-e (DANFSe) montado a partir do XML autorizado guardado no Buscador. */
+@page{size:A4 portrait;margin:8mm}
+*{box-sizing:border-box}
+body{margin:0;background:#e9edf0;color:#000;font:9px/1.25 Arial,Helvetica,sans-serif}
+.barra{position:sticky;top:0;z-index:5;display:flex;gap:12px;align-items:center;padding:10px 16px;background:#0B2545;color:#fff;font:14px system-ui,sans-serif}
+.barra button{font:inherit;font-weight:600;border:0;border-radius:8px;padding:8px 16px;background:#2BB3D1;color:#06222c;cursor:pointer}
+.barra .info{opacity:.85;font-size:13px}
+.folha{width:194mm;min-height:281mm;margin:12px auto;background:#fff;padding:0;position:relative;page-break-after:always;break-after:page}
+.folha:last-child{page-break-after:auto;break-after:auto}
+.msg{max-width:600px;margin:40px auto;background:#fff;border-radius:10px;padding:24px;font:15px system-ui,sans-serif}
+/* caixas */
+.l{display:flex;width:100%}
+.c{border:.6pt solid #000;padding:1px 3px 2px;min-height:22px;flex:1;margin:-.3pt;overflow:hidden}
+.c .r{font-size:6px;text-transform:uppercase;color:#000;letter-spacing:.1px;white-space:nowrap}
+.c .v{font-size:9px;font-weight:bold;min-height:10px;overflow-wrap:anywhere}
+.c .v.n{font-weight:normal}
+.tit{font-size:7.5px;font-weight:bold;text-transform:uppercase;margin:5px 0 1px}
+.dir{text-align:right}.cen{text-align:center}
+table.it{width:100%;border-collapse:collapse;font-size:7px}
+table.it th{border:.6pt solid #000;font-size:6px;font-weight:bold;padding:1px 2px;text-transform:uppercase}
+table.it td{border-left:.6pt solid #000;border-right:.6pt solid #000;padding:1px 2px;vertical-align:top}
+table.it tr:last-child td{border-bottom:.6pt solid #000}
+.marca{position:absolute;top:40%;left:0;right:0;text-align:center;font-size:64px;font-weight:bold;color:rgba(200,0,0,.22);transform:rotate(-28deg);pointer-events:none}
+.aviso{border:1pt solid #000;background:#f3f3f3;padding:6px;margin:6px 0;font-size:9px}
+.rodape{font-size:7px;color:#333;margin-top:6px;border-top:.6pt solid #999;padding-top:3px}
+.danfe-nome{font-size:14px;font-weight:bold}
+.chave{font:bold 10px "Courier New",monospace;letter-spacing:.5px}
+.desc{white-space:pre-wrap;font-size:8.5px;font-weight:normal}
+svg.cb{display:block;width:100%;height:34px}
+@media print{body{background:#fff}.barra{display:none}.folha{margin:0;width:auto;min-height:0}}
+@media screen and (max-width:760px){.folha{width:auto;margin:8px;min-height:0}}
+</style>
+</head>
+<body>
+<div class="barra"><b>Espelho para impressão</b><span class="info" id="info">Carregando…</span><button onclick="print()" style="margin-left:auto">Imprimir</button></div>
+<div id="saida"></div>
+<script>
+const CFG = window.NERVIA_CONFIG || window.BUSCADOR_CONFIG || {};
+const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+// ---------------------------------------------------------------- formatação
+const num = (v, d = 2) => v === "" || v == null || isNaN(+v) ? "" : (+v).toLocaleString("pt-BR", { minimumFractionDigits: d, maximumFractionDigits: d });
+const din = v => v === "" || v == null ? "" : "R$ " + num(v);
+const doc = d => !d ? "" : d.length === 14 ? `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8,12)}-${d.slice(12)}` : d.length === 11 ? `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6,9)}-${d.slice(9)}` : d;
+const cep = c => c && c.length === 8 ? `${c.slice(0,5)}-${c.slice(5)}` : (c || "");
+const fone = f => !f ? "" : f.length === 11 ? `(${f.slice(0,2)}) ${f.slice(2,7)}-${f.slice(7)}` : f.length === 10 ? `(${f.slice(0,2)}) ${f.slice(2,6)}-${f.slice(6)}` : f;
+const dt = s => s ? s.slice(8,10) + "/" + s.slice(5,7) + "/" + s.slice(0,4) : "";
+const dth = s => s ? dt(s) + (s.length > 10 ? " " + s.slice(11,19) : "") : "";
+const chaveFmt = c => (c || "").replace(/(\d{4})(?=\d)/g, "$1 ");
+
+// ---------------------------------------------------------------- leitura do XML (ignora prefixos e namespaces)
+const filhos = (el, nome) => el ? [...el.getElementsByTagNameNS("*", nome)] : [];
+const um = (el, nome) => filhos(el, nome)[0] || null;
+const tx = (el, caminho) => { let e = el; for (const p of caminho.split("/")) { e = um(e, p); if (!e) return ""; } return e.textContent.trim(); };
+const direto = (el, nome) => el ? [...el.children].find(c => c.localName === nome) || null : null;
+
+// ---------------------------------------------------------------- código de barras CODE-128C (chave de 44 dígitos do DANFE)
+const C128 = ["212222","222122","222221","121223","121322","131222","122213","122312","132212","221213","221312","231212","112232","122132","122231","113222","123122","123221","223211","221132","221231","213212","223112","312131","311222","321122","321221","312212","322112","322211","212123","212321","232121","111323","131123","131321","112313","132113","132311","211313","231113","231311","112133","112331","132131","113123","113321","133121","313121","211331","231131","213113","213311","213131","311123","311321","331121","312113","312311","332111","314111","221411","431111","111224","111422","121124","121421","141122","141221","112214","112412","122114","122411","142112","142211","241211","221114","413111","241112","134111","111242","121142","121241","114212","124112","124211","411212","421112","421211","212141","214121","412121","111143","111341","131141","114113","114311","411113","411311","113141","114131","311141","411131","211412","211214","211232","2331112"];
+function code128c(digitos) {
+  const cods = [105];
+  for (let i = 0; i < digitos.length; i += 2) cods.push(+digitos.slice(i, i + 2));
+  cods.push(cods.reduce((s, c, i) => s + c * (i || 1), 0) % 103, 106);
+  return cods.map(c => C128.at(c)).join("");
+}
+function barras(digitos) {
+  if (!/^\d{44}$/.test(digitos)) return "";
+  const pad = code128c(digitos); let x = 10, rects = "";
+  [...pad].forEach((w, i) => { if (i % 2 === 0) rects += `<rect x="${x}" y="0" width="${w}" height="40"/>`; x += +w; });
+  return `<svg class="cb" viewBox="0 0 ${x + 10} 40" preserveAspectRatio="none" role="img" aria-label="Código de barras da chave de acesso">${rects}</svg>`;
+}
+
+// ---------------------------------------------------------------- caixas
+const cx = (rotulo, valor, estilo = "", classe = "") => `<div class="c ${classe}" style="${estilo}"><div class="r">${esc(rotulo)}</div><div class="v">${valor}</div></div>`;
+const cxt = (rotulo, valor, estilo = "", classe = "") => cx(rotulo, esc(valor), estilo, classe);
+const linha = (...cs) => `<div class="l">${cs.join("")}</div>`;
+const marcaCancelada = n => n.situacao === "Cancelada" ? `<div class="marca">CANCELADA</div>` : "";
+const rodape = (n, txt) => `<div class="rodape">Espelho gerado pelo Buscador de NF da Nervia em ${new Date().toLocaleString("pt-BR")} a partir do XML autorizado guardado no sistema. ${txt}</div>`;
+
+// ---------------------------------------------------------------- DANFE (NF-e modelo 55)
+const MOD_FRETE = { "0": "0 - Por conta do Remetente", "1": "1 - Por conta do Destinatário", "2": "2 - Por conta de Terceiros", "3": "3 - Próprio Remetente", "4": "4 - Próprio Destinatário", "9": "9 - Sem Frete" };
+function danfe(x, n) {
+  const inf = um(x, "infNFe"), ide = um(inf, "ide"), emit = um(inf, "emit"), dest = um(inf, "dest"), tot = um(inf, "ICMSTot");
+  const transp = um(inf, "transp"), tra = um(transp, "transporta"), vol = um(transp, "vol"), cobr = um(inf, "cobr"), prot = um(x, "infProt");
+  const ch = (inf?.getAttribute("Id") || "").replace(/^NFe/, "") || n.chave;
+  const ee = um(emit, "enderEmit"), ed = um(dest, "enderDest");
+  const endE = [tx(ee, "xLgr"), tx(ee, "nro"), tx(ee, "xCpl")].filter(Boolean).join(", ");
+  const tpAmb = tx(ide, "tpAmb");
+  const itens = filhos(inf, "det").map(d => {
+    const p = um(d, "prod"), ipi = um(d, "IPITrib");
+    const icmsG = um(d, "ICMS") ? [...um(d, "ICMS").children][0] : null;
+    const cst = icmsG ? tx(icmsG, "orig") + (tx(icmsG, "CST") || tx(icmsG, "CSOSN")) : "";
+    return `<tr><td>${esc(tx(p,"cProd"))}</td><td>${esc(tx(p,"xProd"))}${tx(d,"infAdProd") ? `<br><i>${esc(tx(d,"infAdProd"))}</i>` : ""}</td><td>${esc(tx(p,"NCM"))}</td><td>${esc(cst)}</td><td>${esc(tx(p,"CFOP"))}</td><td>${esc(tx(p,"uCom"))}</td>
+      <td class="dir">${num(tx(p,"qCom"),4)}</td><td class="dir">${num(tx(p,"vUnCom"),4)}</td><td class="dir">${num(tx(p,"vProd"))}</td>
+      <td class="dir">${num(tx(icmsG,"vBC"))}</td><td class="dir">${num(tx(icmsG,"vICMS"))}</td><td class="dir">${num(tx(ipi,"vIPI"))}</td><td class="dir">${num(tx(icmsG,"pICMS"))}</td><td class="dir">${num(tx(ipi,"pIPI"))}</td></tr>`;
+  }).join("");
+  const dups = filhos(cobr, "dup").map(d => `<div class="c" style="flex:0 0 16.66%"><div class="r">Nº ${esc(tx(d,"nDup"))} · venc. ${dt(tx(d,"dVenc"))}</div><div class="v">${din(tx(d,"vDup"))}</div></div>`).join("");
+  return `<div class="folha">${marcaCancelada(n)}
+  ${tpAmb === "2" ? `<div class="aviso"><b>NF-e emitida em ambiente de homologação — sem valor fiscal.</b></div>` : ""}
+  ${linha(cxt("Recebemos de " + tx(emit,"xNome") + " os produtos/serviços constantes da nota fiscal indicada ao lado", "", "flex:5"), cx("NF-e", `Nº ${esc(tx(ide,"nNF"))}<br>Série ${esc(tx(ide,"serie"))}`, "flex:1;text-align:center"))}
+  ${linha(cxt("Data de recebimento", "", "flex:1"), cxt("Identificação e assinatura do recebedor", "", "flex:4"), cx("", "", "flex:1"))}
+  <div style="border-top:1px dashed #000;margin:4px 0"></div>
+  <div class="l">
+    <div class="c" style="flex:4"><div class="r">Identificação do emitente</div><div class="v" style="font-size:11px">${esc(tx(emit,"xNome"))}</div>
+      <div class="v n">${esc(endE)}<br>${esc(tx(ee,"xBairro"))} · ${esc(tx(ee,"xMun"))}/${esc(tx(ee,"UF"))} · CEP ${cep(tx(ee,"CEP"))}${tx(ee,"fone") ? " · Fone " + fone(tx(ee,"fone")) : ""}</div></div>
+    <div class="c cen" style="flex:2.2"><div class="danfe-nome">DANFE</div><div class="v n">Documento Auxiliar da<br>Nota Fiscal Eletrônica</div>
+      <div class="v n" style="margin-top:3px">0 - Entrada<br>1 - Saída <span style="border:.6pt solid #000;padding:0 5px;font-weight:bold">${esc(tx(ide,"tpNF"))}</span></div>
+      <div class="v" style="margin-top:3px">Nº ${esc(tx(ide,"nNF"))}<br>Série ${esc(tx(ide,"serie"))}<br>Folha 1</div></div>
+    <div class="c" style="flex:4.6">${barras(ch)}<div class="r" style="margin-top:3px">Chave de acesso</div><div class="chave">${chaveFmt(ch)}</div>
+      <div class="v n" style="margin-top:3px">Consulta de autenticidade no portal nacional da NF-e www.nfe.fazenda.gov.br/portal ou no site da Sefaz autorizadora</div></div>
+  </div>
+  ${linha(cxt("Natureza da operação", tx(ide,"natOp"), "flex:6"), cxt("Protocolo de autorização de uso", prot ? `${tx(prot,"nProt")} - ${dth(tx(prot,"dhRecbto"))}` : "", "flex:4.6"))}
+  ${linha(cxt("Inscrição estadual", tx(emit,"IE")), cxt("Insc. estadual do subst. tributário", tx(emit,"IEST")), cxt("CNPJ / CPF", doc(tx(emit,"CNPJ") || tx(emit,"CPF"))))}
+  <div class="tit">Destinatário / remetente</div>
+  ${linha(cxt("Nome / razão social", tx(dest,"xNome"), "flex:5"), cxt("CNPJ / CPF", doc(tx(dest,"CNPJ") || tx(dest,"CPF")), "flex:2"), cxt("Data da emissão", dt(tx(ide,"dhEmi")), "flex:1.2"))}
+  ${linha(cxt("Endereço", [tx(ed,"xLgr"), tx(ed,"nro"), tx(ed,"xCpl")].filter(Boolean).join(", "), "flex:4"), cxt("Bairro / distrito", tx(ed,"xBairro"), "flex:2"), cxt("CEP", cep(tx(ed,"CEP")), "flex:1"), cxt("Data da saída/entrada", dt(tx(ide,"dhSaiEnt")), "flex:1.2"))}
+  ${linha(cxt("Município", tx(ed,"xMun"), "flex:3"), cxt("UF", tx(ed,"UF"), "flex:.5"), cxt("Fone / fax", fone(tx(ed,"fone")), "flex:1.5"), cxt("Inscrição estadual", tx(dest,"IE"), "flex:2"), cxt("Hora da saída/entrada", (tx(ide,"dhSaiEnt") || "").slice(11,19), "flex:1.2"))}
+  ${dups ? `<div class="tit">Fatura / duplicatas</div><div class="l" style="flex-wrap:wrap">${dups}</div>` : ""}
+  <div class="tit">Cálculo do imposto</div>
+  ${linha(cxt("Base de cálc. do ICMS", num(tx(tot,"vBC")), "", "dir"), cxt("Valor do ICMS", num(tx(tot,"vICMS")), "", "dir"), cxt("Base de cálc. ICMS S.T.", num(tx(tot,"vBCST")), "", "dir"), cxt("Valor do ICMS subst.", num(tx(tot,"vST")), "", "dir"), cxt("V. imp. importação", num(tx(tot,"vII")), "", "dir"), cxt("V. total produtos", num(tx(tot,"vProd")), "", "dir"))}
+  ${linha(cxt("Valor do frete", num(tx(tot,"vFrete")), "", "dir"), cxt("Valor do seguro", num(tx(tot,"vSeg")), "", "dir"), cxt("Desconto", num(tx(tot,"vDesc")), "", "dir"), cxt("Outras despesas", num(tx(tot,"vOutro")), "", "dir"), cxt("Valor total IPI", num(tx(tot,"vIPI")), "", "dir"), cxt("V. total da nota", num(tx(tot,"vNF")), "", "dir"))}
+  <div class="tit">Transportador / volumes transportados</div>
+  ${linha(cxt("Nome / razão social", tx(tra,"xNome"), "flex:3"), cxt("Frete", MOD_FRETE[tx(transp,"modFrete")] || tx(transp,"modFrete"), "flex:2"), cxt("Placa do veículo", tx(transp,"placa"), "flex:1"), cxt("UF", tx(um(transp,"veicTransp"),"UF"), "flex:.5"), cxt("CNPJ / CPF", doc(tx(tra,"CNPJ") || tx(tra,"CPF")), "flex:2"))}
+  ${linha(cxt("Endereço", tx(tra,"xEnder"), "flex:3"), cxt("Município", tx(tra,"xMun"), "flex:2"), cxt("UF", tx(tra,"UF"), "flex:.5"), cxt("Inscrição estadual", tx(tra,"IE"), "flex:2"))}
+  ${linha(cxt("Quantidade", tx(vol,"qVol")), cxt("Espécie", tx(vol,"esp")), cxt("Marca", tx(vol,"marca")), cxt("Numeração", tx(vol,"nVol")), cxt("Peso bruto", num(tx(vol,"pesoB"),3), "", "dir"), cxt("Peso líquido", num(tx(vol,"pesoL"),3), "", "dir"))}
+  <div class="tit">Dados dos produtos / serviços</div>
+  <table class="it"><thead><tr><th>Código</th><th>Descrição do produto / serviço</th><th>NCM/SH</th><th>O/CST</th><th>CFOP</th><th>Un</th><th>Quant.</th><th>Valor unit.</th><th>Valor total</th><th>B.cálc. ICMS</th><th>Valor ICMS</th><th>Valor IPI</th><th>Alíq. ICMS</th><th>Alíq. IPI</th></tr></thead><tbody>${itens}</tbody></table>
+  ${tx(inf,"ISSQNtot/vServ") ? `<div class="tit">Cálculo do ISSQN</div>${linha(cxt("Inscrição municipal", tx(emit,"IM")), cxt("Valor total dos serviços", num(tx(inf,"ISSQNtot/vServ")), "", "dir"), cxt("Base de cálculo do ISSQN", num(tx(inf,"ISSQNtot/vBC")), "", "dir"), cxt("Valor do ISSQN", num(tx(inf,"ISSQNtot/vISS")), "", "dir"))}` : ""}
+  <div class="tit">Dados adicionais</div>
+  ${linha(cx("Informações complementares", `<span class="desc">${esc([tx(inf,"infAdic/infCpl"), tot && tx(tot,"vTotTrib") ? "Valor aproximado dos tributos: " + din(tx(tot,"vTotTrib")) : ""].filter(Boolean).join("\n"))}</span>`, "flex:3;min-height:60px"), cx("Reservado ao fisco", `<span class="desc">${esc(tx(inf,"infAdic/infAdFisco"))}</span>`, "flex:1.4;min-height:60px"))}
+  ${rodape(n, "A NF-e válida é o arquivo XML; confira a autenticidade pela chave de acesso no portal nacional da NF-e.")}
+  </div>`;
+}
+
+// ---------------------------------------------------------------- DANFSe (NFS-e padrão nacional)
+const SIMPLES = { "1": "Não optante", "2": "Optante - Microempreendedor Individual (MEI)", "3": "Optante - Microempresa ou Empresa de Pequeno Porte (ME/EPP)" };
+const REG_ESP = { "0": "Nenhum", "1": "Ato cooperado (cooperativa)", "2": "Estimativa", "3": "Microempresa municipal", "4": "Notário ou registrador", "5": "Profissional autônomo", "6": "Sociedade de profissionais" };
+const TRIB_ISS = { "1": "Operação tributável", "2": "Imunidade", "3": "Exportação de serviço", "4": "Não incidência" };
+const RET_ISS = { "1": "Não retido", "2": "Retido pelo tomador", "3": "Retido pelo intermediário" };
+function danfse(x, n) {
+  const inf = um(x, "infNFSe"), dps = um(inf, "infDPS"), emit = direto(inf, "emit"), prest = um(dps, "prest"), toma = um(dps, "toma"), interm = um(dps, "interm");
+  const vNF = direto(inf, "valores"), vD = direto(dps, "valores"), serv = um(dps, "serv"), tribMun = um(vD, "tribMun"), tribFed = um(vD, "tribFed"), pc = um(tribFed, "piscofins");
+  const ch = (inf?.getAttribute("Id") || "").replace(/^NFS/, "") || n.chave;
+  const ende = um(emit, "enderNac");
+  const nomeMun = (cMun, uf) => cMun && cMun === tx(dps, "cLocEmi") && tx(inf, "xLocEmi") && !/^\d+$/.test(tx(inf, "xLocEmi")) ? `${tx(inf, "xLocEmi")}${uf ? " - " + uf : ""}` : [cMun ? "IBGE " + cMun : "", uf].filter(Boolean).join(" - ");
+  const endTxt = e => e ? [tx(e,"xLgr"), tx(e,"nro"), tx(e,"xCpl"), tx(e,"xBairro")].filter(Boolean).join(", ") : "";
+  const endToma = um(toma, "end");
+  const issRetido = ["2", "3"].includes(tx(tribMun, "tpRetISSQN"));
+  const retPC = tx(pc, "tpRetPisCofins") === "1";
+  const totFed = ["vRetIRRF", "vRetCP", "vRetCSLL"].reduce((s, k) => s + (+tx(tribFed, k) || 0), 0) + (+tx(pc, "vPis") || 0) + (+tx(pc, "vCofins") || 0);
+  const tot = um(vD, "totTrib");
+  const aprox = k => tx(tot, "vTotTrib/vTotTrib" + k) ? din(tx(tot, "vTotTrib/vTotTrib" + k)) : tx(tot, "pTotTrib/pTotTrib" + k) ? num(tx(tot, "pTotTrib/pTotTrib" + k)) + " %" : "";
+  return `<div class="folha">${marcaCancelada(n)}
+  <div class="l">
+    <div class="c" style="flex:3"><div class="danfe-nome">DANFSe v1.0</div><div class="v n">Documento Auxiliar da NFS-e</div><div class="v n" style="margin-top:4px">Emitida em ${esc(/^\d+$/.test(tx(inf,"xLocEmi")) ? "município IBGE " + tx(inf,"xLocEmi") : tx(inf,"xLocEmi"))}</div></div>
+    <div class="c" style="flex:5"><div class="r">Chave de acesso da NFS-e</div><div class="chave">${chaveFmt(ch)}</div>
+      <div class="v n" style="margin-top:3px">A autenticidade desta NFS-e pode ser verificada pela chave de acesso no portal www.nfse.gov.br/ConsultaPublica</div></div>
+  </div>
+  ${linha(cxt("Número da NFS-e", tx(inf,"nNFSe")), cxt("Competência da NFS-e", dt(tx(dps,"dCompet"))), cxt("Data e hora da emissão da NFS-e", dth(tx(inf,"dhProc"))))}
+  ${linha(cxt("Número da DPS", tx(dps,"nDPS")), cxt("Série da DPS", tx(dps,"serie")), cxt("Data e hora da emissão da DPS", dth(tx(dps,"dhEmi"))))}
+  <div class="tit">Emitente da NFS-e · Prestador do serviço</div>
+  ${linha(cxt("CNPJ / CPF / NIF", doc(tx(emit,"CNPJ") || tx(emit,"CPF") || tx(prest,"CNPJ") || tx(prest,"CPF"))), cxt("Inscrição municipal", tx(emit,"IM") || tx(prest,"IM")), cxt("Telefone", fone(tx(emit,"fone") || tx(prest,"fone"))))}
+  ${linha(cxt("Nome / nome empresarial", tx(emit,"xNome") || tx(prest,"xNome"), "flex:2"), cxt("E-mail", (tx(emit,"email") || tx(prest,"email")).toLowerCase()))}
+  ${linha(cxt("Endereço", endTxt(ende), "flex:2"), cxt("Município", nomeMun(tx(ende,"cMun"), tx(ende,"UF"))), cxt("CEP", cep(tx(ende,"CEP")), "flex:.6"))}
+  ${linha(cxt("Simples Nacional na data de competência", SIMPLES[tx(prest,"regTrib/opSimpNac")] || tx(prest,"regTrib/opSimpNac"), "flex:2"), cxt("Regime especial de tributação", REG_ESP[tx(prest,"regTrib/regEspTrib")] || tx(prest,"regTrib/regEspTrib")))}
+  <div class="tit">Tomador do serviço</div>
+  ${toma ? `${linha(cxt("CNPJ / CPF / NIF", doc(tx(toma,"CNPJ") || tx(toma,"CPF") || tx(toma,"NIF"))), cxt("Inscrição municipal", tx(toma,"IM")), cxt("Telefone", fone(tx(toma,"fone"))))}
+  ${linha(cxt("Nome / nome empresarial", tx(toma,"xNome"), "flex:2"), cxt("E-mail", tx(toma,"email").toLowerCase()))}
+  ${linha(cxt("Endereço", endTxt(endToma), "flex:2"), cxt("Município", tx(endToma,"endNac/cMun") ? nomeMun(tx(endToma,"endNac/cMun"), "") : ""), cxt("CEP", cep(tx(endToma,"endNac/CEP")), "flex:.6"))}` : `<div class="c"><div class="v n">Tomador do serviço não identificado na NFS-e</div></div>`}
+  <div class="tit">Intermediário do serviço</div>
+  ${interm ? linha(cxt("CNPJ / CPF / NIF", doc(tx(interm,"CNPJ") || tx(interm,"CPF"))), cxt("Nome / nome empresarial", tx(interm,"xNome"), "flex:2")) : `<div class="c"><div class="v n">Intermediário do serviço não identificado na NFS-e</div></div>`}
+  <div class="tit">Serviço prestado</div>
+  ${linha(cxt("Código de tributação nacional", [tx(serv,"cTribNac"), tx(inf,"xTribNac")].filter(Boolean).join(" - "), "flex:3"), cxt("Código de tributação municipal", [tx(serv,"cTribMun"), tx(inf,"xTribMun")].filter(Boolean).join(" - "), "flex:2"))}
+  ${linha(cxt("Local da prestação", tx(inf,"xLocPrestacao")), cxt("Item da NBS", [tx(serv,"cNBS"), tx(inf,"xNBS")].filter(Boolean).join(" - "), "flex:2"))}
+  ${cx("Descrição do serviço", `<span class="desc">${esc(tx(serv,"xDescServ"))}</span>`, "min-height:40px")}
+  <div class="tit">Tributação municipal</div>
+  ${linha(cxt("Tributação do ISSQN", TRIB_ISS[tx(tribMun,"tribISSQN")] || tx(tribMun,"tribISSQN")), cxt("Município de incidência do ISSQN", tx(inf,"xLocIncid")), cxt("Retenção do ISSQN", RET_ISS[tx(tribMun,"tpRetISSQN")] || tx(tribMun,"tpRetISSQN")))}
+  ${linha(cxt("Valor do serviço", din(tx(vD,"vServPrest/vServ")), "", "dir"), cxt("Desconto incondicionado", din(tx(vD,"vDescCondIncond/vDescIncond")), "", "dir"), cxt("Total deduções/reduções", din(tx(vNF,"vDR") || tx(vD,"vDedRed/vDR")), "", "dir"), cxt("BC ISSQN", din(tx(vNF,"vBC")), "", "dir"), cxt("Alíquota aplicada", tx(vNF,"pAliqAplic") ? num(tx(vNF,"pAliqAplic")) + " %" : "", "", "dir"), cxt("ISSQN apurado", din(tx(vNF,"vISSQN")), "", "dir"))}
+  <div class="tit">Tributação federal</div>
+  ${linha(cxt("IRRF", din(tx(tribFed,"vRetIRRF")), "", "dir"), cxt("CP", din(tx(tribFed,"vRetCP")), "", "dir"), cxt("CSLL", din(tx(tribFed,"vRetCSLL")), "", "dir"), cxt("PIS", din(tx(pc,"vPis")), "", "dir"), cxt("COFINS", din(tx(pc,"vCofins")), "", "dir"), cxt("Retenção do PIS/COFINS", pc ? (retPC ? "Retido" : "Não retido") : ""), cxt("Total tributação federal", din(totFed), "", "dir"))}
+  <div class="tit">Valor total da NFS-e</div>
+  ${linha(cxt("Valor do serviço", din(tx(vD,"vServPrest/vServ")), "", "dir"), cxt("Desconto condicionado", din(tx(vD,"vDescCondIncond/vDescCond")), "", "dir"), cxt("Desconto incondicionado", din(tx(vD,"vDescCondIncond/vDescIncond")), "", "dir"), cxt("ISSQN retido", issRetido ? din(tx(vNF,"vISSQN")) : "R$ 0,00", "", "dir"), cxt("IRRF, CP, CSLL retidos", din(["vRetIRRF","vRetCP","vRetCSLL"].reduce((s, k) => s + (+tx(tribFed, k) || 0), 0)), "", "dir"), cxt("PIS/COFINS retidos", din(retPC ? (+tx(pc,"vPis") || 0) + (+tx(pc,"vCofins") || 0) : 0), "", "dir"))}
+  ${linha(cx("Valor líquido da NFS-e", `<span style="font-size:12px">${din(tx(vNF,"vLiq"))}</span>`, "", "dir"))}
+  <div class="tit">Totais aproximados dos tributos</div>
+  ${linha(cxt("Federais", aprox("Fed"), "", "dir"), cxt("Estaduais", aprox("Est"), "", "dir"), cxt("Municipais", aprox("Mun"), "", "dir"))}
+  <div class="tit">Informações complementares</div>
+  ${cx("", `<span class="desc">${esc([tx(serv,"infoCompl/xInfComp"), tx(dps,"xInfComp")].filter(Boolean).join("\n") || "")}</span>`, "min-height:40px")}
+  ${rodape(n, "A NFS-e válida é o arquivo XML; confira a autenticidade pela chave de acesso em www.nfse.gov.br/ConsultaPublica.")}
+  </div>`;
+}
+
+// ---------------------------------------------------------------- NF-e só com resumo (sem XML completo)
+function resumo(n) {
+  return `<div class="folha">${marcaCancelada(n)}
+  <div class="aviso"><b>ESPELHO DE RESUMO — SEM VALOR FISCAL.</b> O XML completo desta NF-e ainda não foi baixado (é preciso dar "ciência da operação"). Este espelho traz só os dados do resumo enviado pela SEFAZ.</div>
+  <div class="l"><div class="c" style="flex:4">${barras(n.chave)}<div class="r" style="margin-top:3px">Chave de acesso</div><div class="chave">${chaveFmt(n.chave)}</div></div></div>
+  ${linha(cxt("Tipo", n.tipo === "NFE" ? "NF-e (produtos)" : "NFS-e (serviços)"), cxt("Número", n.numero), cxt("Data de emissão", n.data_emissao ? new Date(n.data_emissao).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : ""), cxt("Situação", n.situacao))}
+  ${linha(cxt("Emitente", n.emit_nome, "flex:2"), cxt("CNPJ do emitente", doc(n.emit_cnpj)))}
+  ${linha(cxt("Destinatário", n.dest_nome, "flex:2"), cxt("CNPJ do destinatário", doc(n.dest_cnpj)))}
+  ${linha(cxt("Valor total", din(n.valor), "", "dir"))}
+  ${rodape(n, "Consulte a NF-e pela chave de acesso em www.nfe.fazenda.gov.br/portal.")}
+  </div>`;
+}
+
+// ---------------------------------------------------------------- carga
+async function iniciar() {
+  const ids = (new URLSearchParams(location.search).get("ids") || "").split(",").map(Number).filter(Boolean).slice(0, 200);
+  if (!ids.length) return falha("Nenhuma nota selecionada.");
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return falha('Entre na <a href="/cliente/">Área do Cliente</a> e abra o espelho de novo pelo app Notas Fiscais.');
+  const { data: notas, error } = await sb.from("nf_notas").select("*").in("id", ids);
+  if (error) return falha(esc(error.message));
+  const ordem = new Map(ids.map((id, i) => [id, i]));
+  notas.sort((a, b) => ordem.get(a.id) - ordem.get(b.id));
+  if (!notas.length) return falha("Notas não encontradas ou sem permissão para este login.");
+  const partes = [], semXml = [];
+  for (const n of notas) {
+    let x = null;
+    if (n.xml_path) {
+      const { data: blob } = await sb.storage.from("nf-xml").download(n.xml_path);
+      if (blob) x = new DOMParser().parseFromString(await blob.text(), "application/xml");
+      if (x && x.getElementsByTagName("parsererror").length) x = null;
+    }
+    const raiz = x?.documentElement?.localName;
+    if (x && um(x, "infNFe") && um(x, "det")) partes.push(danfe(x, n));
+    else if (x && (raiz === "NFSe" || um(x, "infNFSe"))) partes.push(danfse(x, n));
+    else { partes.push(resumo(n)); semXml.push(n.numero || n.chave.slice(-8)); }
+  }
+  $("saida").innerHTML = partes.join("");
+  $("info").textContent = `${notas.length} nota(s)` + (semXml.length ? ` · ${semXml.length} só com resumo (sem XML completo)` : "") + " · use Imprimir ou Ctrl+P (pode salvar em PDF)";
+  document.title = notas.length === 1 ? `Espelho ${notas[0].tipo === "NFE" ? "NF-e" : "NFS-e"} ${notas[0].numero || ""}` : `Espelhos (${notas.length})`;
+  if (new URLSearchParams(location.search).get("imprimir") === "1") setTimeout(() => print(), 400);
+}
+function falha(html) { $("info").textContent = ""; $("saida").innerHTML = `<div class="msg">${html}</div>`; }
+iniciar().catch(e => falha("Erro ao montar o espelho: " + esc(e.message)));
+</script>
+</body>
+</html>

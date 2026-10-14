@@ -81,6 +81,26 @@
     return q;
   }
 
+  // XMLs de exemplo (fictícios) no formato real: procNFe 4.00, NFS-e nacional e resumo
+  const ch44 = (n) => ("33261" + n.emit_cnpj + "55001" + String(n.numero).padStart(9, "0") + "1" + "12345678").padEnd(43, "0").slice(0, 43) + "7";
+  function xmlNFe(n) {
+    const ch = ch44(n);
+    return `<?xml version="1.0" encoding="UTF-8"?><nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><NFe><infNFe Id="NFe${ch}" versao="4.00">
+<ide><cUF>33</cUF><natOp>VENDA DE MERCADORIA</natOp><mod>55</mod><serie>1</serie><nNF>${n.numero}</nNF><dhEmi>${n.data_emissao}</dhEmi><dhSaiEnt>${n.data_emissao}</dhSaiEnt><tpNF>1</tpNF><tpAmb>1</tpAmb></ide>
+<emit><CNPJ>${n.emit_cnpj}</CNPJ><xNome>${n.emit_nome}</xNome><enderEmit><xLgr>RUA DAS FLORES</xLgr><nro>100</nro><xBairro>CENTRO</xBairro><cMun>3304557</cMun><xMun>RIO DE JANEIRO</xMun><UF>RJ</UF><CEP>20040000</CEP><fone>2133334444</fone></enderEmit><IE>12345678</IE><CRT>3</CRT></emit>
+<dest><CNPJ>${n.dest_cnpj}</CNPJ><xNome>${n.dest_nome}</xNome><enderDest><xLgr>AV BRASIL</xLgr><nro>500</nro><xBairro>PENHA</xBairro><xMun>RIO DE JANEIRO</xMun><UF>RJ</UF><CEP>21000000</CEP></enderDest><IE>87654321</IE></dest>
+<det nItem="1"><prod><cProd>A-10</cProd><xProd>CABO DE REDE CAT6 CAIXA 305M</xProd><NCM>85444900</NCM><CFOP>5102</CFOP><uCom>CX</uCom><qCom>2.0000</qCom><vUnCom>${(n.valor / 2).toFixed(4)}</vUnCom><vProd>${n.valor.toFixed(2)}</vProd></prod><imposto><ICMS><ICMS00><orig>0</orig><CST>00</CST><vBC>${n.valor.toFixed(2)}</vBC><pICMS>18.00</pICMS><vICMS>${(n.valor * .18).toFixed(2)}</vICMS></ICMS00></ICMS></imposto></det>
+<total><ICMSTot><vBC>${n.valor.toFixed(2)}</vBC><vICMS>${(n.valor * .18).toFixed(2)}</vICMS><vBCST>0.00</vBCST><vST>0.00</vST><vProd>${n.valor.toFixed(2)}</vProd><vFrete>0.00</vFrete><vSeg>0.00</vSeg><vDesc>0.00</vDesc><vII>0.00</vII><vIPI>0.00</vIPI><vOutro>0.00</vOutro><vNF>${n.valor.toFixed(2)}</vNF></ICMSTot></total>
+<transp><modFrete>0</modFrete><vol><qVol>2</qVol><esp>CAIXA</esp><pesoL>20.000</pesoL><pesoB>21.500</pesoB></vol></transp>
+<cobr><dup><nDup>001</nDup><dVenc>2026-11-10</dVenc><vDup>${n.valor.toFixed(2)}</vDup></dup></cobr>
+<infAdic><infCpl>Pedido 4521. Documento de teste.</infCpl></infAdic></infNFe></NFe>
+<protNFe versao="4.00"><infProt><chNFe>${ch}</chNFe><dhRecbto>${n.data_emissao}</dhRecbto><nProt>333260000123456</nProt><cStat>100</cStat></infProt></protNFe></nfeProc>`;
+  }
+  function xmlResumo(n) { return `<resNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.01"><chNFe>${n.chave}</chNFe><CNPJ>${n.emit_cnpj}</CNPJ><xNome>${n.emit_nome}</xNome><vNF>${n.valor}</vNF></resNFe>`; }
+  function xmlNFSe(n) {
+    return `<?xml version="1.0" encoding="utf-8"?><NFSe versao="1.01" xmlns="http://www.sped.fazenda.gov.br/nfse"><infNFSe Id="NFS33045572${n.emit_cnpj}000000000${String(n.numero).padStart(6, "0")}26011040620492"><xLocEmi>Rio de Janeiro</xLocEmi><xLocPrestacao>Rio de Janeiro</xLocPrestacao><nNFSe>${n.numero}</nNFSe><cLocIncid>3304557</cLocIncid><xLocIncid>Rio de Janeiro</xLocIncid><xTribNac>Provimento de acesso à internet</xTribNac><cStat>100</cStat><dhProc>${n.data_emissao}</dhProc><nDFSe>16347980</nDFSe><emit><CNPJ>${n.emit_cnpj}</CNPJ><xNome>${n.emit_nome}</xNome><enderNac><xLgr>RIO BRANCO</xLgr><nro>81</nro><xBairro>CENTRO</xBairro><cMun>3304557</cMun><UF>RJ</UF><CEP>20040004</CEP></enderNac><fone>2121224203</fone><email>FINANCEIRO@EXEMPLO.COM.BR</email></emit><valores><vBC>${n.valor.toFixed(2)}</vBC><pAliqAplic>5.00</pAliqAplic><vISSQN>${(n.valor * .05).toFixed(2)}</vISSQN><vLiq>${n.valor.toFixed(2)}</vLiq></valores><DPS versao="1.00"><infDPS Id="DPS1"><tpAmb>1</tpAmb><dhEmi>${n.data_emissao}</dhEmi><serie>00001</serie><nDPS>2953923</nDPS><dCompet>${n.data_emissao.slice(0, 10)}</dCompet><cLocEmi>3304557</cLocEmi><prest><CNPJ>${n.emit_cnpj}</CNPJ><regTrib><opSimpNac>3</opSimpNac><regEspTrib>0</regEspTrib></regTrib></prest><toma><CNPJ>${n.dest_cnpj}</CNPJ><xNome>${n.dest_nome}</xNome><end><endNac><cMun>3304557</cMun><CEP>22763070</CEP></endNac><xLgr>RUA GEOVANI DE CASTRO</xLgr><nro>90</nro><xBairro>FREGUESIA</xBairro></end></toma><serv><locPrest><cLocPrestacao>3304557</cLocPrestacao></locPrest><cServ><cTribNac>010701</cTribNac><xDescServ>LINK DEDICADO 500 MEGA - OUTUBRO/2026</xDescServ></cServ></serv><valores><vServPrest><vServ>${n.valor.toFixed(2)}</vServ></vServPrest><trib><tribMun><tribISSQN>1</tribISSQN><tpRetISSQN>1</tpRetISSQN></tribMun><totTrib><vTotTrib><vTotTribFed>0.00</vTotTribFed><vTotTribEst>0.00</vTotTribEst><vTotTribMun>${(n.valor * .05).toFixed(2)}</vTotTribMun></vTotTrib></totTrib></trib></valores></infDPS></DPS></infNFSe></NFSe>`;
+  }
+
   window.supabase = { createClient: () => ({
     from: consulta,
     auth: {
@@ -98,6 +118,14 @@
       if (nome === "usuarios") return { data: { ok: true, mensagem: "Login criado." } };
       return { data: null, error: { message: "?" } };
     } },
-    storage: { from: () => ({ createSignedUrl: async (p) => ({ data: { signedUrl: "about:blank#" + p }, error: null }) }) },
+    storage: { from: () => ({
+      createSignedUrl: async (p) => ({ data: { signedUrl: "about:blank#" + p }, error: null }),
+      download: async (p) => {
+        const n = db.nf_notas.find((x) => x.xml_path === p);
+        if (!n || !pode(n.cnpj_consulta)) return { data: null, error: { message: "Object not found" } };
+        const xml = n.tipo === "NFE" ? (n.completo ? xmlNFe(n) : xmlResumo(n)) : xmlNFSe(n);
+        return { data: new Blob([xml], { type: "text/xml" }), error: null };
+      },
+    }) },
   }) };
 })();

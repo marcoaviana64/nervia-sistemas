@@ -21,7 +21,7 @@
     <li><a href="#entrar">1. Entrar no app</a></li>
     <li><a href="#consultar">2. Consultar as notas</a></li>
     <li><a href="#filtrar">3. Filtrar e procurar</a></li>
-    <li><a href="#xml">4. Baixar o XML</a></li>
+    <li><a href="#xml">4. Baixar o XML e imprimir o espelho</a></li>
     <li><a href="#excel">5. Exportar para o Excel</a></li>
     <li><a href="#entender">6. Entender a situação da nota</a></li>
     <li><a href="#nervia">7. Tarefas da equipe Nervia</a></li>
@@ -57,17 +57,21 @@
   </ul>
   <p>Exemplo: para conferir as compras de um fornecedor no mês, escolha <b>Tipo = NF-e</b>, preencha <b>De/Até</b> e digite o nome dele em <b>Buscar</b>. O indicador <b>total</b> mostra a soma.</p>
 
-  <h2 id="xml">4. Baixar o XML</h2>
+  <h2 id="xml">4. Baixar o XML e imprimir o espelho</h2>
+  <p><b>XML:</b> na linha da nota, coluna <b>Arquivos</b>, clique em <b>XML</b>. O arquivo é salvo na pasta de downloads.</p>
+  <p><b>Espelho para impressão</b> (DANFE da NF-e ou DANFSe da NFS-e, montado a partir do XML):</p>
   <ol>
-    <li>Na linha da nota, clique em <b>baixar</b> (coluna XML).</li>
-    <li>O arquivo é salvo na pasta de downloads do seu computador.</li>
+    <li>Uma nota: clique em <b>espelho</b> na coluna Arquivos.</li>
+    <li>Várias notas: marque as caixas à esquerda das linhas (a caixa do cabeçalho marca todas as da tela) e clique em <b>Imprimir espelho</b>.</li>
+    <li>Abre uma nova aba com uma página por nota. Clique em <b>Imprimir</b> (ou Ctrl+P). Para guardar em arquivo, escolha a impressora <b>Salvar como PDF</b>.</li>
   </ol>
+  <div class="nota">O espelho reproduz os dados do XML autorizado, com a chave de acesso (e o código de barras, na NF-e) para conferência no portal oficial. O documento fiscal válido é sempre o XML. Nota cancelada sai com a marca <b>CANCELADA</b>; NF-e <span class="tag res">só resumo</span> sai como "espelho de resumo, sem valor fiscal" até a ciência liberar o XML.</div>
   <p>NF-e marcadas <span class="tag res">só resumo</span> ainda não têm o XML completo. A Nervia libera esse XML pela "ciência da operação" (ver item 7).</p>
 
   <h2 id="excel">5. Exportar para o Excel</h2>
   <ol>
     <li>Ajuste os filtros para mostrar só o que você quer.</li>
-    <li>Clique em <b>Exportar CSV</b>. O arquivo <code>notas-CNPJ.csv</code> é baixado.</li>
+    <li>Clique em <b>Exportar CSV</b>. Se houver linhas marcadas, só elas vão para o arquivo; sem marcação, vai tudo o que está na tela. O arquivo <code>notas-CNPJ.csv</code> é baixado.</li>
     <li>Abra no Excel. As colunas são separadas por ponto e vírgula e os valores usam vírgula, no padrão brasileiro.</li>
   </ol>
 
@@ -105,7 +109,7 @@
   <h3>Dar ciência da operação</h3>
   <ol>
     <li>Filtre <b>Tipo = NF-e</b> e procure as notas <span class="tag res">só resumo</span>.</li>
-    <li>Marque as caixas das notas que quer liberar (ou a caixa do cabeçalho para todas).</li>
+    <li>Marque as caixas das notas que quer liberar (ou a caixa do cabeçalho para todas). Notas marcadas que não são NF-e "só resumo" são ignoradas.</li>
     <li>Clique em <b>Dar ciência nas selecionadas</b> e confirme.</li>
     <li>O XML completo chega na próxima busca de NF-e (automática ou pelo botão).</li>
   </ol>
@@ -140,7 +144,7 @@
     <tr><td>E-mail ou senha incorretos</td><td>Confira o e-mail digitado. Se esqueceu a senha, use <b>Esqueci minha senha</b> e envie o pedido por e-mail à Nervia.</td></tr>
   </table>
 
-  <div class="rodape">Dúvidas: WhatsApp (21) 96686-9374 · atendimento@nervia.com.br<br>Nervia Tecnologia · Manual do app Notas Fiscais (Buscador de NF) · atualizado em 14/10/2026</div>
+  <div class="rodape">Dúvidas: WhatsApp (21) 96686-9374 · atendimento@nervia.com.br<br>Nervia Tecnologia · Manual do app Notas Fiscais (Buscador de NF) · atualizado em 14/10/2026 (espelho e seleção)</div>
 </div>
 </body>
 </html>

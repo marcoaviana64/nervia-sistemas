@@ -234,6 +234,7 @@ function desenharPainel() {
     ${CFG.NFE_HABILITADA ? `<button id="bNfe" onclick="buscar('nfe')" ${temCert ? "" : "disabled"}>Buscar NF-e agora</button>` : ""}
     <button id="bNfse" onclick="buscar('nfse')" ${temCert ? "" : "disabled"}>Buscar NFS-e agora</button>
     ${CFG.NFE_HABILITADA ? `<button class="sec" onclick="cienciaSel()" ${temCert ? "" : "disabled"}>Dar ciência nas selecionadas</button>` : ""}` : ""}
+    <button class="sec" onclick="imprimirSel()">Imprimir espelho</button>
     <button class="sec" onclick="exportar()">Exportar CSV</button>
     ${ehAdmin ? `<button class="sec" onclick="alternarAuto(${!e.busca_automatica})">${e.busca_automatica ? "Desligar" : "Ligar"} busca automática</button>
     <button class="sec" onclick="alternarAtivo(${!e.ativo})" style="margin-left:auto">${e.ativo ? "Desativar empresa" : "Reativar empresa"}</button>` : ""}
@@ -248,6 +249,7 @@ function desenharPainel() {
     <div><label>Buscar</label><input id="xQ" placeholder="Fornecedor, CNPJ, nº, chave" oninput="clearTimeout(window._t);window._t=setTimeout(carregarNotas,350)"></div>
   </div>
   <div class="kpis" id="kpis"></div>
+  <div class="small" id="nSel" style="min-height:16px;margin:-4px 0 4px"></div>
   <div class="tab" id="tab"></div>
   <details style="margin-top:12px" ontoggle="if(this.open)carregarLog()"><summary>Histórico de buscas</summary><div class="log" id="log"></div></details>`;
   Object.entries(salvos).forEach(([k, v]) => $(k).value = v);
@@ -325,11 +327,10 @@ async function carregarNotas() {
     <div class="kpi"><b>${fmtVal(tot)}</b><span>total (sem canceladas)</span></div>
     ${ehAdmin && CFG.NFE_HABILITADA ? `<div class="kpi"><b>${pend}</b><span>NF-e só com resumo — dê ciência p/ baixar o XML</span></div>` : ""}`;
   if (!lista.length) { $("tab").innerHTML = `<div class="vazio">Nenhuma nota com esses filtros.${ehAdmin ? " Use os botões de busca acima." : " A busca roda automaticamente de hora em hora."}</div>`; return; }
-  const ck = n => ehAdmin && n.tipo === "NFE" && !n.completo && !n.manifestada && n.situacao !== "Cancelada";
-  $("tab").innerHTML = `<table><thead><tr>${ehAdmin ? `<th><input type="checkbox" onchange="document.querySelectorAll('.ck').forEach(c=>c.checked=this.checked)"></th>` : ""}
-    <th>Tipo</th><th>Emissão</th><th>Nº</th><th>Emitente</th><th>Destinatário</th><th style="text-align:right">Valor</th><th>Situação</th><th>XML</th></tr></thead><tbody>
+  $("tab").innerHTML = `<table><thead><tr><th><input type="checkbox" id="ckTodas" title="Marcar todas" onchange="document.querySelectorAll('.ck').forEach(c=>c.checked=this.checked);contarSel()"></th>
+    <th>Tipo</th><th>Emissão</th><th>Nº</th><th>Emitente</th><th>Destinatário</th><th style="text-align:right">Valor</th><th>Situação</th><th>Arquivos</th></tr></thead><tbody>
     ${lista.map(n => `<tr>
-      ${ehAdmin ? `<td>${ck(n) ? `<input type="checkbox" class="ck" value="${n.id}">` : ""}</td>` : ""}
+      <td><input type="checkbox" class="ck" value="${n.id}" onchange="contarSel()"></td>
       <td><span class="tag">${n.tipo === "NFE" ? "NF-e" : "NFS-e"}</span></td>
       <td>${fmtData(n.data_emissao)}</td><td>${esc(n.numero)}</td>
       <td>${esc(n.emit_nome)}<div class="small">${fmtCnpj(n.emit_cnpj)}</div></td>
@@ -337,7 +338,7 @@ async function carregarNotas() {
       <td class="v">${fmtVal(n.valor)}</td>
       <td>${n.situacao === "Cancelada" ? '<span class="tag can">Cancelada</span>' : esc(n.situacao)}
         ${n.tipo === "NFE" && !n.completo ? (n.manifestada ? '<div><span class="tag ok">ciência dada</span></div>' : '<div><span class="tag res">só resumo</span></div>') : ""}</td>
-      <td>${n.xml_path ? `<button class="lnk" title="${esc(n.chave)}" onclick="baixarXml(${n.id})">baixar</button>` : ""}</td></tr>`).join("")}
+      <td style="white-space:nowrap">${n.xml_path ? `<button class="lnk" title="Baixar o XML · ${esc(n.chave)}" onclick="baixarXml(${n.id})">XML</button> · ` : ""}<button class="lnk" title="Espelho para impressão" onclick="abrirEspelho([${n.id}])">espelho</button></td></tr>`).join("")}
     </tbody></table>`;
 }
 
@@ -348,9 +349,24 @@ async function baixarXml(id) {
   location.href = data.signedUrl;
 }
 
+// ------------------------------------------------------------ seleção de linhas (vale para espelho, CSV e ciência)
+const selecionadas = () => [...document.querySelectorAll(".ck:checked")].map(c => +c.value);
+function contarSel() {
+  const n = selecionadas().length, t = document.querySelectorAll(".ck").length;
+  const todas = $("ckTodas"); if (todas) { todas.checked = n > 0 && n === t; todas.indeterminate = n > 0 && n < t; }
+  $("nSel").textContent = n ? `${n} selecionada(s)` : "";
+}
+function abrirEspelho(ids) { window.open("/apps/notas/espelho.html?ids=" + ids.join(","), "_blank", "noopener"); }
+function imprimirSel() {
+  const ids = selecionadas();
+  if (!ids.length) return msg($("msgP"), "info", "Marque na tabela as notas que quer imprimir (a caixa do cabeçalho marca todas).");
+  if (ids.length > 200) return msg($("msgP"), "info", "Imprima no máximo 200 notas por vez.");
+  abrirEspelho(ids);
+}
 async function cienciaSel() {
-  const ids = [...document.querySelectorAll(".ck:checked")].map(c => +c.value);
-  if (!ids.length) return msg($("msgP"), "info", "Marque as NF-e com “só resumo” que você quer liberar.");
+  const elegivel = new Set(notasCache.filter(n => n.tipo === "NFE" && !n.completo && !n.manifestada && n.situacao !== "Cancelada").map(n => n.id));
+  const ids = selecionadas().filter(id => elegivel.has(id));
+  if (!ids.length) return msg($("msgP"), "info", "Entre as notas marcadas não há NF-e com “só resumo”. A ciência só vale para essas notas.");
   if (!confirm(`Registrar “Ciência da Operação” na SEFAZ para ${ids.length} nota(s)?\n\nIsso é um evento fiscal oficial em nome da empresa. Ele não confirma nem recusa a operação, apenas libera o download do XML.`)) return;
   try {
     const r = await funcao("ciencia", { cnpj: atual, ids });
@@ -360,8 +376,10 @@ async function cienciaSel() {
 }
 
 function exportar() {
+  const sel = new Set(selecionadas());
+  const lista = sel.size ? notasCache.filter(n => sel.has(n.id)) : notasCache;
   const linhas = [["Tipo","Papel","Número","Data emissão","CNPJ emitente","Emitente","CNPJ destinatário","Destinatário","Valor","Situação","XML completo","Ciência","Chave"]];
-  for (const n of notasCache) linhas.push([n.tipo, n.papel, n.numero || "", fmtData(n.data_emissao), n.emit_cnpj, n.emit_nome, n.dest_cnpj || "", n.dest_nome || "",
+  for (const n of lista) linhas.push([n.tipo, n.papel, n.numero || "", fmtData(n.data_emissao), n.emit_cnpj, n.emit_nome, n.dest_cnpj || "", n.dest_nome || "",
     n.valor == null ? "" : Number(n.valor).toFixed(2).replace(".", ","), n.situacao, n.completo ? "Sim" : "Não", n.manifestada ? "Sim" : "Não", "'" + n.chave]);
   const csv = "﻿" + linhas.map(l => l.map(c => /[;"\n]/.test(String(c)) ? `"${String(c).replace(/"/g, '""')}"` : c).join(";")).join("\r\n");
   const a = document.createElement("a");

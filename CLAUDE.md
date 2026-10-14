@@ -28,7 +28,8 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
   - `index.html` — site público da Nervia (origem: `Projects/Nervia/nervia-site.html`, com logo extraído para `img/` e o link "Área do Cliente" no menu). Editar aqui daqui em diante.
   - `cliente/index.html` — Área do Cliente: login (com "Esqueci minha senha" = e-mail pronto do próprio usuário para atendimento@nervia.com.br, e contato WhatsApp/e-mail), grade de apps, visor (`#app/<id>`, iframe, com botões "Cartão rápido" e "Manual" que abrem a ajuda num painel ao lado), administração (`#admin`: logins, apps).
   - `ajuda/ajuda.css` — estilo comum de cartões e manuais. Cada app: `apps/<nome>/ajuda/cartao.html` e `manual.html`; endereços nas colunas `apps.cartao_url` / `apps.manual_url`.
-  - `apps/notas/index.html` — Buscador. Detecta o iframe (`EMBUTIDO`) e esconde o próprio topo. Logins são criados só na Área do Cliente; aqui só se marcam os CNPJs ("Quem vê cada empresa").
+  - `apps/notas/espelho.html?ids=1,2` — espelho para impressão montado do XML guardado (DANFE da NF-e com código de barras CODE-128C conferido contra python-barcode; DANFSe v1.0 da NFS-e nacional; NF-e só resumo = "espelho de resumo, sem valor fiscal"; cancelada = marca CANCELADA). Usa a sessão e o RLS do app (Storage `download`).
+  - `apps/notas/index.html` — Buscador. Caixa de seleção em todas as linhas (espelho, CSV das marcadas, ciência só nas NF-e "só resumo" marcadas). Detecta o iframe (`EMBUTIDO`) e esconde o próprio topo. Logins são criados só na Área do Cliente; aqui só se marcam os CNPJs ("Quem vê cada empresa").
   - `config.js` — URL + anon key, comum a tudo (`window.NERVIA_CONFIG`).
   - `_headers` — `X-Frame-Options: SAMEORIGIN`: só o próprio site pode embutir as páginas.
   - `404.html`, `img/`.
@@ -64,6 +65,8 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
 
 - 2026-10-14: ajuda dos apps (migração `..._apps_ajuda.sql`), cartão e manual do Buscador, contato WhatsApp/e-mail na entrada. "Esqueci minha senha": por decisão do Marco (não contratar serviço de e-mail agora), NÃO há envio automático; o botão abre um e-mail do próprio usuário para atendimento@nervia.com.br, e a Nervia define senha provisória em Administração → Logins → "Definir nova senha" (atender só pedidos vindos do e-mail do login). Envio automático por link fica para quando houver SMTP próprio (Supabase só envia para a equipe da org, 2/h).
 
+- 2026-10-14: espelho para impressão (DANFE/DANFSe) e seleção em todas as linhas; testado com XMLs reais de NFS-e (Unimed, Contabilizei). Cartão e manual atualizados.
+
 ## Ideias (comercialização)
 - Termo de autorização/custódia do certificado A1 com cada cliente (LGPD + responsabilidade pelo uso do certificado).
 - Cobrança por CNPJ/mês; página do cliente com a marca Nervia.
@@ -71,5 +74,4 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
 ## Ideias
 - Aviso por e-mail/WhatsApp de nota nova ou certificado perto de vencer.
 - Manifestação conclusiva (confirmação/desconhecimento).
-- DANFE em PDF.
 - NFS-e de prefeituras fora do padrão nacional.

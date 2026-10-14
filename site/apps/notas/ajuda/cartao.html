@@ -37,8 +37,9 @@
   <table>
     <tr><td>Buscar NF-e agora <span class="eq">EQUIPE NERVIA</span></td><td>Consulta a SEFAZ na hora (até 2 min). Depois de tudo baixado, só libera de novo em 1 hora.</td></tr>
     <tr><td>Buscar NFS-e agora <span class="eq">EQUIPE NERVIA</span></td><td>Consulta as notas de serviço na hora.</td></tr>
-    <tr><td>Dar ciência nas selecionadas <span class="eq">EQUIPE NERVIA</span></td><td>Evento fiscal oficial na SEFAZ que libera o XML completo das NF-e marcadas com <span class="tag res">só resumo</span>. Não confirma nem recusa a compra.</td></tr>
-    <tr><td>Exportar CSV</td><td>Baixa a lista que está na tela (com os filtros) para abrir no Excel.</td></tr>
+    <tr><td>Dar ciência nas selecionadas <span class="eq">EQUIPE NERVIA</span></td><td>Evento fiscal oficial na SEFAZ que libera o XML completo das NF-e marcadas que estão com <span class="tag res">só resumo</span> (as demais marcadas são ignoradas). Não confirma nem recusa a compra.</td></tr>
+    <tr><td>Imprimir espelho</td><td>Abre o espelho para impressão (DANFE / DANFSe) das notas marcadas, uma por página. Dá para salvar em PDF.</td></tr>
+    <tr><td>Exportar CSV</td><td>Baixa para o Excel as notas marcadas; sem marcação, baixa toda a lista da tela.</td></tr>
     <tr><td>Ligar / Desligar busca automática <span class="eq">EQUIPE NERVIA</span></td><td>Liga ou para a busca de hora em hora desta empresa.</td></tr>
     <tr><td>Desativar / Reativar empresa <span class="eq">EQUIPE NERVIA</span></td><td>Para de buscar a empresa. Notas e XMLs continuam guardados.</td></tr>
   </table>
@@ -57,12 +58,12 @@
     <tr><td>notas</td><td>Quantas notas atendem aos filtros.</td></tr>
     <tr><td>total (sem canceladas)</td><td>Soma dos valores, sem as notas canceladas.</td></tr>
     <tr><td>NF-e só com resumo <span class="eq">EQUIPE NERVIA</span></td><td>Quantas NF-e ainda precisam de ciência para baixar o XML.</td></tr>
-    <tr><td>Caixa de seleção <span class="eq">EQUIPE NERVIA</span></td><td>Marca NF-e para "Dar ciência". Só aparece nas que estão com <span class="tag res">só resumo</span>.</td></tr>
+    <tr><td>Caixa de seleção</td><td>Marca a linha para Imprimir espelho, Exportar CSV ou Dar ciência. A caixa do cabeçalho marca todas da tela.</td></tr>
     <tr><td>Tipo · Emissão · Nº</td><td>NF-e ou NFS-e, data de emissão e número da nota.</td></tr>
     <tr><td>Emitente · Destinatário</td><td>Quem emitiu e para quem, com o CNPJ embaixo.</td></tr>
     <tr><td>Valor</td><td>Valor total da nota.</td></tr>
     <tr><td>Situação</td><td>Autorizada, <span class="tag can">Cancelada</span> ou Denegada. Em NF-e: <span class="tag res">só resumo</span> = falta o XML completo · <span class="tag ok">ciência dada</span> = o XML chega na próxima busca.</td></tr>
-    <tr><td>XML · baixar</td><td>Baixa o arquivo XML da nota.</td></tr>
+    <tr><td>Arquivos · XML / espelho</td><td><b>XML</b> baixa o arquivo da nota; <b>espelho</b> abre o DANFE/DANFSe dela para imprimir.</td></tr>
     <tr><td>Histórico de buscas</td><td>As últimas 30 buscas desta empresa, com o resultado ou o erro.</td></tr>
   </table>
 
@@ -73,7 +74,7 @@
     <tr><td>Esqueci a senha</td><td>Na entrada, "Esqueci minha senha" → envie o e-mail do seu endereço de login para atendimento@nervia.com.br. Depois troque a senha provisória em "Trocar senha".</td></tr>
     <tr><td>Ajuda</td><td>WhatsApp (21) 96686-9374 · atendimento@nervia.com.br</td></tr>
   </table>
-  <div class="rodape">Nervia Tecnologia · Cartão de referência do app Notas Fiscais (Buscador de NF) · atualizado em 14/10/2026</div>
+  <div class="rodape">Nervia Tecnologia · Cartão de referência do app Notas Fiscais (Buscador de NF) · atualizado em 14/10/2026 (espelho e seleção)</div>
 </div>
 </body>
 </html>

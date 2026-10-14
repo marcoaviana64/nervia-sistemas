@@ -56,6 +56,43 @@ with sync_playwright() as p:
     pg.once("dialog", lambda d: d.accept())
     pg.click("text=Dar ciência nas selecionadas"); pg.wait_for_selector("#msgP.ok")
     assert "Ciência registrada em 1" in pg.inner_text("#msgP")
+    # seleção em todas as linhas + espelho para impressão
+    assert pg.locator(".ck").count() == 5, "toda linha tem caixa de seleção"
+    pg.check("#ckTodas"); assert pg.locator(".ck:checked").count() == 5 and "5 selecionada" in pg.inner_text("#nSel")
+    pg.uncheck("#ckTodas"); assert pg.locator(".ck:checked").count() == 0
+    pg.click("text=Imprimir espelho"); pg.wait_for_selector("#msgP.info")
+    assert "Marque" in pg.inner_text("#msgP")
+    # ciência só considera NF-e com resumo: marcar uma NFS-e avisa e não chama a função
+    linha_nfse = pg.locator("#tab tbody tr", has_text="LINK FIBRA")
+    linha_nfse.locator(".ck").check()
+    antes = len(pg.evaluate("window.__chamadas"))
+    pg.click("text=Dar ciência nas selecionadas"); pg.wait_for_selector("#msgP.info")
+    assert "não há NF-e" in pg.inner_text("#msgP")
+    assert not [c for c in pg.evaluate("window.__chamadas")[antes:] if c[0] == "fn:ciencia"]
+    pg.check("#ckTodas")
+    with pg.expect_popup() as pop:
+        pg.click("text=Imprimir espelho")
+    esp = pop.value
+    esp.route("**/supabase-js@*/**", lambda r: r.fulfill(body=FALSO, content_type="text/javascript"))
+    esp.route("**/config.js", lambda r: r.fulfill(body=CONFIG, content_type="text/javascript"))
+    esp.reload(); esp.wait_for_selector(".folha")
+    assert esp.locator(".folha").count() == 5
+    txt = esp.inner_text("#saida")
+    assert txt.count("DANFE") >= 2 and "DANFSe v1.0" in txt and "ESPELHO DE RESUMO" in txt and "CANCELADA" in txt, txt[:500]
+    assert "CABO DE REDE CAT6" in txt and "LINK DEDICADO 500 MEGA" in txt and "333260000123456" in txt
+    assert esp.locator("svg.cb rect").count() > 50, "código de barras da chave"
+    assert "só com resumo" in esp.inner_text("#info")
+    esp.screenshot(path=f"{SAIDA}/espelho_danfe.png", full_page=False)
+    esp.locator(".folha", has_text="DANFSe").first.screenshot(path=f"{SAIDA}/espelho_danfse.png")
+    esp.emulate_media(media="print"); esp.pdf(path=f"{SAIDA}/espelhos.pdf", format="A4")
+    esp.close()
+    # espelho de uma linha só
+    with pg.expect_popup() as pop:
+        linha_nfse.locator("text=espelho").click()
+    assert "ids=" in pop.value.url
+    pop.value.close()
+    pg.uncheck("#ckTodas")
+
     # empresa sem certificado: botões desligados, formulário de envio
     pg.click(".emp >> text=Linum"); pg.wait_for_selector("#cArq")
     assert pg.locator("#bNfe").is_disabled()
@@ -73,7 +110,8 @@ with sync_playwright() as p:
     pg, erros = abrir(b, "cliente")
     assert pg.locator(".emp").count() == 1, "cliente deve ver só a Linum"
     assert "Linum" in pg.inner_text(".emp")
-    assert pg.locator("#bNfe").count() == 0 and pg.locator(".ck").count() == 0
+    assert pg.locator("#bNfe").count() == 0 and pg.locator("text=Dar ciência").count() == 0
+    assert pg.locator(".ck").count() == 5, "cliente também seleciona linhas (espelho/CSV)"
     assert pg.locator("text=Gerenciar logins").is_hidden()
     assert pg.locator("#cArq").count() == 0, "cliente não vê envio de certificado"
     assert pg.locator("#tab tbody tr").count() == 5
