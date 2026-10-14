@@ -39,6 +39,7 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
 - `testes/` — Deno (lógica + mTLS real local + ponte contra `servidor_renegociacao.py`, que imita o IIS da SEFAZ; precisa de `pip install pyopenssl`), SQL (RLS num Postgres local com stubs), Playwright (tela com Supabase falso), conferência independente da assinatura.
 - A primeira versão (Flask, local) ficou em `Projects/BuscadorCNPJ/versao-local/`, só como referência.
 - `IMPLANTACAO.md` — passo a passo de deploy.
+- `divulgacao/apresentacao/` — apresentação comercial dos apps (HTML → PDF "Nervia - Aplicativos de notas fiscais.pdf", no OneDrive em Projects\Nervia). Telas com dados fictícios (`demo.js`); preço proposto R$ 40/mês por app (por CNPJ, a confirmar com o Marco). Ao mudar um app de forma visível, refazer as telas.
 
 ## Regras que não podem quebrar
 - **Sem termo, sem certificado**: a função `certificado` recusa (409) se `termo_status = 'pendente'`; a tela só mostra o envio com o termo assinado ou dispensado. "Dispensado" só para empresas da própria Nervia (32072678000176 já marcada na migração).
