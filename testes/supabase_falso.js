@@ -3,8 +3,10 @@
   const papelUrl = new URLSearchParams(location.search).get("papel");
   if (papelUrl) localStorage.setItem("papel_teste", papelUrl);
   const papel = papelUrl || localStorage.getItem("papel_teste") || "admin";
-  const EUS = { admin: ["u-admin", "marco@nervia.com.br"], cliente: ["u-cli", "financeiro@linum.com.br"], semapp: ["u-sem", "outro@x.com"] };
+  const EUS = { admin: ["u-admin", "marco@nervia.com.br"], cliente: ["u-cli", "financeiro@linum.com.br"], semapp: ["u-sem", "outro@x.com"],
+    recuperacao: ["u-cli", "financeiro@linum.com.br"], anon: ["", ""] };
   const eu = { id: EUS[papel][0], email: EUS[papel][1] };
+  let logado = papel !== "anon";
   const futuro = new Date(Date.now() + 300 * 864e5).toISOString();
   const db = {
     perfis: [
@@ -13,7 +15,8 @@
       { user_id: "u-sem", email: "outro@x.com", nome: "Outro Cliente", admin: false },
     ],
     apps: [
-      { id: "notas", nome: "Notas Fiscais", descricao: "NF-e e NFS-e emitidas contra os seus CNPJs.", url: "/apps/notas/", icone: "NF", ordem: 10, ativo: true },
+      { id: "notas", nome: "Notas Fiscais", descricao: "NF-e e NFS-e emitidas contra os seus CNPJs.", url: "/apps/notas/", icone: "NF", ordem: 10, ativo: true,
+        cartao_url: "/apps/notas/ajuda/cartao.html", manual_url: "/apps/notas/ajuda/manual.html" },
       { id: "chamados", nome: "Chamados", descricao: "Abertura e acompanhamento de chamados.", url: "/apps/chamados/", icone: "CH", ordem: 20, ativo: false },
     ],
     app_acessos: [{ user_id: "u-cli", app_id: "notas" }],
@@ -81,8 +84,10 @@
   window.supabase = { createClient: () => ({
     from: consulta,
     auth: {
-      getSession: async () => ({ data: { session: { user: eu } } }),
-      signInWithPassword: async () => ({ error: null }), signOut: async () => ({}), updateUser: async () => ({ error: null }),
+      getSession: async () => ({ data: { session: logado ? { user: eu } : null } }),
+      signInWithPassword: async () => ({ error: { message: "Invalid login credentials" } }), signOut: async () => ({}),
+      updateUser: async (v) => { window.__chamadas.push(["auth:updateUser", v]); return { error: null }; },
+      resetPasswordForEmail: async (email, op) => { window.__chamadas.push(["auth:reset", email, op]); return { error: null }; },
       onAuthStateChange: () => {},
     },
     functions: { invoke: async (nome, { body }) => {

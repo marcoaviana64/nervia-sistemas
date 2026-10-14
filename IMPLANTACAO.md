@@ -96,6 +96,14 @@ O servidor de NF-e da SEFAZ pede o certificado por **renegociação TLS**, que a
 5. No Buscador, clique em **Buscar NF-e agora**. Erros com `Ponte SEFAZ:` vêm da ponte (ex.: segredo diferente nos dois lados).
 - Custo: com instância mínima 0, o uso de uma chamada por hora por empresa fica dentro da cota gratuita do Cloud Run.
 
+## 8. E-mail de "Esqueci minha senha" (Supabase Auth)
+O e-mail padrão do Supabase só envia para quem é da equipe da organização no Supabase e no máximo 2 por hora. Para clientes, configure um SMTP próprio.
+1. *Authentication → URL Configuration*: **Site URL** = `https://nervia.com.br/cliente/`; em **Redirect URLs**, adicione `https://nervia.com.br/cliente/**` e `https://www.nervia.com.br/cliente/**`.
+2. Crie uma conta num serviço de envio (sugestão: Resend, grátis até 3.000 e-mails/mês) e verifique o domínio `nervia.com.br`. Ele pede registros DNS (DKIM e SPF de um subdomínio de envio), criados na Cloudflare. Não mexa no MX, no SPF da raiz nem no autodiscover: são do Microsoft 365.
+3. *Authentication → SMTP Settings* (ou *Emails → SMTP*): ligue o SMTP próprio com host, porta, usuário e senha (chave) do serviço; remetente `nao-responda@nervia.com.br`, nome `Nervia Tecnologia`.
+4. *Authentication → Email Templates → Reset Password*: assunto e texto em português (o link é `{{ .ConfirmationURL }}`).
+5. Teste: em nervia.com.br/cliente/, "Esqueci minha senha" com um e-mail de teste.
+
 ## Sem a integração (alternativa pela linha de comando)
 `supabase link --project-ref <REF>` → `supabase db push` → `supabase functions deploy <nome>` para cada função → `supabase secrets set ...`.
 

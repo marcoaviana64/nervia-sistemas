@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manual de utilização · Notas Fiscais | Nervia</title>
+<link rel="stylesheet" href="/ajuda/ajuda.css">
+</head>
+<body>
+<div class="pagina">
+  <div class="cab">
+    <img src="/img/nervia-logo.png" alt="Nervia">
+    <div><div class="t">Notas Fiscais · Manual de utilização</div><div class="s">Buscador de NF da Nervia</div></div>
+    <div class="acoes"><a href="cartao.html">Cartão rápido</a><button onclick="print()">Imprimir</button></div>
+  </div>
+
+  <h1>Como usar o app Notas Fiscais</h1>
+  <p class="lead">O app reúne num lugar só as notas fiscais emitidas contra os CNPJs da sua empresa: NF-e de produtos (SEFAZ) e NFS-e de serviços (padrão nacional). Ele busca sozinho de hora em hora; você consulta, filtra, baixa o XML e exporta para o Excel.</p>
+
+  <ul class="indice">
+    <li><a href="#entrar">1. Entrar no app</a></li>
+    <li><a href="#consultar">2. Consultar as notas</a></li>
+    <li><a href="#filtrar">3. Filtrar e procurar</a></li>
+    <li><a href="#xml">4. Baixar o XML</a></li>
+    <li><a href="#excel">5. Exportar para o Excel</a></li>
+    <li><a href="#entender">6. Entender a situação da nota</a></li>
+    <li><a href="#nervia">7. Tarefas da equipe Nervia</a></li>
+    <li><a href="#problemas">8. Mensagens e problemas comuns</a></li>
+  </ul>
+
+  <h2 id="entrar">1. Entrar no app</h2>
+  <ol>
+    <li>Acesse <b>nervia.com.br</b> e clique em <b>Área do Cliente</b>.</li>
+    <li>Digite o e-mail e a senha que a Nervia enviou e clique em <b>Entrar</b>.</li>
+    <li>Na tela "Seus aplicativos", clique em <b>Notas Fiscais</b>. O app abre dentro da página.</li>
+  </ol>
+  <div class="nota"><b>Esqueceu a senha?</b> Na tela de entrada, clique em <b>Esqueci minha senha</b>, informe o seu e-mail e siga o link que chega na sua caixa de entrada (vale por 1 hora). Para trocar a senha estando dentro, use <b>Trocar senha</b> no topo. Se não conseguir, use os botões <b>WhatsApp</b> ou <b>E-mail</b> da tela de entrada para falar com a Nervia.</div>
+  <p>Os botões <b>Cartão rápido</b> e <b>Manual</b>, no alto da tela do app, abrem esta ajuda ao lado, sem fechar o app.</p>
+
+  <h2 id="consultar">2. Consultar as notas</h2>
+  <ol>
+    <li>Na coluna da esquerda, clique na empresa. Se a sua empresa tiver mais de um CNPJ liberado, cada um aparece separado.</li>
+    <li>O cabeçalho mostra quando foi a última busca de NF-e e de NFS-e.</li>
+    <li>Os indicadores mostram quantas notas há e o <b>total</b> em reais (sem as canceladas).</li>
+    <li>A tabela lista as notas da mais nova para a mais antiga.</li>
+  </ol>
+  <p>Por padrão aparecem só as notas <b>Recebidas</b>, ou seja, emitidas por fornecedores contra a sua empresa.</p>
+
+  <h2 id="filtrar">3. Filtrar e procurar</h2>
+  <p>Os filtros funcionam juntos e a tabela atualiza na hora:</p>
+  <ul>
+    <li><b>Tipo:</b> só produtos (NF-e), só serviços (NFS-e) ou todos.</li>
+    <li><b>Papel:</b> Recebidas, Emitidas (pela sua empresa) ou Todas.</li>
+    <li><b>Situação:</b> Autorizada, Cancelada ou Denegada.</li>
+    <li><b>De / Até:</b> período pela data de emissão. Ex.: o mês passado inteiro.</li>
+    <li><b>Buscar:</b> digite parte do nome do fornecedor, o CNPJ, o número da nota ou a chave de acesso.</li>
+  </ul>
+  <p>Exemplo: para conferir as compras de um fornecedor no mês, escolha <b>Tipo = NF-e</b>, preencha <b>De/Até</b> e digite o nome dele em <b>Buscar</b>. O indicador <b>total</b> mostra a soma.</p>
+
+  <h2 id="xml">4. Baixar o XML</h2>
+  <ol>
+    <li>Na linha da nota, clique em <b>baixar</b> (coluna XML).</li>
+    <li>O arquivo é salvo na pasta de downloads do seu computador.</li>
+  </ol>
+  <p>NF-e marcadas <span class="tag res">só resumo</span> ainda não têm o XML completo. A Nervia libera esse XML pela "ciência da operação" (ver item 7).</p>
+
+  <h2 id="excel">5. Exportar para o Excel</h2>
+  <ol>
+    <li>Ajuste os filtros para mostrar só o que você quer.</li>
+    <li>Clique em <b>Exportar CSV</b>. O arquivo <code>notas-CNPJ.csv</code> é baixado.</li>
+    <li>Abra no Excel. As colunas são separadas por ponto e vírgula e os valores usam vírgula, no padrão brasileiro.</li>
+  </ol>
+
+  <h2 id="entender">6. Entender a situação da nota</h2>
+  <table>
+    <tr><th>Na tela</th><th>Significado</th></tr>
+    <tr><td>Autorizada</td><td>Nota válida.</td></tr>
+    <tr><td><span class="tag can">Cancelada</span></td><td>O emitente cancelou a nota. Ela fica na lista, mas não entra no total.</td></tr>
+    <tr><td>Denegada</td><td>A SEFAZ recusou a nota por irregularidade.</td></tr>
+    <tr><td><span class="tag res">só resumo</span></td><td>NF-e com dados básicos (emitente, valor, data), ainda sem o XML completo.</td></tr>
+    <tr><td><span class="tag ok">ciência dada</span></td><td>A Nervia registrou a ciência. O XML completo chega na próxima busca.</td></tr>
+  </table>
+  <div class="nota">A SEFAZ só entrega NF-e dos últimos <b>~90 dias</b>. Notas anteriores à liberação do app podem não aparecer. As NFS-e não têm esse limite.</div>
+
+  <h2 id="nervia">7. Tarefas da equipe Nervia <span class="eq">EQUIPE NERVIA</span></h2>
+
+  <h3>Colocar um cliente novo no app</h3>
+  <ol>
+    <li>No Buscador, abra <b>+ Adicionar empresa</b>, preencha <b>Nome</b>, <b>CNPJ</b> e <b>UF</b> e clique em <b>Salvar</b>.</li>
+    <li>No quadro do certificado, escolha o <b>arquivo .pfx</b> do A1 da empresa, digite a <b>senha do certificado</b> e clique em <b>Enviar</b>. O sistema confere se o certificado é daquele CNPJ e mostra a validade.</li>
+    <li>Clique em <b>Buscar NFS-e agora</b> e em <b>Buscar NF-e agora</b> para a primeira carga.</li>
+    <li>Na <b>Área do Cliente → Administração → Logins</b>, crie o login do cliente (nome, e-mail, senha inicial) e marque o app <b>Notas Fiscais</b>.</li>
+    <li>De volta ao Buscador, em <b>Quem vê cada empresa</b>, marque a empresa no login do cliente.</li>
+    <li>Envie ao cliente o endereço <b>nervia.com.br/cliente/</b>, o e-mail e a senha inicial. Ele pode trocar a senha depois.</li>
+  </ol>
+  <div class="aviso">Guarde com o cliente a autorização de uso do certificado A1. O arquivo .pfx e a senha não ficam guardados: só o certificado, criptografado no cofre.</div>
+
+  <h3>Dar ciência da operação</h3>
+  <ol>
+    <li>Filtre <b>Tipo = NF-e</b> e procure as notas <span class="tag res">só resumo</span>.</li>
+    <li>Marque as caixas das notas que quer liberar (ou a caixa do cabeçalho para todas).</li>
+    <li>Clique em <b>Dar ciência nas selecionadas</b> e confirme.</li>
+    <li>O XML completo chega na próxima busca de NF-e (automática ou pelo botão).</li>
+  </ol>
+  <div class="aviso">Ciência é um <b>evento fiscal oficial</b> enviado à SEFAZ em nome da empresa. Ela só registra que a empresa tomou conhecimento da nota; não confirma nem recusa a compra. Nunca é automática: só acontece com o clique.</div>
+
+  <h3>Certificado vencendo ou vencido</h3>
+  <ol>
+    <li>A bolinha da empresa fica <span class="dot" style="background:#b3261e"></span>vermelha e a busca automática para.</li>
+    <li>Peça o certificado novo ao cliente e use <b>Trocar certificado</b> (arquivo .pfx + senha → Enviar).</li>
+  </ol>
+
+  <h3>Pausar ou encerrar uma empresa</h3>
+  <ul>
+    <li><b>Desligar busca automática:</b> a empresa continua na lista, mas só busca pelo botão.</li>
+    <li><b>Desativar empresa:</b> para de buscar. Notas e XMLs continuam guardados; dá para reativar.</li>
+    <li>Para tirar o acesso de um cliente, desmarque a empresa em <b>Quem vê cada empresa</b> ou o app no login dele (Administração).</li>
+  </ul>
+
+  <h2 id="problemas">8. Mensagens e problemas comuns</h2>
+  <table>
+    <tr><th>Mensagem</th><th>O que fazer</th></tr>
+    <tr><td>Nenhuma empresa liberada para o seu login</td><td>Peça à Nervia para liberar o CNPJ no seu login.</td></tr>
+    <tr><td>Nenhuma nota com esses filtros</td><td>Limpe os filtros (Tipo = Todos, Papel = Todas, sem datas) e confira de novo.</td></tr>
+    <tr><td>Tudo baixado. A SEFAZ libera a próxima consulta em 1h</td><td>Normal. A SEFAZ exige 1 hora de intervalo; a busca automática continua sozinha.</td></tr>
+    <tr><td>A SEFAZ só permite nova consulta em N min</td><td>Aguarde o tempo indicado.</td></tr>
+    <tr><td>Já existe uma busca em andamento</td><td>Outra busca desta empresa está rodando. Aguarde 2 minutos.</td></tr>
+    <tr><td>Certificado A1 não cadastrado</td><td>Envie o certificado da empresa <span class="eq">EQUIPE NERVIA</span>.</td></tr>
+    <tr><td>Senha incorreta ou arquivo .pfx inválido</td><td>Confira a senha com o cliente e se o arquivo é o .pfx (não o .cer).</td></tr>
+    <tr><td>Este certificado é do CNPJ … que não é da mesma empresa</td><td>O .pfx é de outra empresa. Peça o certificado certo ao cliente (matriz ou filial do mesmo CNPJ servem).</td></tr>
+    <tr><td>Falha de TLS / certificado</td><td>Certificado vencido ou revogado. Peça um novo ao cliente.</td></tr>
+    <tr><td>Ponte SEFAZ fora do ar</td><td>Problema na ponte de NF-e (Google Cloud). A NFS-e continua funcionando. Avise a Nervia.</td></tr>
+    <tr><td>E-mail ou senha incorretos</td><td>Use <b>Esqueci minha senha</b> na tela de entrada.</td></tr>
+  </table>
+
+  <div class="rodape">Dúvidas: WhatsApp (21) 96686-9374 · atendimento@nervia.com.br<br>Nervia Tecnologia · Manual do app Notas Fiscais (Buscador de NF) · atualizado em 14/10/2026</div>
+</div>
+</body>
+</html>

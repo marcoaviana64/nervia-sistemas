@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cartão de referência · Notas Fiscais | Nervia</title>
+<link rel="stylesheet" href="/ajuda/ajuda.css">
+</head>
+<body>
+<div class="pagina">
+  <div class="cab">
+    <img src="/img/nervia-logo.png" alt="Nervia">
+    <div><div class="t">Notas Fiscais · Cartão de referência</div><div class="s">Cada campo e botão em uma linha</div></div>
+    <div class="acoes"><a href="manual.html">Manual completo</a><button onclick="print()">Imprimir</button></div>
+  </div>
+
+  <p class="lead">Busca as notas fiscais emitidas contra os CNPJs da sua empresa: <b>NF-e</b> (produtos, da SEFAZ) e <b>NFS-e</b> (serviços, do padrão nacional). A busca roda sozinha de hora em hora. Itens marcados <span class="eq">EQUIPE NERVIA</span> só aparecem para a Nervia.</p>
+
+  <h2>Empresas (coluna da esquerda)</h2>
+  <table>
+    <tr><td>Lista de empresas</td><td>Clique numa empresa para ver as notas dela. Você só vê as empresas liberadas para o seu login.</td></tr>
+    <tr><td>Bolinha ao lado do nome</td><td><span class="dot" style="background:#1d7f46"></span>certificado em dia · <span class="dot" style="background:#b3261e"></span>certificado vencido · <span class="dot" style="background:#c4cfcd"></span>sem certificado</td></tr>
+    <tr><td>+ Adicionar empresa <span class="eq">EQUIPE NERVIA</span></td><td><b>Nome</b> (como aparece na lista), <b>CNPJ</b> (com ou sem pontos) e <b>UF</b> da empresa. Depois de salvar, envie o certificado.</td></tr>
+    <tr><td>Quem vê cada empresa <span class="eq">EQUIPE NERVIA</span></td><td>Marca quais empresas cada login de cliente pode ver.</td></tr>
+  </table>
+
+  <h2>Cabeçalho da empresa</h2>
+  <table>
+    <tr><td>Nome · CNPJ · UF</td><td>Empresa selecionada.</td></tr>
+    <tr><td>Busca automática</td><td><b>ligada</b> = o sistema busca sozinho de hora em hora. <span class="eq">EQUIPE NERVIA</span></td></tr>
+    <tr><td>Última busca NF-e / NFS-e</td><td>Data e hora da última consulta. "Próxima liberada às…" = a SEFAZ pede 1 hora de espera.</td></tr>
+    <tr><td>Certificado <span class="eq">EQUIPE NERVIA</span></td><td>Titular e validade do certificado A1. Vencido aparece em vermelho.</td></tr>
+    <tr><td>Trocar certificado / Enviar certificado <span class="eq">EQUIPE NERVIA</span></td><td><b>Arquivo .pfx</b> do certificado A1 + <b>Senha do certificado</b> → <b>Enviar</b>. A senha não fica guardada.</td></tr>
+  </table>
+
+  <h2>Botões</h2>
+  <table>
+    <tr><td>Buscar NF-e agora <span class="eq">EQUIPE NERVIA</span></td><td>Consulta a SEFAZ na hora (até 2 min). Depois de tudo baixado, só libera de novo em 1 hora.</td></tr>
+    <tr><td>Buscar NFS-e agora <span class="eq">EQUIPE NERVIA</span></td><td>Consulta as notas de serviço na hora.</td></tr>
+    <tr><td>Dar ciência nas selecionadas <span class="eq">EQUIPE NERVIA</span></td><td>Evento fiscal oficial na SEFAZ que libera o XML completo das NF-e marcadas com <span class="tag res">só resumo</span>. Não confirma nem recusa a compra.</td></tr>
+    <tr><td>Exportar CSV</td><td>Baixa a lista que está na tela (com os filtros) para abrir no Excel.</td></tr>
+    <tr><td>Ligar / Desligar busca automática <span class="eq">EQUIPE NERVIA</span></td><td>Liga ou para a busca de hora em hora desta empresa.</td></tr>
+    <tr><td>Desativar / Reativar empresa <span class="eq">EQUIPE NERVIA</span></td><td>Para de buscar a empresa. Notas e XMLs continuam guardados.</td></tr>
+  </table>
+
+  <h2>Filtros</h2>
+  <table>
+    <tr><td>Tipo</td><td>Todos · NF-e (produtos) · NFS-e (serviços).</td></tr>
+    <tr><td>Papel</td><td><b>Recebidas</b> (padrão: notas contra a empresa) · Todas · Emitidas (pela própria empresa).</td></tr>
+    <tr><td>Situação</td><td>Todas · Autorizada · Cancelada · Denegada.</td></tr>
+    <tr><td>De / Até</td><td>Período pela data de emissão.</td></tr>
+    <tr><td>Buscar</td><td>Parte do nome do fornecedor, CNPJ, número da nota ou chave de acesso.</td></tr>
+  </table>
+
+  <h2>Indicadores e tabela</h2>
+  <table>
+    <tr><td>notas</td><td>Quantas notas atendem aos filtros.</td></tr>
+    <tr><td>total (sem canceladas)</td><td>Soma dos valores, sem as notas canceladas.</td></tr>
+    <tr><td>NF-e só com resumo <span class="eq">EQUIPE NERVIA</span></td><td>Quantas NF-e ainda precisam de ciência para baixar o XML.</td></tr>
+    <tr><td>Caixa de seleção <span class="eq">EQUIPE NERVIA</span></td><td>Marca NF-e para "Dar ciência". Só aparece nas que estão com <span class="tag res">só resumo</span>.</td></tr>
+    <tr><td>Tipo · Emissão · Nº</td><td>NF-e ou NFS-e, data de emissão e número da nota.</td></tr>
+    <tr><td>Emitente · Destinatário</td><td>Quem emitiu e para quem, com o CNPJ embaixo.</td></tr>
+    <tr><td>Valor</td><td>Valor total da nota.</td></tr>
+    <tr><td>Situação</td><td>Autorizada, <span class="tag can">Cancelada</span> ou Denegada. Em NF-e: <span class="tag res">só resumo</span> = falta o XML completo · <span class="tag ok">ciência dada</span> = o XML chega na próxima busca.</td></tr>
+    <tr><td>XML · baixar</td><td>Baixa o arquivo XML da nota.</td></tr>
+    <tr><td>Histórico de buscas</td><td>As últimas 30 buscas desta empresa, com o resultado ou o erro.</td></tr>
+  </table>
+
+  <h2>Bom saber</h2>
+  <table>
+    <tr><td>NF-e antigas</td><td>A SEFAZ só entrega NF-e dos últimos ~90 dias. Notas mais antigas não aparecem.</td></tr>
+    <tr><td>Atualização</td><td>Automática de hora em hora. Não precisa fazer nada.</td></tr>
+    <tr><td>Ajuda</td><td>WhatsApp (21) 96686-9374 · atendimento@nervia.com.br</td></tr>
+  </table>
+  <div class="rodape">Nervia Tecnologia · Cartão de referência do app Notas Fiscais (Buscador de NF) · atualizado em 14/10/2026</div>
+</div>
+</body>
+</html>

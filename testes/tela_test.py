@@ -133,6 +133,58 @@ with sync_playwright() as p:
     assert "Nenhum aplicativo" in pg2.inner_text(".vazio")
     assert not erros and not erros2, (erros, erros2)
 
+    # ---------------- ajuda do app: cartão rápido e manual no painel ao lado
+    pg, erros = nova(b)
+    pg.goto("http://127.0.0.1:8811/cliente/?papel=cliente#app/notas"); pg.wait_for_selector("#vVisor:not(.oculto)")
+    pg.click("#bCartao"); pg.wait_for_selector("#painelAjuda:not(.oculto)")
+    pg.frame_locator("#frameAjuda").locator("text=Cartão de referência").first.wait_for()
+    assert "Cartão rápido" in pg.inner_text("#tituloAjuda")
+    pg.frame_locator("#frame").locator("#tab table").wait_for()  # o app continua aberto ao lado
+    pg.screenshot(path=f"{SAIDA}/portal_ajuda.png")
+    pg.click("#bManual"); pg.frame_locator("#frameAjuda").locator("text=Tarefas da equipe Nervia").first.wait_for()
+    pg.click("text=Fechar ✕"); assert pg.locator("#painelAjuda").is_hidden()
+    for pag in ["cartao", "manual"]:
+        pg.goto(f"http://127.0.0.1:8811/apps/notas/ajuda/{pag}.html")
+        assert pg.locator("img").first.evaluate("i => i.naturalWidth") > 0
+        assert pg.evaluate("getComputedStyle(document.body).fontSize") == "14px", "ajuda.css carregou"
+    pg.set_viewport_size({"width": 390, "height": 844})
+    for pag in ["cartao", "manual"]:
+        pg.goto(f"http://127.0.0.1:8811/apps/notas/ajuda/{pag}.html")
+        assert pg.evaluate("document.documentElement.scrollWidth") <= 390, f"{pag}: rolagem horizontal no celular"
+    pg.screenshot(path=f"{SAIDA}/ajuda_celular.png", full_page=True)
+    assert not erros, erros
+
+    # ---------------- esqueci minha senha + contato
+    pg, erros = nova(b)
+    pg.goto("http://127.0.0.1:8811/cliente/?papel=anon"); pg.wait_for_selector("#vLogin:not(.oculto)")
+    pg.fill("#lEmail", "financeiro@linum.com.br")
+    assert "financeiro%40linum.com.br" in pg.get_attribute("#cWhats", "href") and pg.get_attribute("#cWhats", "href").startswith("https://wa.me/5521966869374")
+    assert pg.get_attribute("#cEmail", "href").startswith("mailto:atendimento@nervia.com.br")
+    pg.fill("#lSenha", "errada"); pg.click("#pEntrar button:has-text('Entrar')"); pg.wait_for_selector("#msgLogin.err")
+    pg.click("text=Esqueci minha senha"); pg.wait_for_selector("#pEsqueci:not(.oculto)")
+    assert pg.input_value("#rEmail") == "financeiro@linum.com.br", "aproveita o e-mail digitado"
+    pg.click("#bLink"); pg.wait_for_selector("#msgLogin.ok")
+    reset = [c for c in pg.evaluate("window.__chamadas") if c[0] == "auth:reset"]
+    assert reset and reset[0][2]["redirectTo"] == "http://127.0.0.1:8811/cliente/", reset
+    pg.screenshot(path=f"{SAIDA}/portal_esqueci.png")
+    pg.click("text=← Voltar para entrar"); pg.wait_for_selector("#pEntrar:not(.oculto)")
+    pg.goto("http://127.0.0.1:8811/cliente/?papel=anon#esqueci"); pg.wait_for_selector("#pEsqueci:not(.oculto)")
+    pg.goto("about:blank"); pg.goto("http://127.0.0.1:8811/cliente/?papel=anon#error=access_denied&error_code=otp_expired"); pg.wait_for_selector("#pEsqueci:not(.oculto)")
+    assert "expirou" in pg.inner_text("#msgLogin")
+    # chegou pelo link do e-mail: cria a senha nova e entra
+    pg.goto("http://127.0.0.1:8811/cliente/?papel=recuperacao#access_token=x&type=recovery"); pg.wait_for_selector("#pNova:not(.oculto)")
+    pg.fill("#nsSenha", "novasenha1"); pg.fill("#nsConf", "outra1234"); pg.click("text=Salvar e entrar"); pg.wait_for_selector("#msgLogin.err")
+    pg.fill("#nsConf", "novasenha1"); pg.click("text=Salvar e entrar"); pg.wait_for_selector(".app")
+    assert ["auth:updateUser", {"password": "novasenha1"}] in pg.evaluate("window.__chamadas")
+    assert "access_token" not in pg.url
+    # login do app aberto fora do portal aponta para o esqueci
+    pg.goto("http://127.0.0.1:8811/apps/notas/?papel=anon"); pg.wait_for_selector("#telaLogin:not(.oculto)")
+    assert pg.get_attribute("text=Esqueci minha senha", "href") == "/cliente/#esqueci"
+    pg.set_viewport_size({"width": 390, "height": 844}); pg.goto("http://127.0.0.1:8811/cliente/?papel=anon"); pg.wait_for_selector("#vLogin:not(.oculto)")
+    assert pg.evaluate("document.documentElement.scrollWidth") <= 390
+    pg.screenshot(path=f"{SAIDA}/portal_login_celular.png")
+    assert not erros, erros
+
     # ---------------- site público: link da Área do Cliente
     pg, erros = nova(b)
     pg.goto("http://127.0.0.1:8811/"); pg.wait_for_selector("text=Área do Cliente")

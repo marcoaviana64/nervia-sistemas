@@ -1,0 +1,34 @@
+/* Estilo comum dos cartões de referência e manuais dos apps da Plataforma Nervia.
+   Cada app tem site/apps/<nome>/ajuda/cartao.html e manual.html usando este arquivo. */
+:root{--bg:#fff;--txt:#0F1B2D;--sub:#5B6B80;--linha:#E1E6EE;--acento:#107E99;--chip:#E3F3F7;--aviso:#fff3e0;--aviso-txt:#8a5200}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.5 'Inter',system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.pagina{max-width:860px;margin:auto;padding:20px 18px 40px}
+.cab{display:flex;align-items:center;gap:12px;border-bottom:2px solid var(--acento);padding-bottom:10px;margin-bottom:14px}
+.cab img{height:26px}
+.cab .t{font-weight:700;font-size:1.05rem}
+.cab .s{color:var(--sub);font-size:.82rem}
+.cab .acoes{margin-left:auto;display:flex;gap:10px}
+.cab .acoes a,.cab .acoes button{font:inherit;font-size:.82rem;color:var(--acento);background:none;border:0;padding:0;cursor:pointer;font-weight:600;text-decoration:none}
+h1{font-size:1.3rem;margin:0 0 4px}
+h2{font-size:.95rem;margin:22px 0 8px;color:var(--acento);text-transform:uppercase;letter-spacing:.06em}
+h3{font-size:1rem;margin:18px 0 6px}
+p{margin:6px 0}
+.lead{color:var(--sub);margin-bottom:10px}
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+th,td{text-align:left;vertical-align:top;padding:6px 8px;border-bottom:1px solid var(--linha)}
+th{color:var(--sub);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+td:first-child{font-weight:600;width:34%}
+.eq{display:inline-block;margin-left:6px;padding:0 6px;border-radius:8px;background:var(--chip);color:var(--acento);font-size:.7rem;font-weight:700;vertical-align:1px;white-space:nowrap}
+.tag{display:inline-block;padding:0 7px;border-radius:9px;font-size:.75rem;font-weight:600;background:#eef4f3}
+.tag.res{background:var(--aviso);color:var(--aviso-txt)}.tag.ok{background:#e6f4ec;color:#1d7f46}.tag.can{background:#fbeaea;color:#b3261e}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px;vertical-align:0}
+ol,ul{margin:6px 0;padding-left:22px}li{margin:3px 0}
+.nota{background:var(--chip);border-radius:8px;padding:10px 12px;margin:10px 0;font-size:.9rem}
+.aviso{background:var(--aviso);color:var(--aviso-txt);border-radius:8px;padding:10px 12px;margin:10px 0;font-size:.9rem}
+.indice{columns:2;column-gap:24px;font-size:.9rem;margin:8px 0 4px;padding-left:18px}
+@media(max-width:560px){.indice{columns:1}td:first-child{width:42%}}
+.rodape{margin-top:28px;padding-top:10px;border-top:1px solid var(--linha);color:var(--sub);font-size:.8rem}
+code,kbd{font-family:ui-monospace,Consolas,monospace;font-size:.85em;background:#f3f5f8;padding:0 4px;border-radius:4px}
+@media print{.cab .acoes{display:none}.pagina{padding:0;max-width:none}body{font-size:11.5px}h2{margin-top:12px}a{color:inherit;text-decoration:none}}

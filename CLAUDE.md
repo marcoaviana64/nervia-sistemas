@@ -26,7 +26,8 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
 - `supabase/agendar_busca.sql` — pg_cron horário (rodar uma vez, manualmente).
 - `site/` (publicado inteiro na Cloudflare)
   - `index.html` — site público da Nervia (origem: `Projects/Nervia/nervia-site.html`, com logo extraído para `img/` e o link "Área do Cliente" no menu). Editar aqui daqui em diante.
-  - `cliente/index.html` — Área do Cliente: login, grade de apps, visor (`#app/<id>`, iframe), administração (`#admin`: logins, apps).
+  - `cliente/index.html` — Área do Cliente: login (com "Esqueci minha senha" por e-mail e contato WhatsApp/e-mail), grade de apps, visor (`#app/<id>`, iframe, com botões "Cartão rápido" e "Manual" que abrem a ajuda num painel ao lado), administração (`#admin`: logins, apps).
+  - `ajuda/ajuda.css` — estilo comum de cartões e manuais. Cada app: `apps/<nome>/ajuda/cartao.html` e `manual.html`; endereços nas colunas `apps.cartao_url` / `apps.manual_url`.
   - `apps/notas/index.html` — Buscador. Detecta o iframe (`EMBUTIDO`) e esconde o próprio topo. Logins são criados só na Área do Cliente; aqui só se marcam os CNPJs ("Quem vê cada empresa").
   - `config.js` — URL + anon key, comum a tudo (`window.NERVIA_CONFIG`).
   - `_headers` — `X-Frame-Options: SAMEORIGIN`: só o próprio site pode embutir as páginas.
@@ -37,6 +38,7 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
 - `IMPLANTACAO.md` — passo a passo de deploy.
 
 ## Regras que não podem quebrar
+- **Todo app publicado tem cartão de referência + manual de utilização** (decisão do Marco, 2026-10-14). Cartão: cada campo/botão em uma linha, rápido, imprimível. Manual: passo a passo das tarefas, mensagens de erro e o que fazer. Ficam em `site/apps/<nome>/ajuda/`, usam `/ajuda/ajuda.css`, e são cadastrados em Administração → Aplicativos. Ao mudar um campo do app, atualizar os dois.
 - Apps internos ficam no mesmo domínio (`/apps/...`): mesma sessão do Supabase, um login só, iframe sem bloqueio. App em outro domínio pode pedir login próprio.
 - Tabelas de cada app com prefixo próprio; `perfis`, `apps` e `app_acessos` são comuns.
 - SEFAZ: continuar sempre do ultNSU; após cStat 137 (ou ultNSU == maxNSU) ou 656, esperar 1h (`bloqueio_nfe`). Parar por tempo NÃO bloqueia.
@@ -59,6 +61,8 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
   - ATENÇÃO: a conta do Google Cloud estava em teste gratuito (fim ~15/10/2026). Sem upgrade para conta paga, a ponte para e a NF-e volta a falhar ("Ponte SEFAZ fora do ar").
 - 2026-10-14: DOMÍNIO LIGADO. DNS do nervia.com.br migrado para a Cloudflare pelo Marco (NS cloudflare; registros do M365 conferidos: MX, SPF, MS=/mscid, autodiscover, SRV/lync do Teams). https://nervia.com.br e https://www.nervia.com.br servem o worker `nervia-site`; Área do Cliente OK.
 - `SITE_ORIGEM` aceita lista separada por vírgula (função `origemPermitida`, v5-origens). Valor previsto: `https://nervia.com.br,https://www.nervia.com.br`.
+
+- 2026-10-14: "Esqueci minha senha" (resetPasswordForEmail → /cliente/ com #type=recovery, fluxo implicit), contato WhatsApp/e-mail na entrada, ajuda dos apps (migração `..._apps_ajuda.sql`), cartão e manual do Buscador. Tela e SQL OK. FALTA no Supabase: Auth → URL Configuration (Site URL `https://nervia.com.br/cliente/` + Redirect URLs `https://nervia.com.br/cliente/**` e `https://www.nervia.com.br/cliente/**`) e SMTP próprio (o e-mail padrão do Supabase só envia para a equipe da org, 2/hora) — sugestão: Resend com domínio nervia.com.br; modelo de e-mail em português.
 
 ## Ideias (comercialização)
 - Termo de autorização/custódia do certificado A1 com cada cliente (LGPD + responsabilidade pelo uso do certificado).

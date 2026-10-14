@@ -51,6 +51,12 @@ header{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdro
 .login h1{font-size:1.35rem;margin:0}
 .login p{color:var(--muted);margin:4px 0 8px;font-size:.92rem}
 .login .voltar{display:block;text-align:center;margin-top:16px;color:var(--muted);font-size:.85rem;text-decoration:none}
+.login .esq{display:block;margin:10px 0 0 auto;font-size:.85rem}
+.contato{margin-top:18px;padding-top:14px;border-top:1px solid var(--border)}
+.contato .small{margin:0 0 8px}
+.contato .botoes{display:flex;gap:8px;flex-wrap:wrap}
+.contato a{flex:1;min-width:130px;text-align:center;text-decoration:none;font-weight:600;font-size:.86rem;padding:9px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface)}
+.contato a:hover{border-color:var(--accent);color:var(--accent)}
 
 /* apps */
 .pagina{max-width:1240px;margin:auto;padding:32px 20px 48px}
@@ -69,7 +75,16 @@ header{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdro
 .barra{display:flex;align-items:center;gap:12px;padding:8px 20px;background:var(--surface);border-bottom:1px solid var(--border);font-size:.9rem}
 .barra b{font-weight:700}
 .barra .dir{margin-left:auto;display:flex;gap:12px;align-items:center}
+.visor .corpo{flex:1;display:flex;min-height:0;position:relative}
 .visor iframe{flex:1;width:100%;border:0;background:var(--bg)}
+.barra .lnk{font-size:.88rem}
+.ajuda{flex:none;width:min(460px,100%);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--surface)}
+.ajuda .cab{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);font-size:.9rem}
+.ajuda .cab a{margin-left:auto}
+.ajuda iframe{background:var(--surface)}
+@media(max-width:900px){.ajuda{position:absolute;inset:0 0 0 auto;box-shadow:-8px 0 24px rgba(0,0,0,.12)}}
+.rodape-apps{margin-top:28px;color:var(--muted);font-size:.88rem}
+.rodape-apps a{color:var(--accent);font-weight:600}
 
 /* admin */
 .abas{display:flex;gap:6px;margin-bottom:18px}
@@ -94,15 +109,40 @@ header{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdro
 <section id="vLogin" class="login oculto">
   <div class="card">
     <a href="/"><img src="/img/nervia-logo.png" alt="Nervia Tecnologia"></a>
-    <h1>Área do Cliente</h1>
-    <p>Entre para acessar os aplicativos da sua empresa.</p>
-    <form onsubmit="entrar(event)">
-      <label for="lEmail">E-mail</label><input id="lEmail" type="email" autocomplete="username" required>
-      <label for="lSenha">Senha</label><input id="lSenha" type="password" autocomplete="current-password" required>
-      <button style="width:100%;margin-top:18px;padding:12px">Entrar</button>
-    </form>
+    <h1 id="tLogin">Área do Cliente</h1>
+    <!-- entrar -->
+    <div id="pEntrar">
+      <p>Entre para acessar os aplicativos da sua empresa.</p>
+      <form onsubmit="entrar(event)">
+        <label for="lEmail">E-mail</label><input id="lEmail" type="email" autocomplete="username" required>
+        <label for="lSenha">Senha</label><input id="lSenha" type="password" autocomplete="current-password" required>
+        <button type="button" class="lnk esq" onclick="modoLogin('esqueci')">Esqueci minha senha</button>
+        <button style="width:100%;margin-top:14px;padding:12px">Entrar</button>
+      </form>
+    </div>
+    <!-- esqueci minha senha -->
+    <div id="pEsqueci" class="oculto">
+      <p>Informe o e-mail do seu login. Enviaremos um link para você criar uma senha nova.</p>
+      <form onsubmit="pedirLink(event)">
+        <label for="rEmail">E-mail</label><input id="rEmail" type="email" autocomplete="username" required>
+        <button id="bLink" style="width:100%;margin-top:18px;padding:12px">Enviar link</button>
+      </form>
+      <button type="button" class="lnk" style="margin-top:14px" onclick="modoLogin('entrar')">← Voltar para entrar</button>
+    </div>
+    <!-- nova senha (chegou pelo link do e-mail) -->
+    <div id="pNova" class="oculto">
+      <p>Crie a sua nova senha (mínimo de 8 caracteres).</p>
+      <form onsubmit="salvarNovaSenha(event)">
+        <label for="nsSenha">Nova senha</label><input id="nsSenha" type="password" autocomplete="new-password" minlength="8" required>
+        <label for="nsConf">Repita a nova senha</label><input id="nsConf" type="password" autocomplete="new-password" minlength="8" required>
+        <button style="width:100%;margin-top:18px;padding:12px">Salvar e entrar</button>
+      </form>
+    </div>
     <div id="msgLogin" class="msg"></div>
-    <p class="small" style="margin-top:14px">Esqueceu a senha ou ainda não tem acesso? Fale com a Nervia pelo WhatsApp (21) 96686-9374.</p>
+    <div class="contato">
+      <p class="small">Não conseguiu entrar ou ainda não tem acesso? Fale com a Nervia:</p>
+      <div class="botoes"><a id="cWhats" target="_blank" rel="noopener">WhatsApp</a><a id="cEmail">E-mail</a></div>
+    </div>
     <a class="voltar" href="/">← Voltar ao site</a>
   </div>
 </section>
@@ -126,6 +166,7 @@ header{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdro
     <h1 id="ola">Olá!</h1>
     <div class="sub">Seus aplicativos</div>
     <div class="grade" id="grade"></div>
+    <div class="rodape-apps">Dúvidas ou precisa de outro acesso? Fale com a Nervia pelo <a id="cWhats2" target="_blank" rel="noopener">WhatsApp</a> ou por <a id="cEmail2">e-mail</a>.</div>
   </main>
 
   <div id="vVisor" class="visor oculto">
@@ -133,9 +174,19 @@ header{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdro
       <button class="lnk" onclick="location.hash=''">← Meus aplicativos</button>
       <span style="color:var(--border)">|</span>
       <b id="nomeApp"></b>
-      <div class="dir"><a id="novaAba" class="small" target="_blank" rel="noopener">Abrir em nova aba ↗</a></div>
+      <div class="dir">
+        <button class="lnk" id="bCartao" onclick="abrirAjuda('cartao')">Cartão rápido</button>
+        <button class="lnk" id="bManual" onclick="abrirAjuda('manual')">Manual</button>
+        <a id="novaAba" class="small" target="_blank" rel="noopener">Abrir em nova aba ↗</a>
+      </div>
     </div>
-    <iframe id="frame" title="Aplicativo"></iframe>
+    <div class="corpo">
+      <iframe id="frame" title="Aplicativo"></iframe>
+      <aside id="painelAjuda" class="ajuda oculto">
+        <div class="cab"><b id="tituloAjuda"></b><a id="ajudaAba" class="small" target="_blank" rel="noopener">Nova aba ↗</a><button class="lnk" onclick="fecharAjuda()">Fechar ✕</button></div>
+        <iframe id="frameAjuda" title="Ajuda do aplicativo"></iframe>
+      </aside>
+    </div>
   </div>
 
   <main id="vAdmin" class="pagina oculto">
@@ -149,7 +200,12 @@ header{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdro
 
 <script>
 const CFG = window.BUSCADOR_CONFIG || window.NERVIA_CONFIG || {};
-const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
+// Link do e-mail de "Esqueci minha senha": volta para /cliente/ com #...type=recovery (ou #error=... se expirou).
+const HASH_INICIAL = new URLSearchParams(location.hash.slice(1));
+let recuperando = HASH_INICIAL.get("type") === "recovery";
+const erroLink = HASH_INICIAL.get("error_code") || HASH_INICIAL.get("error");
+const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY, { auth: { flowType: "implicit" } });
+const CONTATO = Object.assign({ whatsapp: "5521966869374", email: "atendimento@nervia.com.br" }, CFG.CONTATO || {});
 let eu = null, perfil = null, apps = [], abaAtual = "usu";
 
 const $ = id => document.getElementById(id);
@@ -172,7 +228,12 @@ async function iniciar() {
     return msg($("msgLogin"), "err", "Configuração pendente: preencha o arquivo /config.js com a URL e a anon key do Supabase.");
   }
   const { data: { session } } = await sb.auth.getSession();
-  if (!session) { $("vArea").classList.add("oculto"); $("vLogin").classList.remove("oculto"); return; }
+  if (session && recuperando) return telaLogin("nova");
+  if (!session) {
+    telaLogin(erroLink || location.hash === "#esqueci" ? "esqueci" : "entrar");
+    if (erroLink) msg($("msgLogin"), "err", "Este link expirou ou já foi usado. Peça um novo abaixo.");
+    return;
+  }
   eu = session.user;
   perfil = checar(await sb.from("perfis").select("nome, admin").eq("user_id", eu.id).maybeSingle()) || {};
   apps = checar(await sb.from("apps").select("*").order("ordem").order("nome"));
@@ -180,6 +241,7 @@ async function iniciar() {
   $("ola").textContent = `Olá, ${(perfil.nome || eu.email).split(" ")[0]}!`;
   $("bAdmin").classList.toggle("oculto", !perfil.admin);
   $("vLogin").classList.add("oculto"); $("vArea").classList.remove("oculto");
+  if (/access_token|error=|type=/.test(location.hash)) history.replaceState(null, "", location.pathname);
   rota();
 }
 
@@ -189,6 +251,50 @@ async function entrar(ev) {
   if (error) return msg($("msgLogin"), "err", error.message === "Invalid login credentials" ? "E-mail ou senha incorretos." : error.message);
   lSenha.value = ""; iniciar();
 }
+// ------------------------------------------------------------ esqueci minha senha / contato
+function telaLogin(modo) {
+  $("vArea").classList.add("oculto"); $("vLogin").classList.remove("oculto");
+  modoLogin(modo);
+}
+function modoLogin(modo) {
+  $("pEntrar").classList.toggle("oculto", modo !== "entrar");
+  $("pEsqueci").classList.toggle("oculto", modo !== "esqueci");
+  $("pNova").classList.toggle("oculto", modo !== "nova");
+  $("tLogin").textContent = { entrar: "Área do Cliente", esqueci: "Esqueci minha senha", nova: "Nova senha" }[modo];
+  msg($("msgLogin"), "", "");
+  if (modo === "esqueci" && !rEmail.value) rEmail.value = lEmail.value.trim();
+  atualizarContato();
+}
+function atualizarContato() {
+  const email = (rEmail.value || lEmail.value || "").trim();
+  const texto = "Olá, Nervia! Preciso de ajuda com o acesso à Área do Cliente." + (email ? ` Meu e-mail de login é ${email}.` : "");
+  const wa = `https://wa.me/${CONTATO.whatsapp}?text=${encodeURIComponent(texto)}`;
+  const em = `mailto:${CONTATO.email}?subject=${encodeURIComponent("Acesso à Área do Cliente")}&body=${encodeURIComponent(texto)}`;
+  ["cWhats", "cWhats2"].forEach(i => $(i).href = wa);
+  ["cEmail", "cEmail2"].forEach(i => $(i).href = em);
+}
+async function pedirLink(ev) {
+  ev.preventDefault();
+  const b = $("bLink"); b.disabled = true;
+  const { error } = await sb.auth.resetPasswordForEmail(rEmail.value.trim(), { redirectTo: location.origin + "/cliente/" });
+  b.disabled = false;
+  if (error && /rate|limit|seconds/i.test(error.message)) return msg($("msgLogin"), "err", "Muitos pedidos seguidos. Aguarde alguns minutos ou fale com a Nervia.");
+  if (error) return msg($("msgLogin"), "err", "Não foi possível enviar agora. Tente de novo em instantes ou fale com a Nervia.");
+  // mesma resposta para e-mail cadastrado ou não: não revela quem tem login
+  msg($("msgLogin"), "ok", "Se este e-mail tiver acesso, você vai receber um link em alguns minutos.\nConfira também a caixa de spam. O link vale por 1 hora.");
+}
+async function salvarNovaSenha(ev) {
+  ev.preventDefault();
+  if (nsSenha.value.length < 8) return msg($("msgLogin"), "err", "A senha precisa ter pelo menos 8 caracteres.");
+  if (nsSenha.value !== nsConf.value) return msg($("msgLogin"), "err", "As duas senhas não são iguais.");
+  const { error } = await sb.auth.updateUser({ password: nsSenha.value });
+  if (error) return msg($("msgLogin"), "err", /different/i.test(error.message) ? "A nova senha precisa ser diferente da anterior." : error.message);
+  nsSenha.value = nsConf.value = ""; recuperando = false;
+  history.replaceState(null, "", location.pathname);
+  iniciar();
+}
+lEmail.addEventListener("input", atualizarContato); rEmail.addEventListener("input", atualizarContato);
+
 async function sair() { await sb.auth.signOut(); location.hash = ""; location.reload(); }
 async function trocarSenha() {
   const s = prompt("Nova senha (mínimo 8 caracteres):"); if (!s) return;
@@ -199,12 +305,12 @@ async function trocarSenha() {
 
 // ------------------------------------------------------------ rotas: #  |  #app/<id>  |  #admin
 function rota() {
-  if (!eu) return;
+  if (!eu) { if (location.hash === "#esqueci" && !$("vLogin").classList.contains("oculto")) modoLogin("esqueci"); return; }
   const h = location.hash;
   if (h.startsWith("#app/")) return abrirApp(decodeURIComponent(h.slice(5)));
   if (h === "#admin" && perfil.admin) { mostrar("vAdmin"); return aba(abaAtual); }
   document.title = "Área do Cliente | Nervia Tecnologia";
-  $("frame").src = "about:blank";
+  $("frame").src = "about:blank"; fecharAjuda();
   desenharGrade(); mostrar("vApps");
 }
 window.addEventListener("hashchange", rota);
@@ -222,13 +328,28 @@ function desenharGrade() {
 function abrirApp(id) {
   const a = apps.find(x => x.id === id && x.ativo);
   if (!a) { location.hash = ""; return; }
-  $("nomeApp").textContent = a.nome;
+  if ($("nomeApp").dataset.id !== a.id) fecharAjuda();
+  $("nomeApp").textContent = a.nome; $("nomeApp").dataset.id = a.id;
   $("novaAba").href = a.url;
+  $("bCartao").classList.toggle("oculto", !a.cartao_url);
+  $("bManual").classList.toggle("oculto", !a.manual_url);
   document.title = `${a.nome} | Nervia Tecnologia`;
   const alvo = new URL(a.url, location.origin).href;
   if ($("frame").src !== alvo) $("frame").src = alvo;
   mostrar("vVisor");
 }
+
+// ------------------------------------------------------------ ajuda do app (cartão rápido e manual), num painel ao lado
+function abrirAjuda(qual) {
+  const a = apps.find(x => x.id === $("nomeApp").dataset.id); if (!a) return;
+  const url = qual === "cartao" ? a.cartao_url : a.manual_url; if (!url) return;
+  $("tituloAjuda").textContent = (qual === "cartao" ? "Cartão rápido" : "Manual") + " · " + a.nome;
+  $("ajudaAba").href = url;
+  const alvo = new URL(url, location.origin).href;
+  if ($("frameAjuda").src !== alvo) $("frameAjuda").src = alvo;
+  $("painelAjuda").classList.remove("oculto");
+}
+function fecharAjuda() { $("painelAjuda").classList.add("oculto"); }
 
 // ------------------------------------------------------------ administração
 async function aba(qual) {
@@ -300,13 +421,18 @@ function admApps() {
       <div><label>Ordem</label><input class="fOrd" type="number" value="${a.ordem ?? 0}"></div>
     </div>
     <label>Descrição</label><input class="fDesc" value="${esc(a.descricao || "")}">
+    <div class="linha">
+      <div><label>Cartão de referência</label><input class="fCartao" value="${esc(a.cartao_url || "")}" placeholder="/apps/nome/ajuda/cartao.html"></div>
+      <div><label>Manual de utilização</label><input class="fManual" value="${esc(a.manual_url || "")}" placeholder="/apps/nome/ajuda/manual.html"></div>
+    </div>
     <div class="acoes">
       ${novo ? "" : `<label style="margin:0;display:flex;gap:6px;align-items:center;color:var(--text)"><input type="checkbox" class="fAtivo" ${a.ativo ? "checked" : ""}> Ativo</label>`}
       <button onclick="salvarApp(this, ${novo})">${novo ? "Adicionar aplicativo" : "Salvar"}</button>
     </div></div>`;
   $("admConteudo").innerHTML = `
     <div class="cartao"><h2>Aplicativos</h2>
-      <div class="small">Endereço começando com <b>/</b> = app hospedado no site da Nervia (login único). Endereço externo (https://…) abre dentro da página também, mas o app pode pedir login próprio.</div>
+      <div class="small">Endereço começando com <b>/</b> = app hospedado no site da Nervia (login único). Endereço externo (https://…) abre dentro da página também, mas o app pode pedir login próprio.<br>
+      Todo app publicado precisa de <b>cartão de referência</b> e <b>manual de utilização</b>: eles aparecem nos botões "Cartão rápido" e "Manual" ao lado do app.</div>
       ${apps.map(a => linhaApp(a, false)).join("")}
     </div>
     <div class="cartao"><h2>Novo aplicativo</h2>${linhaApp({}, true)}</div>`;
@@ -315,10 +441,11 @@ function admApps() {
 async function salvarApp(btn, novo) {
   const box = btn.closest(".usu");
   const v = cls => box.querySelector(cls)?.value?.trim() ?? "";
-  const dados = { nome: v(".fNome"), url: v(".fUrl"), icone: v(".fIco"), ordem: parseInt(v(".fOrd") || "0", 10), descricao: v(".fDesc") };
+  const dados = { nome: v(".fNome"), url: v(".fUrl"), icone: v(".fIco"), ordem: parseInt(v(".fOrd") || "0", 10), descricao: v(".fDesc"),
+    cartao_url: v(".fCartao"), manual_url: v(".fManual") };
   try {
     if (!dados.nome || !dados.url) throw new Error("Informe nome e endereço.");
-    if (!/^\/|^https:\/\//.test(dados.url)) throw new Error("O endereço deve começar com / ou https://");
+    if (![dados.url, dados.cartao_url || "/", dados.manual_url || "/"].every(u => /^\/|^https:\/\//.test(u))) throw new Error("Os endereços devem começar com / ou https://");
     if (novo) {
       const id = v(".fId").toLowerCase();
       if (!/^[a-z0-9-]+$/.test(id)) throw new Error("Código: só letras minúsculas, números e hífen.");
@@ -331,7 +458,11 @@ async function salvarApp(btn, novo) {
   } catch (e) { msg($("msgAdm"), "err", e.message.includes("duplicate") ? "Já existe um aplicativo com esse código." : e.message); }
 }
 
-sb.auth.onAuthStateChange((ev) => { if (ev === "SIGNED_OUT") { eu = null; $("vArea").classList.add("oculto"); $("vLogin").classList.remove("oculto"); } });
+sb.auth.onAuthStateChange((ev) => {
+  if (ev === "SIGNED_OUT") { eu = null; telaLogin("entrar"); }
+  if (ev === "PASSWORD_RECOVERY") { recuperando = true; setTimeout(() => telaLogin("nova")); }
+});
+atualizarContato();
 iniciar();
 </script>
 </body>
