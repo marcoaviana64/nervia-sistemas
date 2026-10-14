@@ -26,7 +26,7 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
 - `supabase/agendar_busca.sql` — pg_cron horário (rodar uma vez, manualmente).
 - `site/` (publicado inteiro na Cloudflare)
   - `index.html` — site público da Nervia (origem: `Projects/Nervia/nervia-site.html`, com logo extraído para `img/` e o link "Área do Cliente" no menu). Editar aqui daqui em diante.
-  - `cliente/index.html` — Área do Cliente: login (com "Esqueci minha senha" por e-mail e contato WhatsApp/e-mail), grade de apps, visor (`#app/<id>`, iframe, com botões "Cartão rápido" e "Manual" que abrem a ajuda num painel ao lado), administração (`#admin`: logins, apps).
+  - `cliente/index.html` — Área do Cliente: login (com "Esqueci minha senha" = e-mail pronto do próprio usuário para atendimento@nervia.com.br, e contato WhatsApp/e-mail), grade de apps, visor (`#app/<id>`, iframe, com botões "Cartão rápido" e "Manual" que abrem a ajuda num painel ao lado), administração (`#admin`: logins, apps).
   - `ajuda/ajuda.css` — estilo comum de cartões e manuais. Cada app: `apps/<nome>/ajuda/cartao.html` e `manual.html`; endereços nas colunas `apps.cartao_url` / `apps.manual_url`.
   - `apps/notas/index.html` — Buscador. Detecta o iframe (`EMBUTIDO`) e esconde o próprio topo. Logins são criados só na Área do Cliente; aqui só se marcam os CNPJs ("Quem vê cada empresa").
   - `config.js` — URL + anon key, comum a tudo (`window.NERVIA_CONFIG`).
@@ -62,7 +62,7 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
 - 2026-10-14: DOMÍNIO LIGADO. DNS do nervia.com.br migrado para a Cloudflare pelo Marco (NS cloudflare; registros do M365 conferidos: MX, SPF, MS=/mscid, autodiscover, SRV/lync do Teams). https://nervia.com.br e https://www.nervia.com.br servem o worker `nervia-site`; Área do Cliente OK.
 - `SITE_ORIGEM` aceita lista separada por vírgula (função `origemPermitida`, v5-origens). Valor previsto: `https://nervia.com.br,https://www.nervia.com.br`.
 
-- 2026-10-14: "Esqueci minha senha" (resetPasswordForEmail → /cliente/ com #type=recovery, fluxo implicit), contato WhatsApp/e-mail na entrada, ajuda dos apps (migração `..._apps_ajuda.sql`), cartão e manual do Buscador. Tela e SQL OK. FALTA no Supabase: Auth → URL Configuration (Site URL `https://nervia.com.br/cliente/` + Redirect URLs `https://nervia.com.br/cliente/**` e `https://www.nervia.com.br/cliente/**`) e SMTP próprio (o e-mail padrão do Supabase só envia para a equipe da org, 2/hora) — sugestão: Resend com domínio nervia.com.br; modelo de e-mail em português.
+- 2026-10-14: ajuda dos apps (migração `..._apps_ajuda.sql`), cartão e manual do Buscador, contato WhatsApp/e-mail na entrada. "Esqueci minha senha": por decisão do Marco (não contratar serviço de e-mail agora), NÃO há envio automático; o botão abre um e-mail do próprio usuário para atendimento@nervia.com.br, e a Nervia define senha provisória em Administração → Logins → "Definir nova senha" (atender só pedidos vindos do e-mail do login). Envio automático por link fica para quando houver SMTP próprio (Supabase só envia para a equipe da org, 2/h).
 
 ## Ideias (comercialização)
 - Termo de autorização/custódia do certificado A1 com cada cliente (LGPD + responsabilidade pelo uso do certificado).

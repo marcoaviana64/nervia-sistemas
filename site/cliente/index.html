@@ -52,6 +52,8 @@ header{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdro
 .login p{color:var(--muted);margin:4px 0 8px;font-size:.92rem}
 .login .voltar{display:block;text-align:center;margin-top:16px;color:var(--muted);font-size:.85rem;text-decoration:none}
 .login .esq{display:block;margin:10px 0 0 auto;font-size:.85rem}
+.botao{display:block;text-align:center;margin-top:16px;padding:12px;border-radius:10px;background:var(--accent);color:var(--on-accent);font-weight:600;text-decoration:none}
+.botao:hover{opacity:.92}
 .contato{margin-top:18px;padding-top:14px;border-top:1px solid var(--border)}
 .contato .small{margin:0 0 8px}
 .contato .botoes{display:flex;gap:8px;flex-wrap:wrap}
@@ -122,21 +124,12 @@ header{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdro
     </div>
     <!-- esqueci minha senha -->
     <div id="pEsqueci" class="oculto">
-      <p>Informe o e-mail do seu login. Enviaremos um link para você criar uma senha nova.</p>
-      <form onsubmit="pedirLink(event)">
-        <label for="rEmail">E-mail</label><input id="rEmail" type="email" autocomplete="username" required>
-        <button id="bLink" style="width:100%;margin-top:18px;padding:12px">Enviar link</button>
-      </form>
-      <button type="button" class="lnk" style="margin-top:14px" onclick="modoLogin('entrar')">← Voltar para entrar</button>
-    </div>
-    <!-- nova senha (chegou pelo link do e-mail) -->
-    <div id="pNova" class="oculto">
-      <p>Crie a sua nova senha (mínimo de 8 caracteres).</p>
-      <form onsubmit="salvarNovaSenha(event)">
-        <label for="nsSenha">Nova senha</label><input id="nsSenha" type="password" autocomplete="new-password" minlength="8" required>
-        <label for="nsConf">Repita a nova senha</label><input id="nsConf" type="password" autocomplete="new-password" minlength="8" required>
-        <button style="width:100%;margin-top:18px;padding:12px">Salvar e entrar</button>
-      </form>
+      <p>Peça uma senha nova à Nervia <b>enviando um e-mail do seu próprio endereço</b> (o mesmo do login) para <b id="emailNervia">atendimento@nervia.com.br</b>.</p>
+      <p>A Nervia responde com uma senha provisória. Depois de entrar, troque por uma sua em <b>Trocar senha</b>, no topo da tela.</p>
+      <label for="rEmail">Seu e-mail de login</label><input id="rEmail" type="email" autocomplete="username">
+      <a id="bPedir" class="botao">Escrever e-mail pedindo nova senha</a>
+      <p class="small" style="margin-top:10px">Se o botão não abrir o seu programa de e-mail, escreva direto para atendimento@nervia.com.br.</p>
+      <button type="button" class="lnk" style="margin-top:10px" onclick="modoLogin('entrar')">← Voltar para entrar</button>
     </div>
     <div id="msgLogin" class="msg"></div>
     <div class="contato">
@@ -200,11 +193,7 @@ header{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdro
 
 <script>
 const CFG = window.BUSCADOR_CONFIG || window.NERVIA_CONFIG || {};
-// Link do e-mail de "Esqueci minha senha": volta para /cliente/ com #...type=recovery (ou #error=... se expirou).
-const HASH_INICIAL = new URLSearchParams(location.hash.slice(1));
-let recuperando = HASH_INICIAL.get("type") === "recovery";
-const erroLink = HASH_INICIAL.get("error_code") || HASH_INICIAL.get("error");
-const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY, { auth: { flowType: "implicit" } });
+const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
 const CONTATO = Object.assign({ whatsapp: "5521966869374", email: "atendimento@nervia.com.br" }, CFG.CONTATO || {});
 let eu = null, perfil = null, apps = [], abaAtual = "usu";
 
@@ -228,12 +217,7 @@ async function iniciar() {
     return msg($("msgLogin"), "err", "Configuração pendente: preencha o arquivo /config.js com a URL e a anon key do Supabase.");
   }
   const { data: { session } } = await sb.auth.getSession();
-  if (session && recuperando) return telaLogin("nova");
-  if (!session) {
-    telaLogin(erroLink || location.hash === "#esqueci" ? "esqueci" : "entrar");
-    if (erroLink) msg($("msgLogin"), "err", "Este link expirou ou já foi usado. Peça um novo abaixo.");
-    return;
-  }
+  if (!session) return telaLogin(location.hash === "#esqueci" ? "esqueci" : "entrar");
   eu = session.user;
   perfil = checar(await sb.from("perfis").select("nome, admin").eq("user_id", eu.id).maybeSingle()) || {};
   apps = checar(await sb.from("apps").select("*").order("ordem").order("nome"));
@@ -241,7 +225,6 @@ async function iniciar() {
   $("ola").textContent = `Olá, ${(perfil.nome || eu.email).split(" ")[0]}!`;
   $("bAdmin").classList.toggle("oculto", !perfil.admin);
   $("vLogin").classList.add("oculto"); $("vArea").classList.remove("oculto");
-  if (/access_token|error=|type=/.test(location.hash)) history.replaceState(null, "", location.pathname);
   rota();
 }
 
@@ -252,6 +235,8 @@ async function entrar(ev) {
   lSenha.value = ""; iniciar();
 }
 // ------------------------------------------------------------ esqueci minha senha / contato
+// Sem envio automático de e-mail: o usuário pede a senha nova do próprio e-mail para a Nervia,
+// que define uma senha provisória em Administração → Logins → "Definir nova senha".
 function telaLogin(modo) {
   $("vArea").classList.add("oculto"); $("vLogin").classList.remove("oculto");
   modoLogin(modo);
@@ -259,8 +244,7 @@ function telaLogin(modo) {
 function modoLogin(modo) {
   $("pEntrar").classList.toggle("oculto", modo !== "entrar");
   $("pEsqueci").classList.toggle("oculto", modo !== "esqueci");
-  $("pNova").classList.toggle("oculto", modo !== "nova");
-  $("tLogin").textContent = { entrar: "Área do Cliente", esqueci: "Esqueci minha senha", nova: "Nova senha" }[modo];
+  $("tLogin").textContent = { entrar: "Área do Cliente", esqueci: "Esqueci minha senha" }[modo];
   msg($("msgLogin"), "", "");
   if (modo === "esqueci" && !rEmail.value) rEmail.value = lEmail.value.trim();
   atualizarContato();
@@ -272,26 +256,9 @@ function atualizarContato() {
   const em = `mailto:${CONTATO.email}?subject=${encodeURIComponent("Acesso à Área do Cliente")}&body=${encodeURIComponent(texto)}`;
   ["cWhats", "cWhats2"].forEach(i => $(i).href = wa);
   ["cEmail", "cEmail2"].forEach(i => $(i).href = em);
-}
-async function pedirLink(ev) {
-  ev.preventDefault();
-  const b = $("bLink"); b.disabled = true;
-  const { error } = await sb.auth.resetPasswordForEmail(rEmail.value.trim(), { redirectTo: location.origin + "/cliente/" });
-  b.disabled = false;
-  if (error && /rate|limit|seconds/i.test(error.message)) return msg($("msgLogin"), "err", "Muitos pedidos seguidos. Aguarde alguns minutos ou fale com a Nervia.");
-  if (error) return msg($("msgLogin"), "err", "Não foi possível enviar agora. Tente de novo em instantes ou fale com a Nervia.");
-  // mesma resposta para e-mail cadastrado ou não: não revela quem tem login
-  msg($("msgLogin"), "ok", "Se este e-mail tiver acesso, você vai receber um link em alguns minutos.\nConfira também a caixa de spam. O link vale por 1 hora.");
-}
-async function salvarNovaSenha(ev) {
-  ev.preventDefault();
-  if (nsSenha.value.length < 8) return msg($("msgLogin"), "err", "A senha precisa ter pelo menos 8 caracteres.");
-  if (nsSenha.value !== nsConf.value) return msg($("msgLogin"), "err", "As duas senhas não são iguais.");
-  const { error } = await sb.auth.updateUser({ password: nsSenha.value });
-  if (error) return msg($("msgLogin"), "err", /different/i.test(error.message) ? "A nova senha precisa ser diferente da anterior." : error.message);
-  nsSenha.value = nsConf.value = ""; recuperando = false;
-  history.replaceState(null, "", location.pathname);
-  iniciar();
+  const pedido = "Olá, Nervia! Esqueci a senha da Área do Cliente." + (email ? ` Meu e-mail de login é ${email}.` : "") + " Por favor, me enviem uma senha nova.";
+  $("bPedir").href = `mailto:${CONTATO.email}?subject=${encodeURIComponent("Nova senha - Área do Cliente")}&body=${encodeURIComponent(pedido)}`;
+  $("emailNervia").textContent = CONTATO.email;
 }
 lEmail.addEventListener("input", atualizarContato); rEmail.addEventListener("input", atualizarContato);
 
@@ -458,10 +425,7 @@ async function salvarApp(btn, novo) {
   } catch (e) { msg($("msgAdm"), "err", e.message.includes("duplicate") ? "Já existe um aplicativo com esse código." : e.message); }
 }
 
-sb.auth.onAuthStateChange((ev) => {
-  if (ev === "SIGNED_OUT") { eu = null; telaLogin("entrar"); }
-  if (ev === "PASSWORD_RECOVERY") { recuperando = true; setTimeout(() => telaLogin("nova")); }
-});
+sb.auth.onAuthStateChange((ev) => { if (ev === "SIGNED_OUT") { eu = null; telaLogin("entrar"); } });
 atualizarContato();
 iniciar();
 </script>
