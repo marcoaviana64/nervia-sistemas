@@ -49,6 +49,7 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
 - Apps internos ficam no mesmo domínio (`/apps/...`): mesma sessão do Supabase, um login só, iframe sem bloqueio. App em outro domínio pode pedir login próprio.
 - Tabelas de cada app com prefixo próprio; `perfis`, `apps` e `app_acessos` são comuns.
 - SEFAZ: continuar sempre do ultNSU; após cStat 137 (ou ultNSU == maxNSU) ou 656, esperar 1h (`bloqueio_nfe`). Parar por tempo NÃO bloqueia.
+- **Um sistema por CNPJ na NF-e** (NT 2014.002, desde 03/2022): todos os sistemas que consultam o mesmo CNPJ precisam seguir a mesma sequência de NSU; quem sai da sequência leva 656 e o CNPJ inteiro fica bloqueado 1h (atinge também o outro sistema do cliente). Por isso: chave `nf_empresas.nfe_ativa` (botão "Desligar/Ligar NF-e", migração `..._nf_nfe_ativa.sql`) e trava automática: 2 rejeições 656 seguidas (`nfe_656_seguidas`, `MAX_656_SEGUIDAS` em `sefaz.ts`) desligam a NF-e e gravam `nfe_pausa_motivo`; religar zera (trigger). Cron e botão não consultam NF-e com `nfe_ativa = false`. Antes de cadastrar cliente, perguntar se outro sistema baixa as NF-e dele.
 - NF-e só fica disponível ~90 dias no Ambiente Nacional.
 - Resumo nunca sobrescreve XML completo; nota cancelada continua cancelada (regra no SQL `gravar_nota`).
 - Ciência é evento fiscal oficial: só por clique do admin, nunca automático.
@@ -69,7 +70,7 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
   - 2026-10-14: custo da ponte contido. Gatilho do Cloud Build `rmgpgab-ponte-sefaz-southamerica-east1-marcoaviana64-nervia-lcm` (global, único do projeto, YAML inline) com filtro de arquivos incluídos `ponte-sefaz/**`: só push que mexe em `ponte-sefaz/` faz deploy da ponte. Artifact Registry `cloud-run-source-deploy` (southamerica-east1, único repositório, pacote `nervia-sistemas/ponte-sefaz`) com limpeza em modo Excluir: `manter-2-recentes` + `apagar-antigas` (> 7 dias). Revisões antigas do Cloud Run perdem a imagem; para voltar, refazer do GitHub.
   - PENDENTE (opcional): `PONTE_SEGREDO` está como variável em texto puro no Cloud Run; passar para o Secret Manager (secret `ponte-segredo`, valor colado pelo Marco; antes conferir no YAML do gatilho se o deploy usa `--set-env-vars`).
 - 2026-10-14: DOMÍNIO LIGADO. DNS do nervia.com.br migrado para a Cloudflare pelo Marco (NS cloudflare; registros do M365 conferidos: MX, SPF, MS=/mscid, autodiscover, SRV/lync do Teams). https://nervia.com.br e https://www.nervia.com.br servem o worker `nervia-site`; Área do Cliente OK.
-- `SITE_ORIGEM` aceita lista separada por vírgula (função `origemPermitida`; versão atual das funções: v6-msg656). Valor previsto: `https://nervia.com.br,https://www.nervia.com.br`.
+- `SITE_ORIGEM` aceita lista separada por vírgula (função `origemPermitida`; versão atual das funções: v7-trava656). Valor previsto: `https://nervia.com.br,https://www.nervia.com.br`.
 
 - 2026-10-14: ajuda dos apps (migração `..._apps_ajuda.sql`), cartão e manual do Buscador, contato WhatsApp/e-mail na entrada. "Esqueci minha senha": por decisão do Marco (não contratar serviço de e-mail agora), NÃO há envio automático; o botão abre um e-mail do próprio usuário para atendimento@nervia.com.br, e a Nervia define senha provisória em Administração → Logins → "Definir nova senha" (atender só pedidos vindos do e-mail do login). Envio automático por link fica para quando houver SMTP próprio (Supabase só envia para a equipe da org, 2/h).
 
@@ -78,6 +79,7 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
 - 2026-10-14: app Painel de Notas criado e testado (tela + SQL). Para o cliente ver: Administração → Logins → marcar "Painel de Notas".
 
 - 2026-10-14: termo de autorização e custódia do A1 (gerar, registrar, bloqueio do envio sem termo). Tela e SQL OK.
+- 2026-10-14: Linum dava 656 em toda busca de NF-e: outro sistema da Linum baixava as NF-e do mesmo CNPJ. Marco desligou o download automático do outro sistema (19h49) para o Buscador assumir. Criadas a chave NF-e por empresa e a trava 656 (Deno 12/12, SQL OK, tela OK).
 
 ## Ideias (comercialização)
 - Termo de custódia do A1: FEITO (gerar/registrar no Buscador); falta revisão do texto por advogado.

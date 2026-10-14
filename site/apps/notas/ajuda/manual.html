@@ -98,6 +98,7 @@
     <li>Na <b>Área do Cliente → Administração → Logins</b>, crie o login do cliente: nome, e-mail, senha inicial, o app <b>Notas Fiscais</b> (e o <b>Painel de Notas</b>, se contratado) e, em <b>Empresas que a pessoa vê</b>, marque o(s) CNPJ(s) dele.</li>
     <li>Envie ao cliente o endereço <b>nervia.com.br/cliente/</b>, o e-mail e a senha inicial. Ele pode trocar a senha depois.</li>
   </ol>
+  <div class="aviso"><b>Antes de cadastrar, pergunte ao cliente se outro sistema já baixa as NF-e dele</b> (ERP, contabilidade, portal de notas). A SEFAZ só aceita um sistema por CNPJ. Se o cliente quiser manter o outro, deixe a empresa com <b>Desligar NF-e</b> e use o Buscador só para NFS-e. Se quiser o Buscador, o download automático do outro precisa ser desligado primeiro.</div>
   <div class="aviso">Sem o termo registrado o sistema não aceita o certificado. "Dispensado" vale só para empresas da própria Nervia. O arquivo .pfx e a senha não ficam guardados: só o certificado, criptografado no cofre.</div>
 
   <h3>Pedido de senha nova</h3>
@@ -135,7 +136,8 @@
     <tr><td>Nenhuma empresa liberada para o seu login</td><td>Peça à Nervia para liberar o CNPJ no seu login.</td></tr>
     <tr><td>Nenhuma nota com esses filtros</td><td>Limpe os filtros (Tipo = Todos, Papel = Todas, sem datas) e confira de novo.</td></tr>
     <tr><td>Tudo baixado. A SEFAZ libera a próxima consulta em 1h</td><td>Normal. A SEFAZ exige 1 hora de intervalo; a busca automática continua sozinha.</td></tr>
-    <tr><td>A SEFAZ pediu 1h de espera para este CNPJ (rejeição 656, consumo indevido)</td><td>Não é erro do sistema. A regra de 1 hora da SEFAZ vale por CNPJ: se outro sistema da empresa (ERP, contabilidade, portal de notas) consultou as NF-e há pouco, a SEFAZ manda esperar. Nada se perde; a busca tenta de novo sozinha no horário indicado. Se acontecer toda hora, é porque os dois sistemas estão consultando o mesmo CNPJ: as notas chegam do mesmo jeito, só que às vezes com 1 hora a mais.</td></tr>
+    <tr><td>A SEFAZ pediu 1h de espera para este CNPJ (rejeição 656, consumo indevido)</td><td>A regra de 1 hora da SEFAZ vale por CNPJ e exige que todos os sistemas sigam a mesma sequência de notas. Se outro sistema da empresa (ERP, contabilidade, portal de notas) baixa as NF-e, a SEFAZ recusa o Buscador. Uma vez só: espere, a busca tenta de novo sozinha no horário indicado.</td></tr>
+    <tr><td>Busca de NF-e pausada automaticamente … (rejeição 656)</td><td>A SEFAZ recusou 2 consultas seguidas, e o Buscador desligou a NF-e desta empresa para não bloquear o CNPJ (o bloqueio atinge também o outro sistema). <b>Só um sistema pode baixar as NF-e de um CNPJ.</b> Se o cliente quer usar o Buscador: desligue o download automático no outro sistema, espere 1 hora e clique em <b>Ligar NF-e</b>. Se o cliente prefere o outro sistema: deixe a NF-e desligada; a NFS-e continua normalmente.</td></tr>
     <tr><td>A SEFAZ só permite nova consulta em N min</td><td>Aguarde o tempo indicado.</td></tr>
     <tr><td>Já existe uma busca em andamento</td><td>Outra busca desta empresa está rodando. Aguarde 2 minutos.</td></tr>
     <tr><td>Registre primeiro o termo de autorização e custódia do certificado</td><td>Gere o termo, colha a assinatura e registre-o (botão Registrar) antes de enviar o certificado <span class="eq">EQUIPE NERVIA</span>.</td></tr>

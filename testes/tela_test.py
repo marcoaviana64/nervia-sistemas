@@ -55,6 +55,15 @@ with sync_playwright() as p:
     pg.select_option("#xSit", ""); pg.wait_for_timeout(300)
     pg.click("#bNfe"); pg.wait_for_selector("#msgP.ok")
     assert "Novas: 3" in pg.inner_text("#msgP")
+    # chave NF-e por empresa
+    assert "NF-e ligada" in pg.inner_text("#painel") and pg.locator("#bNfeChave").inner_text() == "Desligar NF-e"
+    pg.once("dialog", lambda d: d.accept())
+    pg.click("#bNfeChave"); pg.wait_for_selector("text=Ligar NF-e")
+    assert pg.locator("#bNfe").is_disabled() and "outro sistema" in pg.inner_text("#painel")
+    assert "NF-e desligada" in pg.locator(".emp", has_text="Nervia").inner_text()
+    pg.screenshot(path=f"{SAIDA}/tela_nfe_desligada.png")
+    pg.click("#bNfeChave"); pg.wait_for_selector("text=Desligar NF-e")
+    assert pg.locator("#bNfe").is_enabled() and "só um sistema" in pg.inner_text("#msgP")
     assert pg.locator("#xSit").input_value() == ""
     pg.locator(".ck").first.check()
     pg.once("dialog", lambda d: d.accept())

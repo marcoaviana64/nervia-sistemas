@@ -8,6 +8,7 @@ export interface Empresa {
   cert_secret_id: string | null; cert_validade: string | null;
   ult_nsu_nfe: number; max_nsu_nfe: number; bloqueio_nfe: string | null;
   ult_nsu_nfse: number;
+  nfe_ativa?: boolean; nfe_656_seguidas?: number; nfe_pausa_motivo?: string | null;
 }
 
 /** Interface usada pela lógica da SEFAZ/ADN (permite testar sem Supabase). */

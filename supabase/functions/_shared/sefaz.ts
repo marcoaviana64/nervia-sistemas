@@ -22,6 +22,8 @@ export const UF_CODIGO: Record<string, number> = {
   MT: 51, GO: 52, DF: 53,
 };
 const ESPERA_MS = 61 * 60 * 1000;
+/** Rejeições 656 seguidas que desligam a NF-e da empresa (outro sistema consulta o mesmo CNPJ). */
+export const MAX_656_SEGUIDAS = 2;
 
 export type Http = (url: string, init: RequestInit) => Promise<Response>;
 export interface Resumo { nova: number; atualizada: number; evento: number; ignorada: number; outro: number }
@@ -126,6 +128,9 @@ export async function sincronizar(
     const min = Math.ceil((new Date(emp.bloqueio_nfe).getTime() - agora()) / 60000);
     return { ok: false, mensagem: `A SEFAZ só permite nova consulta em ${min} min (regra de 1h).` };
   }
+  if (emp.nfe_ativa === false) {
+    return { ok: false, mensagem: emp.nfe_pausa_motivo || "A busca de NF-e está desligada para esta empresa. Para religar, use o botão \"Ligar NF-e\"." };
+  }
   const cuf = UF_CODIGO[emp.uf] ?? 33;
   let ult = Number(emp.ult_nsu_nfe);
   const resumo: Resumo = { nova: 0, atualizada: 0, evento: 0, ignorada: 0, outro: 0 };
@@ -135,7 +140,20 @@ export async function sincronizar(
     const ret = await consultarLote(http, cnpj, cuf, ult);
     if (ret.cStat === "656") {
       if (ret.ultNSU) ult = Math.max(ult, ret.ultNSU);
-      await b.atualizarEmpresa(cnpj, { ult_nsu_nfe: ult, bloqueio_nfe: new Date(agora() + ESPERA_MS).toISOString() });
+      const seguidas = (emp.nfe_656_seguidas ?? 0) + 1;
+      if (seguidas >= MAX_656_SEGUIDAS) {
+        const quando = new Date(agora()).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+        const motivo = `Busca de NF-e pausada automaticamente em ${quando}: a SEFAZ recusou ${seguidas} consultas seguidas (rejeição 656). ` +
+          `Quase sempre é porque outro sistema (ERP, contabilidade ou portal de notas) baixa as NF-e deste CNPJ, e a SEFAZ só aceita um. ` +
+          `Desligue o download automático no outro sistema, espere 1 hora e clique em "Ligar NF-e".`;
+        await b.atualizarEmpresa(cnpj, {
+          ult_nsu_nfe: ult, bloqueio_nfe: new Date(agora() + ESPERA_MS).toISOString(),
+          nfe_656_seguidas: seguidas, nfe_ativa: false, nfe_pausa_motivo: motivo,
+        });
+        await b.registrar(cnpj, "NFE", motivo);
+        return { ok: false, mensagem: motivo };
+      }
+      await b.atualizarEmpresa(cnpj, { ult_nsu_nfe: ult, bloqueio_nfe: new Date(agora() + ESPERA_MS).toISOString(), nfe_656_seguidas: seguidas });
       const hora = new Date(agora() + ESPERA_MS).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
       mensagem = `A SEFAZ pediu 1h de espera para este CNPJ (rejeição 656, consumo indevido). Normalmente é porque outro sistema da empresa ` +
         `(ERP, contabilidade ou portal de notas) consultou as NF-e há menos de 1 hora. Nada se perde: a busca tenta de novo sozinha a partir das ${hora}.`;
@@ -145,7 +163,7 @@ export async function sincronizar(
     for (const doc of ret.docs) resumo[await processarDocumento(b, cnpj, doc)]++;
     ult = Math.max(ult, ret.ultNSU);
     await b.atualizarEmpresa(cnpj, {
-      ult_nsu_nfe: ult, max_nsu_nfe: ret.maxNSU, ultima_sinc_nfe: new Date(agora()).toISOString(),
+      ult_nsu_nfe: ult, max_nsu_nfe: ret.maxNSU, ultima_sinc_nfe: new Date(agora()).toISOString(), nfe_656_seguidas: 0,
     });
     if (ret.cStat === "137" || ret.ultNSU >= ret.maxNSU) {
       await b.atualizarEmpresa(cnpj, { bloqueio_nfe: new Date(agora() + ESPERA_MS).toISOString() });

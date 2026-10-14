@@ -97,6 +97,31 @@ do $$ begin
   begin update nf_empresas set ult_nsu_nfe = 999 where cnpj = '22222222000122'; raise exception 'FALHOU: admin mexeu no NSU pela tela';
   exception when insufficient_privilege then raise notice 'ok  NSU protegido até do admin (só as funções mexem)'; end;
 end $$;
+-- NF-e liga/desliga e trava 656
+select pg_temp.ok((select nfe_ativa from nf_empresas where cnpj = '22222222000122'), 'NF-e nasce ligada');
+reset role;
+update nf_empresas set nfe_ativa = false, nfe_656_seguidas = 2, nfe_pausa_motivo = 'Pausada: 656' where cnpj = '22222222000122';
+select pg_temp.ok((select nfe_pausa_motivo = 'Pausada: 656' from nf_empresas where cnpj = '22222222000122'), 'trava grava o motivo');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+update nf_empresas set nfe_ativa = true where cnpj = '22222222000122';
+select pg_temp.ok((select nfe_ativa and nfe_656_seguidas = 0 and nfe_pausa_motivo is null from nf_empresas where cnpj = '22222222000122'),
+  'admin religa a NF-e e a contagem/motivo zeram');
+update nf_empresas set nfe_ativa = false where cnpj = '22222222000122';
+select pg_temp.ok((select not nfe_ativa and nfe_pausa_motivo is null from nf_empresas where cnpj = '22222222000122'), 'admin desliga a NF-e à mão');
+update nf_empresas set nfe_ativa = true where cnpj = '22222222000122';
+do $$ begin
+  begin update nf_empresas set nfe_656_seguidas = 0 where cnpj = '22222222000122'; raise exception 'FALHOU: admin mexeu na contagem 656';
+  exception when insufficient_privilege then raise notice 'ok  contagem 656 só pelas funções'; end;
+end $$;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+do $$ begin
+  update nf_empresas set nfe_ativa = false where cnpj = '22222222000122';
+  if not (select nfe_ativa from nf_empresas where cnpj = '22222222000122') then raise exception 'FALHOU: cliente desligou a NF-e'; end if;
+  raise notice 'ok  cliente não liga/desliga a NF-e';
+exception when insufficient_privilege then raise notice 'ok  cliente não liga/desliga a NF-e';
+end $$;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
 insert into nf_acessos values ('00000000-0000-0000-0000-00000000000c', '33333333000133');
 select pg_temp.ok((select count(*) = 3 from nf_empresas), 'admin cadastra empresa e libera acesso');
 reset role;

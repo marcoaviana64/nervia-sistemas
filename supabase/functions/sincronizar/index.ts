@@ -47,7 +47,7 @@ async function rodarTodas() {
   const inicio = Date.now();
   const LIMITE = 120_000;
   const { data: empresas } = await sb.from("nf_empresas")
-    .select("cnpj, cert_validade, bloqueio_nfe")
+    .select("cnpj, cert_validade, bloqueio_nfe, nfe_ativa")
     .eq("ativo", true).eq("busca_automatica", true).not("cert_secret_id", "is", null)
     .order("ultima_sinc_nfe", { ascending: true, nullsFirst: true });
   for (const e of empresas ?? []) {
@@ -57,7 +57,7 @@ async function rodarTodas() {
       await banco.registrar(e.cnpj, "CRON", "Certificado vencido — busca automática ignorada.");
       continue;
     }
-    if (NFE_HABILITADA && (!e.bloqueio_nfe || new Date(e.bloqueio_nfe) <= new Date())) await rodar(e.cnpj, "nfe", resta - 10_000);
+    if (NFE_HABILITADA && e.nfe_ativa !== false && (!e.bloqueio_nfe || new Date(e.bloqueio_nfe) <= new Date())) await rodar(e.cnpj, "nfe", resta - 10_000);
     const resta2 = LIMITE - (Date.now() - inicio);
     if (resta2 > 15_000) await rodar(e.cnpj, "nfse", resta2 - 10_000);
   }

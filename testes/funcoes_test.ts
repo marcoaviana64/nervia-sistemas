@@ -153,6 +153,31 @@ Deno.test("NF-e: lotes, cancelamento, bloqueio de 1h e 656", async () => {
   assert(log.length >= 2);
 });
 
+Deno.test("NF-e: trava automática após 2 rejeições 656 seguidas e liga/desliga", async () => {
+  const { b, e, log } = bancoFalso();
+  // 1ª 656: só bloqueia 1h e conta
+  const r1 = await sefaz.sincronizar(b, httpFalso([await retDist("656", 0, 0, [])]).http, CNPJ, { pausaMs: 0 });
+  assert(!r1.ok || r1.mensagem.includes("1h"));
+  assert(e.nfe_656_seguidas === 1 && e.nfe_ativa !== false);
+  // sucesso zera a contagem
+  e.bloqueio_nfe = null;
+  await sefaz.sincronizar(b, httpFalso([await retDist("137", 0, 0, [])]).http, CNPJ, { pausaMs: 0 });
+  assert(e.nfe_656_seguidas === 0);
+  // duas 656 seguidas: desliga a NF-e da empresa e grava o motivo
+  e.bloqueio_nfe = null;
+  await sefaz.sincronizar(b, httpFalso([await retDist("656", 0, 0, [])]).http, CNPJ, { pausaMs: 0 });
+  e.bloqueio_nfe = null;
+  const r3 = await sefaz.sincronizar(b, httpFalso([await retDist("656", 0, 0, [])]).http, CNPJ, { pausaMs: 0 });
+  assert(!r3.ok && e.nfe_ativa === false && e.nfe_656_seguidas === 2, JSON.stringify(e));
+  assert(String(e.nfe_pausa_motivo).includes("outro sistema") && r3.mensagem.includes("Ligar NF-e"));
+  assert(log.some((l) => l.includes("pausada automaticamente")));
+  // desligada: não consulta a SEFAZ
+  e.bloqueio_nfe = null;
+  const { http, enviados } = httpFalso([await retDist("137", 0, 0, [])]);
+  const r4 = await sefaz.sincronizar(b, http, CNPJ, { pausaMs: 0 });
+  assert(!r4.ok && enviados.length === 0);
+});
+
 Deno.test("NF-e: para no prazo sem bloquear e continua depois", async () => {
   const { b, e } = bancoFalso();
   let t = 0;

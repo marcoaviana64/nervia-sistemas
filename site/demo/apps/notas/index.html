@@ -202,7 +202,7 @@ async function carregarEmpresas() {
     const venc = e.cert_validade && new Date(e.cert_validade) < agora;
     return `<div class="emp ${tela === "empresa" && atual === e.cnpj ? "sel" : ""}" onclick="selecionar('${e.cnpj}')">
       <div class="n"><span class="dot ${venc ? "venc" : e.cert_secret_id ? "on" : ""}"></span>${esc(e.nome)}${e.ativo ? "" : " <span class='small'>(inativa)</span>"}</div>
-      <div class="c">${fmtCnpj(e.cnpj)}${ehAdmin && e.termo_status === "pendente" ? ' · <span style="color:var(--warn)">termo pendente</span>' : ""}</div></div>`;
+      <div class="c">${fmtCnpj(e.cnpj)}${ehAdmin && e.termo_status === "pendente" ? ' · <span style="color:var(--warn)">termo pendente</span>' : ""}${ehAdmin && CFG.NFE_HABILITADA && e.nfe_ativa === false ? ' · <span style="color:var(--warn)">NF-e desligada</span>' : ""}</div></div>`;
   }).join("") : `<div class="small" style="margin-bottom:8px">${ehAdmin ? "Nenhuma empresa ainda." : "Nenhuma empresa liberada para o seu login. Fale com a Nervia."}</div>`;
   if (ehAdmin && !empresas.length) novaBox.open = true;
   if (tela === "empresa") desenharPainel();
@@ -230,6 +230,10 @@ function desenharPainel() {
   const bloq = e.bloqueio_nfe && new Date(e.bloqueio_nfe) > agora ? new Date(e.bloqueio_nfe).toLocaleTimeString("pt-BR", {hour:"2-digit", minute:"2-digit"}) : null;
   const venc = e.cert_validade && new Date(e.cert_validade) < agora;
   const temCert = !!e.cert_secret_id && !venc;
+  const nfeOn = e.nfe_ativa !== false;
+  const avisoNfe = !CFG.NFE_HABILITADA || nfeOn ? "" : `<div class="msg" style="display:block;margin:12px 0 0;background:#fff3e0;color:var(--warn);max-width:640px">${ehAdmin
+    ? esc(e.nfe_pausa_motivo || "A busca de NF-e está desligada para esta empresa (por exemplo, porque outro sistema já baixa as NF-e deste CNPJ). A NFS-e continua normalmente.")
+    : "As NF-e (produtos) desta empresa não são baixadas pelo Buscador no momento. As NFS-e (serviços) continuam normalmente."}</div>`;
   const termoOk = e.termo_status === "assinado" || e.termo_status === "dispensado";
   const termoTxt = e.termo_status === "assinado" ? `assinado em ${fmtDataSo(e.termo_assinado_em)}${e.termo_signatario ? " por " + esc(e.termo_signatario) : ""}`
     : e.termo_status === "dispensado" ? `dispensado${e.termo_obs ? " (" + esc(e.termo_obs) + ")" : ""}` : "<b style='color:var(--warn)'>pendente</b>";
@@ -254,18 +258,20 @@ function desenharPainel() {
   <div class="topo">
     <div>
       <h1>${esc(e.nome)}</h1>
-      <div class="meta">${fmtCnpj(e.cnpj)} · ${e.uf}${ehAdmin ? ` · busca automática <b>${e.busca_automatica ? "ligada" : "desligada"}</b>` : ""}</div>
+      <div class="meta">${fmtCnpj(e.cnpj)} · ${e.uf}${ehAdmin ? ` · busca automática <b>${e.busca_automatica ? "ligada" : "desligada"}</b>${CFG.NFE_HABILITADA ? ` · NF-e <b>${nfeOn ? "ligada" : "desligada"}</b>` : ""}` : ""}</div>
       <div class="meta">${CFG.NFE_HABILITADA ? `Última busca NF-e: ${fmtDH(e.ultima_sinc_nfe)}${bloq ? ` · próxima liberada às ${bloq}` : ""} · ` : ""}Última busca NFS-e: ${fmtDH(e.ultima_sinc_nfse)}${CFG.NFE_HABILITADA ? "" : " · NF-e (produtos): em breve"}</div>
+      ${avisoNfe}
     </div>${certBox}
   </div>
   <div class="acoes">
     ${ehAdmin ? `
-    ${CFG.NFE_HABILITADA ? `<button id="bNfe" onclick="buscar('nfe')" ${temCert ? "" : "disabled"}>Buscar NF-e agora</button>` : ""}
+    ${CFG.NFE_HABILITADA ? `<button id="bNfe" onclick="buscar('nfe')" ${temCert && nfeOn ? "" : "disabled"} title="${nfeOn ? "" : "NF-e desligada para esta empresa"}">Buscar NF-e agora</button>` : ""}
     <button id="bNfse" onclick="buscar('nfse')" ${temCert ? "" : "disabled"}>Buscar NFS-e agora</button>
     ${CFG.NFE_HABILITADA ? `<button class="sec" onclick="cienciaSel()" ${temCert ? "" : "disabled"}>Dar ciência nas selecionadas</button>` : ""}` : ""}
     <button class="sec" onclick="imprimirSel()">Imprimir espelho</button>
     <button class="sec" onclick="exportar()">Exportar CSV</button>
     ${ehAdmin ? `<button class="sec" onclick="alternarAuto(${!e.busca_automatica})">${e.busca_automatica ? "Desligar" : "Ligar"} busca automática</button>
+    ${CFG.NFE_HABILITADA ? `<button class="sec" id="bNfeChave" onclick="alternarNfe(${!nfeOn})">${nfeOn ? "Desligar NF-e" : "Ligar NF-e"}</button>` : ""}
     <button class="sec" onclick="alternarAtivo(${!e.ativo})" style="margin-left:auto">${e.ativo ? "Desativar empresa" : "Reativar empresa"}</button>` : ""}
   </div>
   <div id="msgP" class="msg"></div>
@@ -328,6 +334,15 @@ async function buscar(tipo) {
 }
 
 async function alternarAuto(v) { checar(await sb.from("nf_empresas").update({ busca_automatica: v }).eq("cnpj", atual)); ultimaMsg = ["ok", `Busca automática ${v ? "ligada" : "desligada"}.`]; carregarEmpresas(); }
+async function alternarNfe(v) {
+  if (!v && !confirm("Desligar a busca de NF-e desta empresa? Use quando outro sistema (ERP, contabilidade) já baixa as NF-e deste CNPJ: a SEFAZ só aceita um. A NFS-e continua.")) return;
+  try {
+    checar(await sb.from("nf_empresas").update({ nfe_ativa: v }).eq("cnpj", atual));
+    ultimaMsg = ["ok", v ? "NF-e ligada. Lembre: só um sistema pode baixar as NF-e deste CNPJ — o download automático do outro sistema precisa estar desligado."
+                        : "NF-e desligada para esta empresa. A NFS-e continua normalmente."];
+  } catch (err) { ultimaMsg = ["err", err.message]; }
+  carregarEmpresas();
+}
 async function alternarAtivo(v) {
   if (!v && !confirm("Desativar esta empresa? Ela para de ser buscada; notas e XMLs continuam guardados.")) return;
   checar(await sb.from("nf_empresas").update({ ativo: v }).eq("cnpj", atual)); carregarEmpresas();
