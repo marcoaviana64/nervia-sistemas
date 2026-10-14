@@ -164,7 +164,24 @@ with sync_playwright() as p:
     pg.click("#bAdmin"); pg.wait_for_selector("text=Novo login")
     assert pg.locator(".usu").count() == 3
     pg.fill("#nNome", "Fulano"); pg.fill("#nEmail", "fulano@cliente.com"); pg.fill("#nSenha", "12345678")
-    pg.locator("#nApps input").first.check(); pg.click("text=Criar login"); pg.wait_for_selector("#msgAdm.ok")
+    pg.locator("#nApps input").first.check()
+    assert pg.locator("#nEmpresas input").count() == 2, "novo login mostra as empresas do Notas Fiscais"
+    pg.locator("#nEmpresas label", has_text="Linum").locator("input").check()
+    pg.click("text=Criar login"); pg.wait_for_selector("#msgAdm.ok")
+    cria = [c for c in pg.evaluate("window.__chamadas") if c[0] == "fn:usuarios"][-1][1]
+    assert cria["cnpjs"] == ["22222222000122"] and cria["admin"] is False, cria
+    # login existente: liberar e retirar empresa direto na Administração
+    cli = pg.locator(".usu", has_text="financeiro@linum.com.br")
+    assert cli.locator("label", has_text="Linum").locator("input").is_checked()
+    assert not cli.locator("label", has_text="Nervia").locator("input").is_checked()
+    cli.locator("label", has_text="Nervia").locator("input").check(); pg.wait_for_selector("#msgAdm.ok")
+    assert pg.evaluate("window.__chamadas").count(["nf_acessos", "insert"]) == 1
+    cli = pg.locator(".usu", has_text="financeiro@linum.com.br")
+    cli.locator("label", has_text="Linum").locator("input").uncheck(); pg.wait_for_timeout(200)
+    cli.locator("label", has_text="Nervia").locator("input").uncheck(); pg.wait_for_timeout(200)
+    assert pg.locator(".usu", has_text="financeiro@linum.com.br").locator(".aviso-emp").is_visible()
+    adm = pg.locator(".usu", has_text="marco@nervia.com.br")
+    assert adm.locator("#nEmpresas, .chips input").count() == 0, "admin não tem lista de empresas"
     pg.screenshot(path=f"{SAIDA}/portal_admin.png")
     pg.click("#abaApps"); pg.wait_for_selector("text=Novo aplicativo")
     nv = pg.locator(".cartao").last

@@ -99,6 +99,9 @@ header{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdro
 .chips label{display:flex;align-items:center;gap:6px;margin:0;color:var(--text);font-weight:500;font-size:.9rem}
 .usu{border-top:1px solid var(--border);padding:14px 0}
 .usu:first-child{border-top:0}
+.chips .small{color:var(--muted);font-weight:400}
+.apagado{opacity:.4;pointer-events:none}
+.aviso-emp{color:#a15c00;margin-top:6px}
 .usu .acoes{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
 .usu .acoes button{padding:7px 12px;font-size:.84rem}
 .tag{display:inline-block;padding:2px 8px;border-radius:20px;background:var(--icon-bg);color:var(--accent);font-size:.75rem;font-weight:700;margin-left:6px}
@@ -329,23 +332,37 @@ async function aba(qual) {
 async function admLogins() {
   const perfis = checar(await sb.from("perfis").select("*").order("nome"));
   const acessos = checar(await sb.from("app_acessos").select("*"));
+  // Empresas do Notas Fiscais (CNPJs que cada login vê). Se o app não existir neste projeto, a parte de empresas some.
+  const rEmp = await sb.from("nf_empresas").select("cnpj, nome").order("nome");
+  const empresas = rEmp.error ? null : rEmp.data || [];
+  const acessosNf = empresas ? (checar(await sb.from("nf_acessos").select("*")) || []) : [];
+  const fmtCnpj = c => c && c.length === 14 ? `${c.slice(0,2)}.${c.slice(2,5)}.${c.slice(5,8)}/${c.slice(8,12)}-${c.slice(12)}` : (c || "");
+  const rotEmp = e => `${esc(e.nome)} <span class="small">${fmtCnpj(e.cnpj)}</span>`;
+  const chipsEmp = (uid, marcados) => !empresas ? "" : !empresas.length ? '<div class="small">Nenhuma empresa cadastrada no app Notas Fiscais.</div>' :
+    `<div class="chips">${empresas.map(e => `<label><input type="checkbox" ${marcados.includes(e.cnpj) ? "checked" : ""}
+      onchange="alterarAcessoEmpresa('${uid}','${e.cnpj}',this.checked)">${rotEmp(e)}</label>`).join("")}</div>`;
   const chipsApps = (uid, marcados) => `<div class="chips">${apps.map(a => `<label><input type="checkbox" ${marcados.includes(a.id) ? "checked" : ""}
       onchange="alterarAcessoApp('${uid}','${a.id}',this.checked)">${esc(a.nome)}</label>`).join("")}</div>`;
   $("admConteudo").innerHTML = `
     <div class="cartao">
-      <h2>Novo login</h2><div class="small">Um login vale para todos os aplicativos marcados. No app Notas Fiscais, escolha depois quais empresas (CNPJs) a pessoa vê.</div>
+      <h2>Novo login</h2><div class="small">Um login vale para todos os aplicativos marcados e mostra só as empresas (CNPJs) marcadas abaixo.</div>
       <div class="linha">
         <div><label>Nome</label><input id="nNome"></div>
         <div><label>E-mail</label><input id="nEmail" type="email"></div>
         <div><label>Senha inicial (mín. 8)</label><input id="nSenha" autocomplete="off"></div>
       </div>
       <label>Aplicativos</label><div class="chips" id="nApps">${apps.map(a => `<label><input type="checkbox" value="${esc(a.id)}">${esc(a.nome)}</label>`).join("")}</div>
-      <div class="chips"><label><input type="checkbox" id="nAdmin"> Equipe Nervia (administrador)</label></div>
+      ${empresas ? `<label style="margin-top:12px">Empresas que a pessoa vê (Notas Fiscais e Painel de Notas)</label>
+        ${empresas.length ? `<div class="chips" id="nEmpresas">${empresas.map(e => `<label><input type="checkbox" value="${esc(e.cnpj)}">${rotEmp(e)}</label>`).join("")}</div>`
+          : '<div class="small">Nenhuma empresa cadastrada ainda: cadastre no app Notas Fiscais e depois marque aqui, no login.</div>'}` : ""}
+      <div class="chips" style="margin-top:14px"><label><input type="checkbox" id="nAdmin" onchange="document.getElementById('nEmpresas')?.classList.toggle('apagado', this.checked)"> Equipe Nervia (administrador, vê todas as empresas)</label></div>
       <button style="margin-top:14px" onclick="criarLogin()">Criar login</button>
     </div>
     <div class="cartao">${perfis.map(p => `<div class="usu">
       <b>${esc(p.nome || p.email)}</b>${p.admin ? '<span class="tag">ADMIN</span>' : ""}<div class="small">${esc(p.email)}</div>
-      ${p.admin ? '<div class="small" style="margin-top:6px">Administradores veem todos os aplicativos.</div>' : chipsApps(p.user_id, acessos.filter(a => a.user_id === p.user_id).map(a => a.app_id))}
+      ${p.admin ? '<div class="small" style="margin-top:6px">Administradores veem todos os aplicativos e todas as empresas.</div>' : chipsApps(p.user_id, acessos.filter(a => a.user_id === p.user_id).map(a => a.app_id)) +
+        (empresas ? `<div class="small" style="margin-top:10px">Empresas que vê:</div>${chipsEmp(p.user_id, acessosNf.filter(a => a.user_id === p.user_id).map(a => a.cnpj))}` +
+          (!acessosNf.some(a => a.user_id === p.user_id) && empresas.length ? '<div class="small aviso-emp">Nenhuma empresa marcada: a pessoa entra, mas não vê notas.</div>' : "") : "")}
       ${p.user_id === eu.id ? "" : `<div class="acoes"><button class="sec" onclick="novaSenha('${p.user_id}')">Definir nova senha</button>
         <button class="perigo" onclick="excluirLogin('${p.user_id}')">Excluir login</button></div>`}
     </div>`).join("")}</div>`;
@@ -355,7 +372,8 @@ async function admLogins() {
 async function criarLogin() {
   try {
     const r = await funcao("usuarios", { acao: "criar", nome: nNome.value.trim(), email: nEmail.value.trim(), senha: nSenha.value,
-      admin: nAdmin.checked, apps: [...document.querySelectorAll("#nApps input:checked")].map(c => c.value) });
+      admin: nAdmin.checked, apps: [...document.querySelectorAll("#nApps input:checked")].map(c => c.value),
+      cnpjs: nAdmin.checked ? [] : [...document.querySelectorAll("#nEmpresas input:checked")].map(c => c.value) });
     await admLogins(); msg($("msgAdm"), "ok", r.mensagem + " Envie o e-mail e a senha inicial ao cliente; ele pode trocar a senha depois.");
   } catch (e) { msg($("msgAdm"), "err", e.message); }
 }
@@ -364,6 +382,13 @@ async function alterarAcessoApp(uid, app_id, marcar) {
     if (marcar) checar(await sb.from("app_acessos").insert({ user_id: uid, app_id }));
     else checar(await sb.from("app_acessos").delete().eq("user_id", uid).eq("app_id", app_id));
     msg($("msgAdm"), "ok", "Acesso atualizado.");
+  } catch (e) { msg($("msgAdm"), "err", e.message); }
+}
+async function alterarAcessoEmpresa(uid, cnpj, marcar) {
+  try {
+    if (marcar) checar(await sb.from("nf_acessos").insert({ user_id: uid, cnpj }));
+    else checar(await sb.from("nf_acessos").delete().eq("user_id", uid).eq("cnpj", cnpj));
+    await admLogins(); msg($("msgAdm"), "ok", marcar ? "Empresa liberada para o login." : "Empresa retirada do login.");
   } catch (e) { msg($("msgAdm"), "err", e.message); }
 }
 async function novaSenha(uid) {
