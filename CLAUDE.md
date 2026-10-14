@@ -55,7 +55,8 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
   - Solução: `ponte-sefaz/` no Google Cloud Run (escolha do Marco). Reproduzido em teste: `servidor_renegociacao.py` derruba o Deno direto e funciona pela ponte (10/10).
   - 2026-10-13: NF-e FUNCIONANDO pela ponte. Cloud Run `ponte-sefaz` no projeto GCP **NerviaOrcamentos**, southamerica-east1, URL https://ponte-sefaz-916060726487.southamerica-east1.run.app (deploy contínuo do GitHub, conta de serviço padrão do Compute). Segredos `PONTE_URL`/`PONTE_SEGREDO` no Supabase. Teste real: SEFAZ respondeu (Nervia: 0 NF-e nos últimos 90 dias, bloqueio de 1h aplicado). Ciência ainda não testada de verdade (sem NF-e em resumo).
   - ATENÇÃO: a conta do Google Cloud estava em teste gratuito (fim ~15/10/2026). Sem upgrade para conta paga, a ponte para e a NF-e volta a falhar ("Ponte SEFAZ fora do ar").
-- Pendente: `SITE_ORIGEM` ainda sem definir (CORS aberto durante os testes); domínio nervia.com.br.
+- 2026-10-14: DOMÍNIO LIGADO. DNS do nervia.com.br migrado para a Cloudflare pelo Marco (NS cloudflare; registros do M365 conferidos: MX, SPF, MS=/mscid, autodiscover, SRV/lync do Teams). https://nervia.com.br e https://www.nervia.com.br servem o worker `nervia-site`; Área do Cliente OK.
+- `SITE_ORIGEM` aceita lista separada por vírgula (função `origemPermitida`, v5-origens). Valor previsto: `https://nervia.com.br,https://www.nervia.com.br`.
 
 ## Ideias (comercialização)
 - Termo de autorização/custódia do certificado A1 com cada cliente (LGPD + responsabilidade pelo uso do certificado).

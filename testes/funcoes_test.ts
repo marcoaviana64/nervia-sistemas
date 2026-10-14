@@ -272,3 +272,12 @@ Deno.test("Ponte SEFAZ (OpenSSL): funções → ponte → servidor que exige cer
     await srv.status; await ponte.status; await reneg.status;
   }
 });
+
+Deno.test("CORS: SITE_ORIGEM com vários endereços", async () => {
+  const { origemPermitida } = await import("../supabase/functions/_shared/http.ts");
+  const ok = ["https://nervia.com.br", "https://www.nervia.com.br"];
+  assertEquals(origemPermitida("https://www.nervia.com.br", ok), "https://www.nervia.com.br");
+  assertEquals(origemPermitida("https://nervia.com.br", ok), "https://nervia.com.br");
+  assertEquals(origemPermitida("https://outro-site.com", ok), "https://nervia.com.br");
+  assertEquals(origemPermitida("https://qualquer.com", []), "*");
+});

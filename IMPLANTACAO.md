@@ -43,7 +43,7 @@ Crie o repositório **vazio** `marcoaviana64/nervia-sistemas`. Ele pode ser **pr
 ## 3. Segredos das funções
 Em *Edge Functions → Secrets*, crie:
 - `CRON_SECRET`: um valor aleatório longo (ex.: `openssl rand -hex 32`).
-- `SITE_ORIGEM` = `https://nervia.com.br`. Limita quais sites podem chamar as funções pelo navegador.
+- `SITE_ORIGEM` = `https://nervia.com.br,https://www.nervia.com.br` (um ou mais endereços, separados por vírgula). Limita quais sites podem chamar as funções pelo navegador. Depois de definido, o endereço `workers.dev` deixa de conseguir usar as funções. Para voltar a usá-lo, inclua-o na lista.
 
 ## 4. Busca automática
 No *SQL Editor*, abra `supabase/agendar_busca.sql`, troque `<URL_DO_PROJETO>` e `<CRON_SECRET>` e execute uma vez.

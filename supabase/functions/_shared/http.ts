@@ -2,10 +2,20 @@
 import { admin } from "./banco.ts";
 
 /** Muda a cada correção nas funções: aparece nas mensagens de erro para saber qual versão está no ar. */
-export const VERSAO = "v4-ponte";
+export const VERSAO = "v5-origens";
+
+// SITE_ORIGEM: um ou mais endereços separados por vírgula (ex.: https://nervia.com.br,https://www.nervia.com.br).
+// Sem ele, qualquer site pode chamar (o acesso continua exigindo login de admin ou o segredo do cron).
+const ORIGENS = (Deno.env.get("SITE_ORIGEM") ?? "").split(",").map((o) => o.trim().replace(/\/+$/, "")).filter(Boolean);
+
+/** Devolve a origem do pedido se ela for permitida; senão, a primeira permitida (o navegador bloqueia). */
+export function origemPermitida(origem: string | null, permitidas = ORIGENS): string {
+  if (!permitidas.length) return "*";
+  return origem && permitidas.includes(origem) ? origem : permitidas[0];
+}
 
 export const CORS = {
-  "Access-Control-Allow-Origin": Deno.env.get("SITE_ORIGEM") ?? "*",
+  "Access-Control-Allow-Origin": origemPermitida(null),
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret, x-region",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
@@ -42,6 +52,13 @@ export function servir(
   opts: { permiteCron?: boolean } = {},
 ) {
   Deno.serve(async (req) => {
+    const r = await atender(req);
+    r.headers.set("Access-Control-Allow-Origin", origemPermitida(req.headers.get("Origin")));
+    r.headers.set("Vary", "Origin");
+    return r;
+  });
+
+  async function atender(req: Request): Promise<Response> {
     if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
     if (req.method !== "POST") return erro("Use POST", 405);
     const quem = await chamador(req);
@@ -52,7 +69,7 @@ export function servir(
       console.error(VERSAO, e);
       return erro(`${mensagemDeRede(e)} [${VERSAO}]`, 502);
     }
-  });
+  }
 }
 
 export function mensagemDeRede(e: unknown): string {
