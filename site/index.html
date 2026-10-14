@@ -148,10 +148,10 @@ footer{border-top:1px solid var(--border);padding:36px 0;color:var(--muted);font
 .apps-grid{display:grid;grid-template-columns:.95fr 1.05fr;gap:40px;align-items:start}
 .app-list{display:grid;gap:18px}
 .app-card{background:color-mix(in srgb,var(--hero-text) 6%,transparent);border:1px solid color-mix(in srgb,var(--hero-text) 14%,transparent);border-radius:var(--radius);padding:24px}
-.app-top{display:flex;align-items:center;gap:14px;margin-bottom:10px}
+.app-top{display:flex;align-items:flex-start;gap:14px}
 .app-ic{flex:none;width:46px;height:46px;border-radius:12px;background:#2BB3D1;color:#06222c;display:grid;place-items:center;font-weight:800;font-size:.95rem}
 .app-top h3{font-size:1.2rem}
-.app-top small{display:block;color:var(--hero-muted);font-size:.85rem;font-weight:500}
+.app-top small{display:block;color:var(--hero-muted);font-size:.95rem;font-weight:400;margin-top:4px;line-height:1.5}
 .app-preco{margin-left:auto;text-align:right;font-weight:800;font-size:1.25rem;white-space:nowrap}
 .app-preco small{display:block;font-size:.72rem;font-weight:500;color:var(--hero-muted)}
 .app-card ul{list-style:none;display:grid;gap:7px;margin-top:6px}
@@ -164,7 +164,7 @@ footer{border-top:1px solid var(--border);padding:36px 0;color:var(--muted);font
 .tela .barra span{margin-left:10px;font-size:.72rem;color:#6b7a88;background:#fff;border-radius:5px;padding:2px 10px}
 .tela img{width:100%;height:auto}
 .tela-nota{font-size:.82rem;color:var(--hero-muted);margin-top:10px}
-.apps-ctas{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-top:34px}
+.apps-ctas{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-top:10px}
 .apps-ctas .btn-primary{background:#2BB3D1;color:#06222c}
 .apps-ctas small{color:var(--hero-muted);font-size:.88rem}
 .seg-apps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:22px}
@@ -191,7 +191,6 @@ footer{border-top:1px solid var(--border);padding:36px 0;color:var(--muted);font
   .stat b{font-size:1.5rem}
   .cta-band{padding:32px}
   .seg-apps{grid-template-columns:1fr}
-  .app-top{flex-wrap:wrap}.app-preco{margin-left:0;text-align:left;width:100%}
   .hero{padding:64px 0}
   
 }
@@ -304,43 +303,26 @@ footer{border-top:1px solid var(--border);padding:36px 0;color:var(--muted);font
   <div class="container">
     <div class="section-head">
       <span class="eyebrow">Aplicativos Nervia</span>
-      <h2>Suas notas fiscais chegam sozinhas</h2>
-      <p class="lead">Aplicativos na Área do Cliente para quem quer ter todas as notas de compra à mão, sem correr atrás de fornecedor, e saber para onde vai o dinheiro da empresa. Funcionam no navegador, no computador ou no celular, sem instalar nada.</p>
+      <h2>Agora a Nervia também tem aplicativos</h2>
+      <p class="lead">Aplicativos de notas fiscais para empresas, usados pela Área do Cliente no navegador, no computador ou no celular.</p>
     </div>
     <div class="apps-grid">
       <div class="app-list">
         <div class="app-card">
-          <div class="app-top"><span class="app-ic">NF</span><div><h3>Buscador de NF</h3><small>Notas de produtos e serviços</small></div></div>
-          <ul>
-            <li><b>Busca automática de hora em hora</b> das NF-e (SEFAZ) e NFS-e (padrão nacional) emitidas contra o seu CNPJ.</li>
-            <li><b>Guarda o XML oficial</b>, mesmo depois que o prazo de ~90 dias da SEFAZ termina.</li>
-            <li><b>Espelho para impressão</b> (DANFE e DANFSe) e exportação para Excel, prontos para o contador.</li>
-          </ul>
+          <div class="app-top"><span class="app-ic">NF</span><div><h3>Buscador de NF</h3><small>Reúne automaticamente as NF-e e NFS-e emitidas contra o CNPJ da empresa, com XML e espelho para impressão.</small></div></div>
         </div>
         <div class="app-card">
-          <div class="app-top"><span class="app-ic">PN</span><div><h3>Painel de Notas</h3><small>Compras e vendas em gráficos</small></div></div>
-          <ul>
-            <li><b>Compras por fornecedor</b> e vendas por cliente, mês a mês, com comparação ao período anterior.</li>
-            <li><b>Maiores fornecedores</b> e quanto cada um pesa no total: base para negociar preço e prazo.</li>
-            <li>Filtros por ano, mês, período e fornecedor. Usa as notas reunidas pelo Buscador.</li>
-          </ul>
+          <div class="app-top"><span class="app-ic">PN</span><div><h3>Painel de Notas</h3><small>Mostra as compras por fornecedor e as vendas por cliente, mês a mês, em gráficos.</small></div></div>
+        </div>
+        <div class="apps-ctas">
+          <a class="btn btn-primary" href="/demo/" target="_blank" rel="noopener">Ver demonstração</a>
+          <small>Empresa e notas fictícias: entre e teste à vontade, sem cadastro.</small>
         </div>
       </div>
       <div>
         <div class="tela"><div class="barra"><i></i><i></i><i></i><span>nervia.com.br · Painel de Notas</span></div>
           <img src="/img/app-painel.jpg" alt="Tela do Painel de Notas com gráfico de compras por mês e maiores fornecedores" width="1440" height="825" loading="lazy"></div>
-        <p class="tela-nota">Tela real do aplicativo, com dados fictícios.</p>
-        <div class="seg-apps">
-          <div><b>Certificado protegido</b>Guardado criptografado, no Brasil, só para consulta.</div>
-          <div><b>Termo por escrito</b>Autorização e custódia do certificado assinadas com cada cliente.</div>
-          <div><b>Um login só</b>Todos os aplicativos na Área do Cliente.</div>
-        </div>
       </div>
-    </div>
-    <div class="apps-ctas">
-      <a class="btn btn-primary" href="/demo/" target="_blank" rel="noopener">Ver demonstração</a>
-      <a class="btn btn-wa js-wa-apps" href="#" target="_blank" rel="noopener">Quero assinar</a>
-      <small>Demonstração com empresa e notas fictícias: entre e teste à vontade, sem cadastro.</small>
     </div>
   </div>
 </section>
