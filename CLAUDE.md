@@ -39,6 +39,7 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
 - `testes/` — Deno (lógica + mTLS real local + ponte contra `servidor_renegociacao.py`, que imita o IIS da SEFAZ; precisa de `pip install pyopenssl`), SQL (RLS num Postgres local com stubs), Playwright (tela com Supabase falso), conferência independente da assinatura.
 - A primeira versão (Flask, local) ficou em `Projects/BuscadorCNPJ/versao-local/`, só como referência.
 - `IMPLANTACAO.md` — passo a passo de deploy.
+- `site/demo/` — **demonstração pública** (https://nervia.com.br/demo/): cópias GERADAS da Área do Cliente, Buscador, espelho e Painel com `site/demo/supabase-demo.js` no lugar do supabase-js (login com qualquer e-mail/senha, 2 empresas e 12 meses de notas fictícias relativas à data de hoje, XMLs fictícios, nada acessa a rede nem o Supabase). Não editar as páginas de `site/demo/`: rodar `python3 divulgacao/demo/gerar.py` sempre que o portal, o Buscador, o espelho ou o Painel mudarem, e testar com `python3 divulgacao/demo/testar.py`.
 - `divulgacao/apresentacao/` — apresentação comercial dos apps (HTML → PDF "Nervia - Aplicativos de notas fiscais.pdf", no OneDrive em Projects\Nervia). Telas com dados fictícios (`demo.js`); preço proposto R$ 40/mês por app (por CNPJ, a confirmar com o Marco). Ao mudar um app de forma visível, refazer as telas.
 
 ## Regras que não podem quebrar

@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demonstração · Buscador de NF</title>
+<script src="/config.js"></script>
+<script src="/demo/supabase-demo.js"></script>
+<style>
+:root{--bg:#f4f6f6;--card:#fff;--txt:#14201f;--sub:#5b6b69;--linha:#e2e8e7;--teal:#0f8b84;--teal2:#0b6d67;
+--ok:#1d7f46;--warn:#a86400;--err:#b3261e;--chip:#eef4f3}
+*{box-sizing:border-box}body{margin:0;font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--txt)}
+header{background:#14201f;color:#fff;padding:12px 22px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+header b{font-size:16px;letter-spacing:.3px}header .sub{color:#9fb4b1;font-size:13px}
+header .user{margin-left:auto;display:flex;gap:10px;align-items:center;font-size:13px;color:#cfdedc}
+header button{background:#253634;color:#e8f1f0;padding:6px 10px;font-weight:500}
+header button:hover{background:#314744}
+.layout{display:grid;grid-template-columns:300px 1fr;gap:18px;padding:18px;max-width:1500px;margin:auto}
+@media(max-width:900px){.layout{grid-template-columns:1fr;padding:12px}}
+.layout>*{min-width:0}
+.card{background:var(--card);border:1px solid var(--linha);border-radius:10px;padding:16px}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--sub);margin:0 0 12px}
+.emp{padding:10px 12px;border-radius:8px;cursor:pointer;border:1px solid transparent;margin-bottom:6px}
+.emp:hover{background:var(--chip)}.emp.sel{border-color:var(--teal);background:#e7f4f3}
+.emp .n{font-weight:600}.emp .c{color:var(--sub);font-size:12px;font-variant-numeric:tabular-nums}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#c4cfcd;margin-right:6px}.dot.on{background:var(--ok)}.dot.venc{background:var(--err)}
+label{display:block;font-size:12px;color:var(--sub);margin:8px 0 3px}
+input,select{width:100%;padding:8px 10px;border:1px solid var(--linha);border-radius:7px;font:inherit;background:#fff;color:inherit}
+input[type=checkbox]{width:auto}
+input:focus,select:focus{outline:2px solid #9ad6d2;border-color:var(--teal)}
+button{font:inherit;border:0;border-radius:7px;padding:8px 14px;cursor:pointer;background:var(--teal);color:#fff;font-weight:600}
+button:hover{background:var(--teal2)}button:disabled{opacity:.5;cursor:wait}
+button.sec{background:var(--chip);color:var(--txt)}button.sec:hover{background:#dde9e7}
+button.lnk{background:none;color:var(--teal);padding:0;font-weight:500}button.lnk:hover{text-decoration:underline;background:none}
+button.perigo{background:#fbeaea;color:var(--err)}button.perigo:hover{background:#f6d7d7}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:end}.row>*{flex:1;min-width:120px}
+.topo{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:flex-start}
+.topo h1{font-size:20px;margin:0}.meta{color:var(--sub);font-size:13px}
+.acoes{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.msg{margin-top:12px;padding:10px 12px;border-radius:7px;font-size:13px;display:none;white-space:pre-line}
+.msg.ok{display:block;background:#e6f4ec;color:var(--ok)}.msg.err{display:block;background:#fbeaea;color:var(--err)}
+.msg.info{display:block;background:#eef4f3;color:var(--txt)}
+.filtros{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin:14px 0}
+.kpis{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.kpi{background:var(--chip);border-radius:8px;padding:8px 14px}.kpi b{display:block;font-size:18px;font-variant-numeric:tabular-nums}
+.kpi span{font-size:12px;color:var(--sub)}
+.tab{overflow:auto;max-height:62vh;border:1px solid var(--linha);border-radius:8px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{position:sticky;top:0;background:#f8faf9;text-align:left;font-weight:600;color:var(--sub);padding:8px;border-bottom:1px solid var(--linha);white-space:nowrap}
+td{padding:7px 8px;border-bottom:1px solid var(--linha);vertical-align:top}
+td.v{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tr:hover td{background:#fafcfc}
+.tag{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:600;background:var(--chip)}
+.tag.can{background:#fbeaea;color:var(--err)}.tag.res{background:#fff3e0;color:var(--warn)}.tag.ok{background:#e6f4ec;color:var(--ok)}
+.vazio{padding:40px;text-align:center;color:var(--sub)}
+.small{font-size:12px;color:var(--sub)}
+details summary{cursor:pointer;color:var(--teal);font-weight:600;margin-top:6px}
+.log div{font-size:12px;border-bottom:1px solid var(--linha);padding:5px 0}
+.login{max-width:360px;margin:12vh auto;padding:0 16px}
+.login .card{padding:24px}.login h1{font-size:20px;margin:0 0 4px}
+.cert{background:var(--chip);border-radius:8px;padding:10px 12px;flex:0 1 320px;min-width:0;overflow-wrap:anywhere}
+.usu{border-bottom:1px solid var(--linha);padding:10px 0}
+.chips{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:6px}.chips label{display:flex;gap:5px;align-items:center;margin:0;color:var(--txt);font-size:13px}
+.oculto{display:none!important}
+.embutido header{display:none}
+.embutido .layout{padding-top:12px}
+</style>
+<meta name="robots" content="noindex">
+<!-- GERADO por divulgacao/demo/gerar.py a partir de site/apps/notas/index.html. Não editar aqui. -->
+<style id="demo-css">
+.demo-faixa{position:sticky;top:0;z-index:9999;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;
+  padding:8px 16px;background:#0B2545;color:#fff;font:600 14px/1.35 Inter,system-ui,sans-serif;text-align:center}
+.demo-faixa b{color:#2BB3D1}
+.demo-faixa a{background:#2BB3D1;color:#06222c;text-decoration:none;border-radius:999px;padding:6px 14px;font-weight:700;white-space:nowrap}
+.demo-faixa .demo-dica{font-weight:400;color:#bcd3df}
+.visor{height:calc(100vh - 65px - var(--demo-h, 0px)) !important}
+@media (max-width:600px){.demo-faixa{font-size:12.5px;gap:8px;padding:6px 10px}.demo-faixa .demo-dica{display:none}.demo-faixa a{padding:4px 10px}}
+.demo-selo{position:fixed;right:12px;bottom:12px;z-index:9999;background:#0B2545;color:#fff;font:600 12px Inter,system-ui,sans-serif;
+  padding:6px 12px;border-radius:999px;box-shadow:0 4px 14px rgba(0,0,0,.2);opacity:.92;pointer-events:none}
+</style>
+</head>
+<body>
+<div class="demo-selo" id="demoSelo" style="display:none">Demonstração · dados fictícios</div>
+<script>if(window.self===window.top)document.getElementById("demoSelo").style.display="";</script>
+
+<!-- ============ LOGIN ============ -->
+<div id="telaLogin" class="login oculto">
+  <div class="card">
+    <h1>Buscador de NF</h1>
+    <div class="small">Notas fiscais emitidas contra os seus CNPJs</div>
+    <form onsubmit="entrar(event)">
+      <label>E-mail</label><input id="lEmail" type="email" autocomplete="username" required>
+      <label>Senha</label><input id="lSenha" type="password" autocomplete="current-password" required>
+      <div style="margin-top:14px"><button style="width:100%">Entrar</button></div>
+    </form>
+    <div id="msgLogin" class="msg"></div>
+    <div class="small" style="margin-top:12px"><a href="/demo/#esqueci" target="_top" style="color:var(--teal)">Esqueci minha senha</a> · Ajuda: WhatsApp (21) 96686-9374</div>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="telaApp" class="oculto">
+<header>
+  <b>Buscador de NF</b><span class="sub">NF-e (SEFAZ) e NFS-e Nacional</span>
+  <div class="user"><span id="quem"></span>
+    <button onclick="trocarMinhaSenha()">Trocar senha</button><button onclick="sair()">Sair</button></div>
+</header>
+<div class="layout">
+  <aside>
+    <div class="card">
+      <h2>Empresas</h2>
+      <div id="listaEmp"></div>
+      <details id="novaBox" class="soAdmin">
+        <summary>+ Adicionar empresa</summary>
+        <label>Nome</label><input id="fNome" placeholder="Ex.: Linum">
+        <label>CNPJ</label><input id="fCnpj" placeholder="00.000.000/0000-00">
+        <label>UF</label><select id="fUf"></select>
+        <div style="margin-top:10px"><button onclick="salvarEmpresa()">Salvar</button></div>
+        <div id="msgNova" class="msg"></div>
+      </details>
+    </div>
+    <div class="card soAdmin" style="margin-top:14px">
+      <h2>Acessos</h2>
+      <button class="sec" style="width:100%" onclick="abrirUsuarios()">Quem vê cada empresa</button>
+      <div class="small" style="margin-top:8px">Logins, senhas e quais apps cada cliente usa ficam na Administração da Área do Cliente.</div>
+    </div>
+  </aside>
+  <main><div class="card" id="painel"><div class="vazio">Carregando…</div></div></main>
+</div>
+</div>
+
+<script>
+const CFG = window.NERVIA_CONFIG || window.BUSCADOR_CONFIG || {};
+// Dentro da Área do Cliente (iframe): o topo da Nervia já mostra usuário, senha e sair.
+const EMBUTIDO = window.self !== window.top;
+if (EMBUTIDO) document.documentElement.classList.add("embutido");
+const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
+const UFS = "AC AL AM AP BA CE DF ES GO MA MG MS MT PA PB PE PI PR RJ RN RO RR RS SC SE SP TO".split(" ");
+fUf.innerHTML = UFS.map(u => `<option ${u === "RJ" ? "selected" : ""}>${u}</option>`).join("");
+
+let eu = null, ehAdmin = false, empresas = [], atual = null, notasCache = [], ultimaMsg = null, tela = "empresa";
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtCnpj = c => c && c.length === 14 ? `${c.slice(0,2)}.${c.slice(2,5)}.${c.slice(5,8)}/${c.slice(8,12)}-${c.slice(12)}` : (c || "");
+const fmtVal = v => v == null ? "" : Number(v).toLocaleString("pt-BR", {style:"currency", currency:"BRL"});
+const fmtData = d => d ? new Date(d).toLocaleDateString("pt-BR", {timeZone:"America/Sao_Paulo"}) : "";
+const fmtDH = d => d ? new Date(d).toLocaleString("pt-BR", {timeZone:"America/Sao_Paulo", dateStyle:"short", timeStyle:"short"}) : "nunca";
+const limpaCnpj = v => (v || "").replace(/[^0-9A-Za-z]/g, "").toUpperCase();
+function msg(el, tipo, texto) { if (!el) return; el.className = "msg " + tipo; el.textContent = texto; if (el.id === "msgP") ultimaMsg = [tipo, texto]; }
+function checar({ data, error }) { if (error) throw new Error(error.message); return data; }
+
+async function funcao(nome, corpo) {
+  // região São Paulo: a função sai para a SEFAZ com IP brasileiro
+  const { data, error } = await sb.functions.invoke(nome, { body: corpo, region: "sa-east-1" });
+  if (error) {
+    let m = error.message;
+    try { const j = await error.context.json(); m = j.mensagem || m; } catch {}
+    throw new Error(m);
+  }
+  if (data && data.ok === false) throw new Error(data.mensagem);
+  return data;
+}
+
+// ------------------------------------------------------------ sessão
+async function iniciar() {
+  if (!CFG.SUPABASE_URL || CFG.SUPABASE_URL.includes("SEU-PROJETO")) {
+    document.body.innerHTML = '<div class="login"><div class="card">Preencha o arquivo <b>config.js</b> com a URL e a anon key do projeto Supabase.</div></div>';
+    return;
+  }
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return mostrarLogin();
+  eu = session.user;
+  const perfil = checar(await sb.from("perfis").select("admin, nome").eq("user_id", eu.id).maybeSingle());
+  ehAdmin = !!perfil?.admin;
+  document.querySelectorAll(".soAdmin").forEach(e => e.classList.toggle("oculto", !ehAdmin));
+  $("quem").textContent = (perfil?.nome || eu.email) + (ehAdmin ? " · admin" : "");
+  $("telaLogin").classList.add("oculto"); $("telaApp").classList.remove("oculto");
+  await carregarEmpresas();
+}
+function mostrarLogin() { $("telaApp").classList.add("oculto"); $("telaLogin").classList.remove("oculto"); }
+async function entrar(ev) {
+  ev.preventDefault();
+  const { error } = await sb.auth.signInWithPassword({ email: lEmail.value.trim(), password: lSenha.value });
+  if (error) return msg($("msgLogin"), "err", error.message === "Invalid login credentials" ? "E-mail ou senha incorretos." : error.message);
+  lSenha.value = ""; iniciar();
+}
+async function sair() { await sb.auth.signOut(); location.reload(); }
+async function trocarMinhaSenha() {
+  const s = prompt("Nova senha (mínimo 8 caracteres):"); if (!s) return;
+  if (s.length < 8) return alert("A senha precisa ter pelo menos 8 caracteres.");
+  const { error } = await sb.auth.updateUser({ password: s });
+  alert(error ? error.message : "Senha alterada.");
+}
+
+// ------------------------------------------------------------ empresas
+async function carregarEmpresas() {
+  empresas = checar(await sb.from("nf_empresas").select("*").order("nome"));
+  if (!atual && empresas.length) atual = empresas[0].cnpj;
+  const agora = new Date();
+  listaEmp.innerHTML = empresas.length ? empresas.map(e => {
+    const venc = e.cert_validade && new Date(e.cert_validade) < agora;
+    return `<div class="emp ${tela === "empresa" && atual === e.cnpj ? "sel" : ""}" onclick="selecionar('${e.cnpj}')">
+      <div class="n"><span class="dot ${venc ? "venc" : e.cert_secret_id ? "on" : ""}"></span>${esc(e.nome)}${e.ativo ? "" : " <span class='small'>(inativa)</span>"}</div>
+      <div class="c">${fmtCnpj(e.cnpj)}${ehAdmin && e.termo_status === "pendente" ? ' · <span style="color:var(--warn)">termo pendente</span>' : ""}</div></div>`;
+  }).join("") : `<div class="small" style="margin-bottom:8px">${ehAdmin ? "Nenhuma empresa ainda." : "Nenhuma empresa liberada para o seu login. Fale com a Nervia."}</div>`;
+  if (ehAdmin && !empresas.length) novaBox.open = true;
+  if (tela === "empresa") desenharPainel();
+}
+function selecionar(cnpj) { if (cnpj !== atual || tela !== "empresa") ultimaMsg = null; atual = cnpj; tela = "empresa"; carregarEmpresas(); }
+
+async function salvarEmpresa() {
+  try {
+    const cnpj = limpaCnpj(fCnpj.value);
+    if (cnpj.length !== 14) throw new Error("CNPJ deve ter 14 caracteres.");
+    if (!fNome.value.trim()) throw new Error("Informe o nome.");
+    checar(await sb.from("nf_empresas").insert({ cnpj, nome: fNome.value.trim(), uf: fUf.value }));
+    atual = cnpj; tela = "empresa"; fNome.value = fCnpj.value = ""; novaBox.open = false; msg($("msgNova"), "", "");
+    ultimaMsg = ["info", "Empresa cadastrada. Agora gere o termo de custódia, colha a assinatura do cliente e registre-o; depois envie o certificado A1 (.pfx)."];
+    await carregarEmpresas();
+  } catch (e) { msg($("msgNova"), "err", e.message.includes("duplicate") ? "Esse CNPJ já está cadastrado." : e.message); }
+}
+
+function desenharPainel() {
+  const e = empresas.find(x => x.cnpj === atual);
+  if (!e) { painel.innerHTML = '<div class="vazio">Selecione uma empresa.</div>'; return; }
+  const salvos = ["xTipo","xPapel","xSit","xDe","xAte","xQ"].reduce((o, k) => ($(k) && painel.dataset.cnpj === atual && (o[k] = $(k).value), o), {});
+  painel.dataset.cnpj = atual;
+  const agora = new Date();
+  const bloq = e.bloqueio_nfe && new Date(e.bloqueio_nfe) > agora ? new Date(e.bloqueio_nfe).toLocaleTimeString("pt-BR", {hour:"2-digit", minute:"2-digit"}) : null;
+  const venc = e.cert_validade && new Date(e.cert_validade) < agora;
+  const temCert = !!e.cert_secret_id && !venc;
+  const termoOk = e.termo_status === "assinado" || e.termo_status === "dispensado";
+  const termoTxt = e.termo_status === "assinado" ? `assinado em ${fmtDataSo(e.termo_assinado_em)}${e.termo_signatario ? " por " + esc(e.termo_signatario) : ""}`
+    : e.termo_status === "dispensado" ? `dispensado${e.termo_obs ? " (" + esc(e.termo_obs) + ")" : ""}` : "<b style='color:var(--warn)'>pendente</b>";
+  const termoBox = `<div class="small" id="termoInfo" style="margin-bottom:6px">Termo de custódia do A1: ${termoTxt}
+      · <button class="lnk" onclick="window.open('/apps/notas/termo.html?cnpj=${e.cnpj}','_blank','noopener')">Gerar termo</button>
+      · <button class="lnk" onclick="$('termoForm').classList.toggle('oculto')">Registrar</button></div>
+    <div id="termoForm" class="oculto" style="margin-bottom:8px">
+      <label>Situação do termo</label><select id="tStatus"><option value="assinado">Assinado pelo cliente</option><option value="dispensado">Dispensado (empresa da Nervia)</option><option value="pendente">Pendente</option></select>
+      <label>Data da assinatura</label><input type="date" id="tData" value="${e.termo_assinado_em || ""}">
+      <label>Assinado por (nome e cargo)</label><input id="tSign" value="${esc(e.termo_signatario || "")}">
+      <label>Observação</label><input id="tObs" value="${esc(e.termo_obs || "")}" placeholder="Ex.: original guardado na pasta do cliente">
+      <div style="margin-top:8px"><button onclick="salvarTermo()">Salvar termo</button></div>
+    </div>`;
+  const certBox = !ehAdmin ? "" : `<div class="cert">${termoBox}
+      ${e.cert_secret_id
+        ? `<div class="small">Certificado: <b>${esc(e.cert_titular)}</b><br>${venc ? "<span style='color:var(--err)'>VENCIDO em " : "válido até "}${fmtData(e.cert_validade)}${venc ? "</span>" : ""}</div>
+           ${termoOk ? `<details><summary>Trocar certificado</summary>${formCert()}</details>` : ""}`
+        : termoOk ? `<div class="small" style="margin-bottom:4px"><b>Envie o certificado A1 (.pfx)</b> — fica criptografado no servidor; a senha não é guardada.</div>${formCert()}`
+        : `<div class="small" style="color:var(--warn)"><b>Antes do certificado:</b> gere o termo, colha a assinatura do cliente e registre-o aqui. O envio do certificado só é liberado com o termo registrado.</div>`}
+    </div>`;
+  painel.innerHTML = `
+  <div class="topo">
+    <div>
+      <h1>${esc(e.nome)}</h1>
+      <div class="meta">${fmtCnpj(e.cnpj)} · ${e.uf}${ehAdmin ? ` · busca automática <b>${e.busca_automatica ? "ligada" : "desligada"}</b>` : ""}</div>
+      <div class="meta">${CFG.NFE_HABILITADA ? `Última busca NF-e: ${fmtDH(e.ultima_sinc_nfe)}${bloq ? ` · próxima liberada às ${bloq}` : ""} · ` : ""}Última busca NFS-e: ${fmtDH(e.ultima_sinc_nfse)}${CFG.NFE_HABILITADA ? "" : " · NF-e (produtos): em breve"}</div>
+    </div>${certBox}
+  </div>
+  <div class="acoes">
+    ${ehAdmin ? `
+    ${CFG.NFE_HABILITADA ? `<button id="bNfe" onclick="buscar('nfe')" ${temCert ? "" : "disabled"}>Buscar NF-e agora</button>` : ""}
+    <button id="bNfse" onclick="buscar('nfse')" ${temCert ? "" : "disabled"}>Buscar NFS-e agora</button>
+    ${CFG.NFE_HABILITADA ? `<button class="sec" onclick="cienciaSel()" ${temCert ? "" : "disabled"}>Dar ciência nas selecionadas</button>` : ""}` : ""}
+    <button class="sec" onclick="imprimirSel()">Imprimir espelho</button>
+    <button class="sec" onclick="exportar()">Exportar CSV</button>
+    ${ehAdmin ? `<button class="sec" onclick="alternarAuto(${!e.busca_automatica})">${e.busca_automatica ? "Desligar" : "Ligar"} busca automática</button>
+    <button class="sec" onclick="alternarAtivo(${!e.ativo})" style="margin-left:auto">${e.ativo ? "Desativar empresa" : "Reativar empresa"}</button>` : ""}
+  </div>
+  <div id="msgP" class="msg"></div>
+  <div class="filtros">
+    <div><label>Tipo</label><select id="xTipo" onchange="carregarNotas()"><option value="">Todos</option><option value="NFE">NF-e (produtos)</option><option value="NFSE">NFS-e (serviços)</option></select></div>
+    <div><label>Papel</label><select id="xPapel" onchange="carregarNotas()"><option value="recebida">Recebidas</option><option value="">Todas</option><option value="emitida">Emitidas</option></select></div>
+    <div><label>Situação</label><select id="xSit" onchange="carregarNotas()"><option value="">Todas</option><option>Autorizada</option><option>Cancelada</option><option>Denegada</option></select></div>
+    <div><label>De</label><input type="date" id="xDe" onchange="carregarNotas()"></div>
+    <div><label>Até</label><input type="date" id="xAte" onchange="carregarNotas()"></div>
+    <div><label>Buscar</label><input id="xQ" placeholder="Fornecedor, CNPJ, nº, chave" oninput="clearTimeout(window._t);window._t=setTimeout(carregarNotas,350)"></div>
+  </div>
+  <div class="kpis" id="kpis"></div>
+  <div class="small" id="nSel" style="min-height:16px;margin:-4px 0 4px"></div>
+  <div class="tab" id="tab"></div>
+  <details style="margin-top:12px" ontoggle="if(this.open)carregarLog()"><summary>Histórico de buscas</summary><div class="log" id="log"></div></details>`;
+  Object.entries(salvos).forEach(([k, v]) => $(k).value = v);
+  if ($("tStatus")) $("tStatus").value = e.termo_status === "pendente" ? "assinado" : e.termo_status;
+  if (ultimaMsg) msg($("msgP"), ...ultimaMsg);
+  carregarNotas();
+}
+
+const fmtDataSo = d => d ? d.slice(8, 10) + "/" + d.slice(5, 7) + "/" + d.slice(0, 4) : "";
+async function salvarTermo() {
+  const st = $("tStatus").value;
+  if (st === "assinado" && (!$("tData").value || !$("tSign").value.trim())) return msg($("msgP"), "err", "Informe a data e quem assinou o termo.");
+  try {
+    checar(await sb.from("nf_empresas").update({ termo_status: st, termo_assinado_em: st === "assinado" ? $("tData").value : null,
+      termo_signatario: st === "assinado" ? $("tSign").value.trim() : null, termo_obs: $("tObs").value.trim() || null }).eq("cnpj", atual));
+    ultimaMsg = ["ok", st === "pendente" ? "Termo marcado como pendente." : "Termo registrado." + (st !== "pendente" ? " O envio do certificado está liberado." : "")];
+    await carregarEmpresas();
+  } catch (e) { msg($("msgP"), "err", e.message); }
+}
+
+function formCert() {
+  return `<label>Arquivo .pfx</label><input type="file" id="cArq" accept=".pfx,.p12">
+    <label>Senha do certificado</label><div class="row"><input type="password" id="cSenha" autocomplete="off"><button style="flex:0" onclick="enviarCert()">Enviar</button></div>`;
+}
+
+async function enviarCert() {
+  const arq = $("cArq").files[0];
+  if (!arq) return msg($("msgP"), "err", "Escolha o arquivo .pfx.");
+  const b64 = await new Promise((ok, falha) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(",")[1]); r.onerror = falha; r.readAsDataURL(arq); });
+  msg($("msgP"), "info", "Validando o certificado…");
+  try {
+    const r = await funcao("certificado", { cnpj: atual, pfx_base64: b64, senha: $("cSenha").value });
+    ultimaMsg = ["ok", `Certificado de ${r.titular} salvo (válido até ${fmtData(r.validade)}).${r.aviso ? "\n" + r.aviso : ""}`];
+    await carregarEmpresas();
+  } catch (e) { msg($("msgP"), "err", e.message); }
+}
+
+async function buscar(tipo) {
+  const b = $(tipo === "nfe" ? "bNfe" : "bNfse"); b.disabled = true; const t = b.textContent; b.textContent = "Buscando…";
+  msg($("msgP"), "info", tipo === "nfe" ? "Consultando a SEFAZ em lotes de 50 documentos. Pode levar até 2 minutos." : "Consultando o Ambiente Nacional da NFS-e…");
+  try {
+    const r = await funcao("sincronizar", { cnpj: atual, tipo });
+    const s = r.resumo || {};
+    ultimaMsg = ["ok", `${r.mensagem}${r.resumo ? `\nNovas: ${s.nova||0} · Atualizadas: ${s.atualizada||0} · Eventos: ${s.evento||0}` : ""}`];
+  } catch (e) { ultimaMsg = ["err", e.message]; }
+  b.disabled = false; b.textContent = t; carregarEmpresas();
+}
+
+async function alternarAuto(v) { checar(await sb.from("nf_empresas").update({ busca_automatica: v }).eq("cnpj", atual)); ultimaMsg = ["ok", `Busca automática ${v ? "ligada" : "desligada"}.`]; carregarEmpresas(); }
+async function alternarAtivo(v) {
+  if (!v && !confirm("Desativar esta empresa? Ela para de ser buscada; notas e XMLs continuam guardados.")) return;
+  checar(await sb.from("nf_empresas").update({ ativo: v }).eq("cnpj", atual)); carregarEmpresas();
+}
+
+// ------------------------------------------------------------ notas
+function consultaNotas() {
+  let q = sb.from("nf_notas").select("*").eq("cnpj_consulta", atual).order("data_emissao", { ascending: false, nullsFirst: false });
+  if ($("xTipo").value) q = q.eq("tipo", $("xTipo").value);
+  if ($("xPapel").value) q = q.eq("papel", $("xPapel").value);
+  if ($("xSit").value) q = q.eq("situacao", $("xSit").value);
+  if ($("xDe").value) q = q.gte("data_emissao", $("xDe").value + "T00:00:00-03:00");
+  if ($("xAte").value) q = q.lte("data_emissao", $("xAte").value + "T23:59:59-03:00");
+  const termo = $("xQ").value.replace(/[,()*%\\]/g, " ").trim();
+  if (termo) {
+    const so = termo.replace(/[.\/-]/g, "");
+    q = q.or(`emit_nome.ilike.*${termo}*,emit_cnpj.ilike.*${so}*,chave.ilike.*${so}*,numero.ilike.*${termo}*`);
+  }
+  return q;
+}
+async function todasAsNotas() {
+  const tudo = [];
+  for (let de = 0; ; de += 1000) {
+    const parte = checar(await consultaNotas().range(de, de + 999));
+    tudo.push(...parte);
+    if (parte.length < 1000) return tudo;
+  }
+}
+
+async function carregarNotas() {
+  const cnpj = atual;
+  let lista;
+  try { lista = await todasAsNotas(); } catch (e) { return msg($("msgP"), "err", e.message); }
+  if (cnpj !== atual || !$("tab")) return;
+  notasCache = lista;
+  const tot = lista.filter(n => n.situacao !== "Cancelada").reduce((a, n) => a + Number(n.valor || 0), 0);
+  const pend = lista.filter(n => n.tipo === "NFE" && !n.completo && !n.manifestada && n.situacao !== "Cancelada").length;
+  $("kpis").innerHTML = `<div class="kpi"><b>${lista.length}</b><span>notas</span></div>
+    <div class="kpi"><b>${fmtVal(tot)}</b><span>total (sem canceladas)</span></div>
+    ${ehAdmin && CFG.NFE_HABILITADA ? `<div class="kpi"><b>${pend}</b><span>NF-e só com resumo — dê ciência p/ baixar o XML</span></div>` : ""}`;
+  if (!lista.length) { $("tab").innerHTML = `<div class="vazio">Nenhuma nota com esses filtros.${ehAdmin ? " Use os botões de busca acima." : " A busca roda automaticamente de hora em hora."}</div>`; return; }
+  $("tab").innerHTML = `<table><thead><tr><th><input type="checkbox" id="ckTodas" title="Marcar todas" onchange="document.querySelectorAll('.ck').forEach(c=>c.checked=this.checked);contarSel()"></th>
+    <th>Tipo</th><th>Emissão</th><th>Nº</th><th>Emitente</th><th>Destinatário</th><th style="text-align:right">Valor</th><th>Situação</th><th>Arquivos</th></tr></thead><tbody>
+    ${lista.map(n => `<tr>
+      <td><input type="checkbox" class="ck" value="${n.id}" onchange="contarSel()"></td>
+      <td><span class="tag">${n.tipo === "NFE" ? "NF-e" : "NFS-e"}</span></td>
+      <td>${fmtData(n.data_emissao)}</td><td>${esc(n.numero)}</td>
+      <td>${esc(n.emit_nome)}<div class="small">${fmtCnpj(n.emit_cnpj)}</div></td>
+      <td>${esc(n.dest_nome)}<div class="small">${fmtCnpj(n.dest_cnpj)}</div></td>
+      <td class="v">${fmtVal(n.valor)}</td>
+      <td>${n.situacao === "Cancelada" ? '<span class="tag can">Cancelada</span>' : esc(n.situacao)}
+        ${n.tipo === "NFE" && !n.completo ? (n.manifestada ? '<div><span class="tag ok">ciência dada</span></div>' : '<div><span class="tag res">só resumo</span></div>') : ""}</td>
+      <td style="white-space:nowrap">${n.xml_path ? `<button class="lnk" title="Baixar o XML · ${esc(n.chave)}" onclick="baixarXml(${n.id})">XML</button> · ` : ""}<button class="lnk" title="Espelho para impressão" onclick="abrirEspelho([${n.id}])">espelho</button></td></tr>`).join("")}
+    </tbody></table>`;
+}
+
+async function baixarXml(id) {
+  const n = notasCache.find(x => x.id === id); if (!n) return;
+  const { data, error } = await sb.storage.from("nf-xml").createSignedUrl(n.xml_path, 120, { download: n.xml_path.split("/").pop() });
+  if (error) return msg($("msgP"), "err", "Não foi possível baixar: " + error.message);
+  const a = document.createElement("a"); a.href = data.signedUrl; a.download = n.xml_path.split("/").pop(); document.body.appendChild(a); a.click(); a.remove();
+}
+
+// ------------------------------------------------------------ seleção de linhas (vale para espelho, CSV e ciência)
+const selecionadas = () => [...document.querySelectorAll(".ck:checked")].map(c => +c.value);
+function contarSel() {
+  const n = selecionadas().length, t = document.querySelectorAll(".ck").length;
+  const todas = $("ckTodas"); if (todas) { todas.checked = n > 0 && n === t; todas.indeterminate = n > 0 && n < t; }
+  $("nSel").textContent = n ? `${n} selecionada(s)` : "";
+}
+function abrirEspelho(ids) { window.open("/demo/apps/notas/espelho.html?ids=" + ids.join(","), "_blank", "noopener"); }
+function imprimirSel() {
+  const ids = selecionadas();
+  if (!ids.length) return msg($("msgP"), "info", "Marque na tabela as notas que quer imprimir (a caixa do cabeçalho marca todas).");
+  if (ids.length > 200) return msg($("msgP"), "info", "Imprima no máximo 200 notas por vez.");
+  abrirEspelho(ids);
+}
+async function cienciaSel() {
+  const elegivel = new Set(notasCache.filter(n => n.tipo === "NFE" && !n.completo && !n.manifestada && n.situacao !== "Cancelada").map(n => n.id));
+  const ids = selecionadas().filter(id => elegivel.has(id));
+  if (!ids.length) return msg($("msgP"), "info", "Entre as notas marcadas não há NF-e com “só resumo”. A ciência só vale para essas notas.");
+  if (!confirm(`Registrar “Ciência da Operação” na SEFAZ para ${ids.length} nota(s)?\n\nIsso é um evento fiscal oficial em nome da empresa. Ele não confirma nem recusa a operação, apenas libera o download do XML.`)) return;
+  try {
+    const r = await funcao("ciencia", { cnpj: atual, ids });
+    ultimaMsg = [r.falhas.length ? "info" : "ok", r.mensagem + (r.falhas.length ? "\nFalhas:\n" + r.falhas.join("\n") : "")];
+  } catch (e) { ultimaMsg = ["err", e.message]; }
+  carregarEmpresas();
+}
+
+function exportar() {
+  const sel = new Set(selecionadas());
+  const lista = sel.size ? notasCache.filter(n => sel.has(n.id)) : notasCache;
+  const linhas = [["Tipo","Papel","Número","Data emissão","CNPJ emitente","Emitente","CNPJ destinatário","Destinatário","Valor","Situação","XML completo","Ciência","Chave"]];
+  for (const n of lista) linhas.push([n.tipo, n.papel, n.numero || "", fmtData(n.data_emissao), n.emit_cnpj, n.emit_nome, n.dest_cnpj || "", n.dest_nome || "",
+    n.valor == null ? "" : Number(n.valor).toFixed(2).replace(".", ","), n.situacao, n.completo ? "Sim" : "Não", n.manifestada ? "Sim" : "Não", "'" + n.chave]);
+  const csv = "﻿" + linhas.map(l => l.map(c => /[;"\n]/.test(String(c)) ? `"${String(c).replace(/"/g, '""')}"` : c).join(";")).join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+  a.download = `notas-${atual}.csv`; a.click(); URL.revokeObjectURL(a.href);
+}
+
+async function carregarLog() {
+  const l = checar(await sb.from("nf_log").select("*").eq("cnpj", atual).order("id", { ascending: false }).limit(30));
+  $("log").innerHTML = l.length ? l.map(x => `<div><b>${fmtDH(x.quando)}</b> · ${esc(x.origem)} · ${esc(x.mensagem)}</div>`).join("") : '<div class="small">Sem histórico.</div>';
+}
+
+// ------------------------------------------------------------ quem vê cada empresa (admin)
+// Logins são criados na Área do Cliente (/cliente/#admin). Aqui só se escolhem os CNPJs de cada login.
+async function abrirUsuarios() {
+  tela = "usuarios"; await carregarEmpresas();
+  const perfis = checar(await sb.from("perfis").select("*").eq("admin", false).order("nome"));
+  const acessos = checar(await sb.from("nf_acessos").select("*"));
+  const chips = (uid, marcados) => `<div class="chips">${empresas.map(e => `<label><input type="checkbox" ${marcados.includes(e.cnpj) ? "checked" : ""}
+      onchange="alterarAcesso('${uid}','${e.cnpj}',this.checked)">${esc(e.nome)}</label>`).join("")}</div>`;
+  painel.innerHTML = `<div class="topo"><div><h1>Quem vê cada empresa</h1>
+      <div class="meta">Marque as empresas (CNPJs) que cada login de cliente pode ver. A equipe Nervia vê todas.</div>
+      <div class="meta">Para criar logins, trocar senhas ou liberar o app, use a <a href="/demo/#admin" target="_top">Administração da Área do Cliente</a>.</div></div></div>
+    <div id="msgU" class="msg"></div>
+    <div style="margin-top:14px">${perfis.length ? perfis.map(p => `<div class="usu">
+      <b>${esc(p.nome || p.email)}</b> <span class="small">${esc(p.email)}</span>
+      ${chips(p.user_id, acessos.filter(a => a.user_id === p.user_id).map(a => a.cnpj))}
+    </div>`).join("") : '<div class="vazio">Nenhum login de cliente ainda. Crie na Administração da Área do Cliente.</div>'}</div>`;
+}
+async function alterarAcesso(uid, cnpj, marcar) {
+  try {
+    if (marcar) checar(await sb.from("nf_acessos").insert({ user_id: uid, cnpj }));
+    else checar(await sb.from("nf_acessos").delete().eq("user_id", uid).eq("cnpj", cnpj));
+    msg($("msgU"), "ok", "Acesso atualizado.");
+  } catch (e) { msg($("msgU"), "err", e.message); }
+}
+
+sb.auth.onAuthStateChange((ev) => { if (ev === "SIGNED_OUT") mostrarLogin(); });
+iniciar();
+</script>
+</body>
+</html>
