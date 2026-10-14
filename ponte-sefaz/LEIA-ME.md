@@ -18,5 +18,5 @@ Serviço mínimo (Python, só biblioteca padrão) que faz as chamadas de NF-e à
 - `PORT`: o Cloud Run define sozinho.
 - `PONTE_HOSTS_EXTRA`: só para teste local. Não usar em produção.
 
-**Deploy**: veja o IMPLANTACAO.md, seção 7.
+**Deploy**: veja o IMPLANTACAO.md, seção 7. O gatilho do Cloud Build só dispara quando um push altera `ponte-sefaz/**` (mudanças no site ou nas funções não refazem a ponte). O Artifact Registry guarda as 2 imagens mais novas e apaga as outras depois de 7 dias.
 **Teste**: `deno test -A testes/funcoes_test.ts` (teste "Ponte SEFAZ").
