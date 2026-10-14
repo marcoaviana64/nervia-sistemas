@@ -39,6 +39,7 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
 - `IMPLANTACAO.md` — passo a passo de deploy.
 
 ## Regras que não podem quebrar
+- **Custos sempre registrados** (pedido do Marco, 2026-10-14): a planilha `OneDrive\Documents\Claude\Projects\Nervia\Plataforma Nervia - Investimento.xlsx` (fora do GitHub) guarda custos mensais, investimento inicial, preço por CNPJ, cenários e limites. Ao contratar, trocar de plano ou acrescentar serviço pago, atualizar a aba "Custos mensais" (linha nova antes do total) e o "Histórico", e avisar o Marco do impacto no preço por CNPJ.
 - **Todo app publicado tem cartão de referência + manual de utilização** (decisão do Marco, 2026-10-14). Cartão: cada campo/botão em uma linha, rápido, imprimível. Manual: passo a passo das tarefas, mensagens de erro e o que fazer. Ficam em `site/apps/<nome>/ajuda/`, usam `/ajuda/ajuda.css`, e são cadastrados em Administração → Aplicativos. Ao mudar um campo do app, atualizar os dois.
 - Apps internos ficam no mesmo domínio (`/apps/...`): mesma sessão do Supabase, um login só, iframe sem bloqueio. App em outro domínio pode pedir login próprio.
 - Tabelas de cada app com prefixo próprio; `perfis`, `apps` e `app_acessos` são comuns.
