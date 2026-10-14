@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Plataforma Nervia · Aplicativos de notas fiscais</title>
+<style>
+@page{size:297mm 210mm;margin:0}
+:root{--navy:#0B2545;--navy2:#13315C;--teal:#107E99;--cyan:#2BB3D1;--claro:#EAF5F8;--texto:#17222d;--mudo:#5a6978;--linha:#dbe4ea;--alerta:#B4531B;--alertaBg:#FBEFE6}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#fff}
+body{font-family:Inter,system-ui,sans-serif;color:var(--texto);-webkit-print-color-adjust:exact;print-color-adjust:exact;font-feature-settings:"ss01","cv11"}
+.pg{width:297mm;height:210mm;position:relative;overflow:hidden;page-break-after:always;padding:16mm 18mm 14mm;display:flex;flex-direction:column}
+.pg:last-child{page-break-after:auto}
+h1,h2,h3{font-family:"Inter Display",Inter,sans-serif;letter-spacing:-.02em}
+.selo{font-size:9pt;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin-bottom:3mm}
+h2{font-size:25pt;line-height:1.1;font-weight:700;color:var(--navy);max-width:200mm}
+.sub{font-size:11.5pt;color:var(--mudo);line-height:1.5;margin-top:3mm;max-width:190mm}
+.rodape{position:absolute;left:18mm;right:18mm;bottom:8mm;display:flex;justify-content:space-between;align-items:center;font-size:8pt;color:#8a98a5}
+.rodape img{height:6mm}
+/* capa */
+.capa{background:var(--navy);color:#fff;padding:0}
+.capa .fundo{position:absolute;inset:0;background:radial-gradient(120mm 120mm at 85% 20%,rgba(43,179,209,.35),transparent 70%),radial-gradient(90mm 90mm at 10% 110%,rgba(16,126,153,.45),transparent 70%)}
+.capa .in{position:relative;padding:18mm 20mm;height:100%;display:flex;flex-direction:column}
+.capa .logo{height:15mm;align-self:flex-start}
+.capa h1{font-size:42pt;line-height:1.02;font-weight:800;margin-top:auto;max-width:170mm}
+.capa h1 em{font-style:normal;color:var(--cyan)}
+.capa p{font-size:14pt;line-height:1.45;color:#cfe3ec;max-width:150mm;margin-top:6mm}
+.capa .apps{display:flex;gap:4mm;margin-top:10mm}
+.capa .chip{display:flex;align-items:center;gap:3mm;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);border-radius:3mm;padding:3mm 5mm 3mm 3mm;font-size:11pt;font-weight:600}
+.capa .chip b{display:grid;place-items:center;width:9mm;height:9mm;border-radius:2mm;background:var(--cyan);color:var(--navy);font-size:9pt}
+.capa .pe{margin-top:12mm;font-size:9.5pt;color:#9fbccb;display:flex;gap:8mm}
+.capa .tela{position:absolute;right:-30mm;top:40mm;width:150mm;transform:rotate(-4deg);border-radius:3mm;box-shadow:0 10mm 30mm rgba(0,0,0,.45);opacity:.95}
+/* dores */
+.dores{display:grid;grid-template-columns:repeat(3,1fr);gap:5mm;margin-top:9mm}
+.dor{border:1px solid var(--linha);border-radius:3.5mm;padding:5.5mm 6mm;background:#fff}
+.dor .ic{width:10mm;height:10mm;border-radius:2.5mm;background:var(--alertaBg);color:var(--alerta);display:grid;place-items:center;margin-bottom:4mm}
+.dor .ic svg{width:5.5mm;height:5.5mm}
+.dor h3{font-size:12.5pt;color:var(--navy);margin-bottom:2mm}
+.dor p{font-size:9.6pt;line-height:1.5;color:var(--mudo)}
+.dor strong{color:var(--texto)}
+/* app */
+.duas{display:grid;grid-template-columns:96mm 1fr;gap:9mm;margin-top:7mm;flex:1;min-height:0}
+.lista{list-style:none;display:flex;flex-direction:column;gap:3.6mm}
+.lista li{display:grid;grid-template-columns:6mm 1fr;gap:2.5mm;font-size:10pt;line-height:1.45;color:var(--mudo)}
+.lista li b{color:var(--texto);font-weight:600}
+.lista .ok{width:5.2mm;height:5.2mm;border-radius:50%;background:var(--claro);color:var(--teal);display:grid;place-items:center;margin-top:.3mm}
+.lista .ok svg{width:3.2mm;height:3.2mm}
+.janela{border-radius:3mm;overflow:hidden;box-shadow:0 2mm 8mm rgba(11,37,69,.16),0 0 0 1px rgba(11,37,69,.08);background:#fff;align-self:start}
+.janela .barra{height:6mm;background:#eef2f5;display:flex;align-items:center;gap:1.4mm;padding:0 3mm;border-bottom:1px solid var(--linha)}
+.janela .barra i{width:2mm;height:2mm;border-radius:50%;background:#cdd6de}
+.janela .barra span{margin-left:3mm;font-size:7pt;color:#8a98a5;background:#fff;border-radius:1mm;padding:.6mm 3mm}
+.janela img{display:block;width:100%}
+.nota{font-size:8.3pt;color:#8a98a5;margin-top:2.5mm}
+.tag{display:inline-block;font-size:8pt;font-weight:700;letter-spacing:.06em;color:var(--teal);background:var(--claro);border-radius:1.5mm;padding:1mm 2.5mm;margin-left:2mm;vertical-align:middle}
+/* usos */
+.usos{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5mm}
+.uso{background:var(--claro);border-radius:3mm;padding:5mm}
+.uso h3{font-size:11.5pt;color:var(--navy);margin-bottom:1.5mm}
+.uso p{font-size:9.3pt;line-height:1.45;color:var(--mudo)}
+.espelho{display:grid;grid-template-columns:1fr 112mm;gap:9mm;margin-top:7mm;flex:1;min-height:0}
+/* tabela antes/depois */
+table.ad{width:100%;border-collapse:separate;border-spacing:0;margin-top:8mm;font-size:11pt}
+table.ad th{text-align:left;font-size:8.5pt;letter-spacing:.1em;text-transform:uppercase;padding:0 5mm 3mm;color:var(--mudo)}
+table.ad th.com{color:var(--teal)}
+table.ad td{padding:4.6mm 5mm;border-top:1px solid var(--linha);line-height:1.4;vertical-align:top}
+table.ad td:first-child{font-weight:600;color:var(--navy);width:62mm}
+table.ad td.sem{color:var(--mudo);width:85mm}
+table.ad td.com{background:var(--claro);color:var(--texto)}
+table.ad tr:first-child td.com{border-top-left-radius:2mm;border-top-right-radius:2mm}
+table.ad tr:last-child td.com{border-bottom-left-radius:2mm;border-bottom-right-radius:2mm}
+.conta{margin-top:auto;margin-bottom:8mm;display:flex;gap:7mm;align-items:center;background:var(--navy);color:#fff;border-radius:4mm;padding:6mm 8mm}
+.conta .n{font-family:"Inter Display",Inter;font-size:26pt;font-weight:800;white-space:nowrap;color:var(--cyan)}
+.conta .n small{font-size:11pt;color:#bcd3df;font-weight:600}
+.conta p{font-size:10.5pt;line-height:1.5;color:#dbe9f0}
+/* segurança */
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:10mm 12mm;margin-top:12mm}
+.seg>div{display:grid;grid-template-columns:13mm 1fr;gap:4.5mm}
+.seg .ic{width:13mm;height:13mm;border-radius:3mm;background:var(--navy);color:var(--cyan);display:grid;place-items:center}
+.seg .ic svg{width:5.5mm;height:5.5mm}
+.seg h3{font-size:13pt;color:var(--navy);margin-bottom:1mm}
+.seg p{font-size:10.3pt;line-height:1.45;color:var(--mudo)}
+/* preço */
+.preco{background:linear-gradient(180deg,#fff 0,#fff 76%,var(--claro) 76%)}
+.planos{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6mm;margin-top:8mm}
+.plano{border:1px solid var(--linha);border-radius:4mm;padding:6mm;background:#fff;display:flex;flex-direction:column}
+.plano.destaque{background:var(--navy);color:#fff;border-color:var(--navy)}
+.plano .nome{font-size:12.5pt;font-weight:700;color:var(--navy)}
+.plano.destaque .nome{color:#fff}
+.plano .desc{font-size:9.2pt;color:var(--mudo);line-height:1.45;margin-top:1.5mm;min-height:13mm}
+.plano.destaque .desc{color:#bcd3df}
+.plano .valor{font-family:"Inter Display",Inter;font-size:30pt;font-weight:800;color:var(--navy);margin-top:4mm;letter-spacing:-.02em}
+.plano.destaque .valor{color:#fff}
+.plano .valor small{font-size:11pt;font-weight:600;color:var(--mudo);letter-spacing:0}
+.plano.destaque .valor small{color:#bcd3df}
+.plano .det{font-size:8.6pt;color:var(--mudo);margin-top:1mm}
+.plano.destaque .det{color:#9fc6d6}
+.passos{display:grid;grid-template-columns:repeat(3,1fr);gap:6mm;margin-top:9mm}
+.passo{display:grid;grid-template-columns:9mm 1fr;gap:3mm}
+.passo b{width:9mm;height:9mm;border-radius:50%;background:var(--teal);color:#fff;display:grid;place-items:center;font-size:10pt}
+.passo h3{font-size:10.5pt;color:var(--navy);margin-bottom:.8mm}
+.passo p{font-size:9pt;line-height:1.45;color:var(--mudo)}
+.contato{margin-top:auto;display:flex;gap:10mm;align-items:center;font-size:10.5pt;font-weight:600;color:var(--navy);padding-bottom:6mm}
+.contato span{display:flex;align-items:center;gap:2mm}
+.contato svg{width:4.5mm;height:4.5mm;color:var(--teal)}
+.contato img{height:9mm;margin-left:auto}
+</style>
+</head>
+<body>
+
+<!-- 1 · CAPA -->
+<section class="pg capa">
+  <div class="fundo"></div>
+  <img class="tela" src="img/painel.png" alt="">
+  <div class="in">
+    <img class="logo" src="img/logo_branco.png" alt="Nervia Tecnologia">
+    <h1>Suas notas fiscais <em>chegam sozinhas.</em></h1>
+    <p>Aplicativos da Plataforma Nervia para empresas que querem ter todas as notas de compra à mão, sem correr atrás de fornecedor, e saber para onde vai o dinheiro.</p>
+    <div class="apps">
+      <div class="chip"><b>NF</b>Buscador de NF</div>
+      <div class="chip"><b>PN</b>Painel de Notas</div>
+    </div>
+    <div class="pe"><span>nervia.com.br</span><span>WhatsApp (21) 96686-9374</span><span>atendimento@nervia.com.br</span></div>
+  </div>
+</section>
+
+<!-- 2 · DORES -->
+<section class="pg">
+  <div class="selo">O dia a dia de hoje</div>
+  <h2>Correr atrás de nota fiscal toma tempo e ainda deixa coisas passarem</h2>
+  <p class="sub">Toda empresa recebe notas de vários fornecedores, por caminhos diferentes. Sem um lugar que reúna tudo, o controle depende da memória de alguém.</p>
+  <div class="dores">
+    <div class="dor"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M4 8l8 5 8-5"/></svg></div>
+      <h3>O XML não chega</h3><p>O fornecedor esquece de mandar. O financeiro cobra por e-mail, WhatsApp e portal, um por um.</p></div>
+    <div class="dor"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg></div>
+      <h3>O prazo é curto</h3><p>A NF-e fica disponível para download no Ambiente Nacional por <strong>cerca de 90 dias</strong>. Depois disso, só pedindo de novo ao fornecedor.</p></div>
+    <div class="dor"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3h8l4 4v14H4V3z"/><path d="M8 12h8M8 16h5"/></svg></div>
+      <h3>O fechamento atrasa</h3><p>O contador pede os arquivos do mês e alguém precisa garimpar caixas de e-mail para juntar tudo.</p></div>
+    <div class="dor"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/></svg></div>
+      <h3>Nota que ninguém reconhece</h3><p>Uma nota emitida contra o seu CNPJ sem você saber só aparece quando já virou problema.</p></div>
+    <div class="dor"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg></div>
+      <h3>Pagou sem conferir</h3><p>O boleto é pago, mas a nota correspondente nunca foi vista, impressa ou arquivada.</p></div>
+    <div class="dor"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></div>
+      <h3>Sem visão dos gastos</h3><p>Quanto a empresa gasta com cada fornecedor, mês a mês? Só montando planilha à mão.</p></div>
+  </div>
+  <div class="rodape"><img src="img/logo.png" alt=""><span>Plataforma Nervia · Aplicativos de notas fiscais</span></div>
+</section>
+
+<!-- 3 · BUSCADOR -->
+<section class="pg">
+  <div class="selo">Aplicativo 1 · Buscador de NF</div>
+  <h2>Todas as notas emitidas contra o seu CNPJ, em um só lugar</h2>
+  <div class="duas">
+    <ul class="lista">
+      <li><span class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5 9-10"/></svg></span><span><b>Busca automática de hora em hora</b> na SEFAZ (NF-e, produtos) e no Ambiente Nacional da NFS-e (serviços). Ninguém precisa lembrar de baixar.</span></li>
+      <li><span class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5 9-10"/></svg></span><span><b>Guarda o XML oficial</b> de cada nota. Ele continua disponível mesmo depois que o prazo da SEFAZ termina.</span></li>
+      <li><span class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5 9-10"/></svg></span><span><b>Espelho para impressão</b> (DANFE e DANFSe) de uma ou de várias notas de uma vez, uma por folha, ou em PDF.</span></li>
+      <li><span class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5 9-10"/></svg></span><span><b>Filtros e busca</b> por tipo, período, situação, fornecedor, CNPJ, número ou chave de acesso.</span></li>
+      <li><span class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5 9-10"/></svg></span><span><b>Exporta para Excel</b> as notas marcadas ou a lista inteira, pronta para o contador.</span></li>
+      <li><span class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5 9-10"/></svg></span><span><b>Mostra a situação</b> de cada nota: autorizada, cancelada ou só com resumo. Para liberar o XML completo de uma NF-e, a Nervia registra a ciência da operação a seu pedido.</span></li>
+    </ul>
+    <div>
+      <div class="janela"><div class="barra"><i></i><i></i><i></i><span>nervia.com.br/cliente · Buscador de NF</span></div><img src="img/buscador.png" alt="Tela do Buscador de NF"></div>
+      <p class="nota">Tela real do aplicativo, com empresa e fornecedores fictícios.</p>
+    </div>
+  </div>
+  <div class="rodape"><img src="img/logo.png" alt=""><span>Plataforma Nervia · Buscador de NF</span></div>
+</section>
+
+<!-- 4 · ESPELHO / USOS -->
+<section class="pg">
+  <div class="selo">Buscador de NF · no dia a dia</div>
+  <h2>Do XML ao papel em um clique</h2>
+  <div class="espelho">
+    <div style="display:flex;flex-direction:column;gap:5mm">
+      <p class="sub" style="margin-top:0">A nota chega sozinha. A partir daí, cada área usa do jeito que precisa:</p>
+      <div class="usos" style="grid-template-columns:1fr">
+        <div class="uso"><h3>Financeiro: conferir antes de pagar</h3><p>Antes de pagar o boleto, abra a nota: valor, vencimento da fatura, produtos e impostos. Se algo estiver errado, você vê antes do dinheiro sair.</p></div>
+        <div class="uso"><h3>Contabilidade: fechar o mês sem garimpo</h3><p>Filtre o período, exporte a lista para Excel e baixe os XMLs. O contador recebe tudo de uma vez.</p></div>
+        <div class="uso"><h3>Recebimento e arquivo: imprimir quando precisar</h3><p>Espelho no formato do DANFE e do DANFSe, montado a partir do XML autorizado. Selecione várias notas e imprima, uma por folha.</p></div>
+      </div>
+    </div>
+    <div>
+      <div class="janela"><div class="barra"><i></i><i></i><i></i><span>Espelho para impressão · DANFE</span></div><img src="img/espelho_crop.png" alt="Espelho DANFE gerado pelo Buscador"></div>
+      <p class="nota">Espelho gerado pelo aplicativo a partir de uma nota fictícia.</p>
+    </div>
+  </div>
+  <div class="rodape"><img src="img/logo.png" alt=""><span>Plataforma Nervia · Buscador de NF</span></div>
+</section>
+
+<!-- 5 · PAINEL -->
+<section class="pg">
+  <div class="selo">Aplicativo 2 · Painel de Notas</div>
+  <h2>Veja para onde vai o dinheiro da empresa</h2>
+  <div class="duas" style="grid-template-columns:88mm 1fr">
+    <ul class="lista">
+      <li><span class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5 9-10"/></svg></span><span><b>Compras por fornecedor</b> e, na visão Vendas, faturamento por cliente.</span></li>
+      <li><span class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5 9-10"/></svg></span><span><b>Total por mês</b>, com comparação ao mês ou ao ano anterior.</span></li>
+      <li><span class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5 9-10"/></svg></span><span><b>Maiores fornecedores</b> e quanto cada um pesa no total: base para negociar preço e prazo.</span></li>
+      <li><span class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5 9-10"/></svg></span><span><b>Filtros</b> por ano, mês, período livre, fornecedor e tipo de nota. Clique numa barra ou num fornecedor para detalhar.</span></li>
+      <li><span class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5 9-10"/></svg></span><span><b>Média mensal</b> de gastos com serviços como internet, contabilidade e manutenção: o orçamento pronto.</span></li>
+      <li><span class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5 9-10"/></svg></span><span><b>Exporta para Excel</b> e abre o espelho de qualquer nota da lista.</span></li>
+    </ul>
+    <div>
+      <div class="janela"><div class="barra"><i></i><i></i><i></i><span>nervia.com.br/cliente · Painel de Notas</span></div><img src="img/painel_alto.png" alt="Tela do Painel de Notas"></div>
+      <p class="nota">Tela real do aplicativo, com dados fictícios. O Painel usa as notas reunidas pelo Buscador de NF.</p>
+    </div>
+  </div>
+  <div class="rodape"><img src="img/logo.png" alt=""><span>Plataforma Nervia · Painel de Notas</span></div>
+</section>
+
+<!-- 6 · ANTES E DEPOIS -->
+<section class="pg">
+  <div class="selo">O que muda</div>
+  <h2>Antes e depois dos aplicativos</h2>
+  <table class="ad">
+    <tr><th></th><th>Sem os aplicativos</th><th class="com">Com a Plataforma Nervia</th></tr>
+    <tr><td>Conseguir o XML</td><td class="sem">Pedir ao fornecedor, nota por nota</td><td class="com">Chega sozinho, de hora em hora</td></tr>
+    <tr><td>Prazo de ~90 dias da NF-e</td><td class="sem">Passou do prazo, perdeu o download</td><td class="com">Guardada logo depois de emitida, sem prazo para você</td></tr>
+    <tr><td>Fechamento com o contador</td><td class="sem">Juntar anexos de vários e-mails</td><td class="com">Filtra o mês, exporta e envia</td></tr>
+    <tr><td>Nota estranha contra o CNPJ</td><td class="sem">Descoberta tarde, se for descoberta</td><td class="com">Aparece na lista junto com as outras</td></tr>
+    <tr><td>Imprimir uma nota</td><td class="sem">Procurar o PDF que o fornecedor mandou</td><td class="com">Espelho em um clique, várias de uma vez</td></tr>
+    <tr><td>Gasto por fornecedor</td><td class="sem">Planilha montada à mão</td><td class="com">Painel pronto, mês a mês, com comparação</td></tr>
+  </table>
+  <div class="conta"><div class="n">R$ 480<small>/ano</small></div><p>É o custo de um ano do Buscador de NF. Uma única nota que se perde ou passa sem conferência (uma cobrança indevida paga, um crédito de imposto não aproveitado, uma multa por documento que faltou) pode custar mais do que isso.</p></div>
+  <div class="rodape"><img src="img/logo.png" alt=""><span>Plataforma Nervia · Aplicativos de notas fiscais</span></div>
+</section>
+
+<!-- 7 · SEGURANÇA -->
+<section class="pg">
+  <div class="selo">Segurança e confiança</div>
+  <h2>O seu certificado digital em boas mãos</h2>
+  <p class="sub">Para buscar as notas, o sistema usa o certificado digital A1 da sua empresa. Por isso a guarda e o uso dele seguem regras claras, por escrito.</p>
+  <div class="seg">
+    <div><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg></span><div><h3>Guardado criptografado, no Brasil</h3><p>O certificado fica num cofre de segredos, em servidores na região de São Paulo.</p></div></div>
+    <div><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l18 18M10.6 10.6a2 2 0 002.8 2.8M9.9 5.1A9.8 9.8 0 0112 5c5 0 9 4.5 10 7a13 13 0 01-2.2 3.3M6.6 6.6A13 13 0 002 12c1 2.5 5 7 10 7a9.6 9.6 0 004.4-1.1"/></svg></span><div><h3>A senha não fica guardada</h3><p>A senha do certificado e o arquivo original são usados só no cadastro, para validar.</p></div></div>
+    <div><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span><div><h3>Uso só para consulta</h3><p>O certificado serve para buscar as notas. Não emite nota, não assina documentos e não acessa e-CAC nem bancos.</p></div></div>
+    <div><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h4"/></svg></span><div><h3>Termo assinado com cada cliente</h3><p>Termo de autorização e custódia do certificado, com usos permitidos, proibidos e regras da LGPD. Sem termo, o certificado não é cadastrado.</p></div></div>
+    <div><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></svg></span><div><h3>Cada login vê só a sua empresa</h3><p>O acesso é por usuário e por CNPJ. Quem não foi liberado não vê nenhuma nota.</p></div></div>
+    <div><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></span><div><h3>Sem instalar nada</h3><p>Acesso pela Área do Cliente em nervia.com.br, no computador ou no celular, com um login só para todos os aplicativos.</p></div></div>
+  </div>
+  <div class="rodape"><img src="img/logo.png" alt=""><span>Plataforma Nervia · Segurança</span></div>
+</section>
+
+<!-- 8 · PREÇO E CONTATO -->
+<section class="pg preco">
+  <div class="selo">Planos</div>
+  <h2>Assine só o que fizer sentido para você</h2>
+  <p class="sub">Mensalidade por aplicativo. Comece pelo Buscador e acrescente o Painel quando quiser.</p>
+  <div class="planos">
+    <div class="plano"><div class="nome">Buscador de NF</div><div class="desc">Todas as notas de compra reunidas automaticamente, com XML, espelho e exportação.</div><div class="valor">R$ 40<small> /mês</small></div><div class="det">por empresa (CNPJ)</div></div>
+    <div class="plano"><div class="nome">Painel de Notas</div><div class="desc">Compras por fornecedor e vendas por cliente, mês a mês. Funciona junto com o Buscador.</div><div class="valor">R$ 40<small> /mês</small></div><div class="det">por empresa (CNPJ)</div></div>
+    <div class="plano destaque"><div class="nome">Os dois aplicativos</div><div class="desc">As notas chegando sozinhas e a visão completa dos gastos da empresa.</div><div class="valor">R$ 80<small> /mês</small></div><div class="det">menos de R$ 2,70 por dia</div></div>
+  </div>
+  <div class="passos">
+    <div class="passo"><b>1</b><div><h3>Cadastro e termo</h3><p>A Nervia cadastra a empresa e você assina o termo de custódia do certificado.</p></div></div>
+    <div class="passo"><b>2</b><div><h3>Certificado A1</h3><p>Você envia o certificado digital A1 do CNPJ. A Nervia valida e guarda com segurança.</p></div></div>
+    <div class="passo"><b>3</b><div><h3>Acesso liberado</h3><p>Você recebe o login da Área do Cliente e as notas começam a chegar já na primeira busca.</p></div></div>
+  </div>
+  <div class="contato">
+    <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 01-13.5 7.8L3 21l1.2-4.5A9 9 0 1121 12z"/></svg>WhatsApp (21) 96686-9374</span>
+    <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M4 8l8 5 8-5"/></svg>atendimento@nervia.com.br</span>
+    <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg>nervia.com.br</span>
+    <img src="img/logo.png" alt="Nervia Tecnologia">
+  </div>
+</section>
+
+</body>
+</html>
