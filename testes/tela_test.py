@@ -85,6 +85,9 @@ with sync_playwright() as p:
     esp.screenshot(path=f"{SAIDA}/espelho_danfe.png", full_page=False)
     esp.locator(".folha", has_text="DANFSe").first.screenshot(path=f"{SAIDA}/espelho_danfse.png")
     esp.emulate_media(media="print"); esp.pdf(path=f"{SAIDA}/espelhos.pdf", format="A4")
+    import re as _re
+    paginas = len(_re.findall(rb"/Type\s*/Page[^s]", open(f"{SAIDA}/espelhos.pdf", "rb").read()))
+    assert paginas == 5, f"uma nota por folha: 5 notas, {paginas} páginas"
     esp.close()
     # espelho de uma linha só
     with pg.expect_popup() as pop:
