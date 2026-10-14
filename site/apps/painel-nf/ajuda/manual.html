@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manual de utilização · Painel de Notas | Nervia</title>
+<link rel="stylesheet" href="/ajuda/ajuda.css">
+</head>
+<body>
+<div class="pagina">
+  <div class="cab">
+    <img src="/img/nervia-logo.png" alt="Nervia">
+    <div><div class="t">Painel de Notas · Manual de utilização</div><div class="s">Compras e vendas pelas notas fiscais</div></div>
+    <div class="acoes"><a href="cartao.html">Cartão rápido</a><button onclick="print()">Imprimir</button></div>
+  </div>
+
+  <h1>Como usar o Painel de Notas</h1>
+  <p class="lead">O painel transforma as notas fiscais baixadas pelo app Notas Fiscais em números de gestão: quanto a empresa gastou com cada fornecedor, como as compras variam mês a mês e quem são os maiores fornecedores. Na visão Vendas, mostra o mesmo para os clientes.</p>
+
+  <ul class="indice">
+    <li><a href="#abrir">1. Abrir o painel</a></li>
+    <li><a href="#periodo">2. Escolher o período</a></li>
+    <li><a href="#fornecedor">3. Ver um fornecedor</a></li>
+    <li><a href="#ler">4. Ler os indicadores</a></li>
+    <li><a href="#exportar">5. Exportar e imprimir</a></li>
+    <li><a href="#exemplos">6. Perguntas que o painel responde</a></li>
+    <li><a href="#nervia">7. Tarefas da equipe Nervia</a></li>
+    <li><a href="#problemas">8. Mensagens e problemas comuns</a></li>
+  </ul>
+
+  <h2 id="abrir">1. Abrir o painel</h2>
+  <ol>
+    <li>Entre em <b>nervia.com.br</b> → <b>Área do Cliente</b> com o seu e-mail e senha.</li>
+    <li>Clique em <b>Painel de Notas</b>. O painel abre dentro da página, já com todas as notas.</li>
+    <li>Se o seu login vê mais de uma empresa, escolha em <b>Empresa</b> ou deixe "Todas" para somar.</li>
+  </ol>
+  <p>O painel começa na visão <b>Compras</b> (notas recebidas). Para ver o que a empresa faturou, clique em <b>Vendas</b>.</p>
+
+  <h2 id="periodo">2. Escolher o período</h2>
+  <ul>
+    <li><b>Um mês:</b> escolha Ano e Mês. Ex.: 2026 + Setembro. O total passa a comparar com o mês anterior.</li>
+    <li><b>Um ano inteiro:</b> escolha só o Ano. O gráfico mostra os 12 meses e o total compara com o ano anterior.</li>
+    <li><b>Um período livre:</b> preencha <b>De</b> e <b>Até</b>. Ex.: 15/08 a 15/09 para um ciclo de fechamento.</li>
+    <li><b>Atalho:</b> clique numa barra do gráfico "Total por mês" para ir direto àquele mês.</li>
+  </ul>
+  <div class="nota">Ano/Mês e De/Até não se misturam: escolher um limpa o outro. As etiquetas abaixo dos filtros mostram o que está valendo; clique numa etiqueta para tirar aquele filtro.</div>
+
+  <h2 id="fornecedor">3. Ver um fornecedor</h2>
+  <ol>
+    <li>Clique na linha do fornecedor na tabela, ou na fatia dele no gráfico de pizza, <b>ou</b> digite parte do nome ou do CNPJ no campo <b>Fornecedor</b> e escolha na lista.</li>
+    <li>Todos os números passam a mostrar só esse fornecedor: total, notas, média por mês e o gráfico mensal.</li>
+    <li>Para voltar a ver todos, clique na etiqueta do fornecedor (✕) ou apague o campo.</li>
+  </ol>
+
+  <h2 id="ler">4. Ler os indicadores</h2>
+  <table>
+    <tr><th>Indicador</th><th>O que mostra</th></tr>
+    <tr><td>Total comprado</td><td>Soma das notas do filtro. A etiqueta ▲/▼ compara com o mês ou ano anterior: em Compras, ▲ vermelho = gastou mais; em Vendas, ▲ verde = vendeu mais.</td></tr>
+    <tr><td>Notas</td><td>Quantidade de notas e a divisão entre NF-e e NFS-e.</td></tr>
+    <tr><td>Fornecedores</td><td>Quantos fornecedores diferentes emitiram nota no período.</td></tr>
+    <tr><td>Valor médio por nota</td><td>Ajuda a ver se as compras estão ficando maiores ou mais frequentes.</td></tr>
+    <tr><td>Maior fornecedor</td><td>Concentração: se um fornecedor passa de 30–40% do total, vale negociar ou ter alternativa.</td></tr>
+    <tr><td>Média por mês</td><td>Base para orçamento: quanto se gasta, em média, nos meses com nota.</td></tr>
+  </table>
+  <p>Notas canceladas ficam fora dos totais. Para incluí-las (por exemplo, para conferir), mude <b>Canceladas</b> para "Incluir".</p>
+
+  <h2 id="exportar">5. Exportar e imprimir</h2>
+  <ul>
+    <li><b>Exportar CSV</b> baixa todas as notas do filtro atual (data, tipo, número, fornecedor, valor, situação e chave) para abrir no Excel.</li>
+    <li>Na tabela "Notas do filtro", <b>abrir</b> mostra o espelho da nota (DANFE ou DANFSe) em nova aba, pronto para imprimir ou salvar em PDF.</li>
+  </ul>
+
+  <h2 id="exemplos">6. Perguntas que o painel responde</h2>
+  <ul>
+    <li><b>Quanto gastei com o fornecedor X este ano?</b> Ano = este ano; clique no fornecedor.</li>
+    <li><b>Qual mês teve mais compras?</b> Ano = este ano; veja a barra mais alta.</li>
+    <li><b>Quem são meus 5 maiores fornecedores?</b> Tabela ordenada por Total (padrão) ou o gráfico de pizza.</li>
+    <li><b>Quanto gasto por mês com serviços (internet, contabilidade, plano de saúde)?</b> Tipo = NFS-e; veja "Média por mês".</li>
+    <li><b>Quanto faturei por cliente?</b> Visão = Vendas.</li>
+  </ul>
+
+  <h2 id="nervia">7. Tarefas da equipe Nervia <span class="eq">EQUIPE NERVIA</span></h2>
+  <ol>
+    <li>O painel usa as mesmas empresas e notas do app Notas Fiscais; não há cadastro próprio.</li>
+    <li>Para liberar a um cliente: <b>Área do Cliente → Administração → Logins</b>, marque <b>Painel de Notas</b> no login dele.</li>
+    <li>As empresas que ele vê são as marcadas em <b>Notas Fiscais → Quem vê cada empresa</b>.</li>
+  </ol>
+
+  <h2 id="problemas">8. Mensagens e problemas comuns</h2>
+  <table>
+    <tr><th>Mensagem</th><th>O que fazer</th></tr>
+    <tr><td>Nenhuma empresa liberada para o seu login</td><td>Peça à Nervia para liberar o CNPJ no seu login.</td></tr>
+    <tr><td>Ainda não há notas de compra / venda baixadas</td><td>As notas aparecem depois da primeira busca do app Notas Fiscais. Para Vendas, a empresa precisa ter emitido notas no período disponível.</td></tr>
+    <tr><td>Nenhuma nota com esses filtros</td><td>Clique em "Limpar filtros" e escolha de novo.</td></tr>
+    <tr><td>Entre na Área do Cliente para ver o painel</td><td>A sessão expirou: entre de novo em nervia.com.br/cliente.</td></tr>
+    <tr><td>Valor diferente do Notas Fiscais</td><td>Confira o filtro de Canceladas e a visão (Compras/Vendas): o app Notas Fiscais mostra por padrão só as recebidas.</td></tr>
+  </table>
+  <div class="rodape">Dúvidas: WhatsApp (21) 96686-9374 · atendimento@nervia.com.br<br>Nervia Tecnologia · Manual do app Painel de Notas · atualizado em 14/10/2026</div>
+</div>
+</body>
+</html>

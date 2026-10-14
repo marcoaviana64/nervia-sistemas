@@ -17,9 +17,11 @@
     apps: [
       { id: "notas", nome: "Notas Fiscais", descricao: "NF-e e NFS-e emitidas contra os seus CNPJs.", url: "/apps/notas/", icone: "NF", ordem: 10, ativo: true,
         cartao_url: "/apps/notas/ajuda/cartao.html", manual_url: "/apps/notas/ajuda/manual.html" },
+      { id: "painel-nf", nome: "Painel de Notas", descricao: "Compras e vendas por fornecedor.", url: "/apps/painel-nf/", icone: "PN", ordem: 15, ativo: true,
+        cartao_url: "/apps/painel-nf/ajuda/cartao.html", manual_url: "/apps/painel-nf/ajuda/manual.html" },
       { id: "chamados", nome: "Chamados", descricao: "Abertura e acompanhamento de chamados.", url: "/apps/chamados/", icone: "CH", ordem: 20, ativo: false },
     ],
-    app_acessos: [{ user_id: "u-cli", app_id: "notas" }],
+    app_acessos: [{ user_id: "u-cli", app_id: "notas" }, { user_id: "u-cli", app_id: "painel-nf" }],
     nf_acessos: [{ user_id: "u-cli", cnpj: "22222222000122" }],
     nf_empresas: [
       { cnpj: "11111111000111", nome: "Nervia", uf: "RJ", ativo: true, busca_automatica: true, cert_secret_id: "s1", cert_titular: "NERVIA TECNOLOGIA DA INFORMACAO LTDA:11111111000111", cert_validade: futuro, ultima_sinc_nfe: new Date().toISOString(), bloqueio_nfe: new Date(Date.now() + 40 * 6e4).toISOString(), ultima_sinc_nfse: new Date().toISOString() },
@@ -40,6 +42,18 @@
     db.nf_notas.push({ id: id++, cnpj_consulta: cnpj, tipo: t, chave: String(id).repeat(44).slice(0, 44), numero: n, emit_cnpj: ec, emit_nome: en,
       dest_cnpj: cnpj, dest_nome: cnpj === "11111111000111" ? "NERVIA TECNOLOGIA" : "LINUM", data_emissao: d, valor: v, situacao: s,
       papel: "recebida", completo: comp, manifestada: man, xml_path: `${cnpj}/nfe/x${id}.xml` });
+  }
+  // ?painel=1: mais notas (anos, meses e vendas) para testar o Painel de Notas sem mudar os outros testes
+  if (new URLSearchParams(location.search).has("painel")) {
+    const extra = [
+      ["NFE", "120", "44444444000144", "KALUNGA COMERCIO SA", "2025-11-12T10:00:00-03:00", 800, "Autorizada", "recebida"],
+      ["NFE", "121", "44444444000144", "KALUNGA COMERCIO SA", "2025-12-03T10:00:00-03:00", 1200, "Autorizada", "recebida"],
+      ["NFSE", "70", "55555555000155", "LINK FIBRA TELECOM ME", "2026-09-05T10:00:00-03:00", 1000, "Autorizada", "recebida"],
+      ["NFSE", "9", "11111111000111", "NERVIA TECNOLOGIA", "2026-10-10T10:00:00-03:00", 4500, "Autorizada", "emitida"],
+    ];
+    for (const [t, n, ec, en, d, v, sit, pap] of extra) db.nf_notas.push({ id: id++, cnpj_consulta: "11111111000111", tipo: t, chave: String(id).repeat(44).slice(0, 44),
+      numero: n, emit_cnpj: ec, emit_nome: en, dest_cnpj: pap === "emitida" ? "88888888000188" : "11111111000111", dest_nome: pap === "emitida" ? "SHOPPING EXEMPLO SA" : "NERVIA TECNOLOGIA",
+      data_emissao: d, valor: v, situacao: sit, papel: pap, completo: true, manifestada: false, xml_path: null });
   }
   const pode = (cnpj) => papel === "admin" || db.nf_acessos.some((a) => a.user_id === eu.id && a.cnpj === cnpj);
   const rls = { nf_notas: (r) => pode(r.cnpj_consulta), nf_empresas: (r) => pode(r.cnpj), nf_log: (r) => pode(r.cnpj),

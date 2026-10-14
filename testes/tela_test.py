@@ -7,6 +7,9 @@ from playwright.sync_api import sync_playwright
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SAIDA = sys.argv[1] if len(sys.argv) > 1 else os.path.join(RAIZ, "testes")
 FALSO = open(os.path.join(RAIZ, "testes", "supabase_falso.js"), encoding="utf-8").read()
+# Chart.js do npm (o teste não acessa o CDN); sem ele, um substituto mínimo
+_cj = "/tmp/claude-0/cjs/package/dist/chart.umd.js"
+CHARTJS = open(_cj, encoding="utf-8").read() if os.path.exists(_cj) else "window.Chart=class{constructor(){}update(){}}"
 CONFIG = 'window.BUSCADOR_CONFIG={SUPABASE_URL:"https://teste.supabase.co",SUPABASE_ANON_KEY:"x",NFE_HABILITADA:true};'
 
 srv = http.server.ThreadingHTTPServer(("127.0.0.1", 8811),
@@ -21,6 +24,7 @@ def nova(b):
     pg.route("**/supabase-js@*/**", lambda r: r.fulfill(body=FALSO, content_type="text/javascript"))
     pg.route("**/config.js", lambda r: r.fulfill(body=CONFIG, content_type="text/javascript"))
     pg.route("https://fonts.googleapis.com/**", lambda r: r.fulfill(body="", content_type="text/css"))
+    pg.route("**/Chart.js/**", lambda r: r.fulfill(body=CHARTJS, content_type="text/javascript"))
     return pg, erros
 
 def abrir(b, papel):
@@ -132,7 +136,7 @@ with sync_playwright() as p:
     # ---------------- Área do Cliente: admin
     pg, erros = nova(b)
     pg.goto("http://127.0.0.1:8811/cliente/?papel=admin"); pg.wait_for_selector(".app")
-    assert pg.locator(".app").count() == 1, "app inativo não aparece na grade"
+    assert pg.locator(".app").count() == 2, "app inativo não aparece na grade"
     pg.screenshot(path=f"{SAIDA}/portal_apps.png")
     pg.click(".app >> text=Notas Fiscais"); pg.wait_for_selector("#vVisor:not(.oculto)")
     assert pg.url.endswith("/cliente/?papel=admin#app/notas"), "deve continuar na página da Nervia: " + pg.url
@@ -161,8 +165,8 @@ with sync_playwright() as p:
     pg, erros = nova(b)
     pg.goto("http://127.0.0.1:8811/cliente/?papel=cliente"); pg.wait_for_selector(".app")
     assert pg.locator("#bAdmin").is_hidden()
-    assert pg.locator(".app").count() == 1
-    pg.click(".app"); quadro = pg.frame_locator("#frame"); quadro.locator("#tab table").wait_for()
+    assert pg.locator(".app").count() == 2
+    pg.click(".app >> text=Notas Fiscais"); quadro = pg.frame_locator("#frame"); quadro.locator("#tab table").wait_for()
     assert quadro.locator(".emp").count() == 1, "cliente vê só a empresa liberada dentro do app"
     pg.goto("http://127.0.0.1:8811/cliente/?papel=cliente#admin"); pg.wait_for_timeout(500)
     assert pg.locator("#vAdmin").is_hidden(), "cliente não entra na administração"
@@ -216,6 +220,51 @@ with sync_playwright() as p:
     pg.set_viewport_size({"width": 390, "height": 844}); pg.goto("http://127.0.0.1:8811/cliente/?papel=anon"); pg.wait_for_selector("#vLogin:not(.oculto)")
     assert pg.evaluate("document.documentElement.scrollWidth") <= 390
     pg.screenshot(path=f"{SAIDA}/portal_login_celular.png")
+    assert not erros, erros
+
+    # ---------------- Painel de Notas
+    pg, erros = nova(b)
+    pg.goto("http://127.0.0.1:8811/apps/painel-nf/?papel=admin&painel=1"); pg.wait_for_selector("#painel:not(.oculto)")
+    k = pg.inner_text("#kpis")
+    # compras sem canceladas: (1840,90+389,70+1000+5320)*2 + 800+1200+1000 = 20101,20
+    assert "20.101,20" in k, k
+    assert pg.locator("#tbForn tr").count() == 4, pg.inner_text("#tbForn")
+    pg.select_option("#fAno", "2025"); pg.wait_for_timeout(100)
+    assert "2.000,00" in pg.inner_text("#kpis") and pg.locator("#tbForn tr").count() == 1
+    pg.select_option("#fMes", "12"); pg.wait_for_timeout(100)
+    k = pg.inner_text("#kpis"); assert "1.200,00" in k and "800,00" in k, k   # comparação com nov/2025
+    pg.click("text=Limpar filtros"); pg.wait_for_timeout(100)
+    pg.locator("#tbForn tr", has_text="KALUNGA").click(); pg.wait_for_timeout(100)
+    assert pg.input_value("#fForn").startswith("KALUNGA") and pg.locator("#tbNotas tr").count() == 4
+    pg.fill("#fForn", ""); pg.dispatch_event("#fForn", "input"); pg.wait_for_timeout(100)
+    pg.select_option("#fEmpresa", "22222222000122"); pg.wait_for_timeout(100)
+    assert "8.550,60" in pg.inner_text("#kpis")
+    pg.select_option("#fCanc", "dentro"); pg.wait_for_timeout(100)
+    assert "9.162,60" in pg.inner_text("#kpis")
+    pg.select_option("#fEmpresa", ""); pg.select_option("#fCanc", "fora")
+    pg.fill("#fDe", "2026-09-01"); pg.dispatch_event("#fDe", "change"); pg.fill("#fAte", "2026-09-30"); pg.dispatch_event("#fAte", "change"); pg.wait_for_timeout(100)
+    assert pg.input_value("#fAno") == "" and "11.640,00" in pg.inner_text("#kpis"), pg.inner_text("#kpis")
+    pg.click("#fPapel >> text=Vendas"); pg.wait_for_timeout(100)
+    pg.click("text=Limpar filtros") if pg.locator("text=Limpar filtros").count() else None
+    pg.fill("#fDe", ""); pg.dispatch_event("#fDe", "change"); pg.fill("#fAte", ""); pg.dispatch_event("#fAte", "change"); pg.wait_for_timeout(100)
+    assert "4.500,00" in pg.inner_text("#kpis") and "SHOPPING EXEMPLO" in pg.inner_text("#tbForn") and pg.inner_text("#hForn") == "CLIENTE"
+    with pg.expect_download() as d:
+        pg.click("text=Exportar CSV")
+    csv = open(d.value.path(), encoding="utf-8-sig").read()
+    assert "SHOPPING EXEMPLO" in csv and csv.count("\n") == 1, csv
+    pg.click("#fPapel >> text=Compras"); pg.wait_for_timeout(100)
+    pg.screenshot(path=f"{SAIDA}/painel_nf.png", full_page=True)
+    pg.set_viewport_size({"width": 390, "height": 844}); pg.wait_for_timeout(200)
+    assert pg.evaluate("document.documentElement.scrollWidth") <= 390, "painel: rolagem horizontal no celular"
+    pg.screenshot(path=f"{SAIDA}/painel_nf_celular.png", full_page=True)
+    assert not erros, erros
+    # cliente: só a empresa liberada, dentro do portal
+    pg, erros = nova(b)
+    pg.goto("http://127.0.0.1:8811/cliente/?papel=cliente#app/painel-nf"); pg.wait_for_selector("#vVisor:not(.oculto)")
+    q = pg.frame_locator("#frame"); q.locator("#painel:not(.oculto)").wait_for()
+    assert q.locator(".topo").is_hidden() and q.locator("#fEmpresa option").count() == 1
+    assert "8.550,60" in q.locator("#kpis").inner_text()
+    pg.click("#bCartao"); pg.frame_locator("#frameAjuda").locator("text=Cartão de referência").first.wait_for()
     assert not erros, erros
 
     # ---------------- site público: link da Área do Cliente

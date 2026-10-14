@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cartão de referência · Painel de Notas | Nervia</title>
+<link rel="stylesheet" href="/ajuda/ajuda.css">
+</head>
+<body>
+<div class="pagina">
+  <div class="cab">
+    <img src="/img/nervia-logo.png" alt="Nervia">
+    <div><div class="t">Painel de Notas · Cartão de referência</div><div class="s">Cada campo e botão em uma linha</div></div>
+    <div class="acoes"><a href="manual.html">Manual completo</a><button onclick="print()">Imprimir</button></div>
+  </div>
+
+  <p class="lead">Mostra quanto a empresa comprou de cada fornecedor (ou vendeu a cada cliente), por mês e por período, a partir das notas que o app <b>Notas Fiscais</b> já baixou. Atualiza sozinho de hora em hora.</p>
+
+  <h2>Filtros</h2>
+  <table>
+    <tr><td>Empresa</td><td>Qual CNPJ mostrar. "Todas" soma as empresas liberadas para o seu login.</td></tr>
+    <tr><td>Visão: Compras / Vendas</td><td><b>Compras</b> = notas recebidas, agrupadas por fornecedor. <b>Vendas</b> = notas emitidas pela empresa, agrupadas por cliente.</td></tr>
+    <tr><td>Tipo</td><td>NF-e e NFS-e juntas, só NF-e (produtos) ou só NFS-e (serviços).</td></tr>
+    <tr><td>Ano · Mês</td><td>Escolha um ano, um mês ou os dois. Mês sem ano = aquele mês em todos os anos.</td></tr>
+    <tr><td>De · Até</td><td>Período livre por data de emissão. Ao usar De/Até, Ano e Mês são limpos (e vice-versa).</td></tr>
+    <tr><td>Fornecedor / Cliente</td><td>Digite parte do nome ou do CNPJ e escolha na lista. Vazio = todos.</td></tr>
+    <tr><td>Canceladas</td><td>"Fora dos totais" (padrão) ou "Incluir".</td></tr>
+    <tr><td>Etiquetas abaixo dos filtros</td><td>Mostram os filtros ativos. Clique numa para tirar aquele filtro; "Limpar filtros" tira todos.</td></tr>
+  </table>
+
+  <h2>Indicadores</h2>
+  <table>
+    <tr><td>Total comprado / vendido</td><td>Soma das notas do filtro. Com um mês ou ano escolhido, compara com o mês ou ano anterior (▲ subiu, ▼ caiu).</td></tr>
+    <tr><td>Notas</td><td>Quantidade de notas, separando NF-e e NFS-e.</td></tr>
+    <tr><td>Fornecedores / Clientes</td><td>Quantos tiveram nota no período.</td></tr>
+    <tr><td>Valor médio por nota</td><td>Total ÷ número de notas.</td></tr>
+    <tr><td>Maior fornecedor / cliente</td><td>Quem tem o maior valor no período e quanto isso representa do total.</td></tr>
+    <tr><td>Média por mês</td><td>Total ÷ meses que tiveram nota.</td></tr>
+  </table>
+
+  <h2>Gráficos e tabelas</h2>
+  <table>
+    <tr><td>Total por mês</td><td>Barras por mês, NF-e e NFS-e empilhadas. Clique numa barra para filtrar aquele mês.</td></tr>
+    <tr><td>Maiores fornecedores / clientes</td><td>Os 8 maiores e "Outros". Clique numa fatia para filtrar aquele fornecedor.</td></tr>
+    <tr><td>Tabela de fornecedores / clientes</td><td>Notas, total, % do total, valor médio e data da última nota. Clique no título da coluna para ordenar; clique na linha para filtrar.</td></tr>
+    <tr><td>Notas do filtro</td><td>As notas que entram nos números (até 500 na tela). "abrir" mostra o espelho da nota para imprimir.</td></tr>
+    <tr><td>Exportar CSV</td><td>Baixa para o Excel todas as notas do filtro atual.</td></tr>
+  </table>
+
+  <h2>Bom saber</h2>
+  <table>
+    <tr><td>De onde vêm os dados</td><td>Das notas baixadas pelo app Notas Fiscais. Nota que não aparece lá também não aparece aqui.</td></tr>
+    <tr><td>NF-e antigas</td><td>A SEFAZ só entrega NF-e dos últimos ~90 dias; o histórico cresce a partir da adesão.</td></tr>
+    <tr><td>Ajuda</td><td>WhatsApp (21) 96686-9374 · atendimento@nervia.com.br</td></tr>
+  </table>
+  <div class="rodape">Nervia Tecnologia · Cartão de referência do app Painel de Notas · atualizado em 14/10/2026</div>
+</div>
+</body>
+</html>
