@@ -136,7 +136,9 @@ export async function sincronizar(
     if (ret.cStat === "656") {
       if (ret.ultNSU) ult = Math.max(ult, ret.ultNSU);
       await b.atualizarEmpresa(cnpj, { ult_nsu_nfe: ult, bloqueio_nfe: new Date(agora() + ESPERA_MS).toISOString() });
-      mensagem = `SEFAZ: ${ret.xMotivo} — nova tentativa liberada em 1h.`;
+      const hora = new Date(agora() + ESPERA_MS).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+      mensagem = `A SEFAZ pediu 1h de espera para este CNPJ (rejeição 656, consumo indevido). Normalmente é porque outro sistema da empresa ` +
+        `(ERP, contabilidade ou portal de notas) consultou as NF-e há menos de 1 hora. Nada se perde: a busca tenta de novo sozinha a partir das ${hora}.`;
       break;
     }
     if (ret.cStat !== "137" && ret.cStat !== "138") throw new ErroSefaz(`SEFAZ cStat ${ret.cStat}: ${ret.xMotivo}`);

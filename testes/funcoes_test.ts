@@ -149,7 +149,7 @@ Deno.test("NF-e: lotes, cancelamento, bloqueio de 1h e 656", async () => {
   // 656
   e.bloqueio_nfe = null;
   const r3 = await sefaz.sincronizar(b, httpFalso([await retDist("656", 3, 0, [])]).http, CNPJ, { pausaMs: 0 });
-  assert(r3.mensagem.includes("1h") && e.bloqueio_nfe);
+  assert(r3.mensagem.includes("1h") && r3.mensagem.includes("outro sistema") && /\d\d:\d\d/.test(r3.mensagem) && e.bloqueio_nfe);
   assert(log.length >= 2);
 });
 
