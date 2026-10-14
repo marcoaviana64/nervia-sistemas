@@ -1,5 +1,7 @@
 # nervia-sistemas — notas do projeto
 
+Nome do conjunto: **Plataforma Nervia** (site + Área do Cliente + apps + backend). Documentação para o Marco, com diagramas: "Plataforma Nervia — Documentação" (https://claude.ai/code/artifact/c9432c68-f6c1-43f5-84da-f23853a624e1). Ao mudar serviços, segredos ou estrutura, atualizar também esse documento.
+
 Repositório `marcoaviana64/nervia-sistemas`, com três partes:
 - o **site da Nervia** (`site/index.html`);
 - a **Área do Cliente** (`site/cliente/`): login único; cada cliente vê os apps liberados para ele, e o app abre num iframe dentro do site, sem sair da página;
