@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nervia Tecnologia da Informação | Suporte, Infraestrutura e Câmeras</title>
-<meta name="description" content="Nervia TI: suporte a usuários, montagem de infraestrutura e rede, instalação de câmeras, consultoria em projetos de TI e aplicativos de notas fiscais (Buscador de NF e Painel de Notas) para empresas no Rio de Janeiro.">
+<meta name="description" content="Nervia TI: suporte a usuários, montagem de infraestrutura e rede, instalação de câmeras, consultoria em projetos de TI e o Ecossistema Nervia App (Buscador de NF, Painel de Notas e Vendas de Perfumes) para empresas no Rio de Janeiro.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -158,6 +158,9 @@ footer{border-top:1px solid var(--border);padding:36px 0;color:var(--muted);font
 .app-card li{position:relative;padding-left:22px;color:var(--hero-muted);font-size:.95rem}
 .app-card li::before{content:"";position:absolute;left:2px;top:.55em;width:9px;height:9px;border-radius:2px;background:#6FD3EA}
 .app-card li b{color:var(--hero-text);font-weight:600}
+.app-links{display:flex;flex-wrap:wrap;gap:10px 18px;margin-top:14px;font-size:.92rem;font-weight:600}
+.app-links a{color:#6FD3EA}
+.app-links a:hover{text-decoration:underline}
 .tela{border-radius:12px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.4);border:1px solid color-mix(in srgb,var(--hero-text) 16%,transparent);background:#fff}
 .tela .barra{height:30px;background:#e9eef2;display:flex;align-items:center;gap:6px;padding:0 12px}
 .tela .barra i{width:9px;height:9px;border-radius:50%;background:#c3ccd4}
@@ -223,7 +226,7 @@ footer{border-top:1px solid var(--border);padding:36px 0;color:var(--muted);font
 <section class="hero" id="inicio">
   <div class="container hero-grid">
     <div>
-      <a class="novo" href="#aplicativos"><b>Novo</b> Aplicativos de notas fiscais →</a><br>
+      <a class="novo" href="#aplicativos"><b>Novo</b> Ecossistema Nervia App →</a><br>
       <span class="eyebrow">TI para empresas desde 2002</span>
       <h1>Sua TI funcionando, <em>todos os dias.</em></h1>
       <p>Suporte a usuários, infraestrutura de rede, câmeras e consultoria em projetos de TI para escritórios, shopping centers e self storage. Do link de internet ao atendimento do dia a dia, a gente cuida para o seu ambiente não parar.</p>
@@ -303,9 +306,9 @@ footer{border-top:1px solid var(--border);padding:36px 0;color:var(--muted);font
 <section class="apps-sec" id="aplicativos">
   <div class="container">
     <div class="section-head">
-      <span class="eyebrow">Aplicativos Nervia</span>
-      <h2>Suas notas fiscais chegam sozinhas</h2>
-      <p class="lead">Aplicativos na Área do Cliente para quem quer ter todas as notas de compra à mão, sem correr atrás de fornecedor, e saber para onde vai o dinheiro da empresa. Funcionam no navegador, no computador ou no celular, sem instalar nada.</p>
+      <span class="eyebrow">Ecossistema Nervia App</span>
+      <h2>Aplicativos que trabalham pela sua empresa</h2>
+      <p class="lead">Um conjunto de aplicativos na Área do Cliente, com um login só: notas fiscais que chegam sozinhas, compras em gráficos e controle de vendas, crediário e estoque. Funcionam no navegador, no computador ou no celular, sem instalar nada, e a Nervia adapta ao seu negócio.</p>
     </div>
     <div class="apps-grid">
       <div class="app-list">
@@ -325,6 +328,15 @@ footer{border-top:1px solid var(--border);padding:36px 0;color:var(--muted);font
             <li>Filtros por ano, mês, período e fornecedor. Usa as notas reunidas pelo Buscador.</li>
           </ul>
         </div>
+        <div class="app-card">
+          <div class="app-top"><span class="app-ic">VP</span><div><h3>Vendas de Perfumes</h3><small>Vendas, crediário e estoque para revenda</small></div></div>
+          <ul>
+            <li><b>Contas a receber</b> com parcelas, atrasos em destaque e mensagem de cobrança pronta para o WhatsApp.</li>
+            <li><b>Entregas pendentes</b>, clientes com aniversário e preferências, e caixa do dia por forma de pagamento.</li>
+            <li><b>Estoque por variação</b> (perfume, concentração e volume), com aviso de repor, validade e margem.</li>
+          </ul>
+          <div class="app-links"><a href="/demo/perfumes/" target="_blank" rel="noopener">Ver demonstração →</a><a class="js-wa-perfumes" href="#" target="_blank" rel="noopener">Quero para o meu negócio</a></div>
+        </div>
       </div>
       <div>
         <div class="tela"><div class="barra"><i></i><i></i><i></i><span>nervia.com.br · Painel de Notas</span></div>
@@ -338,9 +350,10 @@ footer{border-top:1px solid var(--border);padding:36px 0;color:var(--muted);font
       </div>
     </div>
     <div class="apps-ctas">
-      <a class="btn btn-primary" href="/demo/" target="_blank" rel="noopener">Ver demonstração</a>
+      <a class="btn btn-primary" href="/demo/" target="_blank" rel="noopener">Demonstração: notas fiscais</a>
+      <a class="btn btn-ghost" href="/demo/perfumes/" target="_blank" rel="noopener">Demonstração: Vendas de Perfumes</a>
       <a class="btn btn-wa js-wa-apps" href="#" target="_blank" rel="noopener">Quero assinar</a>
-      <small>Demonstração com empresa e notas fictícias: entre e teste à vontade, sem cadastro.</small>
+      <small>Cada aplicativo tem sua demonstração com dados fictícios: entre e teste à vontade, sem cadastro.</small>
     </div>
   </div>
 </section>
@@ -440,7 +453,7 @@ footer{border-top:1px solid var(--border);padding:36px 0;color:var(--muted);font
           <option>Instalação de câmeras</option>
           <option>Consultoria em projeto de TI</option>
           <option>TI para shopping center</option>
-          <option>Aplicativos de notas fiscais</option>
+          <option>Ecossistema Nervia App (aplicativos)</option>
           <option>Outro</option>
         </select>
       </div>
@@ -478,7 +491,8 @@ const CONFIG = {
 
 const waBase = "https://wa.me/" + CONFIG.whatsapp;
 document.querySelectorAll(".js-wa").forEach(a => a.href = waBase + "?text=" + encodeURIComponent("Olá! Vim pelo site da Nervia e gostaria de falar sobre TI."));
-document.querySelectorAll(".js-wa-apps").forEach(a => a.href = waBase + "?text=" + encodeURIComponent("Olá! Vi os aplicativos de notas fiscais no site da Nervia e quero saber mais."));
+document.querySelectorAll(".js-wa-apps").forEach(a => a.href = waBase + "?text=" + encodeURIComponent("Olá! Vi o Ecossistema Nervia App no site da Nervia e quero saber mais."));
+document.querySelectorAll(".js-wa-perfumes").forEach(a => a.href = waBase + "?text=" + encodeURIComponent("Olá! Vi o app Vendas de Perfumes no site da Nervia e quero saber mais."));
 document.querySelectorAll(".js-wa-label").forEach(el => el.textContent = CONFIG.whatsappLabel);
 document.querySelectorAll(".js-mail").forEach(a => a.href = "mailto:" + CONFIG.email);
 document.querySelectorAll(".js-mail-label").forEach(el => el.textContent = CONFIG.email);
