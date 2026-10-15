@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Auditoria de Telefonia Móvel | Nervia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<link rel="stylesheet" href="relatorio.css">
+<script src="relatorio.js"></script>
+<script src="processar.js"></script>
+<style>
+/* Auditoria de Telefonia Móvel: o cliente vê o relatório liberado para ele; a equipe Nervia (admin) monta,
+   atualiza, publica e libera. O desenho do relatório está em relatorio.js / relatorio.css. */
+.oculto{display:none!important}
+.app-topo{display:flex;align-items:center;gap:12px;padding:12px 0 0}
+.app-topo .marca{width:34px;height:34px;border-radius:10px;background:linear-gradient(155deg,#107e99,#0b2545);color:#fff;display:grid;place-items:center;font:800 .82rem 'Archivo',sans-serif}
+.app-topo span{color:var(--muted);font-size:.8rem}
+.embutido .app-topo{display:none}
+.casca{max-width:1180px;margin:0 auto;padding-top:14px}
+.aviso{padding:70px 16px;text-align:center;color:var(--muted)}
+.barra{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:10px 12px;margin-bottom:6px}
+.barra .rot{font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700;margin-right:4px}
+.barra select{font:inherit;font-size:13px;padding:6px 8px;border-radius:6px;border:1px solid var(--rule);background:var(--surface);color:var(--ink);max-width:70vw}
+.bt{font:inherit;font-size:13px;font-weight:600;padding:6px 12px;border-radius:7px;border:1px solid var(--rule);background:var(--surface);color:var(--ink);cursor:pointer}
+.bt:hover{border-color:var(--ink-2)}
+.bt.pri{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.bt.perigo{color:var(--crit);border-color:var(--crit)}
+.bt:disabled{opacity:.55;cursor:default}
+.situ{font-size:12px;margin-left:auto;color:var(--muted)}
+.msg{margin:8px 0;padding:9px 12px;border-radius:7px;font-size:13px;white-space:pre-line}
+.msg.ok{background:var(--ok-bg);color:var(--ok)}.msg.err{background:var(--crit-bg);color:var(--crit)}.msg.info{background:var(--info-bg);color:var(--info)}
+.editor{background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:16px;margin:10px 0 20px}
+.editor h2{font-size:18px;margin-bottom:4px}
+.editor .ajuda{font-size:13px;color:var(--muted);margin-bottom:12px;max-width:90ch}
+.campos{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-bottom:12px}
+.campos label,.cad label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:3px}
+.editor input[type=text],.editor input[type=number],.editor textarea{width:100%;font:inherit;font-size:13px;padding:7px 9px;border:1px solid var(--rule);border-radius:6px;background:var(--surface);color:var(--ink)}
+.editor textarea{min-height:52px}
+.arqs{font-size:13px;margin:6px 0 12px;display:flex;flex-direction:column;gap:3px}
+.arqs .a{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.arqs .a b{font-family:var(--mono);font-weight:500;font-size:12px}
+.lnk{background:none;border:0;padding:0;color:var(--accent);cursor:pointer;font:inherit;font-size:12px;text-decoration:underline}
+.cad td input{min-width:90px}
+.cad td.num{white-space:nowrap;font-family:var(--mono);font-size:12px}
+.acoes{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.usu{padding:10px 0;border-top:1px solid var(--grid);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.usu:first-child{border-top:0}
+.usu small{color:var(--muted)}
+.prev-tag{display:inline-block;margin:4px 0 10px;font-size:12px;font-weight:700;color:var(--warn);background:var(--warn-bg);padding:3px 10px;border-radius:999px}
+@media (max-width:520px){.situ{margin-left:0;width:100%}}
+</style>
+</head>
+<body>
+<div class="casca">
+  <div class="app-topo"><div class="marca">TM</div><div><b>Auditoria de Telefonia Móvel</b><br><span>Consumo, franquias e economia por linha</span></div></div>
+  <div id="aviso" class="aviso">Carregando…</div>
+
+  <div id="barra" class="barra oculto">
+    <span class="rot">Relatório</span>
+    <select id="sel" aria-label="Escolher relatório"></select>
+    <span id="admBotoes" class="oculto" style="display:contents">
+      <button class="bt" id="bNovo" type="button">Novo relatório</button>
+      <button class="bt" id="bEditar" type="button">Editar / carregar arquivos</button>
+      <button class="bt" id="bQuem" type="button">Quem vê</button>
+      <button class="bt" id="bPublicar" type="button">Publicar</button>
+      <button class="bt perigo" id="bExcluir" type="button">Excluir</button>
+    </span>
+    <span class="situ" id="situ"></span>
+  </div>
+  <div id="msg" class="msg oculto"></div>
+  <div id="editor" class="editor oculto"></div>
+</div>
+<div id="rel"></div>
+
+<script>
+const CFG = window.NERVIA_CONFIG || window.BUSCADOR_CONFIG || {};
+const EMBUTIDO = window.self !== window.top;
+if (EMBUTIDO) document.documentElement.classList.add("embutido");
+const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtNum = n => n && n.length >= 12 ? `(${n.slice(2,4)}) ${n.slice(4,9)}-${n.slice(9)}` : (n || "");
+const dataBR = v => v ? new Date(v).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+const checar = r => { if (r.error) throw new Error(r.error.message); return r.data; };
+const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : "10000000-1000-4000-8000-100000000000".replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)));
+function msg(tipo, texto) { const m = $("msg"); m.className = "msg " + tipo; m.textContent = texto; if (tipo === "ok") setTimeout(() => m.classList.add("oculto"), 6000); }
+function limparMsg() { $("msg").className = "msg oculto"; }
+
+let ADMIN = false, rels = [], atual = null, rascunho = null;
+const CAMPOS = "id, titulo, empresa, cnpj, cliente_num, conta, operadora, perfil, linhas, dados, fontes, notas, publicado, atualizado_em, dados_em";
+
+// ---------------------------------------------------------------- carga
+async function iniciar() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { $("aviso").innerHTML = 'Entre na <a href="/cliente/" target="_top">Área do Cliente</a> para ver o relatório.'; return; }
+  try {
+    const eu = checar(await sb.from("perfis").select("admin").eq("user_id", session.user.id).maybeSingle());
+    ADMIN = !!(eu && eu.admin);
+    await carregar();
+  } catch (e) { $("aviso").textContent = "Não foi possível carregar: " + e.message; }
+}
+async function carregar(manter) {
+  rels = checar(await sb.from("tel_relatorios").select(CAMPOS).order("titulo"));
+  if (!rels.length) {
+    $("aviso").textContent = ADMIN ? "Nenhum relatório cadastrado ainda. Use “Novo relatório” para montar o primeiro." : "Nenhum relatório liberado para o seu login. Fale com a Nervia.";
+    $("aviso").classList.remove("oculto");
+    if (ADMIN) { $("barra").classList.remove("oculto"); $("admBotoes").classList.remove("oculto"); $("sel").classList.add("oculto"); ["bEditar","bQuem","bPublicar","bExcluir"].forEach(b => $(b).classList.add("oculto")); }
+    $("rel").innerHTML = ""; return;
+  }
+  ["bEditar","bQuem","bPublicar","bExcluir"].forEach(b => $(b).classList.remove("oculto")); $("sel").classList.remove("oculto");
+  $("aviso").classList.add("oculto");
+  $("sel").innerHTML = rels.map(r => `<option value="${r.id}">${esc(r.titulo)}${ADMIN && !r.publicado ? " (não publicado)" : ""}</option>`).join("");
+  const id = manter && rels.some(r => r.id === manter) ? manter : rels[0].id;
+  $("sel").value = id;
+  const mostrarBarra = ADMIN || rels.length > 1;
+  $("barra").classList.toggle("oculto", !mostrarBarra);
+  $("admBotoes").classList.toggle("oculto", !ADMIN);
+  abrir(id);
+}
+function abrir(id) {
+  atual = rels.find(r => r.id === id);
+  fecharEditor();
+  desenhar(atual);
+  if (ADMIN) {
+    $("bPublicar").textContent = atual.publicado ? "Retirar do cliente" : "Publicar para o cliente";
+    $("situ").innerHTML = `${atual.publicado ? "Publicado" : "<b>Não publicado</b> (o cliente ainda não vê)"}${atual.dados_em ? " · dados carregados em " + dataBR(atual.dados_em) : ""}`;
+  } else $("situ").textContent = atual.dados_em ? "Atualizado em " + dataBR(atual.dados_em).slice(0, 10) : "";
+}
+function desenhar(r, previa) {
+  const alvo = $("rel");
+  if (!r || !r.dados || !r.dados.dataCycle) { alvo.innerHTML = `<div class="aviso">${ADMIN ? "Relatório sem dados. Use “Editar / carregar arquivos” e envie as exportações do portal da operadora." : "Relatório ainda em preparação."}</div>`; return; }
+  RelatorioTelefonia.montar(alvo, { ...r, atualizado_em: r.dados_em || r.atualizado_em });
+  if (previa) alvo.insertAdjacentHTML("afterbegin", '<div class="casca"><span class="prev-tag">PRÉ-VISUALIZAÇÃO — ainda não salvo</span></div>');
+}
+$("sel").addEventListener("change", () => { limparMsg(); abrir($("sel").value); });
+
+// ---------------------------------------------------------------- editor (equipe Nervia)
+function fecharEditor() { $("editor").classList.add("oculto"); $("editor").innerHTML = ""; rascunho = null; }
+$("bNovo").onclick = () => editar(null);
+$("bEditar").onclick = () => editar(atual);
+
+async function editar(r) {
+  limparMsg(); $("aviso").classList.add("oculto");
+  const arquivos = r ? checar(await sb.from("tel_arquivos").select("id, nome, tipo, conteudo, enviado_em").eq("relatorio_id", r.id).order("nome")) : [];
+  rascunho = {
+    novo: !r, id: r ? r.id : uuid(),
+    base: r ? { ...r, linhas: (r.linhas || []).map(l => ({ ...l })) } : { titulo: "", empresa: "", cnpj: "", cliente_num: "", conta: "", operadora: "Claro Empresas", perfil: "", linhas: [], notas: [], fontes: "" },
+    guardados: arquivos, novos: [], removidos: [], ciclo: (r && r.dados && r.dados.cicloInicio) || 6, calculo: null,
+  };
+  montarEditor();
+  if (arquivos.length) recalcular(false);
+}
+function arquivosAtuais() {
+  const fora = new Set(rascunho.removidos);
+  const novosNomes = new Set(rascunho.novos.map(a => a.nome));
+  return [...rascunho.guardados.filter(a => !fora.has(a.nome) && !novosNomes.has(a.nome)), ...rascunho.novos]
+    .map(a => ({ nome: a.nome, texto: a.conteudo ?? a.texto, novo: !!a.texto }));
+}
+function montarEditor() {
+  const B = rascunho.base;
+  const arqs = arquivosAtuais();
+  const ed = $("editor");
+  ed.innerHTML = `<h2>${rascunho.novo ? "Novo relatório" : "Editar relatório · " + esc(B.titulo)}</h2>
+    <div class="ajuda">1) Preencha os dados do cliente. 2) Envie as exportações do portal da operadora (Relatório de Dados, de Chamadas e de Assinante, em CSV) — pode mandar só o período novo: os arquivos já guardados continuam valendo. 3) Confira o nome de quem usa cada linha. 4) Pré-visualize e salve. Depois, publique e libere em “Quem vê”.</div>
+    <div class="campos">
+      <div><label for="eTitulo">Nome curto do cliente</label><input type="text" id="eTitulo" value="${esc(B.titulo)}" placeholder="ex.: Power"></div>
+      <div><label for="eEmpresa">Razão social</label><input type="text" id="eEmpresa" value="${esc(B.empresa)}"></div>
+      <div><label for="eCnpj">CNPJ (opcional)</label><input type="text" id="eCnpj" value="${esc(B.cnpj || "")}"></div>
+      <div><label for="eCliente">Nº do cliente na operadora</label><input type="text" id="eCliente" value="${esc(B.cliente_num)}"></div>
+      <div><label for="eConta">Conta</label><input type="text" id="eConta" value="${esc(B.conta)}"></div>
+      <div><label for="eOperadora">Operadora</label><input type="text" id="eOperadora" value="${esc(B.operadora || "Claro Empresas")}"></div>
+      <div><label for="ePerfil">Perfil das linhas</label><input type="text" id="ePerfil" value="${esc(B.perfil)}"></div>
+      <div><label for="eCiclo">Ciclo começa no dia</label><input type="number" id="eCiclo" min="1" max="28" value="${rascunho.ciclo}"></div>
+    </div>
+    <div class="campos"><div style="grid-column:1/-1"><label for="eNotas">Observações no rodapé (uma por linha, opcional)</label><textarea id="eNotas">${esc((B.notas || []).join("\n"))}</textarea></div></div>
+    <label class="rot" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)">Exportações do portal (${arqs.length})</label>
+    <div class="arqs">${arqs.length ? arqs.map(a => `<div class="a"><b>${esc(a.nome)}</b>${a.novo ? ' <span class="pill info">novo</span>' : ""}<button class="lnk" type="button" data-rem="${esc(a.nome)}">tirar</button></div>`).join("") : '<span class="muted">Nenhum arquivo ainda.</span>'}</div>
+    <input type="file" id="eArquivos" accept=".csv,text/csv" multiple>
+    <div id="eResumo" class="msg info ${rascunho.calculo ? "" : "oculto"}"></div>
+    <div id="eLinhas"></div>
+    <div class="acoes">
+      <button class="bt" type="button" id="ePrevia">Pré-visualizar</button>
+      <button class="bt pri" type="button" id="eSalvar">Salvar relatório</button>
+      <button class="bt" type="button" id="eCancelar">Cancelar</button>
+    </div>`;
+  ed.classList.remove("oculto");
+  ed.querySelectorAll("[data-rem]").forEach(b => b.onclick = () => {
+    const n = b.dataset.rem; guardarCampos();
+    rascunho.novos = rascunho.novos.filter(a => a.nome !== n);
+    if (rascunho.guardados.some(a => a.nome === n)) rascunho.removidos.push(n);
+    montarEditor(); recalcular(false);
+  });
+  $("eArquivos").onchange = async e => {
+    guardarCampos();
+    for (const f of e.target.files) rascunho.novos.push({ nome: f.name, texto: await lerArquivo(f) });
+    montarEditor(); recalcular(true);
+  };
+  $("eCiclo").onchange = () => { guardarCampos(); recalcular(false); };
+  $("ePrevia").onclick = () => { guardarCampos(); if (!rascunho.calculo) return msg("err", "Envie as exportações antes de pré-visualizar."); desenhar(montarRegistro(), true); };
+  $("eSalvar").onclick = salvar;
+  $("eCancelar").onclick = () => { fecharEditor(); limparMsg(); if (atual) desenhar(atual); };
+  desenharLinhas();
+  if (rascunho.calculo) mostrarResumo();
+}
+async function lerArquivo(f) {
+  const buf = await f.arrayBuffer();
+  let t = new TextDecoder("utf-8").decode(buf);
+  if (t.includes("�")) t = new TextDecoder("windows-1252").decode(buf);
+  return t;
+}
+function guardarCampos() {
+  if (!rascunho || !$("eTitulo")) return;
+  const B = rascunho.base;
+  B.titulo = $("eTitulo").value.trim(); B.empresa = $("eEmpresa").value.trim(); B.cnpj = $("eCnpj").value.replace(/\D/g, "");
+  B.cliente_num = $("eCliente").value.trim(); B.conta = $("eConta").value.trim(); B.operadora = $("eOperadora").value.trim() || "Claro Empresas";
+  B.perfil = $("ePerfil").value.trim(); B.notas = $("eNotas").value.split("\n").map(s => s.trim()).filter(Boolean);
+  rascunho.ciclo = Math.min(28, Math.max(1, +$("eCiclo").value || 6));
+  document.querySelectorAll("#eLinhas tr[data-n]").forEach(tr => {
+    const l = B.linhas.find(x => x.n === tr.dataset.n); if (!l) return;
+    const v = k => tr.querySelector(`[data-k="${k}"]`).value.trim();
+    l.dono = v("dono"); l.sub = v("sub"); l.plano = v("plano"); l.fr = +v("fr") || 0;
+    l.add = v("add").split(";").map(s => s.trim()).filter(Boolean);
+  });
+}
+// recalcula a partir de TODOS os arquivos (guardados + novos); mantém o nome de quem usa cada linha
+function recalcular(avisar) {
+  const arqs = arquivosAtuais();
+  if (!arqs.length) { rascunho.calculo = null; $("eResumo").classList.add("oculto"); return; }
+  try {
+    const c = ProcessarTelefonia.processar(arqs.map(a => ({ nome: a.nome, texto: a.texto })), rascunho.ciclo);
+    rascunho.calculo = c;
+    const B = rascunho.base, antes = new Map(B.linhas.map(l => [l.n, l]));
+    B.linhas = c.linhas.map(l => { const a = antes.get(l.n) || {}; return { ...l, dono: a.dono || "", sub: a.sub || "", ...(a.plano && !l.plano ? { plano: a.plano, fr: a.fr } : {}) }; });
+    if (!B.conta && c.conta) B.conta = c.conta;
+    if (!B.perfil && c.perfil) B.perfil = c.perfil;
+    B.fontes = `exportações do portal ${B.operadora || "Claro Empresas"} de ${c.exportacoes.join(", ").replace(/, ([^,]*)$/, " e $1")}.`;
+    if (c.ignorados.length) msg("err", "Arquivos ignorados (não são exportações de Dados, Chamadas ou Assinante): " + c.ignorados.join(", "));
+    else if (avisar) limparMsg();
+  } catch (e) { rascunho.calculo = null; msg("err", e.message); }
+  if ($("eTitulo")) montarEditor();
+}
+function mostrarResumo() {
+  const c = rascunho.calculo, el = $("eResumo"); if (!el) return;
+  if (!c) { el.classList.add("oculto"); return; }
+  const d = c.dados, br = s => s.slice(8) + "/" + s.slice(5, 7) + "/" + s.slice(0, 4);
+  el.classList.remove("oculto");
+  el.textContent = `Dados de ${br(d.inicio)} a ${br(d.fim)}${d.fimVoz ? " · chamadas até " + br(d.fimVoz) : ""} · ${c.linhas.length} linhas · ${c.resumo.dados} arquivo(s) de dados, ${c.resumo.chamadas} de chamadas, ${c.resumo.assinante} de assinante · exportações de ${c.exportacoes.join(", ")}.`;
+}
+function desenharLinhas() {
+  const el = $("eLinhas"); if (!el) return;
+  const L = rascunho.base.linhas;
+  if (!L.length) { el.innerHTML = ""; return; }
+  el.innerHTML = `<div class="table-scroll" style="margin-top:12px"><table class="cad"><thead><tr><th>Linha</th><th>Quem usa</th><th>Observação (opcional)</th><th>Plano</th><th>Franquia GB</th><th>Adicionais (separe com ;)</th></tr></thead><tbody>
+    ${L.map(l => `<tr data-n="${esc(l.n)}"><td class="num">${esc(fmtNum(l.n))}${l.status && l.status !== "Ativo" ? ` <span class="pill warn">${esc(l.status)}</span>` : ""}</td>
+      <td><input type="text" data-k="dono" value="${esc(l.dono)}" placeholder="nome"></td>
+      <td><input type="text" data-k="sub" value="${esc(l.sub || "")}" placeholder="ex.: usa só quando viaja"></td>
+      <td><input type="text" data-k="plano" value="${esc(l.plano)}"></td>
+      <td><input type="number" data-k="fr" min="0" value="${l.fr || 0}" style="max-width:90px"></td>
+      <td><input type="text" data-k="add" value="${esc((l.add || []).join("; "))}"></td></tr>`).join("")}
+  </tbody></table></div>`;
+}
+function montarRegistro() {
+  const B = rascunho.base, c = rascunho.calculo;
+  return { id: rascunho.id, titulo: B.titulo || "(sem nome)", empresa: B.empresa, cnpj: B.cnpj || null, cliente_num: B.cliente_num, conta: B.conta,
+    operadora: B.operadora || "Claro Empresas", perfil: B.perfil,
+    linhas: B.linhas.map(l => ({ n: l.n, dono: l.dono || fmtNum(l.n), ...(l.sub ? { sub: l.sub } : {}), plano: l.plano, fr: +l.fr || 0, iccid: l.iccid || "", add: l.add || [] })),
+    dados: c ? c.dados : null, fontes: B.fontes || "", notas: B.notas || [], dados_em: new Date().toISOString() };
+}
+async function salvar() {
+  guardarCampos();
+  const B = rascunho.base;
+  if (!B.titulo) return msg("err", "Informe o nome curto do cliente.");
+  if (!rascunho.calculo) return msg("err", "Envie as exportações do portal antes de salvar.");
+  const semDono = B.linhas.filter(l => !l.dono).length;
+  if (semDono && !confirm(`${semDono} linha(s) sem o nome de quem usa. Elas vão aparecer pelo número. Salvar mesmo assim?`)) return;
+  $("eSalvar").disabled = true;
+  try {
+    const reg = montarRegistro(); delete reg.dados_em;
+    if (rascunho.novo) checar(await sb.from("tel_relatorios").insert({ ...reg, publicado: false }));
+    else { const { id, ...resto } = reg; checar(await sb.from("tel_relatorios").update(resto).eq("id", id)); }
+    for (const n of rascunho.removidos) checar(await sb.from("tel_arquivos").delete().eq("relatorio_id", rascunho.id).eq("nome", n));
+    for (const a of rascunho.novos) {
+      const tipo = /^﻿?relatorio-dados/i.test(a.texto) ? "dados" : /^﻿?relatorio-chamadas/i.test(a.texto) ? "chamadas" : /^﻿?relatorio-assinante/i.test(a.texto) ? "assinante" : null;
+      if (!tipo) continue;
+      if (rascunho.guardados.some(g => g.nome === a.nome)) checar(await sb.from("tel_arquivos").delete().eq("relatorio_id", rascunho.id).eq("nome", a.nome));
+      checar(await sb.from("tel_arquivos").insert({ relatorio_id: rascunho.id, nome: a.nome, tipo, conteudo: a.texto }));
+    }
+    const id = rascunho.id, novo = rascunho.novo;
+    await carregar(id);
+    msg("ok", novo ? "Relatório criado. Ele ainda não aparece para o cliente: clique em “Publicar para o cliente” e libere o login em “Quem vê”." : "Relatório salvo.");
+  } catch (e) { msg("err", "Não foi possível salvar: " + e.message); $("eSalvar").disabled = false; }
+}
+
+// ---------------------------------------------------------------- publicar, excluir, quem vê
+$("bPublicar").onclick = async () => {
+  if (!atual) return;
+  const pub = !atual.publicado;
+  if (pub && (!atual.dados || !atual.dados.dataCycle)) return msg("err", "O relatório ainda não tem dados.");
+  if (!confirm(pub ? `Publicar o relatório de ${atual.titulo}? Os logins liberados em “Quem vê” passam a vê-lo.` : `Retirar o relatório de ${atual.titulo} do cliente? Ele deixa de aparecer para os logins liberados.`)) return;
+  try { checar(await sb.from("tel_relatorios").update({ publicado: pub }).eq("id", atual.id)); await carregar(atual.id); msg("ok", pub ? "Publicado." : "Retirado do cliente."); }
+  catch (e) { msg("err", e.message); }
+};
+$("bExcluir").onclick = async () => {
+  if (!atual) return;
+  if (!confirm(`Excluir o relatório de ${atual.titulo}, com os arquivos guardados e os acessos? Não dá para desfazer.`)) return;
+  try { checar(await sb.from("tel_relatorios").delete().eq("id", atual.id)); await carregar(); msg("ok", "Relatório excluído."); }
+  catch (e) { msg("err", e.message); }
+};
+$("bQuem").onclick = async () => {
+  if (!atual) return; limparMsg();
+  try {
+    const perfis = checar(await sb.from("perfis").select("*").eq("admin", false).order("nome"));
+    const acessos = checar(await sb.from("tel_acessos").select("*").eq("relatorio_id", atual.id));
+    const ed = $("editor");
+    ed.innerHTML = `<h2>Quem vê o relatório de ${esc(atual.titulo)}</h2>
+      <div class="ajuda">Marque os logins do cliente que podem ver este relatório. O login também precisa ter o app “Auditoria de Telefonia Móvel” liberado em <a href="/cliente/#admin" target="_top">Administração → Logins</a>. ${atual.publicado ? "" : "<b>O relatório ainda não está publicado.</b>"}</div>
+      ${perfis.length ? perfis.map(p => `<div class="usu"><label><input type="checkbox" data-uid="${p.user_id}" ${acessos.some(a => a.user_id === p.user_id) ? "checked" : ""}> <b>${esc(p.nome || p.email)}</b></label> <small>${esc(p.email)}</small></div>`).join("")
+        : '<div class="muted">Nenhum login de cliente ainda. Crie na Administração da Área do Cliente.</div>'}
+      <div class="acoes"><button class="bt" type="button" id="qFechar">Fechar</button></div>`;
+    ed.classList.remove("oculto");
+    ed.querySelectorAll("[data-uid]").forEach(c => c.onchange = async () => {
+      try {
+        if (c.checked) checar(await sb.from("tel_acessos").insert({ user_id: c.dataset.uid, relatorio_id: atual.id }));
+        else checar(await sb.from("tel_acessos").delete().eq("user_id", c.dataset.uid).eq("relatorio_id", atual.id));
+        msg("ok", "Acesso atualizado.");
+      } catch (e) { c.checked = !c.checked; msg("err", e.message); }
+    });
+    $("qFechar").onclick = fecharEditor;
+  } catch (e) { msg("err", e.message); }
+};
+
+sb.auth.onAuthStateChange(ev => { if (ev === "SIGNED_OUT") location.reload(); });
+iniciar();
+</script>
+</body>
+</html>

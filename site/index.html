@@ -308,7 +308,7 @@ footer{border-top:1px solid var(--border);padding:36px 0;color:var(--muted);font
     <div class="section-head">
       <span class="eyebrow">Ecossistema Nervia App</span>
       <h2>Aplicativos que trabalham pela sua empresa</h2>
-      <p class="lead">Um conjunto de aplicativos na Área do Cliente, com um login só: notas fiscais que chegam sozinhas, compras em gráficos e controle de vendas, crediário e estoque. Funcionam no navegador, no computador ou no celular, sem instalar nada, e a Nervia adapta ao seu negócio.</p>
+      <p class="lead">Um conjunto de aplicativos na Área do Cliente, com um login só: notas fiscais que chegam sozinhas, compras em gráficos, controle de vendas, crediário e estoque, e auditoria das linhas móveis. Funcionam no navegador, no computador ou no celular, sem instalar nada, e a Nervia adapta ao seu negócio.</p>
     </div>
     <div class="apps-grid">
       <div class="app-list">
@@ -337,6 +337,15 @@ footer{border-top:1px solid var(--border);padding:36px 0;color:var(--muted);font
           </ul>
           <div class="app-links"><a href="/demo/perfumes/" target="_blank" rel="noopener">Ver demonstração →</a><a class="js-wa-perfumes" href="#" target="_blank" rel="noopener">Quero para o meu negócio</a></div>
         </div>
+        <div class="app-card">
+          <div class="app-top"><span class="app-ic">TM</span><div><h3>Auditoria de Telefonia Móvel</h3><small>Consumo, franquias e economia por linha</small></div></div>
+          <ul>
+            <li><b>Cada linha analisada</b>: quanto da franquia é usado, quem está pagando por um plano grande demais e quais linhas estão paradas.</li>
+            <li><b>Roaming sob controle</b>: passaportes contratados × usados e alerta quando uma viagem vai esgotar o pacote.</li>
+            <li><b>Sem mensalidade</b>: você envia as exportações do portal da operadora e paga por relatório gerado ou atualizado.</li>
+          </ul>
+          <div class="app-links"><a href="/demo/telefonia/" target="_blank" rel="noopener">Ver demonstração →</a><a class="js-wa-telefonia" href="#" target="_blank" rel="noopener">Quero a auditoria</a></div>
+        </div>
       </div>
       <div>
         <div class="tela"><div class="barra"><i></i><i></i><i></i><span>nervia.com.br · Painel de Notas</span></div>
@@ -352,6 +361,7 @@ footer{border-top:1px solid var(--border);padding:36px 0;color:var(--muted);font
     <div class="apps-ctas">
       <a class="btn btn-primary" href="/demo/" target="_blank" rel="noopener">Demonstração: notas fiscais</a>
       <a class="btn btn-ghost" href="/demo/perfumes/" target="_blank" rel="noopener">Demonstração: Controle de Produtos - Perfumes</a>
+      <a class="btn btn-ghost" href="/demo/telefonia/" target="_blank" rel="noopener">Demonstração: Auditoria de Telefonia Móvel</a>
       <a class="btn btn-wa js-wa-apps" href="#" target="_blank" rel="noopener">Quero assinar</a>
       <small>Cada aplicativo tem sua demonstração com dados fictícios: entre e teste à vontade, sem cadastro.</small>
     </div>
@@ -493,6 +503,7 @@ const waBase = "https://wa.me/" + CONFIG.whatsapp;
 document.querySelectorAll(".js-wa").forEach(a => a.href = waBase + "?text=" + encodeURIComponent("Olá! Vim pelo site da Nervia e gostaria de falar sobre TI."));
 document.querySelectorAll(".js-wa-apps").forEach(a => a.href = waBase + "?text=" + encodeURIComponent("Olá! Vi o Ecossistema Nervia App no site da Nervia e quero saber mais."));
 document.querySelectorAll(".js-wa-perfumes").forEach(a => a.href = waBase + "?text=" + encodeURIComponent("Olá! Vi o app Nervia Controle de Produtos - Perfumes no site da Nervia e quero saber mais."));
+document.querySelectorAll(".js-wa-telefonia").forEach(a => a.href = waBase + "?text=" + encodeURIComponent("Olá! Vi a Auditoria de Telefonia Móvel no site da Nervia e quero a auditoria das linhas da minha empresa."));
 document.querySelectorAll(".js-wa-label").forEach(el => el.textContent = CONFIG.whatsappLabel);
 document.querySelectorAll(".js-mail").forEach(a => a.href = "mailto:" + CONFIG.email);
 document.querySelectorAll(".js-mail-label").forEach(el => el.textContent = CONFIG.email);

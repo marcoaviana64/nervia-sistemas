@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Demonstração · Auditoria de Telefonia Móvel | Nervia</title>
+<meta name="description" content="Demonstração com dados fictícios do relatório Auditoria de Telefonia Móvel da Nervia: consumo, franquias, roaming e economia por linha.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="/apps/telefonia/relatorio.css">
+<style>
+/* faixa da demonstração (não faz parte do relatório) */
+.demo-faixa{max-width:1180px;margin:0 auto;padding:14px 0 0;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.demo-faixa .marca{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink)}
+.demo-faixa .marca img{height:30px;width:auto}
+.demo-faixa .marca span{font-size:13px;color:var(--muted)}
+.demo-faixa .nota{flex:1 1 380px;font-size:13px;color:var(--ink-2);background:var(--warn-bg);border-radius:8px;padding:8px 12px}
+.demo-faixa .nota b{color:var(--ink)}
+.demo-faixa .ctas{display:flex;gap:8px;flex-wrap:wrap}
+.demo-faixa .bt{font:inherit;font-size:13px;font-weight:600;padding:8px 14px;border-radius:8px;border:1px solid var(--rule);background:var(--surface);color:var(--ink);text-decoration:none;white-space:nowrap}
+.demo-faixa .bt.wa{background:#1f9d55;border-color:#1f9d55;color:#fff}
+@media (prefers-color-scheme:dark){.demo-faixa .marca img{filter:invert(1) hue-rotate(180deg)}}
+</style>
+</head>
+<body>
+<div class="demo-faixa">
+  <a class="marca" href="/" title="Voltar ao site da Nervia"><img src="/img/nervia-logo.png" alt="Nervia Tecnologia"><span>Auditoria de Telefonia Móvel</span></a>
+  <div class="nota"><b>Demonstração com dados fictícios.</b> É assim que o seu relatório aparece na Área do Cliente da Nervia: você envia as exportações do portal da operadora e recebe a análise de cada linha. Sem mensalidade — você paga por relatório gerado ou atualizado.</div>
+  <div class="ctas">
+    <a class="bt wa" id="wa" href="https://wa.me/5521966869374" target="_blank" rel="noopener">Quero a auditoria da minha empresa</a>
+    <a class="bt" href="/#aplicativos">Ver outros aplicativos</a>
+  </div>
+</div>
+<div id="rel"></div>
+<script src="/apps/telefonia/relatorio.js"></script>
+<script src="exemplo.js"></script>
+<script>
+document.getElementById("wa").href = "https://wa.me/5521966869374?text=" + encodeURIComponent("Olá! Vi a demonstração da Auditoria de Telefonia Móvel no site da Nervia e quero a auditoria das linhas da minha empresa.");
+RelatorioTelefonia.montar(document.getElementById("rel"), window.EXEMPLO_TELEFONIA);
+</script>
+<script src="/acesso.js" defer></script>
+</body>
+</html>

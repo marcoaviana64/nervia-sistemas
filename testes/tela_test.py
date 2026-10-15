@@ -173,7 +173,7 @@ with sync_playwright() as p:
     # ---------------- Área do Cliente: admin
     pg, erros = nova(b)
     pg.goto("http://127.0.0.1:8811/cliente/?papel=admin"); pg.wait_for_selector(".app")
-    assert pg.locator(".app").count() == 2, "app inativo não aparece na grade"
+    assert pg.locator(".app").count() == 3, "app inativo não aparece na grade"
     pg.screenshot(path=f"{SAIDA}/portal_apps.png")
     pg.click(".app >> text=Notas Fiscais"); pg.wait_for_selector("#vVisor:not(.oculto)")
     assert pg.url.endswith("/cliente/?papel=admin#app/notas"), "deve continuar na página da Nervia: " + pg.url
@@ -262,7 +262,7 @@ with sync_playwright() as p:
     pg, erros = nova(b)
     pg.goto("http://127.0.0.1:8811/cliente/?papel=cliente"); pg.wait_for_selector(".app")
     assert pg.locator("#bAdmin").is_hidden()
-    assert pg.locator(".app").count() == 2
+    assert pg.locator(".app").count() == 3
     pg.click(".app >> text=Notas Fiscais"); quadro = pg.frame_locator("#frame"); quadro.locator("#tab table").wait_for()
     assert quadro.locator(".emp").count() == 1, "cliente vê só a empresa liberada dentro do app"
     pg.goto("http://127.0.0.1:8811/cliente/?papel=cliente#admin"); pg.wait_for_timeout(500)

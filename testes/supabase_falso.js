@@ -19,9 +19,16 @@
         cartao_url: "/apps/notas/ajuda/cartao.html", manual_url: "/apps/notas/ajuda/manual.html" },
       { id: "painel-nf", nome: "Painel de Notas", descricao: "Compras e vendas por fornecedor.", url: "/apps/painel-nf/", icone: "PN", ordem: 15, ativo: true,
         cartao_url: "/apps/painel-nf/ajuda/cartao.html", manual_url: "/apps/painel-nf/ajuda/manual.html" },
+      { id: "telefonia", nome: "Auditoria de Telefonia Móvel", descricao: "Consumo, franquias e economia de cada linha móvel.", url: "/apps/telefonia/", icone: "TM", ordem: 30, ativo: true,
+        cartao_url: "/apps/telefonia/ajuda/cartao.html", manual_url: "/apps/telefonia/ajuda/manual.html" },
       { id: "chamados", nome: "Chamados", descricao: "Abertura e acompanhamento de chamados.", url: "/apps/chamados/", icone: "CH", ordem: 20, ativo: false },
     ],
-    app_acessos: [{ user_id: "u-cli", app_id: "notas" }, { user_id: "u-cli", app_id: "painel-nf" }],
+    app_acessos: [{ user_id: "u-cli", app_id: "notas" }, { user_id: "u-cli", app_id: "painel-nf" }, { user_id: "u-cli", app_id: "telefonia" }],
+    // Auditoria de Telefonia Móvel: o teste pode semear um relatório publicado (window.__TEL_SEED = dados da demonstração)
+    tel_relatorios: window.__TEL_SEED ? [{ ...window.__TEL_SEED, id: "r1", cnpj: null, publicado: true, dados_em: "2026-10-15T12:00:00-03:00" },
+      { ...window.__TEL_SEED, id: "r2", titulo: "Outro Cliente", publicado: true }] : [],
+    tel_acessos: window.__TEL_SEED ? [{ user_id: "u-cli", relatorio_id: "r1" }] : [],
+    tel_arquivos: [],
     nf_acessos: [{ user_id: "u-cli", cnpj: "22222222000122" }],
     nf_empresas: [
       { cnpj: "11111111000111", nome: "Nervia", uf: "RJ", ativo: true, busca_automatica: true, cert_secret_id: "s1", cert_titular: "NERVIA TECNOLOGIA DA INFORMACAO LTDA:11111111000111", cert_validade: futuro, termo_status: "dispensado", termo_obs: "Empresa da própria Nervia.", ult_nsu_nfe: 50, ultima_sinc_nfe: new Date().toISOString(), bloqueio_nfe: new Date(Date.now() + 40 * 6e4).toISOString(), ultima_sinc_nfse: new Date().toISOString() },
@@ -79,7 +86,9 @@
     auditoria: (r) => papel === "admin" || (r.cnpj && pode(r.cnpj)), site_acessos: () => papel === "admin",
     perfis: (r) => papel === "admin" || r.user_id === eu.id,
     apps: (r) => papel === "admin" || (r.ativo && db.app_acessos.some((a) => a.app_id === r.id && a.user_id === eu.id)),
-    app_acessos: (r) => papel === "admin" || r.user_id === eu.id, nf_acessos: (r) => papel === "admin" || r.user_id === eu.id };
+    app_acessos: (r) => papel === "admin" || r.user_id === eu.id, nf_acessos: (r) => papel === "admin" || r.user_id === eu.id,
+    tel_relatorios: (r) => papel === "admin" || (r.publicado && db.tel_acessos.some((a) => a.relatorio_id === r.id && a.user_id === eu.id)),
+    tel_acessos: (r) => papel === "admin" || r.user_id === eu.id, tel_arquivos: () => papel === "admin" };
   window.__chamadas = [];
 
   function consulta(tabela) {
