@@ -2,7 +2,7 @@
 import { admin } from "./banco.ts";
 
 /** Muda a cada correção nas funções: aparece nas mensagens de erro para saber qual versão está no ar. */
-export const VERSAO = "v10-auditoria";
+export const VERSAO = "v11-recuperar";
 
 // SITE_ORIGEM: um ou mais endereços separados por vírgula (ex.: https://nervia.com.br,https://www.nervia.com.br).
 // Sem ele, qualquer site pode chamar (o acesso continua exigindo login de admin ou o segredo do cron).

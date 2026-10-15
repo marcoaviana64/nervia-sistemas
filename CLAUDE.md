@@ -17,7 +17,7 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
   - `..._buscador_nf.sql` — tudo do Buscador com prefixo `nf_`: `nf_empresas`, `nf_acessos` (cliente×CNPJ), `nf_notas`, `nf_log`; RLS por CNPJ (`nf_pode_ver`); `nf_gravar_nota()`, `nf_salvar_certificado()` / `nf_ler_certificado()` (Vault), `nf_travar_empresa()`; bucket privado `nf-xml` com policy por CNPJ (pasta = CNPJ).
   - Próximos sistemas (ex.: atendimentos) entram no mesmo projeto com prefixo próprio, reaproveitando `perfis`.
 - `supabase/functions/`
-  - `sincronizar` — admin: `{cnpj, tipo:"nfe"|"nfse"}`; cron: header `x-cron-secret` → 202 e roda todas em `EdgeRuntime.waitUntil` (~120 s).
+  - `sincronizar` — admin: `{cnpj, tipo:"nfe"|"nfse"}`; cron: header `x-cron-secret` → 202 e roda todas em `EdgeRuntime.waitUntil` (~120 s). Admin `{cnpj, acao:"recuperar_nfe"}` inicia a recuperação por consNSU (ver Requisitos); o cron continua a cada hora.
   - `ciencia` — evento 210210 nas NF-e selecionadas.
   - `certificado` — recebe .pfx+senha, valida com node-forge e guarda `{cert_pem,key_pem}` no Vault (senha e .pfx não são guardados).
   - `usuarios` — cria login (com apps, CNPJs e flag admin), exclui e troca senha (auth.admin). Usado pela Administração da Área do Cliente.
@@ -52,6 +52,7 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
   - **O destinatário recebe só o RESUMO até manifestar** (ciência, confirmação ou desconhecimento). Toda NF-e de compra chega "só resumo"; o XML completo só vem depois da ciência (clique do admin, regra abaixo).
   - Um sistema por CNPJ (sequência única de NSU); 656 bloqueia o CNPJ inteiro 1h; repetir dentro da hora reinicia a contagem. Consulta por chave/NSU: máx. 20/h.
   - Lote de no máximo 50 documentos por resposta.
+  - **distNSU não volta atrás**: se outro sistema já consumiu a sequência (ex.: Linum até NSU 419), pedir de NSU menor dá 656 ("SEFAZ informou ultNSU 419"). Usar o ultNSU da SEFAZ e recuperar as anteriores por **consNSU** (NSU específico; 137 = não achado/fora dos 90 dias, 589 = acima do máximo; limite 20/h, 656 bloqueia o CNPJ 1h). Botão "Recuperar NF-e anteriores" (migração `..._nf_recuperar_nsu.sql`, `recuperarAnteriores` em `sefaz.ts`): desce do `nfe_recuperar_nsu`, no máx. 15 consultas por rodada e 1 rodada a cada 61 min (`nfe_recuperar_em`), termina com 10 vazios seguidos ou NSU 0.
   - Numa 656 o Buscador NÃO avança o ultNSU (antes avançava para o ultNSU devolvido pela SEFAZ, o que podia pular notas em silêncio); só registra no histórico "[NSU nosso X; SEFAZ informou ultNSU Y, maxNSU Z]" (v8-nsu656).
 - Manifestação do destinatário (NT 2020.001; conferir a versão vigente antes de mexer):
   - Ciência da Operação (210210): só até **10 dias** da autorização da NF-e (fora do prazo: rejeição 596). Não é conclusiva.
@@ -91,7 +92,7 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
   - 2026-10-14: custo da ponte contido. Gatilho do Cloud Build `rmgpgab-ponte-sefaz-southamerica-east1-marcoaviana64-nervia-lcm` (global, único do projeto, YAML inline) com filtro de arquivos incluídos `ponte-sefaz/**`: só push que mexe em `ponte-sefaz/` faz deploy da ponte. Artifact Registry `cloud-run-source-deploy` (southamerica-east1, único repositório, pacote `nervia-sistemas/ponte-sefaz`) com limpeza em modo Excluir: `manter-2-recentes` + `apagar-antigas` (> 7 dias). Revisões antigas do Cloud Run perdem a imagem; para voltar, refazer do GitHub.
   - PENDENTE (opcional): `PONTE_SEGREDO` está como variável em texto puro no Cloud Run; passar para o Secret Manager (secret `ponte-segredo`, valor colado pelo Marco; antes conferir no YAML do gatilho se o deploy usa `--set-env-vars`).
 - 2026-10-14: DOMÍNIO LIGADO. DNS do nervia.com.br migrado para a Cloudflare pelo Marco (NS cloudflare; registros do M365 conferidos: MX, SPF, MS=/mscid, autodiscover, SRV/lync do Teams). https://nervia.com.br e https://www.nervia.com.br servem o worker `nervia-site`; Área do Cliente OK.
-- `SITE_ORIGEM` aceita lista separada por vírgula (função `origemPermitida`; versão atual das funções: v10-auditoria). Valor previsto: `https://nervia.com.br,https://www.nervia.com.br`.
+- `SITE_ORIGEM` aceita lista separada por vírgula (função `origemPermitida`; versão atual das funções: v11-recuperar). Valor previsto: `https://nervia.com.br,https://www.nervia.com.br`.
 
 - 2026-10-14: ajuda dos apps (migração `..._apps_ajuda.sql`), cartão e manual do Buscador, contato WhatsApp/e-mail na entrada. "Esqueci minha senha": por decisão do Marco (não contratar serviço de e-mail agora), NÃO há envio automático; o botão abre um e-mail do próprio usuário para atendimento@nervia.com.br, e a Nervia define senha provisória em Administração → Logins → "Definir nova senha" (atender só pedidos vindos do e-mail do login). Envio automático por link fica para quando houver SMTP próprio (Supabase só envia para a equipe da org, 2/h).
 
@@ -101,6 +102,7 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
 
 - 2026-10-14: termo de autorização e custódia do A1 (gerar, registrar, bloqueio do envio sem termo). Tela e SQL OK.
 - 2026-10-14: Linum dava 656 em toda busca de NF-e: outro sistema da Linum baixava as NF-e do mesmo CNPJ. Marco desligou o download automático do outro sistema (19h49) para o Buscador assumir. Criadas a chave NF-e por empresa e a trava 656 (Deno 12/12, SQL OK, tela OK).
+- 2026-10-14: Linum: zerar o NSU deu 656 (a SEFAZ não reentrega NSU já consumido pelo outro sistema). Marco voltou `ult_nsu_nfe` para 419; criada a "Recuperar NF-e anteriores" por consNSU (v11-recuperar, Deno 14/14). Falta clicar uma vez na Linum e acompanhar.
 
 ## Ideias (comercialização)
 - Termo de custódia do A1: FEITO (gerar/registrar no Buscador); falta revisão do texto por advogado.

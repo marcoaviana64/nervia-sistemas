@@ -4,6 +4,7 @@
 import { admin, bancoSupabase } from "../_shared/banco.ts";
 import { clienteHttp } from "../_shared/certificado.ts";
 import { erro, json, mensagemDeRede, servir, VERSAO } from "../_shared/http.ts";
+import { auditar } from "../_shared/auditoria.ts";
 import * as sefaz from "../_shared/sefaz.ts";
 import * as adn from "../_shared/adn.ts";
 import { httpViaPonte, nfeHabilitada, temPonte } from "../_shared/ponte.ts";
@@ -26,12 +27,14 @@ async function comCertificado<T>(cnpj: string, tipo: "nfe" | "nfse", fn: (http: 
   }
 }
 
-async function rodar(cnpj: string, tipo: "nfe" | "nfse", prazoMs: number): Promise<sefaz.Resultado> {
+async function rodar(cnpj: string, tipo: "nfe" | "nfse" | "recuperar", prazoMs: number): Promise<sefaz.Resultado> {
   const { data: travou } = await sb.rpc("nf_travar_empresa", { p_cnpj: cnpj });
   if (!travou) return { ok: false, mensagem: "Já existe uma busca em andamento para esta empresa." };
   try {
-    return await comCertificado(cnpj, tipo, (http) =>
-      tipo === "nfe" ? sefaz.sincronizar(banco, http, cnpj, { prazoMs }) : adn.sincronizar(banco, http, cnpj, { prazoMs })
+    return await comCertificado(cnpj, tipo === "nfse" ? "nfse" : "nfe", async (http) =>
+      tipo === "nfe" ? sefaz.sincronizar(banco, http, cnpj, { prazoMs })
+        : tipo === "recuperar" ? (await sefaz.recuperarAnteriores(banco, http, cnpj)) ?? { ok: true, mensagem: "Nada a recuperar." }
+        : adn.sincronizar(banco, http, cnpj, { prazoMs })
     );
   } catch (e) {
     const msg = `${mensagemDeRede(e)} [${VERSAO}]`;
@@ -47,7 +50,7 @@ async function rodarTodas() {
   const inicio = Date.now();
   const LIMITE = 120_000;
   const { data: empresas } = await sb.from("nf_empresas")
-    .select("cnpj, cert_validade, bloqueio_nfe, nfe_ativa")
+    .select("cnpj, cert_validade, bloqueio_nfe, nfe_ativa, nfe_recuperar_nsu")
     .eq("ativo", true).eq("busca_automatica", true).not("cert_secret_id", "is", null)
     .order("ultima_sinc_nfe", { ascending: true, nullsFirst: true });
   for (const e of empresas ?? []) {
@@ -58,6 +61,8 @@ async function rodarTodas() {
       continue;
     }
     if (NFE_HABILITADA && e.nfe_ativa !== false && (!e.bloqueio_nfe || new Date(e.bloqueio_nfe) <= new Date())) await rodar(e.cnpj, "nfe", resta - 10_000);
+    // recuperação por número (consNSU): independe da espera de 1h da distribuição, mas respeita bloqueio por 656
+    if (NFE_HABILITADA && e.nfe_ativa !== false && e.nfe_recuperar_nsu && LIMITE - (Date.now() - inicio) > 30_000) await rodar(e.cnpj, "recuperar", 0);
     const resta2 = LIMITE - (Date.now() - inicio);
     if (resta2 > 15_000) await rodar(e.cnpj, "nfse", resta2 - 10_000);
   }
@@ -72,6 +77,18 @@ servir(async (req, quem) => {
   }
   const cnpj = String(corpo.cnpj ?? "").toUpperCase();
   const tipo = corpo.tipo;
+  if (corpo.acao === "recuperar_nfe") {
+    // Admin: recuperar por número as NF-e cuja sequência já foi consumida por outro sistema do cliente.
+    if (!NFE_HABILITADA) return erro("NF-e não está ligada (ponte SEFAZ).", 409);
+    const emp = await banco.empresa(cnpj);
+    if (!emp) return erro("Empresa não cadastrada.", 404);
+    if (emp.nfe_recuperar_nsu) return erro(`Já existe uma recuperação em andamento (próximo NSU ${emp.nfe_recuperar_nsu}).`, 409);
+    if (!Number(emp.ult_nsu_nfe)) return erro("Não há números anteriores para recuperar: a sequência deste CNPJ ainda está no início.", 409);
+    await banco.atualizarEmpresa(cnpj, { nfe_recuperar_nsu: Number(emp.ult_nsu_nfe), nfe_recuperar_vazios: 0, nfe_recuperar_total: 0 });
+    await auditar(sb, req, quem, "nfe_recuperacao_iniciada", cnpj, { a_partir_do_nsu: Number(emp.ult_nsu_nfe) });
+    const r = await rodar(cnpj, "recuperar", 0);
+    return json(r, r.ok ? 200 : 409);
+  }
   if (!cnpj || (tipo !== "nfe" && tipo !== "nfse")) return erro("Informe cnpj e tipo (nfe ou nfse).");
   if (tipo === "nfe" && !NFE_HABILITADA) {
     return erro("A busca de NF-e (produtos) ainda não está ligada: falta configurar a ponte SEFAZ (segredos PONTE_URL e PONTE_SEGREDO no Supabase). A NFS-e funciona normalmente.", 409);

@@ -180,6 +180,33 @@ Deno.test("NF-e: trava automática após 2 rejeições 656 seguidas e liga/desli
   assert(!r4.ok && enviados.length === 0);
 });
 
+Deno.test("NF-e: recuperação por NSU (consNSU) de trás para frente, com limite por rodada", async () => {
+  const { b, e, notas, log } = bancoFalso({ ult_nsu_nfe: 3, nfe_recuperar_nsu: 3 } as Partial<Empresa>);
+  const h1 = httpFalso([await retDist("138", 3, 3, [[3, "resNFe_v1.01.xsd", res1]]), await retDist("137", 3, 3, [])]);
+  const r1 = await sefaz.recuperarAnteriores(b, h1.http, CNPJ, { max: 2 });
+  assert(r1!.ok && e.nfe_recuperar_nsu === 1 && e.nfe_recuperar_total === 1, JSON.stringify(e));
+  assert(h1.enviados[0].body.includes("<consNSU><NSU>000000000000003</NSU></consNSU>") && h1.enviados[1].body.includes("<NSU>000000000000002</NSU>"));
+  assert(notas.size === 1 && e.ult_nsu_nfe === 3, "não mexe na sequência normal");
+  // segunda rodada na mesma hora: não consulta (limite de 20/hora da SEFAZ)
+  const h1b = httpFalso([]);
+  const r1b = await sefaz.recuperarAnteriores(b, h1b.http, CNPJ, { max: 2 });
+  assert(r1b!.ok && h1b.enviados.length === 0 && r1b!.mensagem.includes("próxima rodada"), r1b!.mensagem);
+  e.nfe_recuperar_em = null;
+  // 656 pausa sem perder o ponto
+  const r2 = await sefaz.recuperarAnteriores(b, httpFalso([await retDist("656", 3, 3, [])]).http, CNPJ, { max: 2 });
+  assert(!r2!.ok && e.nfe_recuperar_nsu === 1 && e.bloqueio_nfe, JSON.stringify(e));
+  // bloqueado por 656: nem consulta
+  const h3 = httpFalso([]);
+  const r3 = await sefaz.recuperarAnteriores(b, h3.http, CNPJ, { max: 2 });
+  assert(!r3!.ok && h3.enviados.length === 0);
+  // passou a hora: termina no NSU 1
+  e.bloqueio_nfe = null; e.nfe_656_seguidas = 0; e.nfe_recuperar_em = null;
+  const r4 = await sefaz.recuperarAnteriores(b, httpFalso([await retDist("138", 3, 3, [[1, "procNFe_v4.00.xsd", proc2]])]).http, CNPJ, { max: 2 });
+  assert(r4!.ok && e.nfe_recuperar_nsu === null && r4!.mensagem.includes("concluída: 2"), r4!.mensagem);
+  assert(log.some((l) => l.includes("NFE-RECUPERAR") || l.includes("Recuperação")));
+  assert(await sefaz.recuperarAnteriores(b, httpFalso([]).http, CNPJ) === null, "sem recuperação pendente");
+});
+
 Deno.test("NF-e: para no prazo sem bloquear e continua depois", async () => {
   const { b, e } = bancoFalso();
   let t = 0;

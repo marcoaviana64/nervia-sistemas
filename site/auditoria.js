@@ -10,6 +10,7 @@
     termo_registrado: "Termo de custódia registrado",
     nfe_ligada: "Busca de NF-e ligada",
     nfe_desligada: "Busca de NF-e desligada",
+    nfe_recuperacao_iniciada: "Recuperação de NF-e anteriores iniciada",
     busca_automatica_ligada: "Busca automática ligada",
     busca_automatica_desligada: "Busca automática desligada",
     empresa_cadastrada: "Empresa cadastrada",

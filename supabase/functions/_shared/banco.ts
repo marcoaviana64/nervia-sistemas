@@ -9,6 +9,7 @@ export interface Empresa {
   ult_nsu_nfe: number; max_nsu_nfe: number; bloqueio_nfe: string | null;
   ult_nsu_nfse: number;
   nfe_ativa?: boolean; nfe_656_seguidas?: number; nfe_pausa_motivo?: string | null;
+  nfe_recuperar_nsu?: number | null; nfe_recuperar_vazios?: number; nfe_recuperar_total?: number; nfe_recuperar_em?: string | null;
 }
 
 /** Interface usada pela lógica da SEFAZ/ADN (permite testar sem Supabase). */

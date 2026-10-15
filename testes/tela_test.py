@@ -58,6 +58,13 @@ with sync_playwright() as p:
     # registro de auditoria da empresa
     pg.click("text=Registro de auditoria"); pg.wait_for_selector("#auditoria div")
     assert "Certificado A1 cadastrado" in pg.inner_text("#auditoria") and "Ciência" not in pg.inner_text("#auditoria"), "só registros da empresa aberta"
+    # recuperação de NF-e anteriores (consNSU)
+    assert pg.locator("#bRecuperar").is_enabled()
+    pg.once("dialog", lambda d: d.accept())
+    antes = len(pg.evaluate("window.__chamadas"))
+    pg.click("#bRecuperar"); pg.wait_for_timeout(400)
+    rec = [c for c in pg.evaluate("window.__chamadas")[antes:] if c[0] == "fn:sincronizar"]
+    assert rec and rec[-1][1].get("acao") == "recuperar_nfe", rec
     # chave NF-e por empresa
     assert "NF-e ligada" in pg.inner_text("#painel") and pg.locator("#bNfeChave").inner_text() == "Desligar NF-e"
     pg.once("dialog", lambda d: d.accept())

@@ -51,6 +51,14 @@ export function envelopeDist(cnpj: string, cuf: number, ultNsu: number): string 
     `</nfeDadosMsg></nfeDistDFeInteresse></soap12:Body></soap12:Envelope>`;
 }
 
+export function envelopeConsNSU(cnpj: string, cuf: number, nsu: number): string {
+  return `<?xml version="1.0" encoding="utf-8"?><soap12:Envelope xmlns:soap12="${SOAP}"><soap12:Body>` +
+    `<nfeDistDFeInteresse xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeDistribuicaoDFe"><nfeDadosMsg>` +
+    `<distDFeInt xmlns="${NS}" versao="1.01"><tpAmb>1</tpAmb><cUFAutor>${cuf}</cUFAutor>` +
+    `<CNPJ>${cnpj}</CNPJ><consNSU><NSU>${String(nsu).padStart(15, "0")}</NSU></consNSU></distDFeInt>` +
+    `</nfeDadosMsg></nfeDistDFeInteresse></soap12:Body></soap12:Envelope>`;
+}
+
 export interface DocDist { nsu: number; schema: string; xml: string }
 export interface RetDist { cStat: string; xMotivo: string; ultNSU: number; maxNSU: number; docs: DocDist[] }
 
@@ -72,10 +80,10 @@ export async function interpretarRetornoDist(texto: string): Promise<RetDist> {
   };
 }
 
-async function consultarLote(http: Http, cnpj: string, cuf: number, ult: number): Promise<RetDist> {
+async function consultarLote(http: Http, cnpj: string, cuf: number, ult: number, porNsu = false): Promise<RetDist> {
   const r = await http(URL_DIST, {
     method: "POST",
-    body: envelopeDist(cnpj, cuf, ult),
+    body: porNsu ? envelopeConsNSU(cnpj, cuf, ult) : envelopeDist(cnpj, cuf, ult),
     headers: {
       "Content-Type": 'application/soap+xml; charset=utf-8; action="http://www.portalfiscal.inf.br/nfe/wsdl/NFeDistribuicaoDFe/nfeDistDFeInteresse"',
     },
@@ -182,6 +190,67 @@ export async function sincronizar(
   }
   await b.registrar(cnpj, "NFE", `${mensagem} ${JSON.stringify(resumo)}`);
   return { ok: true, mensagem, resumo, ult_nsu: ult, parcial };
+}
+
+// ------------------------------------------------------------------ recuperação por NSU (consNSU)
+/** Máximo de consultas por número por rodada (a SEFAZ aceita 20/hora; 656 bloqueia o CNPJ 1h). */
+export const MAX_CONS_NSU_POR_RODADA = 15;
+/** Respostas "nenhum documento" seguidas que encerram a recuperação (já passou dos 90 dias ou não há mais). */
+export const FIM_RECUPERACAO_VAZIOS = 10;
+
+/**
+ * Busca, de trás para frente, os documentos de NSU já consumidos por outro sistema do cliente
+ * (distNSU não volta atrás). Progresso em nf_empresas.nfe_recuperar_nsu. Retorna null se não há recuperação.
+ */
+export async function recuperarAnteriores(
+  b: Banco, http: Http, cnpj: string, opts: { max?: number; agora?: () => number } = {},
+): Promise<Resultado | null> {
+  const agora = opts.agora ?? Date.now;
+  const emp = await b.empresa(cnpj);
+  if (!emp || !emp.nfe_recuperar_nsu || emp.nfe_ativa === false) return null;
+  if ((emp.nfe_656_seguidas ?? 0) > 0 && emp.bloqueio_nfe && new Date(emp.bloqueio_nfe).getTime() > agora()) {
+    return { ok: false, mensagem: "Recuperação aguardando: a SEFAZ bloqueou o CNPJ por 1h (rejeição 656)." };
+  }
+  // no máximo 1 rodada por hora: 15 consultas/rodada < 20/hora da SEFAZ (botão + cron não somam além disso)
+  if (emp.nfe_recuperar_em && agora() - new Date(emp.nfe_recuperar_em).getTime() < ESPERA_MS) {
+    const hora = new Date(new Date(emp.nfe_recuperar_em).getTime() + ESPERA_MS).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+    return { ok: true, mensagem: `Recuperação em andamento (próximo NSU ${emp.nfe_recuperar_nsu}); a próxima rodada fica liberada às ${hora}.` };
+  }
+  await b.atualizarEmpresa(cnpj, { nfe_recuperar_em: new Date(agora()).toISOString() });
+  const cuf = UF_CODIGO[emp.uf] ?? 33;
+  let nsu = Number(emp.nfe_recuperar_nsu), vazios = emp.nfe_recuperar_vazios ?? 0, total = emp.nfe_recuperar_total ?? 0;
+  const resumo: Resumo = { nova: 0, atualizada: 0, evento: 0, ignorada: 0, outro: 0 };
+  const max = opts.max ?? MAX_CONS_NSU_POR_RODADA;
+  let feitas = 0, mensagem = "";
+  while (feitas < max && nsu > 0 && vazios < FIM_RECUPERACAO_VAZIOS) {
+    const ret = await consultarLote(http, cnpj, cuf, nsu, true);
+    feitas++;
+    if (ret.cStat === "656") {
+      await b.atualizarEmpresa(cnpj, { nfe_recuperar_nsu: nsu, nfe_recuperar_vazios: vazios, nfe_recuperar_total: total,
+        bloqueio_nfe: new Date(agora() + ESPERA_MS).toISOString(), nfe_656_seguidas: (emp.nfe_656_seguidas ?? 0) + 1 });
+      mensagem = `Recuperação pausada: a SEFAZ pediu 1h de espera (656) no NSU ${nsu}. Continua sozinha depois.`;
+      await b.registrar(cnpj, "NFE-RECUPERAR", `${mensagem} ${JSON.stringify(resumo)}`);
+      return { ok: false, mensagem, resumo };
+    }
+    if (ret.cStat === "138") {
+      for (const doc of ret.docs) resumo[await processarDocumento(b, cnpj, doc)]++;
+      total += ret.docs.length; vazios = 0;
+    } else if (ret.cStat === "137" || ret.cStat === "589") {
+      vazios++;
+    } else {
+      throw new ErroSefaz(`SEFAZ cStat ${ret.cStat} na consulta do NSU ${nsu}: ${ret.xMotivo}`);
+    }
+    nsu--;
+    await b.atualizarEmpresa(cnpj, { nfe_recuperar_nsu: nsu, nfe_recuperar_vazios: vazios, nfe_recuperar_total: total });
+  }
+  if (nsu <= 0 || vazios >= FIM_RECUPERACAO_VAZIOS) {
+    await b.atualizarEmpresa(cnpj, { nfe_recuperar_nsu: null, nfe_recuperar_vazios: 0 });
+    mensagem = `Recuperação de NF-e anteriores concluída: ${total} documento(s) recuperado(s) no total.`;
+  } else {
+    mensagem = `Recuperação de NF-e anteriores: ${feitas} consulta(s) nesta rodada, próximo NSU ${nsu}. Continua na próxima hora.`;
+  }
+  await b.registrar(cnpj, "NFE-RECUPERAR", `${mensagem} ${JSON.stringify(resumo)}`);
+  return { ok: true, mensagem, resumo };
 }
 
 // ------------------------------------------------------------------ manifestação do destinatário

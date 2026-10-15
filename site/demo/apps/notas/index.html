@@ -262,6 +262,7 @@ function desenharPainel() {
       <div class="meta">${fmtCnpj(e.cnpj)} · ${e.uf}${ehAdmin ? ` · busca automática <b>${e.busca_automatica ? "ligada" : "desligada"}</b>${CFG.NFE_HABILITADA ? ` · NF-e <b>${nfeOn ? "ligada" : "desligada"}</b>` : ""}` : ""}</div>
       <div class="meta">${CFG.NFE_HABILITADA ? `Última busca NF-e: ${fmtDH(e.ultima_sinc_nfe)}${bloq ? ` · próxima liberada às ${bloq}` : ""} · ` : ""}Última busca NFS-e: ${fmtDH(e.ultima_sinc_nfse)}${CFG.NFE_HABILITADA ? "" : " · NF-e (produtos): em breve"}</div>
       ${avisoNfe}
+      ${ehAdmin && e.nfe_recuperar_nsu ? `<div class="meta" style="color:var(--warn)">Recuperando NF-e anteriores por número: próximo NSU ${e.nfe_recuperar_nsu} · ${e.nfe_recuperar_total || 0} documento(s) recuperado(s) até agora (15 por hora).</div>` : ""}
     </div>${certBox}
   </div>
   <div class="acoes">
@@ -273,7 +274,8 @@ function desenharPainel() {
     <button class="sec" onclick="imprimirSel()">Imprimir espelho</button>
     <button class="sec" onclick="exportar()">Exportar CSV</button>
     ${ehAdmin ? `<button class="sec" onclick="alternarAuto(${!e.busca_automatica})">${e.busca_automatica ? "Desligar" : "Ligar"} busca automática</button>
-    ${CFG.NFE_HABILITADA ? `<button class="sec" id="bNfeChave" onclick="alternarNfe(${!nfeOn})">${nfeOn ? "Desligar NF-e" : "Ligar NF-e"}</button>` : ""}
+    ${CFG.NFE_HABILITADA ? `<button class="sec" id="bNfeChave" onclick="alternarNfe(${!nfeOn})">${nfeOn ? "Desligar NF-e" : "Ligar NF-e"}</button>
+    <button class="sec" id="bRecuperar" onclick="recuperarNfe()" ${temCert && nfeOn && !e.nfe_recuperar_nsu && Number(e.ult_nsu_nfe) > 0 ? "" : "disabled"} title="Para quando outro sistema já consumiu a sequência de NF-e deste CNPJ">Recuperar NF-e anteriores</button>` : ""}
     <button class="sec" onclick="alternarAtivo(${!e.ativo})" style="margin-left:auto">${e.ativo ? "Desativar empresa" : "Reativar empresa"}</button>` : ""}
   </div>
   <div id="msgP" class="msg"></div>
@@ -337,6 +339,12 @@ async function buscar(tipo) {
 }
 
 async function alternarAuto(v) { checar(await sb.from("nf_empresas").update({ busca_automatica: v }).eq("cnpj", atual)); ultimaMsg = ["ok", `Busca automática ${v ? "ligada" : "desligada"}.`]; carregarEmpresas(); }
+async function recuperarNfe() {
+  if (!confirm("Recuperar as NF-e anteriores deste CNPJ, consultando a SEFAZ número a número?\n\nUse quando outro sistema já baixou as NF-e antes (a busca normal não volta atrás). A SEFAZ aceita até 20 consultas por hora: o Buscador faz 15 por hora, de trás para frente, até chegar às notas de mais de 90 dias. Pode levar algumas horas.")) return;
+  try { const r = await funcao("sincronizar", { cnpj: atual, acao: "recuperar_nfe" }); ultimaMsg = [r.ok ? "ok" : "info", r.mensagem]; }
+  catch (err) { ultimaMsg = ["err", err.message]; }
+  carregarEmpresas();
+}
 async function alternarNfe(v) {
   if (!v && !confirm("Desligar a busca de NF-e desta empresa? Use quando outro sistema (ERP, contabilidade) já baixa as NF-e deste CNPJ: a SEFAZ só aceita um. A NFS-e continua.")) return;
   try {
