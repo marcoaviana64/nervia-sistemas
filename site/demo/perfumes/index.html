@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Demonstração · Vendas de Perfumes</title>
+<style>
+:root{--bg:#f4f6f7;--card:#fff;--tx:#1b1f22;--mut:#66727a;--ln:#dde3e6;--tl:#0f9d8f;--tl2:#e3f5f3;--rd:#c0392b;--rd2:#fbe9e7;--am:#b7791f;--am2:#fdf3e1;--gr:#2e7d32;--gr2:#e6f4e7;--hd:#111}
+*{box-sizing:border-box}body{margin:0;font:15px/1.45 system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--tx)}
+header{background:var(--hd);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{font-weight:800;letter-spacing:.5px}.logo b{color:var(--tl)}.app{opacity:.85;font-size:14px}
+.demo{margin-left:auto;background:var(--am2);color:#6b4a10;font-size:12px;padding:4px 8px;border-radius:6px}
+nav{display:flex;gap:4px;padding:8px 16px;background:#fff;border-bottom:1px solid var(--ln);overflow-x:auto}
+nav button{border:0;background:none;padding:8px 12px;border-radius:8px;cursor:pointer;font:inherit;color:var(--mut);white-space:nowrap}
+nav button.on{background:var(--tl2);color:var(--tl);font-weight:600}
+main{max-width:1100px;margin:0 auto;padding:16px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--card);border:1px solid var(--ln);border-radius:12px;padding:14px;cursor:pointer}
+.kpi small{color:var(--mut);display:block}.kpi strong{font-size:22px;display:block;margin-top:4px}.kpi span{font-size:12px;color:var(--mut)}
+.kpi.r strong{color:var(--rd)}.kpi.a strong{color:var(--am)}.kpi.t strong{color:var(--tl)}
+.card{background:var(--card);border:1px solid var(--ln);border-radius:12px;padding:14px;margin-bottom:16px}
+.card h2{font-size:16px;margin:0 0 10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tw{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--ln);vertical-align:top}th{color:var(--mut);font-weight:600;font-size:12px;text-transform:uppercase}
+.tag{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;font-weight:600;white-space:nowrap}
+.t-rd{background:var(--rd2);color:var(--rd)}.t-am{background:var(--am2);color:var(--am)}.t-gr{background:var(--gr2);color:var(--gr)}.t-tl{background:var(--tl2);color:var(--tl)}.t-mu{background:#eef1f2;color:var(--mut)}
+.btn{border:1px solid var(--ln);background:#fff;border-radius:8px;padding:6px 10px;cursor:pointer;font:inherit;font-size:13px}
+.btn.p{background:var(--tl);border-color:var(--tl);color:#fff}.btn:hover{filter:brightness(.96)}
+.right{margin-left:auto}.mut{color:var(--mut);font-size:13px}
+.filt{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+input,select,textarea{font:inherit;padding:7px 9px;border:1px solid var(--ln);border-radius:8px;width:100%;background:#fff}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:600px){.grid2{grid-template-columns:1fr}}
+label{font-size:13px;color:var(--mut);display:block}
+dialog{border:0;border-radius:14px;padding:18px;max-width:520px;width:calc(100% - 32px)}dialog::backdrop{background:#0006}
+dialog h3{margin:0 0 12px}.acts{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+.note{background:var(--am2);border:1px solid #f0d9a8;border-radius:10px;padding:12px;font-size:13px;margin-bottom:16px}
+.note b{display:block;margin-bottom:4px}
+.hide{display:none}.big{font-weight:700}
+pre.msg{white-space:pre-wrap;background:#f1f8f7;border-radius:8px;padding:10px;font:13px/1.5 system-ui}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">NERVIA <b>◠</b></div><div class="app">Vendas de Perfumes</div>
+  <div class="demo">DEMONSTRAÇÃO · dados fictícios</div>
+</header>
+<nav id="nav">
+  <button data-t="painel" class="on">Painel</button>
+  <button data-t="receber">A receber</button>
+  <button data-t="entregas">Entregas</button>
+  <button data-t="vendas">Vendas</button>
+  <button data-t="clientes">Clientes</button>
+  <button data-t="estoque">Produtos</button>
+  <button data-t="caixa">Caixa</button>
+</nav>
+<main id="main"></main>
+
+<dialog id="dlg"><form method="dialog" id="dlgf"></form></dialog>
+
+<script>
+const HOJE=new Date('2026-10-15T12:00:00');
+const d=s=>new Date(s+'T12:00:00'), add=(n)=>{const x=new Date(HOJE);x.setDate(x.getDate()+n);return x.toISOString().slice(0,10)};
+const brl=v=>v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const fd=s=>s?d(s).toLocaleDateString('pt-BR'):'—';
+const dias=s=>Math.round((d(s)-HOJE)/864e5);
+
+let produtos=[
+ {id:1,nome:'Bleu Essence',marca:'Maison Azur',conc:'EDP',ml:100,custo:310,preco:520,est:4,min:2,val:'2028-03-01'},
+ {id:2,nome:'Bleu Essence',marca:'Maison Azur',conc:'EDP',ml:50,custo:210,preco:360,est:1,min:2,val:'2028-03-01'},
+ {id:3,nome:'Rosa Noir',marca:'Atelier Lume',conc:'EDP',ml:100,custo:280,preco:470,est:3,min:2,val:'2027-11-10'},
+ {id:4,nome:'Rosa Noir',marca:'Atelier Lume',conc:'EDT',ml:50,custo:150,preco:260,est:0,min:1,val:'2027-06-20'},
+ {id:5,nome:'Cedro Selvagem',marca:'Norte Parfums',conc:'EDT',ml:100,custo:190,preco:330,est:6,min:2,val:'2028-01-15'},
+ {id:6,nome:'Vanille Douce',marca:'Atelier Lume',conc:'EDP',ml:75,custo:240,preco:410,est:2,min:2,val:'2026-12-05'},
+ {id:7,nome:'Citrus Royal',marca:'Maison Azur',conc:'EDT',ml:100,custo:160,preco:290,est:5,min:2,val:'2027-09-30'},
+ {id:8,nome:'Ouro Âmbar',marca:'Norte Parfums',conc:'Parfum',ml:50,custo:390,preco:640,est:2,min:1,val:'2028-05-01'},
+ {id:9,nome:'Kit Bleu (perfume 50ml + hidratante)',marca:'Maison Azur',conc:'Kit',ml:50,custo:250,preco:420,est:2,min:1,val:'2027-08-01'}
+];
+let clientes=[
+ {id:1,nome:'Juliana Prado',tel:'(21) 99999-0101',aniv:'10-22',pref:'Florais, Rosa Noir'},
+ {id:2,nome:'Ricardo Alves',tel:'(21) 99999-0102',aniv:'03-14',pref:'Amadeirados'},
+ {id:3,nome:'Fernanda Lima',tel:'(21) 99999-0103',aniv:'10-28',pref:'Doces, baunilha'},
+ {id:4,nome:'Carlos Mendes',tel:'(21) 99999-0104',aniv:'07-02',pref:'Cítricos'},
+ {id:5,nome:'Patrícia Souza',tel:'(21) 99999-0105',aniv:'12-11',pref:'Orientais'},
+ {id:6,nome:'André Costa',tel:'(21) 99999-0106',aniv:'01-30',pref:'Bleu Essence'},
+ {id:7,nome:'Luciana Rocha',tel:'(21) 99999-0107',aniv:'05-19',pref:'Florais'},
+ {id:8,nome:'Bruno Teixeira',tel:'(21) 99999-0108',aniv:'09-08',pref:'Amadeirados'}
+];
+let vendas=[
+ {id:101,cli:1,data:add(-48),vend:'Paulo',itens:[{p:3,q:1,pr:470}],ent:{st:'entregue',data:add(-47)},parc:[{v:add(-33),val:235,pg:{d:add(-31),f:'Pix'}},{v:add(-3),val:235,pg:null}]},
+ {id:102,cli:2,data:add(-40),vend:'Paulo',itens:[{p:5,q:1,pr:330}],ent:{st:'entregue',data:add(-40)},parc:[{v:add(-25),val:330,pg:null}]},
+ {id:103,cli:3,data:add(-20),vend:'Marina',itens:[{p:6,q:1,pr:410}],ent:{st:'entregue',data:add(-19)},parc:[{v:add(-5),val:205,pg:{d:add(-5),f:'Dinheiro'}},{v:add(3),val:205,pg:null}]},
+ {id:104,cli:4,data:add(-15),vend:'Paulo',itens:[{p:7,q:2,pr:290}],desc:{t:'%',v:0},ent:{st:'entregue',data:add(-14)},parc:[{v:add(-10),val:290,pg:{d:add(-9),f:'Pix'}},{v:add(5),val:290,pg:null}]},
+ {id:105,cli:5,data:add(-9),vend:'Marina',itens:[{p:8,q:1,pr:640}],desc:{t:'R$',v:40},ent:{st:'entregue',data:add(-8)},parc:[{v:add(6),val:300,pg:null},{v:add(36),val:300,pg:null}]},
+ {id:106,cli:6,data:add(-6),vend:'Paulo',itens:[{p:1,q:1,pr:520}],ent:{st:'pendente',data:add(1)},parc:[{v:add(10),val:520,pg:null}]},
+ {id:107,cli:7,data:add(-4),vend:'Marina',itens:[{p:9,q:1,pr:420}],ent:{st:'pendente',data:add(-1)},parc:[{v:add(-1),val:140,pg:{d:add(-4),f:'Pix'}},{v:add(26),val:140,pg:null},{v:add(56),val:140,pg:null}]},
+ {id:108,cli:8,data:add(-30),vend:'Paulo',itens:[{p:2,q:1,pr:360}],ent:{st:'entregue',data:add(-29)},parc:[{v:add(-15),val:360,pg:null}]},
+ {id:109,cli:1,data:add(-2),vend:'Paulo',itens:[{p:4,q:1,pr:260}],ent:{st:'pendente',data:add(2)},parc:[{v:add(2),val:260,pg:null}]},
+ {id:110,cli:2,data:add(-1),vend:'Marina',itens:[{p:7,q:1,pr:290}],ent:{st:'entregue',data:add(-1)},parc:[{v:add(-1),val:290,pg:{d:add(-1),f:'Cartão'}}]},
+ {id:111,cli:6,data:add(0),vend:'Paulo',itens:[{p:5,q:1,pr:330}],ent:{st:'entregue',data:add(0)},parc:[{v:add(0),val:330,pg:{d:add(0),f:'Dinheiro'}}]}
+];
+let ajustes=[{data:add(-12),p:3,q:-1,mot:'Tester aberto na vitrine'},{data:add(-7),p:5,q:-1,mot:'Brinde para cliente fiel (Bruno)'}];
+
+const P=id=>produtos.find(x=>x.id==id), C=id=>clientes.find(x=>x.id==id);
+const pnome=p=>`${p.nome} ${p.conc} ${p.ml}ml`;
+function stParc(x){if(x.pg)return['Pago','t-gr'];const n=dias(x.v);if(n<0)return[`Atrasado ${-n}d`,'t-rd'];if(n<=7)return[n==0?'Vence hoje':`Vence em ${n}d`,'t-am'];return['A vencer','t-mu']}
+function parcelas(){return vendas.flatMap(v=>v.parc.map((x,i)=>({...x,venda:v,i,n:v.parc.length})))}
+function stEnt(v){if(v.ent.st=='entregue')return['Entregue','t-gr'];return dias(v.ent.data)<0?[`Entrega atrasada`,'t-rd']:['A entregar','t-am']}
+const tg=([t,c])=>`<span class="tag ${c}">${t}</span>`;
+const saldo=cid=>parcelas().filter(x=>x.venda.cli==cid&&!x.pg).reduce((s,x)=>s+x.val,0);
+
+let aba='painel',filtro='abertas';
+document.getElementById('nav').onclick=e=>{const b=e.target.closest('button');if(!b)return;ir(b.dataset.t)};
+function ir(t,f){aba=t;if(f)filtro=f;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t==t));render()}
+
+function linhaParc(x){const c=C(x.venda.cli);return`<tr><td><b>${c.nome}</b><div class="mut">${x.venda.itens.map(i=>pnome(P(i.p))).join(', ')}</div></td>
+<td>${x.i+1}/${x.n}</td><td>${fd(x.v)}</td><td class="big">${brl(x.val)}</td><td>${tg(stParc(x))}${x.pg?`<div class="mut">${fd(x.pg.d)} · ${x.pg.f}</div>`:''}</td>
+<td>${x.pg?'':`<button class="btn p" onclick="receber(${x.venda.id},${x.i})">Receber</button> <button class="btn" onclick="cobrar(${x.venda.id},${x.i})">Cobrar</button>`}</td></tr>`}
+
+const V={
+painel(){const ab=parcelas().filter(x=>!x.pg);const at=ab.filter(x=>dias(x.v)<0),se=ab.filter(x=>dias(x.v)>=0&&dias(x.v)<=7);
+ const ent=vendas.filter(v=>v.ent.st!='entregue');const baixo=produtos.filter(p=>p.est<=p.min);
+ const hojeR=parcelas().filter(x=>x.pg&&x.pg.d==add(0)).reduce((s,x)=>s+x.val,0);
+ const anivs=clientes.filter(c=>{const a=d('2026-'+c.aniv);const n=Math.round((a-HOJE)/864e5);return n>=0&&n<=15});
+ const sum=a=>brl(a.reduce((s,x)=>s+x.val,0));
+ return`<div class="kpis">
+ <div class="kpi" onclick="ir('receber','abertas')"><small>Total a receber</small><strong>${sum(ab)}</strong><span>${ab.length} parcelas em aberto</span></div>
+ <div class="kpi r" onclick="ir('receber','atrasadas')"><small>Atrasado</small><strong>${sum(at)}</strong><span>${at.length} parcelas · ${new Set(at.map(x=>x.venda.cli)).size} clientes</span></div>
+ <div class="kpi a" onclick="ir('receber','semana')"><small>Vence em 7 dias</small><strong>${sum(se)}</strong><span>${se.length} parcelas</span></div>
+ <div class="kpi t" onclick="ir('entregas')"><small>Entregas pendentes</small><strong>${ent.length}</strong><span>${ent.filter(v=>dias(v.ent.data)<0).length} atrasada(s)</span></div>
+ <div class="kpi" onclick="ir('caixa')"><small>Recebido hoje</small><strong>${brl(hojeR)}</strong><span>${fd(add(0))}</span></div></div>
+ <div class="card"><h2>Cobrar primeiro <span class="mut">atrasados, do mais antigo</span><button class="btn p right" onclick="novaVenda()">+ Nova venda</button></h2><div class="tw"><table>
+ <tr><th>Cliente</th><th>Parc.</th><th>Venc.</th><th>Valor</th><th>Situação</th><th></th></tr>${at.sort((a,b)=>a.v<b.v?-1:1).map(linhaParc).join('')||'<tr><td colspan=6 class=mut>Nada atrasado.</td></tr>'}</table></div></div>
+ <div class="grid2"><div class="card"><h2>Repor estoque</h2>${baixo.map(p=>`<div>${pnome(p)} — ${tg(p.est==0?['Sem estoque','t-rd']:[`${p.est} un.`,'t-am'])}</div>`).join('')}</div>
+ <div class="card"><h2>Aniversários (15 dias)</h2>${anivs.map(c=>`<div>${c.nome} — ${c.aniv.split('-').reverse().join('/')} <span class="mut">· gosta de ${c.pref}</span></div>`).join('')||'<span class=mut>Nenhum.</span>'}</div></div>`},
+receber(){let l=parcelas();const fs={abertas:x=>!x.pg,atrasadas:x=>!x.pg&&dias(x.v)<0,semana:x=>!x.pg&&dias(x.v)>=0&&dias(x.v)<=7,pagas:x=>x.pg,todas:()=>1};
+ l=l.filter(fs[filtro]).sort((a,b)=>a.v<b.v?-1:1);
+ return`<div class="card"><h2>Contas a receber</h2><div class="filt">${Object.keys(fs).map(k=>`<button class="btn ${k==filtro?'p':''}" onclick="ir('receber','${k}')">${k[0].toUpperCase()+k.slice(1)}</button>`).join('')}</div>
+ <div class="tw"><table><tr><th>Cliente</th><th>Parc.</th><th>Venc.</th><th>Valor</th><th>Situação</th><th></th></tr>${l.map(linhaParc).join('')||'<tr><td colspan=6 class=mut>Nenhuma parcela.</td></tr>'}</table></div></div>`},
+entregas(){const l=[...vendas].sort((a,b)=>(a.ent.st>b.ent.st?-1:1)||(a.ent.data<b.ent.data?-1:1));
+ return`<div class="card"><h2>Entregas</h2><div class="tw"><table><tr><th>Cliente</th><th>Itens</th><th>Data prevista / feita</th><th>Situação</th><th>Pagamento</th><th></th></tr>
+ ${l.map(v=>{const ab=v.parc.filter(x=>!x.pg).reduce((s,x)=>s+x.val,0);return`<tr><td><b>${C(v.cli).nome}</b><div class=mut>${C(v.cli).tel}</div></td><td>${v.itens.map(i=>`${i.q}× ${pnome(P(i.p))}`).join('<br>')}</td>
+ <td>${fd(v.ent.data)}</td><td>${tg(stEnt(v))}</td><td>${ab?`<span class="tag t-am">falta ${brl(ab)}</span>`:'<span class="tag t-gr">quitado</span>'}</td>
+ <td>${v.ent.st=='entregue'?'':`<button class="btn p" onclick="entregar(${v.id})">Marcar entregue</button>`}</td></tr>`}).join('')}</table></div></div>`},
+vendas(){return`<div class="card"><h2>Vendas<button class="btn p right" onclick="novaVenda()">+ Nova venda</button></h2><div class="tw"><table><tr><th>Nº</th><th>Data</th><th>Cliente</th><th>Itens</th><th>Desconto</th><th>Total</th><th>Vendedor</th><th>Entrega</th><th>Recebido</th></tr>
+ ${[...vendas].reverse().map(v=>{const t=v.parc.reduce((s,x)=>s+x.val,0),r=v.parc.filter(x=>x.pg).reduce((s,x)=>s+x.val,0);return`<tr><td>${v.id}</td><td>${fd(v.data)}</td><td>${C(v.cli).nome}</td><td>${v.itens.map(i=>`${i.q}× ${pnome(P(i.p))} <span class=mut>${brl(i.pr)}</span>`).join('<br>')}</td><td>${descTxt(v)}</td><td class=big>${brl(t)}</td><td>${v.vend}</td><td>${tg(stEnt(v))}</td><td>${brl(r)} <span class=mut>de ${brl(t)}</span></td></tr>`}).join('')}</table></div></div>`},
+clientes(){return`<div class="card"><h2>Clientes<button class="btn right" onclick="novoCliente()">+ Novo cliente</button></h2><div class="tw"><table><tr><th>Nome</th><th>Telefone</th><th>Aniversário</th><th>Preferências</th><th>Compras</th><th>Deve</th></tr>
+ ${clientes.map(c=>{const vs=vendas.filter(v=>v.cli==c.id),s=saldo(c.id),at=parcelas().some(x=>x.venda.cli==c.id&&!x.pg&&dias(x.v)<0);return`<tr><td><b>${c.nome}</b></td><td>${c.tel}</td><td>${c.aniv.split('-').reverse().join('/')}</td><td class=mut>${c.pref}</td><td>${vs.length}</td><td>${s?tg([brl(s),at?'t-rd':'t-am']):'<span class="tag t-gr">em dia</span>'}</td></tr>`}).join('')}</table></div></div>`},
+estoque(){return`<div class="card"><h2>Produtos e estoque <span class="mut">cada variação é um item</span><button class="btn p right" onclick="produto()">+ Novo produto</button><button class="btn" onclick="ajuste()">Baixa manual</button></h2><div class="tw"><table><tr><th>Perfume</th><th>Marca</th><th>Concentração</th><th>Volume</th><th>Custo</th><th>Preço</th><th>Margem</th><th>Estoque</th><th>Validade</th><th></th></tr>
+ ${produtos.map(p=>{const vd=dias(p.val);return`<tr><td><b>${p.nome}</b>${p.cod?`<div class=mut>${p.cod}</div>`:''}</td><td>${p.marca}</td><td>${p.conc}</td><td>${p.ml}ml</td><td>${brl(p.custo)}</td><td>${brl(p.preco)}</td><td>${p.preco?Math.round((p.preco-p.custo)/p.preco*100)+"%":"—"}</td>
+ <td>${tg(p.est==0?['0 · sem estoque','t-rd']:p.est<=p.min?[`${p.est} · repor`,'t-am']:[`${p.est}`,'t-gr'])}<div class=mut>mín. ${p.min}</div></td><td>${fd(p.val)}${vd<90?' '+tg(['vence logo','t-rd']):''}</td><td><button class=btn onclick="produto(${p.id})">Editar</button></td></tr>`}).join('')}</table></div></div>
+ <div class="card"><h2>Baixas manuais</h2><div class="tw"><table><tr><th>Data</th><th>Item</th><th>Qtd</th><th>Motivo</th></tr>${ajustes.map(a=>`<tr><td>${fd(a.data)}</td><td>${pnome(P(a.p))}</td><td>${a.q}</td><td>${a.mot}</td></tr>`).join('')}</table></div></div>`},
+caixa(){const pg=parcelas().filter(x=>x.pg);const per=pg.filter(x=>dias(x.pg.d)>=-29);const por={};per.forEach(x=>por[x.pg.f]=(por[x.pg.f]||0)+x.val);
+ const hoje=pg.filter(x=>x.pg.d==add(0));
+ return`<div class="kpis">${Object.entries(por).map(([f,v])=>`<div class="kpi"><small>${f} · 30 dias</small><strong>${brl(v)}</strong></div>`).join('')}</div>
+ <div class="card"><h2>Fechamento de hoje — ${fd(add(0))}</h2>${hoje.map(x=>`<div>${C(x.venda.cli).nome} — ${brl(x.val)} · ${x.pg.f}</div>`).join('')||'<span class=mut>Nada recebido hoje.</span>'}
+ <p class="big">Total: ${brl(hoje.reduce((s,x)=>s+x.val,0))}</p></div>
+ <div class="card"><h2>Recebimentos (30 dias)</h2><div class="tw"><table><tr><th>Data</th><th>Cliente</th><th>Venda</th><th>Forma</th><th>Valor</th></tr>${per.sort((a,b)=>a.pg.d<b.pg.d?1:-1).map(x=>`<tr><td>${fd(x.pg.d)}</td><td>${C(x.venda.cli).nome}</td><td>${x.venda.id} · parc. ${x.i+1}/${x.n}</td><td>${x.pg.f}</td><td>${brl(x.val)}</td></tr>`).join('')}</table></div></div>`}
+};
+function render(){const note=`<div class="note"><b>Protótipo para validação</b>Tudo aqui é fictício e fica só na memória da página (ao recarregar, volta ao início). Data de "hoje" fixa em ${fd(add(0))}. Pode cadastrar produtos, clientes e vendas (com desconto) à vontade. Fora deste exemplo: emissão de NFC-e/NF-e, leitor de código de barras, importação de XML de fornecedor e comissão — fale com a Nervia para adaptar ao seu negócio. <a href="https://wa.me/5521966869374?text=Ol%C3%A1%2C%20vi%20a%20demonstra%C3%A7%C3%A3o%20do%20app%20de%20vendas%20de%20perfumes" target=_blank rel=noopener>Falar no WhatsApp</a></div>`;
+ document.getElementById('main').innerHTML=(aba=='painel'?note:'')+V[aba]()}
+
+const dlg=document.getElementById('dlg'),dlgf=document.getElementById('dlgf');
+function abrir(html,ok){dlgf.innerHTML=html+`<div class="acts"><button class="btn" value="x">Cancelar</button><button class="btn p" value="ok">Confirmar</button></div>`;dlg.onclose=()=>{if(dlg.returnValue=='ok')ok(new FormData(dlgf));render()};dlg.showModal()}
+function receber(vid,i){const v=vendas.find(x=>x.id==vid),p=v.parc[i];
+ abrir(`<h3>Receber parcela ${i+1}/${v.parc.length}</h3><p>${C(v.cli).nome} — <b>${brl(p.val)}</b> (venc. ${fd(p.v)})</p><div class=grid2><div><label>Forma</label><select name=f><option>Pix</option><option>Dinheiro</option><option>Cartão</option><option>Link de pagamento</option></select></div><div><label>Data</label><input type=date name=d value="${add(0)}"></div></div>`,
+ fd_=>{p.pg={d:fd_.get('d'),f:fd_.get('f')}})}
+function cobrar(vid,i){const v=vendas.find(x=>x.id==vid),p=v.parc[i],c=C(v.cli);const n=dias(p.v);
+ const m=`Oi ${c.nome.split(' ')[0]}, tudo bem? Passando para lembrar da parcela ${i+1}/${v.parc.length} do ${v.itens.map(x=>P(x.p).nome).join(', ')}, no valor de ${brl(p.val)}, ${n<0?`que venceu em ${fd(p.v)}`:`com vencimento em ${fd(p.v)}`}. Pode ser por Pix. Obrigado!`;
+ dlgf.innerHTML=`<h3>Mensagem de cobrança</h3><p class=mut>No app real, o botão abre o WhatsApp de ${c.tel} com este texto pronto.</p><pre class=msg>${m}</pre><div class=acts><button class="btn p" value=x>Fechar</button></div>`;dlg.onclose=null;dlg.showModal()}
+function entregar(vid){const v=vendas.find(x=>x.id==vid);abrir(`<h3>Confirmar entrega</h3><p>${C(v.cli).nome}: ${v.itens.map(i=>`${i.q}× ${pnome(P(i.p))}`).join(', ')}</p><label>Data da entrega</label><input type=date name=d value="${add(0)}"><label style="margin-top:8px">Observação</label><input name=o placeholder="ex.: entregue na portaria">`,f=>{v.ent={st:'entregue',data:f.get('d')}})}
+const descTxt=v=>!v.desc||!v.desc.v?'—':v.desc.t=='%'?`${v.desc.v}%`:brl(v.desc.v);
+function linhaItem(){return`<div class="grid2 item" style="grid-template-columns:3fr 1fr 1.3fr auto;align-items:end;margin-bottom:6px"><div><label>Perfume</label><select name=p onchange="pr(this)">${produtos.filter(p=>p.est>0).map(p=>`<option value=${p.id} data-pr=${p.preco}>${pnome(p)} (${p.est} em est.)</option>`).join('')}</select></div><div><label>Qtd</label><input type=number name=q value=1 min=1 oninput=tot()></div><div><label>Preço un.</label><input type=number step=0.01 name=u oninput=tot()></div><button type=button class=btn onclick="this.parentElement.remove();tot()">×</button></div>`}
+function pr(sel){sel.closest('.item').querySelector('[name=u]').value=sel.selectedOptions[0].dataset.pr;tot()}
+function addItem(){document.getElementById('itens').insertAdjacentHTML('beforeend',linhaItem());const s=[...document.querySelectorAll('#itens [name=p]')].pop();pr(s)}
+function calc(f){const it=[...dlgf.querySelectorAll('.item')].map(r=>({p:+r.querySelector('[name=p]').value,q:+r.querySelector('[name=q]').value||0,pr:+r.querySelector('[name=u]').value||0}));
+ const bruto=it.reduce((s,x)=>s+x.q*x.pr,0),dt=dlgf.querySelector('[name=dt]').value,dv=+dlgf.querySelector('[name=dv]').value||0;
+ const desc=dt=='%'?Math.round(bruto*Math.min(dv,100))/100:Math.min(dv,bruto);return{it,bruto,desc,tot:Math.round((bruto-desc)*100)/100,dt,dv}}
+function tot(){const c=calc();document.getElementById('totv').innerHTML=`Subtotal ${brl(c.bruto)} − desconto ${brl(c.desc)} = <b>${brl(c.tot)}</b>`}
+function novaVenda(){abrir(`<h3>Nova venda</h3><div class=grid2>
+ <div><label>Cliente</label><select name=c>${clientes.map(c=>`<option value=${c.id}>${c.nome}</option>`).join('')}</select></div>
+ <div><label>Vendedor</label><select name=vd><option>Paulo</option><option>Marina</option></select></div></div>
+ <div id=itens style="margin-top:10px"></div><button type=button class=btn onclick=addItem()>+ Adicionar perfume</button>
+ <div class=grid2 style="margin-top:10px"><div><label>Desconto</label><div style="display:flex;gap:6px"><select name=dt onchange=tot() style="width:70px"><option>R$</option><option>%</option></select><input type=number step=0.01 min=0 name=dv value=0 oninput=tot()></div></div>
+ <div><label>Parcelas</label><select name=n><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
+ <div><label>1º vencimento</label><input type=date name=v value="${add(30)}"></div>
+ <div><label>Entrada paga agora?</label><select name=e><option value="">Não</option><option>Pix</option><option>Dinheiro</option><option>Cartão</option></select></div>
+ <div><label>Entrega</label><select name=es><option value=entregue>Entregue agora</option><option value=pendente>Entregar depois</option></select></div>
+ <div><label>Data prevista da entrega</label><input type=date name=ed value="${add(0)}"></div></div>
+ <p id=totv class=big style="margin:12px 0 4px"></p><p class=mut>Ao confirmar: baixa o estoque e gera as parcelas mensais.</p>`,
+ f=>{const c=calc();if(!c.it.length||c.tot<=0)return;const n=+f.get('n'),pv=Math.round(c.tot/n*100)/100;
+  c.it.forEach(x=>{const p=P(x.p);p.est=Math.max(0,p.est-x.q)});
+  const parc=[...Array(n)].map((_,k)=>{const x=d(f.get('v'));x.setMonth(x.getMonth()+k);return{v:x.toISOString().slice(0,10),val:k==n-1?Math.round((c.tot-pv*(n-1))*100)/100:pv,pg:null}});
+  if(f.get('e')){parc[0].v=add(0);parc[0].pg={d:add(0),f:f.get('e')}}
+  vendas.push({id:Math.max(...vendas.map(v=>v.id))+1,cli:+f.get('c'),data:add(0),vend:f.get('vd'),itens:c.it,desc:{t:c.dt,v:c.dv},ent:{st:f.get('es'),data:f.get('ed')},parc})});
+ addItem()}
+function produto(id){const p=id?P(id):{nome:'',marca:'',conc:'EDP',ml:100,custo:'',preco:'',est:0,min:1,val:add(730),cod:''};
+ abrir(`<h3>${id?'Editar':'Novo'} produto</h3><div class=grid2>
+ <div style="grid-column:1/-1"><label>Nome do perfume</label><input name=nome value="${p.nome}" required></div>
+ <div><label>Marca</label><input name=marca value="${p.marca}"></div>
+ <div><label>Código de barras</label><input name=cod value="${p.cod||''}" placeholder="opcional"></div>
+ <div><label>Concentração</label><select name=conc>${['EDT','EDP','Parfum','Body splash','Kit'].map(c=>`<option ${c==p.conc?'selected':''}>${c}</option>`).join('')}</select></div>
+ <div><label>Volume (ml)</label><input type=number name=ml value="${p.ml}"></div>
+ <div><label>Custo (R$)</label><input type=number step=0.01 name=custo value="${p.custo}"></div>
+ <div><label>Preço de venda (R$)</label><input type=number step=0.01 name=preco value="${p.preco}"></div>
+ <div><label>Estoque atual</label><input type=number name=est value="${p.est}"></div>
+ <div><label>Estoque mínimo (aviso)</label><input type=number name=min value="${p.min}"></div>
+ <div><label>Validade do lote</label><input type=date name=val value="${p.val}"></div></div>
+ <p class=mut>Cada variação (ex.: 50ml e 100ml) é cadastrada como um produto separado.</p>`,
+ f=>{const o={nome:f.get('nome')||'Sem nome',marca:f.get('marca'),cod:f.get('cod'),conc:f.get('conc'),ml:+f.get('ml'),custo:+f.get('custo'),preco:+f.get('preco'),est:+f.get('est'),min:+f.get('min'),val:f.get('val')};
+  if(id)Object.assign(p,o);else produtos.push({id:Math.max(...produtos.map(x=>x.id))+1,...o})})}
+function novoCliente(){abrir(`<h3>Novo cliente</h3><label>Nome</label><input name=n required><div class=grid2><div><label>Telefone</label><input name=t></div><div><label>Aniversário</label><input name=a placeholder="dd/mm"></div></div><label>Preferências</label><input name=p placeholder="ex.: florais, doces">`,
+ f=>{const a=(f.get('a')||'01/01').split('/');clientes.push({id:clientes.length+1,nome:f.get('n')||'Sem nome',tel:f.get('t'),aniv:`${a[1]||'01'}-${a[0]}`,pref:f.get('p')||'—'})})}
+function ajuste(){abrir(`<h3>Baixa manual</h3><label>Item</label><select name=p>${produtos.map(p=>`<option value=${p.id}>${pnome(p)} (${p.est})</option>`).join('')}</select><div class=grid2><div><label>Quantidade</label><input type=number name=q value=1 min=1></div><div><label>Motivo (obrigatório)</label><select name=m><option>Tester aberto</option><option>Amostra grátis</option><option>Brinde</option><option>Avaria / quebra</option></select></div></div><label>Detalhe</label><input name=dt>`,
+ f=>{const p=P(f.get('p')),q=+f.get('q');p.est=Math.max(0,p.est-q);ajustes.unshift({data:add(0),p:p.id,q:-q,mot:f.get('m')+(f.get('dt')?' — '+f.get('dt'):'')})})}
+render();
+</script>
+<script src="/acesso.js" defer></script>
+</body>
+</html>
