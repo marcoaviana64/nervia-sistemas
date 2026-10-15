@@ -41,7 +41,7 @@ with sync_playwright() as p:
     linhas = fr.locator("table tbody tr").count()
     texto = fr.locator("body").inner_text()
     assert linhas > 50, linhas
-    for t in ("só resumo", "ciência dada", "Cancelada", "TEXTIL HORIZONTE", "FIBRA NET"):
+    for t in ("só resumo", "manifestada", "Cancelada", "TEXTIL HORIZONTE", "FIBRA NET"):
         assert t in texto, t
     assert "Buscar NF-e agora" not in texto  # visão de cliente
     pg.screenshot(path=f"{SAIDA}/demo_buscador.png")
@@ -88,10 +88,9 @@ with sync_playwright() as p:
     k = fp.locator("#kpis").inner_text()
     assert "R$" in k and fp.locator("#tbForn tr").count() >= 9, k
     pg.screenshot(path=f"{SAIDA}/demo_painel.png")
-    fp.locator("button", has_text="Vendas").click(); pg.wait_for_timeout(500)
-    assert "LOJA CENTRO VAREJO" in fp.locator("#tbForn").inner_text()
+    assert fp.locator("#fPapel").is_hidden(), "visão Vendas desligada"
     fp.locator("#fEmpresa").select_option("12345678000271"); pg.wait_for_timeout(500)
-    assert "LOJA CENTRO VAREJO" not in fp.locator("#tbForn").inner_text()
+    assert "TEXTIL HORIZONTE" not in fp.locator("#tbForn").inner_text()  # filial não compra da têxtil
 
     # 5. sair e entrar com qualquer e-mail/senha
     pg.goto(f"{U}/demo/"); pg.wait_for_selector(".app")

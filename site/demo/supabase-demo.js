@@ -31,6 +31,7 @@
     { t: "NFSE", cnpj: "95874123000166", nome: "MANUTENCAO PREDIAL ATIVA ME", base: 780, dia: 21, cod: "070501", trib: "Reparação, conservação e reforma de edifícios", desc: "MANUTENCAO PREVENTIVA PREDIAL", varia: 0.4, filial: 0.6 },
     { t: "NFSE", cnpj: "36985214000150", nome: "LIMPEZA TOTAL SERVICOS LTDA", base: 2100, dia: 25, cod: "071001", trib: "Limpeza, manutenção e conservação de imóveis", desc: "LIMPEZA E CONSERVACAO", filial: 0.5 },
   ];
+  const MOSTRAR_VENDAS = false;
   const CLIENTES = [
     { cnpj: "11223344000155", nome: "LOJA CENTRO VAREJO LTDA", base: 14200, dia: 8 },
     { cnpj: "22334455000166", nome: "MERCADO BOA VISTA LTDA", base: 8600, dia: 16 },
@@ -48,7 +49,7 @@
     apps: [
       { id: "notas", nome: "Notas Fiscais", descricao: "NF-e e NFS-e emitidas contra os seus CNPJs.", url: "/demo/apps/notas/", icone: "NF", ordem: 10, ativo: true,
         cartao_url: "/apps/notas/ajuda/cartao.html", manual_url: "/apps/notas/ajuda/manual.html" },
-      { id: "painel-nf", nome: "Painel de Notas", descricao: "Compras e vendas por fornecedor, mês a mês.", url: "/demo/apps/painel-nf/", icone: "PN", ordem: 15, ativo: true,
+      { id: "painel-nf", nome: "Painel de Notas", descricao: "Compras por fornecedor, mês a mês.", url: "/demo/apps/painel-nf/", icone: "PN", ordem: 15, ativo: true,
         cartao_url: "/apps/painel-nf/ajuda/cartao.html", manual_url: "/apps/painel-nf/ajuda/manual.html" },
     ],
     app_acessos: [{ user_id: "u-demo", app_id: "notas" }, { user_id: "u-demo", app_id: "painel-nf" }],
@@ -98,8 +99,8 @@
         n.chave = f.t === "NFE" ? chaveNFe(f.cnpj, a, m, num) : chaveNFSe(f.cnpj, a, m, num);
         db.nf_notas.push(n);
       }
-      // vendas (notas emitidas pela própria empresa)
-      for (const c of CLIENTES) {
+      // vendas: desligadas (a SEFAZ não entrega ao emitente as próprias NF-e; decisão do Marco, 2026-10-14)
+      for (const c of MOSTRAR_VENDAS ? CLIENTES : []) {
         if (empresa === FILIAL && c.base > 9000) continue;
         const dia = c.dia; if (atual && dia > hoje.getDate()) continue;
         id++; const nn = 5000 + id;

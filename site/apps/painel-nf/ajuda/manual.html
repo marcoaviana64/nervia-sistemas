@@ -10,12 +10,12 @@
 <div class="pagina">
   <div class="cab">
     <img src="/img/nervia-logo.png" alt="Nervia">
-    <div><div class="t">Painel de Notas · Manual de utilização</div><div class="s">Compras e vendas pelas notas fiscais</div></div>
+    <div><div class="t">Painel de Notas · Manual de utilização</div><div class="s">Compras pelas notas fiscais</div></div>
     <div class="acoes"><a href="cartao.html">Cartão rápido</a><button onclick="print()">Imprimir</button></div>
   </div>
 
   <h1>Como usar o Painel de Notas</h1>
-  <p class="lead">O painel transforma as notas fiscais baixadas pelo app Notas Fiscais em números de gestão: quanto a empresa gastou com cada fornecedor, como as compras variam mês a mês e quem são os maiores fornecedores. Na visão Vendas, mostra o mesmo para os clientes.</p>
+  <p class="lead">O painel transforma as notas fiscais baixadas pelo app Notas Fiscais em números de gestão: quanto a empresa gastou com cada fornecedor, como as compras variam mês a mês e quem são os maiores fornecedores.</p>
 
   <ul class="indice">
     <li><a href="#abrir">1. Abrir o painel</a></li>
@@ -34,7 +34,7 @@
     <li>Clique em <b>Painel de Notas</b>. O painel abre dentro da página, já com todas as notas.</li>
     <li>Se o seu login vê mais de uma empresa, escolha em <b>Empresa</b> ou deixe "Todas" para somar.</li>
   </ol>
-  <p>O painel começa na visão <b>Compras</b> (notas recebidas). Para ver o que a empresa faturou, clique em <b>Vendas</b>.</p>
+  <p>O painel mostra as <b>compras</b> (notas recebidas). As vendas não aparecem: a SEFAZ não entrega à empresa as NF-e que ela mesma emitiu.</p>
 
   <h2 id="periodo">2. Escolher o período</h2>
   <ul>
@@ -55,7 +55,7 @@
   <h2 id="ler">4. Ler os indicadores</h2>
   <table>
     <tr><th>Indicador</th><th>O que mostra</th></tr>
-    <tr><td>Total comprado</td><td>Soma das notas do filtro. A etiqueta ▲/▼ compara com o mês ou ano anterior: em Compras, ▲ vermelho = gastou mais; em Vendas, ▲ verde = vendeu mais.</td></tr>
+    <tr><td>Total comprado</td><td>Soma das notas do filtro. A etiqueta ▲/▼ compara com o mês ou ano anterior: ▲ vermelho = gastou mais.</td></tr>
     <tr><td>Notas</td><td>Quantidade de notas e a divisão entre NF-e e NFS-e.</td></tr>
     <tr><td>Fornecedores</td><td>Quantos fornecedores diferentes emitiram nota no período.</td></tr>
     <tr><td>Valor médio por nota</td><td>Ajuda a ver se as compras estão ficando maiores ou mais frequentes.</td></tr>
@@ -76,7 +76,6 @@
     <li><b>Qual mês teve mais compras?</b> Ano = este ano; veja a barra mais alta.</li>
     <li><b>Quem são meus 5 maiores fornecedores?</b> Tabela ordenada por Total (padrão) ou o gráfico de pizza.</li>
     <li><b>Quanto gasto por mês com serviços (internet, contabilidade, plano de saúde)?</b> Tipo = NFS-e; veja "Média por mês".</li>
-    <li><b>Quanto faturei por cliente?</b> Visão = Vendas.</li>
   </ul>
 
   <h2 id="nervia">7. Tarefas da equipe Nervia <span class="eq">EQUIPE NERVIA</span></h2>
@@ -90,10 +89,10 @@
   <table>
     <tr><th>Mensagem</th><th>O que fazer</th></tr>
     <tr><td>Nenhuma empresa liberada para o seu login</td><td>Peça à Nervia para liberar o CNPJ no seu login.</td></tr>
-    <tr><td>Ainda não há notas de compra / venda baixadas</td><td>As notas aparecem depois da primeira busca do app Notas Fiscais. Para Vendas, a empresa precisa ter emitido notas no período disponível.</td></tr>
+    <tr><td>Ainda não há notas de compra baixadas</td><td>As notas aparecem depois da primeira busca do app Notas Fiscais.</td></tr>
     <tr><td>Nenhuma nota com esses filtros</td><td>Clique em "Limpar filtros" e escolha de novo.</td></tr>
     <tr><td>Entre na Área do Cliente para ver o painel</td><td>A sessão expirou: entre de novo em nervia.com.br/cliente.</td></tr>
-    <tr><td>Valor diferente do Notas Fiscais</td><td>Confira o filtro de Canceladas e a visão (Compras/Vendas): o app Notas Fiscais mostra por padrão só as recebidas.</td></tr>
+    <tr><td>Valor diferente do Notas Fiscais</td><td>Confira o filtro de Canceladas e o período.</td></tr>
   </table>
   <div class="rodape">Dúvidas: WhatsApp (21) 96686-9374 · atendimento@nervia.com.br<br>Nervia Tecnologia · Manual do app Painel de Notas · atualizado em 14/10/2026</div>
 </div>

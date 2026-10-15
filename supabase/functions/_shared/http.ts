@@ -2,7 +2,7 @@
 import { admin } from "./banco.ts";
 
 /** Muda a cada correção nas funções: aparece nas mensagens de erro para saber qual versão está no ar. */
-export const VERSAO = "v8-nsu656";
+export const VERSAO = "v9-manifestacao";
 
 // SITE_ORIGEM: um ou mais endereços separados por vírgula (ex.: https://nervia.com.br,https://www.nervia.com.br).
 // Sem ele, qualquer site pode chamar (o acesso continua exigindo login de admin ou o segredo do cron).
@@ -26,9 +26,9 @@ export function json(corpo: unknown, status = 200): Response {
 
 export const erro = (mensagem: string, status = 400) => json({ ok: false, mensagem }, status);
 
-export type Chamador = { tipo: "cron" } | { tipo: "admin"; userId: string } | null;
+export type Chamador = { tipo: "cron" } | { tipo: "admin"; userId: string } | { tipo: "cliente"; userId: string } | null;
 
-/** Cron (cabeçalho x-cron-secret) ou usuário logado com perfil admin. Clientes não chamam funções. */
+/** Cron (cabeçalho x-cron-secret), admin ou cliente logado. Só funções com `permiteCliente` aceitam cliente. */
 export async function chamador(req: Request): Promise<Chamador> {
   const segredo = Deno.env.get("CRON_SECRET");
   const enviado = req.headers.get("x-cron-secret");
@@ -43,13 +43,13 @@ export async function chamador(req: Request): Promise<Chamador> {
   const { data } = await sb.auth.getUser(token);
   if (!data?.user) return null;
   const { data: perfil } = await sb.from("perfis").select("admin").eq("user_id", data.user.id).maybeSingle();
-  return perfil?.admin ? { tipo: "admin", userId: data.user.id } : null;
+  return perfil?.admin ? { tipo: "admin", userId: data.user.id } : { tipo: "cliente", userId: data.user.id };
 }
 
 /** Envolve o handler: CORS, só POST, exige admin (ou cron, se permitido) e converte exceções em JSON. */
 export function servir(
   handler: (req: Request, quem: NonNullable<Chamador>) => Promise<Response>,
-  opts: { permiteCron?: boolean } = {},
+  opts: { permiteCron?: boolean; permiteCliente?: boolean } = {},
 ) {
   Deno.serve(async (req) => {
     const r = await atender(req);
@@ -62,7 +62,7 @@ export function servir(
     if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
     if (req.method !== "POST") return erro("Use POST", 405);
     const quem = await chamador(req);
-    if (!quem || (quem.tipo === "cron" && !opts.permiteCron)) return erro("Acesso negado", 401);
+    if (!quem || (quem.tipo === "cron" && !opts.permiteCron) || (quem.tipo === "cliente" && !opts.permiteCliente)) return erro("Acesso negado", 401);
     try {
       return await handler(req, quem);
     } catch (e) {

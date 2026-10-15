@@ -68,6 +68,7 @@ with sync_playwright() as p:
     pg.locator(".ck").first.check()
     pg.once("dialog", lambda d: d.accept())
     pg.click("text=Dar ciência nas selecionadas"); pg.wait_for_selector("#msgP.ok")
+    assert [c for c in pg.evaluate("window.__chamadas") if c[0] == "fn:ciencia"][-1][1]["evento"] == "ciencia"
     assert "Ciência registrada em 1" in pg.inner_text("#msgP")
     # seleção em todas as linhas + espelho para impressão
     assert pg.locator(".ck").count() == 5, "toda linha tem caixa de seleção"
@@ -140,7 +141,10 @@ with sync_playwright() as p:
     pg, erros = abrir(b, "cliente")
     assert pg.locator(".emp").count() == 1, "cliente deve ver só a Linum"
     assert "Linum" in pg.inner_text(".emp")
-    assert pg.locator("#bNfe").count() == 0 and pg.locator("text=Dar ciência").count() == 0
+    assert pg.locator("#bNfe").count() == 0, "cliente não busca na SEFAZ"
+    assert pg.locator("text=Dar ciência nas selecionadas").count() == 1 and pg.locator("text=Confirmar operação nas selecionadas").count() == 1, "cliente manifesta"
+    assert pg.locator("text=Dar ciência nas selecionadas").is_disabled(), "sem certificado, sem manifestação"
+    assert "NF-e só com resumo" in pg.inner_text("#kpis")
     assert pg.locator(".ck").count() == 5, "cliente também seleciona linhas (espelho/CSV)"
     assert pg.locator("text=Gerenciar logins").is_hidden()
     assert pg.locator("#cArq").count() == 0, "cliente não vê envio de certificado"
@@ -284,15 +288,11 @@ with sync_playwright() as p:
     pg.select_option("#fEmpresa", ""); pg.select_option("#fCanc", "fora")
     pg.fill("#fDe", "2026-09-01"); pg.dispatch_event("#fDe", "change"); pg.fill("#fAte", "2026-09-30"); pg.dispatch_event("#fAte", "change"); pg.wait_for_timeout(100)
     assert pg.input_value("#fAno") == "" and "11.640,00" in pg.inner_text("#kpis"), pg.inner_text("#kpis")
-    pg.click("#fPapel >> text=Vendas"); pg.wait_for_timeout(100)
-    pg.click("text=Limpar filtros") if pg.locator("text=Limpar filtros").count() else None
-    pg.fill("#fDe", ""); pg.dispatch_event("#fDe", "change"); pg.fill("#fAte", ""); pg.dispatch_event("#fAte", "change"); pg.wait_for_timeout(100)
-    assert "4.500,00" in pg.inner_text("#kpis") and "SHOPPING EXEMPLO" in pg.inner_text("#tbForn") and pg.inner_text("#hForn") == "CLIENTE"
+    assert pg.locator("#fPapel").is_hidden() and "vendas" not in pg.inner_text(".topo").lower(), "visão Vendas desligada"
     with pg.expect_download() as d:
         pg.click("text=Exportar CSV")
     csv = open(d.value.path(), encoding="utf-8-sig").read()
-    assert "SHOPPING EXEMPLO" in csv and csv.count("\n") == 1, csv
-    pg.click("#fPapel >> text=Compras"); pg.wait_for_timeout(100)
+    assert "SHOPPING EXEMPLO" not in csv and csv.count("\n") >= 1, csv
     pg.screenshot(path=f"{SAIDA}/painel_nf.png", full_page=True)
     pg.set_viewport_size({"width": 390, "height": 844}); pg.wait_for_timeout(200)
     assert pg.evaluate("document.documentElement.scrollWidth") <= 390, "painel: rolagem horizontal no celular"

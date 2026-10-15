@@ -104,7 +104,7 @@ export async function processarDocumento(b: Banco, cnpj: string, doc: DocDist): 
     const ev = X.lerEventoNFe(raiz);
     await b.salvarXml(`${cnpj}/eventos/${ev.chave}-${ev.tpEvento}-${doc.nsu}.xml`, doc.xml);
     if (ev.tpEvento === "110111") await b.marcarCancelada(cnpj, "NFE", ev.chave);
-    if (ev.tpEvento === "210210") await b.marcarManifestada(cnpj, ev.chave);
+    if (["210210", "210200", "210220", "210240"].includes(ev.tpEvento)) await b.marcarManifestada(cnpj, ev.chave);
     return "evento";
   }
   await b.salvarXml(`${cnpj}/outros/${doc.nsu}.xml`, doc.xml);
@@ -184,16 +184,25 @@ export async function sincronizar(
   return { ok: true, mensagem, resumo, ult_nsu: ult, parcial };
 }
 
-// ------------------------------------------------------------------ ciência da operação
+// ------------------------------------------------------------------ manifestação do destinatário
+/** Eventos que o Buscador registra, sempre por clique (admin ou cliente com acesso ao CNPJ), nunca automático.
+ *  Prazos (NT 2020.001): ciência até 10 dias da autorização; confirmação até 90 dias (v1.60, desde 01/06/2026). */
+export const EVENTOS = {
+  ciencia: { tp: "210210", desc: "Ciencia da Operacao", nome: "Ciência da Operação", prazoDias: 10 },
+  confirmacao: { tp: "210200", desc: "Confirmacao da Operacao", nome: "Confirmação da Operação", prazoDias: 90 },
+} as const;
+export type TipoEvento = keyof typeof EVENTOS;
+
 /** infEvento já na forma canônica (C14N inclusiva, herdando o xmlns da NF-e). */
-function infEventoCanonico(cnpj: string, chave: string, dhEvento: string) {
-  const id = `ID210210${chave}01`;
+function infEventoCanonico(cnpj: string, chave: string, dhEvento: string, tipo: TipoEvento = "ciencia") {
+  const ev = EVENTOS[tipo];
+  const id = `ID${ev.tp}${chave}01`;
   const campos: [string, string][] = [
     ["cOrgao", "91"], ["tpAmb", "1"], ["CNPJ", cnpj], ["chNFe", chave], ["dhEvento", dhEvento],
-    ["tpEvento", "210210"], ["nSeqEvento", "1"], ["verEvento", "1.00"],
+    ["tpEvento", ev.tp], ["nSeqEvento", "1"], ["verEvento", "1.00"],
   ];
   const corpo = campos.map(([t, v]) => `<${t}>${esc(v)}</${t}>`).join("") +
-    `<detEvento versao="1.00"><descEvento>Ciencia da Operacao</descEvento></detEvento>`;
+    `<detEvento versao="1.00"><descEvento>${ev.desc}</descEvento></detEvento>`;
   return {
     id,
     canonico: `<infEvento xmlns="${NS}" Id="${id}">${corpo}</infEvento>`,
@@ -206,13 +215,13 @@ function dhBrasilia(agora: number): string {
   return d.toISOString().slice(0, 19) + "-03:00";
 }
 
-export async function montarEnvEvento(g: CertGuardado, cnpj: string, chaves: string[], agora = Date.now()): Promise<string> {
+export async function montarEnvEvento(g: CertGuardado, cnpj: string, chaves: string[], agora = Date.now(), tipo: TipoEvento = "ciencia"): Promise<string> {
   const chave = await chaveDeAssinatura(g);
   const certB64 = certificadoDerB64(g);
   const dh = dhBrasilia(agora);
   const eventos: string[] = [];
   for (const ch of chaves) {
-    const inf = infEventoCanonico(cnpj, ch, dh);
+    const inf = infEventoCanonico(cnpj, ch, dh, tipo);
     const digest = b64(await crypto.subtle.digest("SHA-1", new TextEncoder().encode(inf.canonico)));
     const signedInfoInterno =
       `<CanonicalizationMethod Algorithm="${C14N}"></CanonicalizationMethod>` +
@@ -236,14 +245,14 @@ export async function montarEnvEvento(g: CertGuardado, cnpj: string, chaves: str
 export const CSTAT_CIENCIA_OK = new Set(["135", "136", "573"]); // registrado / vinculado / já registrado
 
 export async function manifestarCiencia(
-  b: Banco, http: Http, g: CertGuardado, cnpj: string, chaves: string[],
+  b: Banco, http: Http, g: CertGuardado, cnpj: string, chaves: string[], tipo: TipoEvento = "ciencia",
 ): Promise<[string, string, string][]> {
   const resultado: [string, string, string][] = [];
   for (let i = 0; i < chaves.length; i += 20) {
     const grupo = chaves.slice(i, i + 20);
     const corpo = `<?xml version="1.0" encoding="utf-8"?><soap12:Envelope xmlns:soap12="${SOAP}"><soap12:Body>` +
       `<nfeDadosMsg xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4">` +
-      `${await montarEnvEvento(g, cnpj, grupo)}</nfeDadosMsg></soap12:Body></soap12:Envelope>`;
+      `${await montarEnvEvento(g, cnpj, grupo, Date.now(), tipo)}</nfeDadosMsg></soap12:Body></soap12:Envelope>`;
     const r = await http(URL_EVENTO, {
       method: "POST", body: corpo,
       headers: { "Content-Type": 'application/soap+xml; charset=utf-8; action="http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4/nfeRecepcaoEvento"' },
@@ -261,6 +270,6 @@ export async function manifestarCiencia(
       if (CSTAT_CIENCIA_OK.has(cs)) await b.marcarManifestada(cnpj, ch);
     }
   }
-  await b.registrar(cnpj, "CIENCIA", `${chaves.length} nota(s): ` + resultado.map(([c, s]) => `${c.slice(-6)}=${s}`).join(", "));
+  await b.registrar(cnpj, tipo === "ciencia" ? "CIENCIA" : "CONFIRMACAO", `${EVENTOS[tipo].nome}, ${chaves.length} nota(s): ` + resultado.map(([c, s]) => `${c.slice(-6)}=${s}`).join(", "));
   return resultado;
 }

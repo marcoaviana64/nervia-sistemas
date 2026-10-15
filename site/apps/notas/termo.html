@@ -74,12 +74,12 @@ async function iniciar() {
   <p>O CLIENTE autoriza a NERVIA a armazenar e utilizar o certificado digital do tipo A1 ${titular ? `de titularidade de <b>${esc(titular)}</b>${validade ? `, válido até <b>${esc(validade)}</b>,` : ""}` : "do CLIENTE"} (o "Certificado") exclusivamente para:</p>
   <ol type="a">
     <li>consultar e baixar, nos ambientes oficiais (Ambiente Nacional da NF-e e Ambiente de Dados Nacional da NFS-e), os documentos fiscais eletrônicos emitidos contra o CNPJ do CLIENTE ou por ele emitidos, bem como seus eventos;</li>
-    <li>registrar o evento "Ciência da Operação" em NF-e destinadas ao CLIENTE, somente quando solicitado por ele, com a finalidade de liberar o download do arquivo XML completo;</li>
+    <li>registrar os eventos "Ciência da Operação" e "Confirmação da Operação" em NF-e destinadas ao CLIENTE, somente quando solicitado por ele, inclusive pelo seu próprio login na Área do Cliente, com a finalidade de liberar o download do arquivo XML completo. O CLIENTE declara saber que a Confirmação da Operação informa oficialmente à SEFAZ que a operação ocorreu;</li>
     <li>disponibilizar ao CLIENTE as notas, os arquivos XML, os espelhos de impressão e os relatórios na Área do Cliente da NERVIA.</li>
   </ol>
 
   <h2>2. Usos proibidos</h2>
-  <p>É vedado à NERVIA usar o Certificado para qualquer outra finalidade, em especial para: emitir notas fiscais; assinar documentos, contratos ou procurações; acessar o e-CAC, portais de bancos ou de órgãos públicos; registrar eventos de confirmação, desconhecimento ou operação não realizada sem autorização escrita do CLIENTE; ou ceder, copiar ou entregar o Certificado a terceiros.</p>
+  <p>É vedado à NERVIA usar o Certificado para qualquer outra finalidade, em especial para: emitir notas fiscais; assinar documentos, contratos ou procurações; acessar o e-CAC, portais de bancos ou de órgãos públicos; registrar eventos de manifestação do destinatário sem solicitação do CLIENTE, ou eventos de desconhecimento ou operação não realizada sem autorização escrita do CLIENTE; ou ceder, copiar ou entregar o Certificado a terceiros.</p>
 
   <h2>3. Forma de guarda</h2>
   <ol>
@@ -97,7 +97,7 @@ async function iniciar() {
   <ol>
     <li>Fornecer Certificado válido e informar à NERVIA, por escrito, sua revogação, troca ou suspeita de comprometimento.</li>
     <li>Enviar o novo Certificado antes do vencimento, se quiser manter o serviço.</li>
-    <li>Solicitar por escrito (e-mail ou Área do Cliente) os registros de Ciência da Operação.</li>
+    <li>Solicitar os registros de Ciência ou de Confirmação da Operação pela Área do Cliente ou por escrito (e-mail), conferindo antes as notas selecionadas.</li>
   </ol>
 
   <h2>6. Vigência, revogação e exclusão</h2>

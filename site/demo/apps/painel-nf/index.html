@@ -125,7 +125,7 @@ tbody tr:hover td{background:var(--surface-2)}
 <body>
 <div class="demo-selo" id="demoSelo" style="display:none">Demonstração · dados fictícios</div>
 <script>if(window.self===window.top)document.getElementById("demoSelo").style.display="";</script>
-<div class="topo"><div class="marca">PN</div><div><b>Painel de Notas</b><br><span>Compras e vendas pelas notas fiscais</span></div></div>
+<div class="topo"><div class="marca">PN</div><div><b>Painel de Notas</b><br><span>Compras pelas notas fiscais</span></div></div>
 
 <div class="conteudo" id="app">
   <div class="carregando" id="carregando">Carregando as notas…</div>
@@ -137,7 +137,8 @@ tbody tr:hover td{background:var(--surface-2)}
 
     <div class="filtros">
       <div><label for="fEmpresa">Empresa</label><select id="fEmpresa"></select></div>
-      <div><label>Visão</label><div class="seg" id="fPapel"><button data-v="recebida" class="on">Compras</button><button data-v="emitida">Vendas</button></div></div>
+      <!-- Vendas desligado (decisão do Marco, 2026-10-14): a SEFAZ não entrega ao emitente as próprias NF-e. Para religar, tirar o display:none. -->
+      <div style="display:none"><label>Visão</label><div class="seg" id="fPapel"><button data-v="recebida" class="on">Compras</button><button data-v="emitida">Vendas</button></div></div>
       <div><label for="fTipo">Tipo</label><select id="fTipo"><option value="">NF-e e NFS-e</option><option value="NFE">NF-e (produtos)</option><option value="NFSE">NFS-e (serviços)</option></select></div>
       <div><label for="fAno">Ano</label><select id="fAno"></select></div>
       <div><label for="fMes">Mês</label><select id="fMes"></select></div>

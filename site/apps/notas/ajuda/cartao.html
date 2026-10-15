@@ -39,7 +39,8 @@
   <table>
     <tr><td>Buscar NF-e agora <span class="eq">EQUIPE NERVIA</span></td><td>Consulta a SEFAZ na hora (até 2 min). Depois de tudo baixado, só libera de novo em 1 hora.</td></tr>
     <tr><td>Buscar NFS-e agora <span class="eq">EQUIPE NERVIA</span></td><td>Consulta as notas de serviço na hora.</td></tr>
-    <tr><td>Dar ciência nas selecionadas <span class="eq">EQUIPE NERVIA</span></td><td>Evento fiscal oficial na SEFAZ que libera o XML completo das NF-e marcadas que estão com <span class="tag res">só resumo</span> (as demais marcadas são ignoradas). Não confirma nem recusa a compra.</td></tr>
+    <tr><td>Dar ciência nas selecionadas</td><td>Evento oficial na SEFAZ que libera o XML completo das NF-e <span class="tag res">só resumo</span> marcadas com <b>até 10 dias</b> da emissão. Não confirma nem recusa a compra.</td></tr>
+    <tr><td>Confirmar operação nas selecionadas</td><td>Para NF-e <span class="tag res">só resumo</span> com <b>até 90 dias</b>: declara oficialmente que a compra aconteceu e libera o XML. Não pode ser desfeita: não use em nota que não reconhece.</td></tr>
     <tr><td>Imprimir espelho</td><td>Abre o espelho para impressão (DANFE / DANFSe) das notas marcadas, uma por página. Dá para salvar em PDF.</td></tr>
     <tr><td>Exportar CSV</td><td>Baixa para o Excel as notas marcadas; sem marcação, baixa toda a lista da tela.</td></tr>
     <tr><td>Ligar / Desligar busca automática <span class="eq">EQUIPE NERVIA</span></td><td>Liga ou para a busca de hora em hora desta empresa.</td></tr>
@@ -60,12 +61,12 @@
   <table>
     <tr><td>notas</td><td>Quantas notas atendem aos filtros.</td></tr>
     <tr><td>total (sem canceladas)</td><td>Soma dos valores, sem as notas canceladas.</td></tr>
-    <tr><td>NF-e só com resumo <span class="eq">EQUIPE NERVIA</span></td><td>Quantas NF-e ainda precisam de ciência para baixar o XML.</td></tr>
-    <tr><td>Caixa de seleção</td><td>Marca a linha para Imprimir espelho, Exportar CSV ou Dar ciência. A caixa do cabeçalho marca todas da tela.</td></tr>
+    <tr><td>NF-e só com resumo</td><td>Quantas NF-e ainda precisam de ciência ou confirmação para baixar o XML.</td></tr>
+    <tr><td>Caixa de seleção</td><td>Marca a linha para Imprimir espelho, Exportar CSV, Dar ciência ou Confirmar operação. A caixa do cabeçalho marca todas da tela.</td></tr>
     <tr><td>Tipo · Emissão · Nº</td><td>NF-e ou NFS-e, data de emissão e número da nota.</td></tr>
     <tr><td>Emitente · Destinatário</td><td>Quem emitiu e para quem, com o CNPJ embaixo.</td></tr>
     <tr><td>Valor</td><td>Valor total da nota.</td></tr>
-    <tr><td>Situação</td><td>Autorizada, <span class="tag can">Cancelada</span> ou Denegada. Em NF-e: <span class="tag res">só resumo</span> = falta o XML completo · <span class="tag ok">ciência dada</span> = o XML chega na próxima busca.</td></tr>
+    <tr><td>Situação</td><td>Autorizada, <span class="tag can">Cancelada</span> ou Denegada. Em NF-e: <span class="tag res">só resumo</span> = falta o XML completo · <span class="tag ok">manifestada</span> = o XML chega na próxima busca.</td></tr>
     <tr><td>Arquivos · XML / espelho</td><td><b>XML</b> baixa o arquivo da nota; <b>espelho</b> abre o DANFE/DANFSe dela para imprimir.</td></tr>
     <tr><td>Histórico de buscas</td><td>As últimas 30 buscas desta empresa, com o resultado ou o erro.</td></tr>
   </table>

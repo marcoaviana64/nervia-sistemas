@@ -251,8 +251,9 @@ function desenharPainel() {
   <div class="acoes">
     ${ehAdmin ? `
     ${CFG.NFE_HABILITADA ? `<button id="bNfe" onclick="buscar('nfe')" ${temCert && nfeOn ? "" : "disabled"} title="${nfeOn ? "" : "NF-e desligada para esta empresa"}">Buscar NF-e agora</button>` : ""}
-    <button id="bNfse" onclick="buscar('nfse')" ${temCert ? "" : "disabled"}>Buscar NFS-e agora</button>
-    ${CFG.NFE_HABILITADA ? `<button class="sec" onclick="cienciaSel()" ${temCert ? "" : "disabled"}>Dar ciência nas selecionadas</button>` : ""}` : ""}
+    <button id="bNfse" onclick="buscar('nfse')" ${temCert ? "" : "disabled"}>Buscar NFS-e agora</button>` : ""}
+    ${CFG.NFE_HABILITADA ? `<button class="sec" onclick="cienciaSel('ciencia')" ${temCert ? "" : "disabled"} title="NF-e só resumo com até 10 dias">Dar ciência nas selecionadas</button>
+    <button class="sec" onclick="cienciaSel('confirmacao')" ${temCert ? "" : "disabled"} title="NF-e só resumo com até 90 dias">Confirmar operação nas selecionadas</button>` : ""}
     <button class="sec" onclick="imprimirSel()">Imprimir espelho</button>
     <button class="sec" onclick="exportar()">Exportar CSV</button>
     ${ehAdmin ? `<button class="sec" onclick="alternarAuto(${!e.busca_automatica})">${e.busca_automatica ? "Desligar" : "Ligar"} busca automática</button>
@@ -367,7 +368,7 @@ async function carregarNotas() {
   const pend = lista.filter(n => n.tipo === "NFE" && !n.completo && !n.manifestada && n.situacao !== "Cancelada").length;
   $("kpis").innerHTML = `<div class="kpi"><b>${lista.length}</b><span>notas</span></div>
     <div class="kpi"><b>${fmtVal(tot)}</b><span>total (sem canceladas)</span></div>
-    ${ehAdmin && CFG.NFE_HABILITADA ? `<div class="kpi"><b>${pend}</b><span>NF-e só com resumo — dê ciência p/ baixar o XML</span></div>` : ""}`;
+    ${CFG.NFE_HABILITADA ? `<div class="kpi"><b>${pend}</b><span>NF-e só com resumo — manifeste p/ baixar o XML</span></div>` : ""}`;
   if (!lista.length) { $("tab").innerHTML = `<div class="vazio">Nenhuma nota com esses filtros.${ehAdmin ? " Use os botões de busca acima." : " A busca roda automaticamente de hora em hora."}</div>`; return; }
   $("tab").innerHTML = `<table><thead><tr><th><input type="checkbox" id="ckTodas" title="Marcar todas" onchange="document.querySelectorAll('.ck').forEach(c=>c.checked=this.checked);contarSel()"></th>
     <th>Tipo</th><th>Emissão</th><th>Nº</th><th>Emitente</th><th>Destinatário</th><th style="text-align:right">Valor</th><th>Situação</th><th>Arquivos</th></tr></thead><tbody>
@@ -379,7 +380,7 @@ async function carregarNotas() {
       <td>${esc(n.dest_nome)}<div class="small">${fmtCnpj(n.dest_cnpj)}</div></td>
       <td class="v">${fmtVal(n.valor)}</td>
       <td>${n.situacao === "Cancelada" ? '<span class="tag can">Cancelada</span>' : esc(n.situacao)}
-        ${n.tipo === "NFE" && !n.completo ? (n.manifestada ? '<div><span class="tag ok">ciência dada</span></div>' : '<div><span class="tag res">só resumo</span></div>') : ""}</td>
+        ${n.tipo === "NFE" && !n.completo ? (n.manifestada ? '<div><span class="tag ok">manifestada</span></div>' : '<div><span class="tag res">só resumo</span></div>') : ""}</td>
       <td style="white-space:nowrap">${n.xml_path ? `<button class="lnk" title="Baixar o XML · ${esc(n.chave)}" onclick="baixarXml(${n.id})">XML</button> · ` : ""}<button class="lnk" title="Espelho para impressão" onclick="abrirEspelho([${n.id}])">espelho</button></td></tr>`).join("")}
     </tbody></table>`;
 }
@@ -405,13 +406,25 @@ function imprimirSel() {
   if (ids.length > 200) return msg($("msgP"), "info", "Imprima no máximo 200 notas por vez.");
   abrirEspelho(ids);
 }
-async function cienciaSel() {
-  const elegivel = new Set(notasCache.filter(n => n.tipo === "NFE" && !n.completo && !n.manifestada && n.situacao !== "Cancelada").map(n => n.id));
-  const ids = selecionadas().filter(id => elegivel.has(id));
-  if (!ids.length) return msg($("msgP"), "info", "Entre as notas marcadas não há NF-e com “só resumo”. A ciência só vale para essas notas.");
-  if (!confirm(`Registrar “Ciência da Operação” na SEFAZ para ${ids.length} nota(s)?\n\nIsso é um evento fiscal oficial em nome da empresa. Ele não confirma nem recusa a operação, apenas libera o download do XML.`)) return;
+// Manifestação do destinatário (NT 2020.001): ciência até 10 dias da emissão; confirmação até 90 dias.
+const PRAZO_EV = { ciencia: 10, confirmacao: 90 };
+const idadeDias = n => (Date.now() - new Date(n.data_emissao).getTime()) / 86400000;
+async function cienciaSel(evento) {
+  const pendentes = notasCache.filter(n => n.tipo === "NFE" && n.papel === "recebida" && !n.completo && !n.manifestada && n.situacao !== "Cancelada");
+  const marcadas = new Set(selecionadas());
+  const sel = pendentes.filter(n => marcadas.has(n.id));
+  if (!sel.length) return msg($("msgP"), "info", "Entre as notas marcadas não há NF-e com “só resumo”. A manifestação só vale para essas notas.");
+  const ok = sel.filter(n => idadeDias(n) <= PRAZO_EV[evento]);
+  const fora = sel.length - ok.length;
+  if (!ok.length) return msg($("msgP"), "info", evento === "ciencia"
+    ? `As NF-e marcadas têm mais de 10 dias: a SEFAZ não aceita mais ciência para elas. Use “Confirmar operação” (até 90 dias), se a compra aconteceu.`
+    : `As NF-e marcadas têm mais de 90 dias: a SEFAZ não aceita mais manifestação para elas.`);
+  const aviso = evento === "ciencia"
+    ? `Registrar “Ciência da Operação” na SEFAZ para ${ok.length} nota(s)?\n\nÉ um evento fiscal oficial em nome da empresa. Ele não confirma nem recusa a compra, só libera o download do XML. Depois, a empresa ainda deve dar a manifestação conclusiva (confirmação ou desconhecimento) em até 90 dias da emissão.`
+    : `Registrar “Confirmação da Operação” na SEFAZ para ${ok.length} nota(s)?\n\nATENÇÃO: é uma declaração oficial de que a empresa RECEBEU a mercadoria/realizou a compra. Não pode ser desfeita. Não use em nota que você não reconhece.`;
+  if (!confirm(aviso + (fora ? `\n\n${fora} nota(s) marcada(s) estão fora do prazo de ${PRAZO_EV[evento]} dias e serão ignoradas.` : ""))) return;
   try {
-    const r = await funcao("ciencia", { cnpj: atual, ids });
+    const r = await funcao("ciencia", { cnpj: atual, ids: ok.map(n => n.id), evento });
     ultimaMsg = [r.falhas.length ? "info" : "ok", r.mensagem + (r.falhas.length ? "\nFalhas:\n" + r.falhas.join("\n") : "")];
   } catch (e) { ultimaMsg = ["err", e.message]; }
   carregarEmpresas();

@@ -214,6 +214,21 @@ Deno.test("Ciência: envia evento 210210 e marca as notas", async () => {
   assert(enviados[0].url === sefaz.URL_EVENTO && enviados[0].body.includes("<descEvento>Ciencia da Operacao</descEvento>"));
 });
 
+Deno.test("Confirmação da Operação: evento 210200 e prazos", async () => {
+  const { b, notas } = bancoFalso();
+  await sefaz.sincronizar(b, httpFalso([await retDist("138", 1, 1, [[1, "resNFe_v1.01.xsd", res1]])]).http, CNPJ, { pausaMs: 0 });
+  const g = lerPfx(pfx("a1_moderno.pfx"), "1234").guardado;
+  const resp = `<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"><soap:Body><nfeResultMsg><retEnvEvento xmlns="${NS}" versao="1.00"><cStat>128</cStat><xMotivo>Lote processado</xMotivo><retEvento versao="1.00"><infEvento><cStat>135</cStat><xMotivo>Evento registrado</xMotivo><chNFe>${CH1}</chNFe></infEvento></retEvento></retEnvEvento></nfeResultMsg></soap:Body></soap:Envelope>`;
+  const { http, enviados } = httpFalso([() => new Response(resp)]);
+  const res = await sefaz.manifestarCiencia(b, http, g, CNPJ, [CH1], "confirmacao");
+  assertEquals(res[0][1], "135");
+  assert(notas.get("NFE" + CH1)!.manifestada);
+  const corpo = enviados[0].body;
+  assert(corpo.includes("<tpEvento>210200</tpEvento>") && corpo.includes("<descEvento>Confirmacao da Operacao</descEvento>") && corpo.includes(`Id="ID210200${CH1}01"`));
+  assertEquals(sefaz.EVENTOS.ciencia.prazoDias, 10);
+  assertEquals(sefaz.EVENTOS.confirmacao.prazoDias, 90);
+});
+
 Deno.test("Ciência: gera envEvento para conferência independente da assinatura", async () => {
   const g = lerPfx(pfx("a1_moderno.pfx"), "1234").guardado;
   const xml = await sefaz.montarEnvEvento(g, CNPJ, ["3".repeat(44), "4".repeat(44)]);
