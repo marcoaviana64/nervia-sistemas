@@ -3,11 +3,12 @@
 import { admin, bancoSupabase } from "../_shared/banco.ts";
 import { lerPfx } from "../_shared/certificado.ts";
 import { erro, json, servir } from "../_shared/http.ts";
+import { auditar } from "../_shared/auditoria.ts";
 
 const sb = admin();
 const banco = bancoSupabase(sb);
 
-servir(async (req) => {
+servir(async (req, quem) => {
   const { cnpj, pfx_base64, senha } = await req.json();
   if (!cnpj || !pfx_base64) return erro("Envie o CNPJ e o arquivo .pfx.");
   if (pfx_base64.length > 200_000) return erro("Arquivo grande demais para um certificado A1.");
@@ -36,6 +37,7 @@ servir(async (req) => {
   });
   if (error) throw new Error(error.message);
   await banco.registrar(cnpj, "CERTIFICADO", `Certificado de ${info.titular} cadastrado (válido até ${info.validade.slice(0, 10)}).`);
+  await auditar(sb, req, quem, "certificado_cadastrado", cnpj, { titular: info.titular, cert_cnpj: info.cnpj, validade: info.validade });
   return json({
     ok: true, titular: info.titular, validade: info.validade,
     aviso: info.cnpj && info.cnpj !== cnpj ? `Certificado da matriz/filial ${info.cnpj} (mesma raiz) — a SEFAZ aceita.` : null,

@@ -3,6 +3,7 @@
 // quais CNPJs fica em "nf_acessos" (as duas tabelas a tela grava direto — RLS permite só ao admin).
 import { admin } from "../_shared/banco.ts";
 import { erro, json, servir } from "../_shared/http.ts";
+import { auditar } from "../_shared/auditoria.ts";
 
 const sb = admin();
 
@@ -33,19 +34,26 @@ servir(async (req, quem) => {
       const { error: e3 } = await sb.from("nf_acessos").insert(cnpjs.map((cnpj) => ({ user_id: uid, cnpj })));
       if (e3) return erro(e3.message);
     }
+    await auditar(sb, req, quem, "login_criado", null, { login: email, login_id: uid, nome: c.nome ?? "", admin: c.admin === true, apps, cnpjs });
     return json({ ok: true, user_id: uid, mensagem: `Login criado para ${email}.` });
   }
 
   if (c.acao === "senha") {
     if (String(c.senha ?? "").length < 8) return erro("A senha precisa ter pelo menos 8 caracteres.");
     const { error } = await sb.auth.admin.updateUserById(c.user_id, { password: c.senha });
-    return error ? erro(error.message) : json({ ok: true, mensagem: "Senha alterada." });
+    if (error) return erro(error.message);
+    const { data: alvo } = await sb.from("perfis").select("email").eq("user_id", c.user_id).maybeSingle();
+    await auditar(sb, req, quem, "senha_redefinida", null, { login: alvo?.email ?? null, login_id: c.user_id });
+    return json({ ok: true, mensagem: "Senha alterada." });
   }
 
   if (c.acao === "excluir") {
     if (c.user_id === quem.userId) return erro("Você não pode excluir o seu próprio login.");
+    const { data: alvo } = await sb.from("perfis").select("email, nome").eq("user_id", c.user_id).maybeSingle();
     const { error } = await sb.auth.admin.deleteUser(c.user_id);
-    return error ? erro(error.message) : json({ ok: true, mensagem: "Login excluído." });
+    if (error) return erro(error.message);
+    await auditar(sb, req, quem, "login_excluido", null, { login: alvo?.email ?? null, nome: alvo?.nome ?? null, login_id: c.user_id });
+    return json({ ok: true, mensagem: "Login excluído." });
   }
 
   return erro("Ação inválida.");

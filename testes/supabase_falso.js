@@ -29,6 +29,16 @@
     ],
     nf_notas: [],
     nf_log: [{ id: 1, cnpj: "11111111000111", quando: new Date().toISOString(), origem: "NFE", mensagem: "Tudo baixado. {\"nova\":4}" }],
+    auditoria: [
+      { id: 1, quando: "2026-10-14T21:40:00-03:00", user_id: "u-cli", email: "financeiro@linum.com.br", nome: "Financeiro Linum", papel: "cliente",
+        acao: "manifestacao_ciencia", cnpj: "22222222000122", ip: "200.1.2.3", navegador: "Mozilla/5.0",
+        detalhes: { evento: "Ciência da Operação", tpEvento: "210210", ignoradas_fora_do_prazo: 0, arquivos: ["22222222000122/eventos-enviados/x-enviado.xml"],
+          notas: [{ chave: "1".repeat(44), cStat: "135", xMotivo: "Evento registrado e vinculado a NF-e", nProt: "891260000123456", dhRegEvento: "2026-10-14T21:40:05-03:00" }] } },
+      { id: 2, quando: "2026-10-14T20:00:00-03:00", user_id: "u-admin", email: "marco@nervia.com.br", nome: "Marco", papel: "admin",
+        acao: "certificado_cadastrado", cnpj: "11111111000111", ip: "200.1.2.4", navegador: "Mozilla/5.0", detalhes: { titular: "NERVIA", validade: "2027-08-10T00:00:00Z" } },
+      { id: 3, quando: "2026-10-14T19:00:00-03:00", user_id: "u-admin", email: "marco@nervia.com.br", nome: "Marco", papel: "admin",
+        acao: "login_criado", cnpj: null, detalhes: { login: "financeiro@linum.com.br", apps: ["notas"], cnpjs: ["22222222000122"] } },
+    ],
   };
   const linhas = [
     ["NFE", "1", "33333333000133", "DISTRIBUIDORA DE REDES LTDA", "2026-10-08T10:00:00-03:00", 1840.9, "Autorizada", false, false],
@@ -57,6 +67,7 @@
   }
   const pode = (cnpj) => papel === "admin" || db.nf_acessos.some((a) => a.user_id === eu.id && a.cnpj === cnpj);
   const rls = { nf_notas: (r) => pode(r.cnpj_consulta), nf_empresas: (r) => pode(r.cnpj), nf_log: (r) => pode(r.cnpj),
+    auditoria: (r) => papel === "admin" || (r.cnpj && pode(r.cnpj)),
     perfis: (r) => papel === "admin" || r.user_id === eu.id,
     apps: (r) => papel === "admin" || (r.ativo && db.app_acessos.some((a) => a.app_id === r.id && a.user_id === eu.id)),
     app_acessos: (r) => papel === "admin" || r.user_id === eu.id, nf_acessos: (r) => papel === "admin" || r.user_id === eu.id };

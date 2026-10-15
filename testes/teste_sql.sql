@@ -153,4 +153,38 @@ set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
 select pg_temp.ok((select manual_url <> '' from apps where id = 'notas'), 'cliente lê o endereço do manual');
 reset role;
+-- ---------------------------------------------------------------- auditoria
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+insert into nf_acessos values ('00000000-0000-0000-0000-00000000000c', '22222222000122');
+delete from nf_acessos where user_id = '00000000-0000-0000-0000-00000000000c' and cnpj = '22222222000122';
+update nf_empresas set termo_status = 'assinado', termo_signatario = 'Sócia Linum', termo_assinado_em = '2026-10-14' where cnpj = '22222222000122';
+select pg_temp.ok((select count(*) = 2 from auditoria where acao in ('acesso_empresa_liberado', 'acesso_empresa_retirado')
+  and cnpj = '22222222000122' and papel = 'admin' and email = 'marco@nervia.com.br' and detalhes->>'login' = 'outro@x.com'), 'auditoria registra quem liberou/retirou acesso');
+select pg_temp.ok((select count(*) >= 1 from auditoria where acao = 'termo_registrado' and detalhes->>'signatario' = 'Sócia Linum'), 'auditoria registra o termo');
+select pg_temp.ok((select count(*) >= 1 from auditoria where acao in ('nfe_ligada', 'nfe_desligada') and papel = 'admin'), 'auditoria registra NF-e ligada/desligada');
+do $$ begin
+  begin insert into auditoria (papel, acao) values ('admin', 'forjado'); raise exception 'FALHOU: tela gravou auditoria';
+  exception when insufficient_privilege then raise notice 'ok  tela não grava auditoria direto'; end;
+  begin update auditoria set acao = 'x'; raise exception 'FALHOU: admin alterou auditoria';
+  exception when insufficient_privilege or raise_exception then raise notice 'ok  admin não altera auditoria'; end;
+end $$;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok((select count(*) > 0 and bool_and(cnpj = '22222222000122') from auditoria), 'cliente vê só a auditoria da própria empresa');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.ok((select count(*) = 0 from auditoria where cnpj is distinct from '33333333000133'), 'login só vê auditoria das empresas que acessa (nem a geral)');
+reset role;
+set role service_role;
+insert into auditoria (user_id, email, papel, acao, cnpj, detalhes, ip, navegador)
+values ('00000000-0000-0000-0000-00000000000b', 'financeiro@linum.com.br', 'cliente', 'manifestacao_ciencia', '22222222000122', '{"protocolos":["135"]}', '1.2.3.4', 'teste');
+select pg_temp.ok((select count(*) = 1 from auditoria where acao = 'manifestacao_ciencia'), 'funções gravam auditoria');
+do $$ begin
+  begin delete from auditoria; raise exception 'FALHOU: apagou auditoria';
+  exception when raise_exception then raise notice 'ok  auditoria não pode ser apagada nem pelas funções'; end;
+end $$;
+reset role;
+do $$ begin
+  begin update auditoria set acao = 'x'; raise exception 'FALHOU: superusuário alterou';
+  exception when raise_exception then raise notice 'ok  auditoria imutável até para o dono do banco (gatilho)'; end;
+end $$;
 \echo 'TODOS OS TESTES SQL OK'

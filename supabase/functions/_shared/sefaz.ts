@@ -244,29 +244,37 @@ export async function montarEnvEvento(g: CertGuardado, cnpj: string, chaves: str
 
 export const CSTAT_CIENCIA_OK = new Set(["135", "136", "573"]); // registrado / vinculado / já registrado
 
+/** [chave, cStat, xMotivo, nProt, dhRegEvento] por nota. Guarda o XML enviado (assinado) e a resposta da SEFAZ
+ *  em Storage ({cnpj}/eventos-enviados/...) — prova oficial; os caminhos vão para `arquivos`. */
 export async function manifestarCiencia(
   b: Banco, http: Http, g: CertGuardado, cnpj: string, chaves: string[], tipo: TipoEvento = "ciencia",
-): Promise<[string, string, string][]> {
-  const resultado: [string, string, string][] = [];
+  arquivos: string[] = [],
+): Promise<[string, string, string, string, string][]> {
+  const resultado: [string, string, string, string, string][] = [];
+  const carimbo = new Date().toISOString().replace(/[-:.]/g, "").slice(0, 15);
   for (let i = 0; i < chaves.length; i += 20) {
     const grupo = chaves.slice(i, i + 20);
+    const envEvento = await montarEnvEvento(g, cnpj, grupo, Date.now(), tipo);
     const corpo = `<?xml version="1.0" encoding="utf-8"?><soap12:Envelope xmlns:soap12="${SOAP}"><soap12:Body>` +
       `<nfeDadosMsg xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4">` +
-      `${await montarEnvEvento(g, cnpj, grupo, Date.now(), tipo)}</nfeDadosMsg></soap12:Body></soap12:Envelope>`;
+      `${envEvento}</nfeDadosMsg></soap12:Body></soap12:Envelope>`;
     const r = await http(URL_EVENTO, {
       method: "POST", body: corpo,
       headers: { "Content-Type": 'application/soap+xml; charset=utf-8; action="http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4/nfeRecepcaoEvento"' },
     });
-    const raiz = X.parseXml(await r.text());
+    const texto = await r.text();
+    const base = `${cnpj}/eventos-enviados/${carimbo}-${EVENTOS[tipo].tp}-lote${i / 20 + 1}`;
+    arquivos.push(await b.salvarXml(`${base}-enviado.xml`, envEvento), await b.salvarXml(`${base}-resposta-sefaz.xml`, texto));
+    const raiz = X.parseXml(texto);
     const rets = X.todos(raiz, "retEvento").map((re) => X.todos(re, "infEvento")[0]).filter(Boolean);
     if (!rets.length) {
       const lote = X.todos(raiz, "retEnvEvento")[0];
-      for (const c of grupo) resultado.push([c, lote ? X.txt(lote, "cStat") : "", lote ? X.txt(lote, "xMotivo") : `HTTP ${r.status}`]);
+      for (const c of grupo) resultado.push([c, lote ? X.txt(lote, "cStat") : "", lote ? X.txt(lote, "xMotivo") : `HTTP ${r.status}`, "", ""]);
       continue;
     }
     for (const inf of rets) {
       const ch = X.txt(inf, "chNFe"), cs = X.txt(inf, "cStat");
-      resultado.push([ch, cs, X.txt(inf, "xMotivo")]);
+      resultado.push([ch, cs, X.txt(inf, "xMotivo"), X.txt(inf, "nProt"), X.txt(inf, "dhRegEvento")]);
       if (CSTAT_CIENCIA_OK.has(cs)) await b.marcarManifestada(cnpj, ch);
     }
   }

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Comprovante de registro | Nervia</title>
+<script src="/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<script src="/auditoria.js"></script>
+<style>
+@page{size:A4 portrait;margin:16mm}
+*{box-sizing:border-box}
+body{margin:0;background:#e9edf0;color:#111;font:10.5pt/1.5 Inter,system-ui,sans-serif}
+.barra{position:sticky;top:0;display:flex;gap:12px;align-items:center;padding:10px 16px;background:#0B2545;color:#fff;font-size:14px}
+.barra button{margin-left:auto;font:inherit;font-weight:600;border:0;border-radius:8px;padding:8px 16px;background:#2BB3D1;color:#06222c;cursor:pointer}
+.folha{max-width:190mm;margin:14px auto;background:#fff;padding:14mm}
+.cab{display:flex;align-items:center;justify-content:space-between;border-bottom:1.5pt solid #107E99;padding-bottom:8px;margin-bottom:12px}
+.cab img{height:30px}.cab small{color:#555;text-align:right;font-size:8.5pt}
+h1{font-size:14pt;margin:4px 0 2px}.sub{color:#555;font-size:9pt;margin-bottom:12px}
+table{width:100%;border-collapse:collapse;margin:6px 0 12px}
+th,td{border:.6pt solid #bbb;padding:5px 7px;text-align:left;vertical-align:top;font-size:9.5pt}
+th{background:#f1f5f7;width:34%;font-weight:600}
+.notas th{width:auto;font-size:8.5pt}.notas td{font-size:8.5pt}
+.mono{font-family:ui-monospace,Consolas,monospace;font-size:8.5pt;word-break:break-all}
+h2{font-size:11pt;margin:14px 0 4px}
+.rod{margin-top:12px;font-size:8pt;color:#666;border-top:.6pt solid #ccc;padding-top:6px}
+.arq button{font:inherit;font-size:9pt;border:1px solid #107E99;color:#107E99;background:#fff;border-radius:6px;padding:4px 10px;margin:2px 6px 2px 0;cursor:pointer}
+.msg{max-width:600px;margin:40px auto;background:#fff;border-radius:10px;padding:24px}
+@media print{body{background:#fff}.barra,.arq button{display:none}.folha{margin:0;padding:0;max-width:none}}
+</style>
+</head>
+<body>
+<div class="barra"><b>Comprovante de registro</b><span>Registro de auditoria da Plataforma Nervia</span><button onclick="print()">Imprimir / salvar PDF</button></div>
+<div id="saida"><div class="msg">Carregando…</div></div>
+<script>
+const CFG = window.NERVIA_CONFIG || window.BUSCADOR_CONFIG || {};
+const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
+const A = window.NERVIA_AUDITORIA;
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtCnpj = c => c && c.length === 14 ? `${c.slice(0,2)}.${c.slice(2,5)}.${c.slice(5,8)}/${c.slice(8,12)}-${c.slice(12)}` : (c || "");
+const brl = v => v == null ? "" : Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const linha = (k, v) => v ? `<tr><th>${k}</th><td>${v}</td></tr>` : "";
+function falha(t) { document.getElementById("saida").innerHTML = `<div class="msg">${t}</div>`; }
+
+async function iniciar() {
+  const id = Number(new URLSearchParams(location.search).get("id"));
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return falha('Entre na <a href="/cliente/">Área do Cliente</a> e abra o comprovante de novo.');
+  const { data: r, error } = await sb.from("auditoria").select("*").eq("id", id).maybeSingle();
+  if (error || !r) return falha("Registro não encontrado ou sem permissão para vê-lo.");
+  let empresa = null;
+  if (r.cnpj) empresa = (await sb.from("nf_empresas").select("nome, cnpj").eq("cnpj", r.cnpj).maybeSingle()).data;
+  const d = r.detalhes || {};
+  let notasHtml = "";
+  if (r.acao.startsWith("manifestacao_") && (d.notas || d.chaves)) {
+    const lista = d.notas || (d.chaves || []).map(chave => ({ chave }));
+    const { data: nf } = await sb.from("nf_notas").select("chave, numero, emit_nome, emit_cnpj, valor, data_emissao").eq("cnpj_consulta", r.cnpj).in("chave", lista.map(n => n.chave));
+    const porChave = Object.fromEntries((nf || []).map(n => [n.chave, n]));
+    notasHtml = `<h2>Notas (${lista.length})</h2><table class="notas"><tr><th>Nº / emitente</th><th>Valor</th><th>Chave de acesso</th><th>Resultado na SEFAZ</th><th>Protocolo / registro</th></tr>` +
+      lista.map(n => { const x = porChave[n.chave] || {};
+        return `<tr><td>${esc(x.numero || "")}<br>${esc(x.emit_nome || "")}<br>${fmtCnpj(x.emit_cnpj)}</td><td>${brl(x.valor)}</td><td class="mono">${esc(n.chave)}</td>
+          <td>${esc(n.cStat || "")} ${esc(n.xMotivo || "")}</td><td>${esc(n.nProt || "")}<br>${n.dhRegEvento ? esc(A.dataHora(n.dhRegEvento)) : ""}</td></tr>`; }).join("") + "</table>";
+  }
+  const arquivos = (d.arquivos || []).map(p => `<button onclick="baixar('${esc(p)}')">${esc(p.split("/").pop())}</button>`).join("");
+  const NOMES = { ignoradas_fora_do_prazo: "Notas ignoradas (fora do prazo)", tpEvento: "Código do evento", login: "Login afetado", signatario: "Signatário",
+    assinado_em: "Assinado em", situacao: "Situação", situacao_anterior: "Situação anterior", titular: "Titular do certificado", validade: "Validade",
+    cert_cnpj: "CNPJ do certificado", erro: "Erro", motivo: "Motivo", apps: "Aplicativos", cnpjs: "Empresas (CNPJ)", admin: "Administrador" };
+  const outros = Object.entries(d).filter(([k, v]) => !["notas", "arquivos", "chaves", "evento", "login_id"].includes(k) && v !== null && v !== "")
+    .map(([k, v]) => linha(esc(NOMES[k] || k.replace(/_/g, " ")), esc(Array.isArray(v) ? v.join(", ") : typeof v === "object" ? JSON.stringify(v) : v === true ? "sim" : v === false ? "não" : v))).join("");
+  document.title = `Comprovante nº ${r.id} · ${A.rotulo(r.acao)}`;
+  document.getElementById("saida").innerHTML = `<div class="folha">
+    <div class="cab"><img src="/img/nervia-logo.png" alt="Nervia Tecnologia"><small>Plataforma Nervia · nervia.com.br<br>atendimento@nervia.com.br</small></div>
+    <h1>Comprovante de registro nº ${r.id}</h1>
+    <div class="sub">${esc(A.rotulo(r.acao))}</div>
+    <table>
+      ${linha("Ação", esc(A.rotulo(r.acao)))}
+      ${linha("Data e hora (Brasília, relógio do servidor)", esc(A.dataHora(r.quando)))}
+      ${linha("Feito por", esc(A.quem(r)))}
+      ${linha("Perfil", r.papel === "admin" ? "Equipe Nervia" : r.papel === "cliente" ? "Cliente" : "Sistema (automático)")}
+      ${linha("Empresa", empresa ? `${esc(empresa.nome)} · CNPJ ${fmtCnpj(empresa.cnpj)}` : (r.cnpj ? fmtCnpj(r.cnpj) : ""))}
+      ${linha("Endereço IP de origem", esc(r.ip))}
+      ${linha("Navegador", esc(r.navegador))}
+      ${linha("Resumo", esc(A.resumo(r)))}
+      ${outros}
+    </table>
+    ${notasHtml}
+    ${arquivos ? `<h2>Arquivos oficiais</h2><div class="arq">${arquivos}</div><div style="font-size:8.5pt;color:#555">XML do evento assinado com o certificado da empresa e resposta da SEFAZ, guardados no momento do envio.</div>` : ""}
+    <div class="rod">Registro nº ${r.id} gravado automaticamente pela Plataforma Nervia em ${esc(A.dataHora(r.quando))}. O registro de auditoria é somente inclusão: não pode ser alterado nem apagado, nem pela equipe Nervia.
+      Para eventos fiscais, a prova oficial é o protocolo da SEFAZ, que pode ser conferido pela chave de acesso no portal nacional da NF-e (www.nfe.fazenda.gov.br). Emitido em ${esc(A.dataHora(new Date()))}.</div>
+  </div>`;
+}
+async function baixar(p) {
+  const { data, error } = await sb.storage.from("nf-xml").download(p);
+  if (error) return alert("Não foi possível baixar: " + error.message);
+  const a = document.createElement("a"); a.href = URL.createObjectURL(data); a.download = p.split("/").pop(); a.click(); URL.revokeObjectURL(a.href);
+}
+iniciar().catch(e => falha("Erro ao montar o comprovante: " + esc(e.message)));
+</script>
+</body>
+</html>

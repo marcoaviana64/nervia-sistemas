@@ -220,7 +220,9 @@ Deno.test("Confirmação da Operação: evento 210200 e prazos", async () => {
   const g = lerPfx(pfx("a1_moderno.pfx"), "1234").guardado;
   const resp = `<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"><soap:Body><nfeResultMsg><retEnvEvento xmlns="${NS}" versao="1.00"><cStat>128</cStat><xMotivo>Lote processado</xMotivo><retEvento versao="1.00"><infEvento><cStat>135</cStat><xMotivo>Evento registrado</xMotivo><chNFe>${CH1}</chNFe></infEvento></retEvento></retEnvEvento></nfeResultMsg></soap:Body></soap:Envelope>`;
   const { http, enviados } = httpFalso([() => new Response(resp)]);
-  const res = await sefaz.manifestarCiencia(b, http, g, CNPJ, [CH1], "confirmacao");
+  const arquivos: string[] = [];
+  const res = await sefaz.manifestarCiencia(b, http, g, CNPJ, [CH1], "confirmacao", arquivos);
+  assert(arquivos.length === 2 && arquivos[0].includes("/eventos-enviados/") && arquivos[0].endsWith("-210200-lote1-enviado.xml"), arquivos.join());
   assertEquals(res[0][1], "135");
   assert(notas.get("NFE" + CH1)!.manifestada);
   const corpo = enviados[0].body;

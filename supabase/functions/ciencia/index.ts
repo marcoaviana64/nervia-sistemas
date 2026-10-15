@@ -5,6 +5,7 @@
 import { admin, bancoSupabase } from "../_shared/banco.ts";
 import { clienteHttp } from "../_shared/certificado.ts";
 import { erro, json, servir } from "../_shared/http.ts";
+import { auditar } from "../_shared/auditoria.ts";
 import { CSTAT_CIENCIA_OK, EVENTOS, type Http, manifestarCiencia, type TipoEvento } from "../_shared/sefaz.ts";
 import { httpViaPonte, temPonte } from "../_shared/ponte.ts";
 
@@ -41,7 +42,20 @@ servir(async (req, quem) => {
   const client = temPonte() ? null : clienteHttp(cert);
   const http: Http = client ? (u, i) => fetch(u, { ...i, client } as RequestInit) : httpViaPonte(cert);
   try {
-    const res = await manifestarCiencia(banco, http, cert, cnpj, chaves, tipo);
+    const arquivos: string[] = [];
+    let res;
+    try {
+      res = await manifestarCiencia(banco, http, cert, cnpj, chaves, tipo, arquivos);
+    } catch (e) {
+      // tentativa que não chegou ao fim também fica registrada (pode ter chegado à SEFAZ)
+      await auditar(sb, req, quem, `manifestacao_${tipo}_falhou`, cnpj, { evento: ev.nome, chaves, arquivos, erro: (e as Error).message });
+      throw e;
+    }
+    // comprovante: quem pediu, quando, de onde, cada nota com o protocolo da SEFAZ e os XMLs enviados/recebidos
+    await auditar(sb, req, quem, `manifestacao_${tipo}`, cnpj, {
+      evento: ev.nome, tpEvento: ev.tp, ignoradas_fora_do_prazo: foraPrazo, arquivos,
+      notas: res.map(([chave, cStat, xMotivo, nProt, dhRegEvento]) => ({ chave, cStat, xMotivo, nProt, dhRegEvento })),
+    });
     const ok = res.filter(([, s]) => CSTAT_CIENCIA_OK.has(s)).length;
     const falhas = res.filter(([, s]) => !CSTAT_CIENCIA_OK.has(s)).map(([c, s, m]) => `…${c.slice(-8)}: ${s} ${m}`);
     return json({

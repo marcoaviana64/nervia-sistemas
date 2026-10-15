@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="/config.js"></script>
+<script src="/auditoria.js"></script>
 <script src="/demo/supabase-demo.js"></script>
 <style>
 :root{
@@ -102,6 +103,8 @@ header{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdro
 .chips .small{color:var(--muted);font-weight:400}
 .apagado{opacity:.4;pointer-events:none}
 .aviso-emp{color:#a15c00;margin-top:6px}
+table.aud{width:100%;border-collapse:collapse;font-size:.84rem}table.aud th,table.aud td{border-top:1px solid var(--border);padding:7px 6px;text-align:left;vertical-align:top}
+table.aud th{color:var(--muted);font-weight:600}table.aud a{color:var(--teal, #107E99)}
 .usu .acoes{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
 .usu .acoes button{padding:7px 12px;font-size:.84rem}
 .tag{display:inline-block;padding:2px 8px;border-radius:20px;background:var(--icon-bg);color:var(--accent);font-size:.75rem;font-weight:700;margin-left:6px}
@@ -205,7 +208,7 @@ addEventListener("resize",m);document.addEventListener("DOMContentLoaded",m);m()
   <main id="vAdmin" class="pagina oculto">
     <h1>Administração</h1>
     <div class="sub">Logins e aplicativos da Área do Cliente</div>
-    <div class="abas"><button id="abaUsu" onclick="aba('usu')">Logins</button><button id="abaApps" onclick="aba('apps')">Aplicativos</button></div>
+    <div class="abas"><button id="abaUsu" onclick="aba('usu')">Logins</button><button id="abaApps" onclick="aba('apps')">Aplicativos</button><button id="abaAud" onclick="aba('aud')">Auditoria</button></div>
     <div id="msgAdm" class="msg"></div>
     <div id="admConteudo"></div>
   </main>
@@ -341,9 +344,29 @@ function fecharAjuda() { $("painelAjuda").classList.add("oculto"); }
 // ------------------------------------------------------------ administração
 async function aba(qual) {
   abaAtual = qual;
-  $("abaUsu").classList.toggle("on", qual === "usu"); $("abaApps").classList.toggle("on", qual === "apps");
+  $("abaUsu").classList.toggle("on", qual === "usu"); $("abaApps").classList.toggle("on", qual === "apps"); $("abaAud").classList.toggle("on", qual === "aud");
   msg($("msgAdm"), "", "");
-  try { qual === "usu" ? await admLogins() : admApps(); } catch (e) { msg($("msgAdm"), "err", e.message); }
+  try { qual === "usu" ? await admLogins() : qual === "aud" ? await admAuditoria() : admApps(); } catch (e) { msg($("msgAdm"), "err", e.message); }
+}
+
+// Registro de auditoria de toda a plataforma (somente inclusão). Comprovante imprimível por registro.
+async function admAuditoria() {
+  const A = window.NERVIA_AUDITORIA;
+  const l = checar(await sb.from("auditoria").select("*").order("quando", { ascending: false }).limit(500));
+  window._aud = l;
+  $("admConteudo").innerHTML = `<div class="cartao"><h2>Registro de auditoria</h2>
+    <div class="small">Ações sensíveis da plataforma: quem fez, quando (horário de Brasília, relógio do servidor), de onde e o quê. Gravado automaticamente; não pode ser alterado nem apagado. Últimos 500 registros.</div>
+    <div class="linha" style="margin-top:10px"><div><label>Procurar</label><input id="audQ" placeholder="ação, pessoa, CNPJ, chave..." oninput="filtrarAud()"></div></div>
+    <div id="audLista" style="margin-top:10px"></div></div>`;
+  filtrarAud();
+}
+function filtrarAud() {
+  const A = window.NERVIA_AUDITORIA, q = ($("audQ")?.value || "").toLowerCase();
+  const l = (window._aud || []).filter(r => !q || [A.rotulo(r.acao), r.email, r.nome, r.cnpj, JSON.stringify(r.detalhes)].join(" ").toLowerCase().includes(q));
+  $("audLista").innerHTML = l.length ? `<table class="aud"><tr><th>Data e hora</th><th>Ação</th><th>Feito por</th><th>Empresa</th><th>Resumo</th><th></th></tr>` +
+    l.map(r => `<tr><td>${esc(A.dataHora(r.quando))}</td><td>${A.SENSIVEL.has(r.acao) ? "<b>" + esc(A.rotulo(r.acao)) + "</b>" : esc(A.rotulo(r.acao))}</td><td>${esc(A.quem(r))}</td>
+      <td>${esc(r.cnpj || "")}</td><td>${esc(A.resumo(r))}</td><td><a href="/demo/comprovante.html?id=${r.id}" target="_blank" rel="noopener">comprovante</a></td></tr>`).join("") + "</table>"
+    : '<div class="small">Nenhum registro.</div>';
 }
 
 async function admLogins() {

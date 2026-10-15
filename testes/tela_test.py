@@ -55,6 +55,9 @@ with sync_playwright() as p:
     pg.select_option("#xSit", ""); pg.wait_for_timeout(300)
     pg.click("#bNfe"); pg.wait_for_selector("#msgP.ok")
     assert "Novas: 3" in pg.inner_text("#msgP")
+    # registro de auditoria da empresa
+    pg.click("text=Registro de auditoria"); pg.wait_for_selector("#auditoria div")
+    assert "Certificado A1 cadastrado" in pg.inner_text("#auditoria") and "Ciência" not in pg.inner_text("#auditoria"), "só registros da empresa aberta"
     # chave NF-e por empresa
     assert "NF-e ligada" in pg.inner_text("#painel") and pg.locator("#bNfeChave").inner_text() == "Desligar NF-e"
     pg.once("dialog", lambda d: d.accept())
@@ -196,6 +199,16 @@ with sync_playwright() as p:
     adm = pg.locator(".usu", has_text="marco@nervia.com.br")
     assert adm.locator("#nEmpresas, .chips input").count() == 0, "admin não tem lista de empresas"
     pg.screenshot(path=f"{SAIDA}/portal_admin.png")
+    pg.click("#abaAud"); pg.wait_for_selector("table.aud")
+    assert pg.locator("table.aud tr").count() == 4 and "Ciência da Operação (SEFAZ)" in pg.inner_text("table.aud")
+    pg.fill("#audQ", "login criado"); assert pg.locator("table.aud tr").count() == 2
+    pg.screenshot(path=f"{SAIDA}/portal_auditoria.png")
+    cp = b.new_page(); cp.route("**/supabase-js@*/**", lambda r: r.fulfill(body=FALSO, content_type="text/javascript"))
+    cp.route("**/config.js", lambda r: r.fulfill(body=CONFIG, content_type="text/javascript"))
+    cp.goto("http://127.0.0.1:8811/cliente/comprovante.html?id=1&papel=admin"); cp.wait_for_selector(".folha")
+    tc = cp.inner_text(".folha")
+    assert "Comprovante de registro nº 1" in tc and "891260000123456" in tc and "200.1.2.3" in tc and "Financeiro Linum" in tc, tc[:500]
+    cp.screenshot(path=f"{SAIDA}/comprovante.png", full_page=True); cp.close()
     pg.click("#abaApps"); pg.wait_for_selector("text=Novo aplicativo")
     nv = pg.locator(".cartao").last
     nv.locator(".fId").fill("relatorios"); nv.locator(".fNome").fill("Relatórios"); nv.locator(".fUrl").fill("/apps/relatorios/")

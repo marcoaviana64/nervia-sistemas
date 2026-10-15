@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Buscador de NF</title>
 <script src="/config.js"></script>
+<script src="/auditoria.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <style>
 :root{--bg:#f4f6f6;--card:#fff;--txt:#14201f;--sub:#5b6b69;--linha:#e2e8e7;--teal:#0f8b84;--teal2:#0b6d67;
@@ -272,7 +273,8 @@ function desenharPainel() {
   <div class="kpis" id="kpis"></div>
   <div class="small" id="nSel" style="min-height:16px;margin:-4px 0 4px"></div>
   <div class="tab" id="tab"></div>
-  <details style="margin-top:12px" ontoggle="if(this.open)carregarLog()"><summary>Histórico de buscas</summary><div class="log" id="log"></div></details>`;
+  <details style="margin-top:12px" ontoggle="if(this.open)carregarLog()"><summary>Histórico de buscas</summary><div class="log" id="log"></div></details>
+  <details style="margin-top:8px" ontoggle="if(this.open)carregarAuditoria()"><summary>Registro de auditoria (quem fez o quê)</summary><div class="log" id="auditoria"></div></details>`;
   Object.entries(salvos).forEach(([k, v]) => $(k).value = v);
   if ($("tStatus")) $("tStatus").value = e.termo_status === "pendente" ? "assinado" : e.termo_status;
   if (ultimaMsg) msg($("msgP"), ...ultimaMsg);
@@ -445,6 +447,16 @@ function exportar() {
 async function carregarLog() {
   const l = checar(await sb.from("nf_log").select("*").eq("cnpj", atual).order("id", { ascending: false }).limit(30));
   $("log").innerHTML = l.length ? l.map(x => `<div><b>${fmtDH(x.quando)}</b> · ${esc(x.origem)} · ${esc(x.mensagem)}</div>`).join("") : '<div class="small">Sem histórico.</div>';
+}
+
+// Ações sensíveis desta empresa (ciência, confirmação, certificado, termo, acessos...). Somente inclusão.
+async function carregarAuditoria() {
+  const A = window.NERVIA_AUDITORIA;
+  const l = checar(await sb.from("auditoria").select("*").eq("cnpj", atual).order("quando", { ascending: false }).limit(100));
+  $("auditoria").innerHTML = l.length ? `<div class="small" style="margin-bottom:6px">Gravado automaticamente; não pode ser alterado nem apagado. Clique em "comprovante" para imprimir ou salvar em PDF.</div>` +
+    l.map(r => `<div><b>${esc(A.dataHora(r.quando))}</b> · ${A.SENSIVEL.has(r.acao) ? "<b>" + esc(A.rotulo(r.acao)) + "</b>" : esc(A.rotulo(r.acao))} · ${esc(A.quem(r))}${A.resumo(r) ? " · " + esc(A.resumo(r)) : ""}
+      · <button class="lnk" onclick="window.open('/cliente/comprovante.html?id=${r.id}','_blank','noopener')">comprovante</button></div>`).join("")
+    : '<div class="small">Nenhum registro ainda.</div>';
 }
 
 // ------------------------------------------------------------ quem vê cada empresa (admin)
