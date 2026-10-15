@@ -109,7 +109,7 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
 - 2026-10-14: contador de acessos do site (worker + `site_acessos` + tela + /privacidade.html). Testes: worker 4/4, SQL, tela, demo OK. Falta o Marco colar `ACESSOS_SEGREDO` na Cloudflare (IMPLANTACAO.md §9).
 - 2026-10-14: Linum: zerar o NSU deu 656 (a SEFAZ não reentrega NSU já consumido pelo outro sistema). Marco voltou `ult_nsu_nfe` para 419; criada a "Recuperar NF-e anteriores" por consNSU (v11-recuperar, Deno 14/14). Falta clicar uma vez na Linum e acompanhar.
 
-- 2026-10-15: app **Auditoria de Telefonia Móvel** (telefonia) + demonstração pública. Testes: SQL OK (RLS tel_, auditoria), tela `testes/telefonia/tela_telefonia_test.py` OK (admin monta/publica/libera, cliente, sem acesso, iframe, ajuda, demo, celular), `processar.js` conferido contra o script Python da primeira versão nos CSVs reais da Power (0 diferenças). Falta: Marco carregar os CSVs da Power no app, publicar e liberar o login da Power.
+- 2026-10-15: app **Auditoria de Telefonia Móvel** (telefonia) + demonstração pública. Testes: SQL OK (RLS tel_, auditoria), tela `testes/telefonia/tela_telefonia_test.py` OK (admin monta/publica/libera, cliente, sem acesso, iframe, ajuda, demo, celular), `processar.js` conferido contra o script Python da primeira versão nos CSVs reais da Power (0 diferenças). 2026-10-15 17h21: Marco carregou os CSVs da Power no app (relatório publicado na Área do Cliente).
 
 ## Ideias (comercialização)
 - Política de privacidade (`/privacidade.html`): revisar com advogado junto com o termo.
