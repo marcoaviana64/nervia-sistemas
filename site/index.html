@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nervia Tecnologia da Informação | Suporte, Infraestrutura e Câmeras</title>
-<meta name="description" content="Nervia TI: suporte a usuários, montagem de infraestrutura e rede, instalação de câmeras, consultoria em projetos de TI e o Ecossistema Nervia App (Buscador de NF, Painel de Notas e Vendas de Perfumes) para empresas no Rio de Janeiro.">
+<meta name="description" content="Nervia TI: suporte a usuários, montagem de infraestrutura e rede, instalação de câmeras, consultoria em projetos de TI e o Ecossistema Nervia App (Buscador de NF, Painel de Notas e Nervia Controle de Produtos - Perfumes) para empresas no Rio de Janeiro.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -329,7 +329,7 @@ footer{border-top:1px solid var(--border);padding:36px 0;color:var(--muted);font
           </ul>
         </div>
         <div class="app-card">
-          <div class="app-top"><span class="app-ic">VP</span><div><h3>Vendas de Perfumes</h3><small>Vendas, crediário e estoque para revenda</small></div></div>
+          <div class="app-top"><span class="app-ic">CP</span><div><h3>Nervia Controle de Produtos - Perfumes</h3><small>Produtos, estoque, vendas e crediário para revenda</small></div></div>
           <ul>
             <li><b>Contas a receber</b> com parcelas, atrasos em destaque e mensagem de cobrança pronta para o WhatsApp.</li>
             <li><b>Entregas pendentes</b>, clientes com aniversário e preferências, e caixa do dia por forma de pagamento.</li>
@@ -351,7 +351,7 @@ footer{border-top:1px solid var(--border);padding:36px 0;color:var(--muted);font
     </div>
     <div class="apps-ctas">
       <a class="btn btn-primary" href="/demo/" target="_blank" rel="noopener">Demonstração: notas fiscais</a>
-      <a class="btn btn-ghost" href="/demo/perfumes/" target="_blank" rel="noopener">Demonstração: Vendas de Perfumes</a>
+      <a class="btn btn-ghost" href="/demo/perfumes/" target="_blank" rel="noopener">Demonstração: Controle de Produtos - Perfumes</a>
       <a class="btn btn-wa js-wa-apps" href="#" target="_blank" rel="noopener">Quero assinar</a>
       <small>Cada aplicativo tem sua demonstração com dados fictícios: entre e teste à vontade, sem cadastro.</small>
     </div>
@@ -492,7 +492,7 @@ const CONFIG = {
 const waBase = "https://wa.me/" + CONFIG.whatsapp;
 document.querySelectorAll(".js-wa").forEach(a => a.href = waBase + "?text=" + encodeURIComponent("Olá! Vim pelo site da Nervia e gostaria de falar sobre TI."));
 document.querySelectorAll(".js-wa-apps").forEach(a => a.href = waBase + "?text=" + encodeURIComponent("Olá! Vi o Ecossistema Nervia App no site da Nervia e quero saber mais."));
-document.querySelectorAll(".js-wa-perfumes").forEach(a => a.href = waBase + "?text=" + encodeURIComponent("Olá! Vi o app Vendas de Perfumes no site da Nervia e quero saber mais."));
+document.querySelectorAll(".js-wa-perfumes").forEach(a => a.href = waBase + "?text=" + encodeURIComponent("Olá! Vi o app Nervia Controle de Produtos - Perfumes no site da Nervia e quero saber mais."));
 document.querySelectorAll(".js-wa-label").forEach(el => el.textContent = CONFIG.whatsappLabel);
 document.querySelectorAll(".js-mail").forEach(a => a.href = "mailto:" + CONFIG.email);
 document.querySelectorAll(".js-mail-label").forEach(el => el.textContent = CONFIG.email);

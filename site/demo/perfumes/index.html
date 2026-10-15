@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Demonstração · Vendas de Perfumes</title>
+<title>Demonstração · Nervia Controle de Produtos - Perfumes</title>
 <style>
 :root{--bg:#f4f6f7;--card:#fff;--tx:#1b1f22;--mut:#66727a;--ln:#dde3e6;--tl:#0f9d8f;--tl2:#e3f5f3;--rd:#c0392b;--rd2:#fbe9e7;--am:#b7791f;--am2:#fdf3e1;--gr:#2e7d32;--gr2:#e6f4e7;--hd:#111}
 *{box-sizing:border-box}body{margin:0;font:15px/1.45 system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--tx)}
@@ -42,7 +42,7 @@ pre.msg{white-space:pre-wrap;background:#f1f8f7;border-radius:8px;padding:10px;f
 </head>
 <body>
 <header>
-  <div class="logo">NERVIA <b>◠</b></div><div class="app">Vendas de Perfumes</div>
+  <div class="logo">NERVIA <b>◠</b></div><div class="app">Controle de Produtos - Perfumes</div>
   <div class="demo">DEMONSTRAÇÃO · dados fictícios</div>
 </header>
 <nav id="nav">
@@ -157,7 +157,7 @@ caixa(){const pg=parcelas().filter(x=>x.pg);const per=pg.filter(x=>dias(x.pg.d)>
  <p class="big">Total: ${brl(hoje.reduce((s,x)=>s+x.val,0))}</p></div>
  <div class="card"><h2>Recebimentos (30 dias)</h2><div class="tw"><table><tr><th>Data</th><th>Cliente</th><th>Venda</th><th>Forma</th><th>Valor</th></tr>${per.sort((a,b)=>a.pg.d<b.pg.d?1:-1).map(x=>`<tr><td>${fd(x.pg.d)}</td><td>${C(x.venda.cli).nome}</td><td>${x.venda.id} · parc. ${x.i+1}/${x.n}</td><td>${x.pg.f}</td><td>${brl(x.val)}</td></tr>`).join('')}</table></div></div>`}
 };
-function render(){const note=`<div class="note"><b>Protótipo para validação</b>Tudo aqui é fictício e fica só na memória da página (ao recarregar, volta ao início). Data de "hoje" fixa em ${fd(add(0))}. Pode cadastrar produtos, clientes e vendas (com desconto) à vontade. Fora deste exemplo: emissão de NFC-e/NF-e, leitor de código de barras, importação de XML de fornecedor e comissão — fale com a Nervia para adaptar ao seu negócio. <a href="https://wa.me/5521966869374?text=Ol%C3%A1%2C%20vi%20a%20demonstra%C3%A7%C3%A3o%20do%20app%20de%20vendas%20de%20perfumes" target=_blank rel=noopener>Falar no WhatsApp</a></div>`;
+function render(){const note=`<div class="note"><b>Protótipo para validação</b>Tudo aqui é fictício e fica só na memória da página (ao recarregar, volta ao início). Data de "hoje" fixa em ${fd(add(0))}. Pode cadastrar produtos, clientes e vendas (com desconto) à vontade. Fora deste exemplo: emissão de NFC-e/NF-e, leitor de código de barras, importação de XML de fornecedor e comissão — fale com a Nervia para adaptar ao seu negócio. <a href="https://wa.me/5521966869374?text=Ol%C3%A1%2C%20vi%20a%20demonstra%C3%A7%C3%A3o%20do%20app%20Nervia%20Controle%20de%20Produtos%20-%20Perfumes" target=_blank rel=noopener>Falar no WhatsApp</a></div>`;
  document.getElementById('main').innerHTML=(aba=='painel'?note:'')+V[aba]()}
 
 const dlg=document.getElementById('dlg'),dlgf=document.getElementById('dlgf');
