@@ -42,6 +42,20 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
 - `site/demo/` — **demonstração pública** (https://nervia.com.br/demo/): cópias GERADAS da Área do Cliente, Buscador, espelho e Painel com `site/demo/supabase-demo.js` no lugar do supabase-js (login com qualquer e-mail/senha, 2 empresas e 12 meses de notas fictícias relativas à data de hoje, XMLs fictícios, nada acessa a rede nem o Supabase). Não editar as páginas de `site/demo/`: rodar `python3 divulgacao/demo/gerar.py` sempre que o portal, o Buscador, o espelho ou o Painel mudarem, e testar com `python3 divulgacao/demo/testar.py`.
 - `divulgacao/apresentacao/` — apresentação comercial dos apps (HTML → PDF "Nervia - Aplicativos de notas fiscais.pdf", no OneDrive em Projects\Nervia). Telas com dados fictícios (`demo.js`); preço proposto R$ 40/mês por app (por CNPJ, a confirmar com o Marco). Ao mudar um app de forma visível, refazer as telas.
 
+## Como trabalhar (pedido do Marco, 2026-10-14)
+- **Antes de implementar ou configurar algo que depende de regra externa** (SEFAZ/ADN, Supabase, Cloudflare, Google Cloud, bancos, prefeituras), ler a norma/documentação oficial e **avisar o Marco antes** dos requisitos e do que pode dar errado. Nada de descobrir regra já documentada por tentativa e erro. Ao descobrir uma regra nova, registrar em "Requisitos e limites conhecidos".
+
+## Requisitos e limites conhecidos (conferidos na NT 2014.002 v1.40 e na documentação do ADN)
+- NF-e (NFeDistribuicaoDFe):
+  - Só ~90 dias: notas mais antigas não vêm (rejeição 632 fora da janela). A primeira carga de um cliente traz só os últimos ~90 dias.
+  - **O emitente NÃO recebe as próprias NF-e.** As NF-e de VENDA do cliente nunca chegam pelo Buscador (só NFS-e emitidas, pelo ADN). O "Vendas" do Painel, para produtos, fica vazio.
+  - **O destinatário recebe só o RESUMO até manifestar** (ciência, confirmação ou desconhecimento). Toda NF-e de compra chega "só resumo"; o XML completo só vem depois da ciência (clique do admin, regra abaixo).
+  - Um sistema por CNPJ (sequência única de NSU); 656 bloqueia o CNPJ inteiro 1h; repetir dentro da hora reinicia a contagem. Consulta por chave/NSU: máx. 20/h.
+  - Lote de no máximo 50 documentos por resposta.
+  - Certificado: vale pela raiz (8 dígitos) — o A1 da matriz consulta filiais (a função `certificado` já aceita mesma raiz).
+- NFS-e (ADN): só municípios que aderiram ao padrão nacional; NFS-e de prefeitura com sistema próprio não aparece.
+- Escala: o cron roda ~120 s por hora para todas as empresas; com muitas empresas (estimativa: acima de ~15–20) nem todas cabem numa rodada. Rever antes de passar disso.
+
 ## Regras que não podem quebrar
 - **Sem termo, sem certificado**: a função `certificado` recusa (409) se `termo_status = 'pendente'`; a tela só mostra o envio com o termo assinado ou dispensado. "Dispensado" só para empresas da própria Nervia (32072678000176 já marcada na migração).
 - **Custos sempre registrados** (pedido do Marco, 2026-10-14): a planilha `OneDrive\Documents\Claude\Projects\Nervia\Plataforma Nervia - Investimento.xlsx` (fora do GitHub) guarda custos mensais, investimento inicial, preço por CNPJ, cenários e limites. Ao contratar, trocar de plano ou acrescentar serviço pago, atualizar a aba "Custos mensais" (linha nova antes do total) e o "Histórico", e avisar o Marco do impacto no preço por CNPJ.
