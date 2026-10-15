@@ -156,9 +156,11 @@ Deno.test("NF-e: lotes, cancelamento, bloqueio de 1h e 656", async () => {
 Deno.test("NF-e: trava automática após 2 rejeições 656 seguidas e liga/desliga", async () => {
   const { b, e, log } = bancoFalso();
   // 1ª 656: só bloqueia 1h e conta
-  const r1 = await sefaz.sincronizar(b, httpFalso([await retDist("656", 0, 0, [])]).http, CNPJ, { pausaMs: 0 });
+  const r1 = await sefaz.sincronizar(b, httpFalso([await retDist("656", 500, 600, [])]).http, CNPJ, { pausaMs: 0 });
   assert(!r1.ok || r1.mensagem.includes("1h"));
   assert(e.nfe_656_seguidas === 1 && e.nfe_ativa !== false);
+  assert(e.ult_nsu_nfe === 0, "656 não pode avançar o NSU (perderia notas)");
+  assert(log.some((l) => l.includes("SEFAZ informou ultNSU")));
   // sucesso zera a contagem
   e.bloqueio_nfe = null;
   await sefaz.sincronizar(b, httpFalso([await retDist("137", 0, 0, [])]).http, CNPJ, { pausaMs: 0 });

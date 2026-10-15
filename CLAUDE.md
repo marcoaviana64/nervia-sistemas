@@ -52,6 +52,12 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
   - **O destinatário recebe só o RESUMO até manifestar** (ciência, confirmação ou desconhecimento). Toda NF-e de compra chega "só resumo"; o XML completo só vem depois da ciência (clique do admin, regra abaixo).
   - Um sistema por CNPJ (sequência única de NSU); 656 bloqueia o CNPJ inteiro 1h; repetir dentro da hora reinicia a contagem. Consulta por chave/NSU: máx. 20/h.
   - Lote de no máximo 50 documentos por resposta.
+  - Numa 656 o Buscador NÃO avança o ultNSU (antes avançava para o ultNSU devolvido pela SEFAZ, o que podia pular notas em silêncio); só registra no histórico "[NSU nosso X; SEFAZ informou ultNSU Y, maxNSU Z]" (v8-nsu656).
+- Manifestação do destinatário (NT 2020.001; conferir a versão vigente antes de mexer):
+  - Ciência da Operação (210210): só até **10 dias** da autorização da NF-e (fora do prazo: rejeição 596). Não é conclusiva.
+  - Conclusivas (Confirmação 210200, Desconhecimento 210220, Operação não realizada 210240): **90 dias** desde 01/06/2026 (v1.60, Ajuste SINIEF 14/2026; antes eram 180). Depois de uma conclusiva não cabe mais ciência (655).
+  - Até 20 eventos por lote; 573 = duplicidade (já registrado, inclusive por outro sistema) — tratado como sucesso.
+  - Se outro sistema já manifestou a nota, o XML completo vem para qualquer sistema do mesmo CNPJ.
   - Certificado: vale pela raiz (8 dígitos) — o A1 da matriz consulta filiais (a função `certificado` já aceita mesma raiz).
 - NFS-e (ADN): só municípios que aderiram ao padrão nacional; NFS-e de prefeitura com sistema próprio não aparece.
 - Escala: o cron roda ~120 s por hora para todas as empresas; com muitas empresas (estimativa: acima de ~15–20) nem todas cabem numa rodada. Rever antes de passar disso.
@@ -84,7 +90,7 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
   - 2026-10-14: custo da ponte contido. Gatilho do Cloud Build `rmgpgab-ponte-sefaz-southamerica-east1-marcoaviana64-nervia-lcm` (global, único do projeto, YAML inline) com filtro de arquivos incluídos `ponte-sefaz/**`: só push que mexe em `ponte-sefaz/` faz deploy da ponte. Artifact Registry `cloud-run-source-deploy` (southamerica-east1, único repositório, pacote `nervia-sistemas/ponte-sefaz`) com limpeza em modo Excluir: `manter-2-recentes` + `apagar-antigas` (> 7 dias). Revisões antigas do Cloud Run perdem a imagem; para voltar, refazer do GitHub.
   - PENDENTE (opcional): `PONTE_SEGREDO` está como variável em texto puro no Cloud Run; passar para o Secret Manager (secret `ponte-segredo`, valor colado pelo Marco; antes conferir no YAML do gatilho se o deploy usa `--set-env-vars`).
 - 2026-10-14: DOMÍNIO LIGADO. DNS do nervia.com.br migrado para a Cloudflare pelo Marco (NS cloudflare; registros do M365 conferidos: MX, SPF, MS=/mscid, autodiscover, SRV/lync do Teams). https://nervia.com.br e https://www.nervia.com.br servem o worker `nervia-site`; Área do Cliente OK.
-- `SITE_ORIGEM` aceita lista separada por vírgula (função `origemPermitida`; versão atual das funções: v7-trava656). Valor previsto: `https://nervia.com.br,https://www.nervia.com.br`.
+- `SITE_ORIGEM` aceita lista separada por vírgula (função `origemPermitida`; versão atual das funções: v8-nsu656). Valor previsto: `https://nervia.com.br,https://www.nervia.com.br`.
 
 - 2026-10-14: ajuda dos apps (migração `..._apps_ajuda.sql`), cartão e manual do Buscador, contato WhatsApp/e-mail na entrada. "Esqueci minha senha": por decisão do Marco (não contratar serviço de e-mail agora), NÃO há envio automático; o botão abre um e-mail do próprio usuário para atendimento@nervia.com.br, e a Nervia define senha provisória em Administração → Logins → "Definir nova senha" (atender só pedidos vindos do e-mail do login). Envio automático por link fica para quando houver SMTP próprio (Supabase só envia para a equipe da org, 2/h).
 

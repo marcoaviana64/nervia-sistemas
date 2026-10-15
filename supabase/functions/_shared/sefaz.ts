@@ -139,7 +139,9 @@ export async function sincronizar(
   for (let lote = 1; ; lote++) {
     const ret = await consultarLote(http, cnpj, cuf, ult);
     if (ret.cStat === "656") {
-      if (ret.ultNSU) ult = Math.max(ult, ret.ultNSU);
+      // NÃO avançar o ultNSU numa 656: pular a sequência faria perder, em silêncio, as notas anteriores
+      // (ex.: as que outro sistema do cliente já baixou). Só registra o que a SEFAZ informou, para diagnóstico.
+      const nsuSefaz = ` [NSU nosso ${ult}; SEFAZ informou ultNSU ${ret.ultNSU}, maxNSU ${ret.maxNSU}]`;
       const seguidas = (emp.nfe_656_seguidas ?? 0) + 1;
       if (seguidas >= MAX_656_SEGUIDAS) {
         const quando = new Date(agora()).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
@@ -147,16 +149,17 @@ export async function sincronizar(
           `Quase sempre é porque outro sistema (ERP, contabilidade ou portal de notas) baixa as NF-e deste CNPJ, e a SEFAZ só aceita um. ` +
           `Desligue o download automático no outro sistema, espere 1 hora e clique em "Ligar NF-e".`;
         await b.atualizarEmpresa(cnpj, {
-          ult_nsu_nfe: ult, bloqueio_nfe: new Date(agora() + ESPERA_MS).toISOString(),
+          bloqueio_nfe: new Date(agora() + ESPERA_MS).toISOString(),
           nfe_656_seguidas: seguidas, nfe_ativa: false, nfe_pausa_motivo: motivo,
         });
-        await b.registrar(cnpj, "NFE", motivo);
+        await b.registrar(cnpj, "NFE", motivo + nsuSefaz);
         return { ok: false, mensagem: motivo };
       }
-      await b.atualizarEmpresa(cnpj, { ult_nsu_nfe: ult, bloqueio_nfe: new Date(agora() + ESPERA_MS).toISOString(), nfe_656_seguidas: seguidas });
+      await b.atualizarEmpresa(cnpj, { bloqueio_nfe: new Date(agora() + ESPERA_MS).toISOString(), nfe_656_seguidas: seguidas });
       const hora = new Date(agora() + ESPERA_MS).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
       mensagem = `A SEFAZ pediu 1h de espera para este CNPJ (rejeição 656, consumo indevido). Normalmente é porque outro sistema da empresa ` +
         `(ERP, contabilidade ou portal de notas) consultou as NF-e há menos de 1 hora. Nada se perde: a busca tenta de novo sozinha a partir das ${hora}.`;
+      await b.registrar(cnpj, "NFE", "Rejeição 656" + nsuSefaz);
       break;
     }
     if (ret.cStat !== "137" && ret.cStat !== "138") throw new ErroSefaz(`SEFAZ cStat ${ret.cStat}: ${ret.xMotivo}`);
