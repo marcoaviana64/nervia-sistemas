@@ -40,6 +40,15 @@
         acao: "login_criado", cnpj: null, detalhes: { login: "financeiro@linum.com.br", apps: ["notas"], cnpjs: ["22222222000122"] } },
     ],
   };
+  // acessos do site: 3 visitantes nos últimos dias (RJ, SP e exterior) + um antigo sem IP (anonimizado)
+  const hAtras = (h) => new Date(Date.now() - h * 36e5).toISOString();
+  db.site_acessos = [
+    { quando: hAtras(1), ip: "189.10.20.30", pais: "BR", estado: "Rio de Janeiro", estado_sigla: "RJ", cidade: "Niterói", pagina: "/", origem: "google.com", dispositivo: "Celular" },
+    { quando: hAtras(1.1), ip: "189.10.20.30", pais: "BR", estado: "Rio de Janeiro", estado_sigla: "RJ", cidade: "Niterói", pagina: "/demo/", origem: null, dispositivo: "Celular" },
+    { quando: hAtras(30), ip: "177.55.66.77", pais: "BR", estado: "São Paulo", estado_sigla: "SP", cidade: "Campinas", pagina: "/", origem: "whatsapp", dispositivo: "Computador" },
+    { quando: hAtras(50), ip: "8.8.4.4", pais: "US", estado: "California", estado_sigla: "CA", cidade: "Mountain View", pagina: "/privacidade.html", origem: null, dispositivo: "Computador" },
+    { quando: hAtras(24 * 100), ip: null, pais: "BR", estado: "Rio de Janeiro", estado_sigla: "RJ", cidade: "Rio de Janeiro", pagina: "/", origem: null, dispositivo: "Computador" },
+  ];
   const linhas = [
     ["NFE", "1", "33333333000133", "DISTRIBUIDORA DE REDES LTDA", "2026-10-08T10:00:00-03:00", 1840.9, "Autorizada", false, false],
     ["NFE", "4521", "44444444000144", "KALUNGA COMERCIO SA", "2026-10-02T10:00:00-03:00", 389.7, "Autorizada", true, false],
@@ -67,7 +76,7 @@
   }
   const pode = (cnpj) => papel === "admin" || db.nf_acessos.some((a) => a.user_id === eu.id && a.cnpj === cnpj);
   const rls = { nf_notas: (r) => pode(r.cnpj_consulta), nf_empresas: (r) => pode(r.cnpj), nf_log: (r) => pode(r.cnpj),
-    auditoria: (r) => papel === "admin" || (r.cnpj && pode(r.cnpj)),
+    auditoria: (r) => papel === "admin" || (r.cnpj && pode(r.cnpj)), site_acessos: () => papel === "admin",
     perfis: (r) => papel === "admin" || r.user_id === eu.id,
     apps: (r) => papel === "admin" || (r.ativo && db.app_acessos.some((a) => a.app_id === r.id && a.user_id === eu.id)),
     app_acessos: (r) => papel === "admin" || r.user_id === eu.id, nf_acessos: (r) => papel === "admin" || r.user_id === eu.id };
@@ -78,7 +87,7 @@
     const q = {
       select() { return q; }, order(c, o) { ordem = [c, o?.ascending !== false]; return q; },
       eq(c, v) { filtros.push((r) => r[c] === v); return q; }, neq(c, v) { filtros.push((r) => r[c] !== v); return q; },
-      gte(c, v) { filtros.push((r) => new Date(r[c]) >= new Date(v)); return q; }, lte(c, v) { filtros.push((r) => new Date(r[c]) <= new Date(v)); return q; },
+      gte(c, v) { filtros.push((r) => new Date(r[c]) >= new Date(v)); return q; }, lte(c, v) { filtros.push((r) => new Date(r[c]) <= new Date(v)); return q; }, lt(c, v) { filtros.push((r) => new Date(r[c]) < new Date(v)); return q; },
       in(c, v) { filtros.push((r) => v.includes(r[c])); return q; }, limit() { return q; },
       or(expr) { const termos = [...expr.matchAll(/(\w+)\.ilike\.\*([^*]*)\*/g)];
         filtros.push((r) => termos.some(([, c, t]) => String(r[c] ?? "").toLowerCase().includes(t.toLowerCase()))); return q; },

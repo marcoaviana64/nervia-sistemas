@@ -1,11 +1,23 @@
 // Site da Nervia + Área do Cliente + apps estáticos, no Cloudflare (Workers com arquivos estáticos).
 // Publicar: npx wrangler@4 deploy   (ou ligar o repositório em Workers & Pages → Import repository)
+// As páginas são servidas direto dos arquivos de site/ (grátis, sem limite). O worker (worker/index.js)
+// só roda em /registrar-acesso, que conta os acessos do site (ver supabase/migrations/..._site_acessos.sql).
+// Segredo, só no painel da Cloudflare (Settings → Variables and Secrets): ACESSOS_SEGREDO.
 {
   "name": "nervia-site",
+  "main": "worker/index.js",
   "compatibility_date": "2026-09-01",
   "assets": {
     "directory": "./site",
+    "binding": "ASSETS",
     "html_handling": "auto-trailing-slash",
-    "not_found_handling": "404-page"
-  }
+    "not_found_handling": "404-page",
+    "run_worker_first": ["/registrar-acesso"]
+  },
+  // Públicos (a chave publishable já está em site/config.js).
+  "vars": {
+    "SUPABASE_URL": "https://jgokdhqwtcjxcphlwtgk.supabase.co",
+    "SUPABASE_ANON_KEY": "sb_publishable_NkAoLQVK6j0JeuyFFnS8RQ_fhoNBmQS"
+  },
+  "observability": { "enabled": true }
 }

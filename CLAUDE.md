@@ -35,7 +35,8 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
   - `config.js` — URL + anon key, comum a tudo (`window.NERVIA_CONFIG`).
   - `_headers` — `X-Frame-Options: SAMEORIGIN`: só o próprio site pode embutir as páginas.
   - `404.html`, `img/`.
-- `wrangler.jsonc` — Cloudflare (worker `nervia-site`, arquivos de `site/`).
+- `wrangler.jsonc` — Cloudflare (worker `nervia-site`, arquivos de `site/`). `main: worker/index.js` só roda em `/registrar-acesso` (`run_worker_first`); as páginas continuam estáticas. `vars` com URL e chave publishable; segredo `ACESSOS_SEGREDO` só no painel.
+- **Acessos do site** (pedido do Marco, 2026-10-14; migração `..._site_acessos.sql`): `site/acesso.js` (no site, em `/privacidade.html` e injetado nas páginas da demo pelo `gerar.py`; NÃO na Área do Cliente real) → worker → rpc `site_registrar_acesso` (segredo em `site_config`, gerado na migração) → `site_acessos` (IP, país, estado, cidade, página, origem/utm_source, aparelho, navegador). Leitura só admin: Administração → "Acessos do site" (por dia, estado, cidade, IP, página, origem, CSV). Não conta: iframe, webdriver, robôs, admin (localStorage `nervia-nao-contar`, marcado ao entrar como admin em /cliente/). LGPD: IP e navegador apagados após 90 dias (`site_anonimizar_acessos`, pg_cron `site-acessos-anonimizar`), aviso em `site/privacidade.html` (rodapé do site) — revisar com advogado. Teste: `testes/worker_test.ts`.
 - `testes/` — Deno (lógica + mTLS real local + ponte contra `servidor_renegociacao.py`, que imita o IIS da SEFAZ; precisa de `pip install pyopenssl`), SQL (RLS num Postgres local com stubs), Playwright (tela com Supabase falso), conferência independente da assinatura.
 - A primeira versão (Flask, local) ficou em `Projects/BuscadorCNPJ/versao-local/`, só como referência.
 - `IMPLANTACAO.md` — passo a passo de deploy.
@@ -102,9 +103,11 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
 
 - 2026-10-14: termo de autorização e custódia do A1 (gerar, registrar, bloqueio do envio sem termo). Tela e SQL OK.
 - 2026-10-14: Linum dava 656 em toda busca de NF-e: outro sistema da Linum baixava as NF-e do mesmo CNPJ. Marco desligou o download automático do outro sistema (19h49) para o Buscador assumir. Criadas a chave NF-e por empresa e a trava 656 (Deno 12/12, SQL OK, tela OK).
+- 2026-10-14: contador de acessos do site (worker + `site_acessos` + tela + /privacidade.html). Testes: worker 4/4, SQL, tela, demo OK. Falta o Marco colar `ACESSOS_SEGREDO` na Cloudflare (IMPLANTACAO.md §9).
 - 2026-10-14: Linum: zerar o NSU deu 656 (a SEFAZ não reentrega NSU já consumido pelo outro sistema). Marco voltou `ult_nsu_nfe` para 419; criada a "Recuperar NF-e anteriores" por consNSU (v11-recuperar, Deno 14/14). Falta clicar uma vez na Linum e acompanhar.
 
 ## Ideias (comercialização)
+- Política de privacidade (`/privacidade.html`): revisar com advogado junto com o termo.
 - Termo de custódia do A1: FEITO (gerar/registrar no Buscador); falta revisão do texto por advogado.
 - Cobrança por CNPJ/mês; página do cliente com a marca Nervia.
 

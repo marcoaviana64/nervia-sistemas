@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacidade | Nervia Tecnologia</title>
+<meta name="description" content="Como o site e a Área do Cliente da Nervia tratam dados pessoais.">
+<style>
+:root{--bg:#F5F7FA;--text:#0F1B2D;--muted:#5B6B80;--primary:#0B2545;--accent:#107E99;--border:#E1E6EE}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 Inter,system-ui,sans-serif}
+header{background:#fff;border-bottom:1px solid var(--border)}
+.wrap{max-width:820px;margin:0 auto;padding:0 16px}
+header .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:14px;padding-bottom:14px}
+header img{height:34px}
+header a{color:var(--accent);font-weight:600;text-decoration:none}
+main{padding:32px 0 48px}
+h1{font-size:1.9rem;line-height:1.2;margin:0 0 6px;color:var(--primary)}
+h2{font-size:1.15rem;margin:28px 0 8px;color:var(--primary)}
+.sub{color:var(--muted);margin-bottom:20px}
+.cartao{background:#fff;border:1px solid var(--border);border-radius:14px;padding:22px 24px}
+ul{padding-left:20px}li{margin:4px 0}
+a{color:var(--accent)}
+footer{color:var(--muted);font-size:.9rem;padding:0 0 32px}
+@media (max-width:600px){h1{font-size:1.5rem}.cartao{padding:18px 16px}}
+</style>
+</head>
+<body>
+<header><div class="wrap"><a href="/"><img src="/img/nervia-logo.png" alt="Nervia Tecnologia"></a><a href="/">Voltar ao site</a></div></header>
+<main class="wrap">
+  <h1>Privacidade</h1>
+  <div class="sub">Como a Nervia Tecnologia da Informação trata dados pessoais no site nervia.com.br e na Área do Cliente.</div>
+  <div class="cartao">
+    <h2>Estatística de acessos do site</h2>
+    <p>Quando você abre uma página do site ou da demonstração, registramos: data e hora, a página, o endereço IP, a cidade, o estado e o país estimados a partir do IP, o tipo de aparelho e o navegador, e o site de onde você veio (quando informado).</p>
+    <ul>
+      <li><b>Para quê:</b> saber quantas pessoas visitam o site, de onde, e quais páginas interessam mais; e identificar uso abusivo.</li>
+      <li><b>Base legal:</b> legítimo interesse da Nervia (Lei 13.709/2018, LGPD, art. 7º, IX).</li>
+      <li><b>Sem cookies</b> e sem ferramentas de publicidade. Não vendemos nem compartilhamos esses dados.</li>
+      <li><b>Prazo:</b> o IP e o navegador são apagados depois de 90 dias; fica só a contagem por dia, página e local.</li>
+      <li>A localização vem do IP e é aproximada.</li>
+    </ul>
+
+    <h2>Área do Cliente e aplicativos</h2>
+    <p>Para quem tem login, guardamos nome, e-mail, os aplicativos e as empresas liberadas, e os dados das notas fiscais das empresas contratantes. Ações sensíveis (manifestação na SEFAZ, certificado digital, logins e acessos) ficam num registro de auditoria com data, hora, IP e navegador, que serve de comprovante para o cliente e para a Nervia e não pode ser alterado. O certificado digital e as regras de guarda estão no termo de autorização e custódia assinado pela empresa.</p>
+
+    <h2>Onde os dados ficam</h2>
+    <p>Em provedores contratados pela Nervia: Cloudflare (site), Supabase, região São Paulo (banco de dados), e Google Cloud, região São Paulo (comunicação com a SEFAZ).</p>
+
+    <h2>Seus direitos</h2>
+    <p>Você pode pedir acesso, correção ou exclusão dos seus dados, ou tirar dúvidas, pelo e-mail <a href="mailto:atendimento@nervia.com.br">atendimento@nervia.com.br</a>.</p>
+  </div>
+</main>
+<footer class="wrap">© <span id="ano"></span> Nervia Tecnologia da Informação · Rio de Janeiro</footer>
+<script>document.getElementById("ano").textContent = new Date().getFullYear();</script>
+<script src="/acesso.js" defer></script>
+</body>
+</html>

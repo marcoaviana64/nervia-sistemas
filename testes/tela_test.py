@@ -210,6 +210,22 @@ with sync_playwright() as p:
     assert pg.locator("table.aud tr").count() == 4 and "Ciência da Operação (SEFAZ)" in pg.inner_text("table.aud")
     pg.fill("#audQ", "login criado"); assert pg.locator("table.aud tr").count() == 2
     pg.screenshot(path=f"{SAIDA}/portal_auditoria.png")
+    # acessos do site (só admin); entrar como admin marca este navegador para não ser contado
+    pg.click("#abaAcs"); pg.wait_for_selector("#acSaida table")
+    t = pg.inner_text("#acSaida")
+    assert "4\nacessos" in t and "3\nvisitantes" in t, t[:300]
+    assert "Rio de Janeiro (RJ)" in t and "Exterior: US" in t and "Niterói / RJ" in t and "189.10.20.30" in t and "whatsapp" in t, t
+    assert "não são contados" in pg.inner_text("#admConteudo")
+    assert pg.evaluate("localStorage.getItem('nervia-nao-contar')") == "1"
+    pg.fill("#acDe", "2020-01-01"); pg.dispatch_event("#acDe", "change"); pg.wait_for_timeout(300)
+    assert "5\nacessos" in pg.inner_text("#acSaida"), "acesso antigo, já sem IP, continua na contagem"
+    pg.select_option("#acPag", "demo"); pg.wait_for_timeout(300)
+    assert "1\nacessos" in pg.inner_text("#acSaida")
+    assert pg.locator("#acSaida table").first.locator("tr").count() <= 6, "período longo: só dias com acesso"
+    pg.select_option("#acPag", ""); pg.fill("#acDe", pg.input_value("#acAte")[:8] + "01"); pg.dispatch_event("#acDe", "change"); pg.wait_for_timeout(300)
+    pg.screenshot(path=f"{SAIDA}/portal_acessos.png", full_page=True)
+    with pg.expect_download() as dl: pg.click("text=CSV")
+    assert "189.10.20.30" in open(dl.value.path(), encoding="utf-8-sig").read()
     cp = b.new_page(); cp.route("**/supabase-js@*/**", lambda r: r.fulfill(body=FALSO, content_type="text/javascript"))
     cp.route("**/config.js", lambda r: r.fulfill(body=CONFIG, content_type="text/javascript"))
     cp.goto("http://127.0.0.1:8811/cliente/comprovante.html?id=1&papel=admin"); cp.wait_for_selector(".folha")
@@ -224,6 +240,23 @@ with sync_playwright() as p:
     nv.locator(".fId").fill("Com Espaço"); nv.locator(".fNome").fill("X"); nv.locator(".fUrl").fill("/x/")
     nv.locator("text=Adicionar aplicativo").click(); pg.wait_for_selector("#msgAdm.err")
     assert not erros, erros
+
+    # ---------------- contador de acessos do site (site/acesso.js)
+    sp = b.new_page(); avisos = []
+    sp.route("https://fonts.googleapis.com/**", lambda r: r.fulfill(body="", content_type="text/css"))
+    sp.route("**/registrar-acesso", lambda r: (avisos.append(r.request.post_data), r.fulfill(status=204)))
+    sp.goto("http://127.0.0.1:8811/"); sp.wait_for_timeout(500)
+    assert avisos == [], "fora do domínio da Nervia / navegador automatizado não conta"
+    sp.add_init_script("window.NERVIA_ACESSO_TESTE = true")
+    sp.goto("http://127.0.0.1:8811/?utm_source=whatsapp"); sp.wait_for_timeout(500)
+    assert len(avisos) == 1 and '"pagina":"/"' in avisos[0] and '"origem":"whatsapp"' in avisos[0], avisos
+    assert sp.locator("footer a[href='/privacidade.html']").is_visible()
+    sp.goto("http://127.0.0.1:8811/privacidade.html"); sp.wait_for_timeout(500)
+    assert len(avisos) == 2 and "90 dias" in sp.inner_text("main")
+    sp.set_viewport_size({"width": 390, "height": 844}); assert sp.evaluate("document.documentElement.scrollWidth") <= 390
+    sp.evaluate("localStorage.setItem('nervia-nao-contar','1')"); sp.goto("http://127.0.0.1:8811/"); sp.wait_for_timeout(500)
+    assert len(avisos) == 2, "equipe Nervia não conta"
+    sp.close()
 
     # ---------------- Área do Cliente: cliente com app / sem app
     pg, erros = nova(b)

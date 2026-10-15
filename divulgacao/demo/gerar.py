@@ -62,6 +62,8 @@ def converter(html, origem):
     cab = ('<meta name="robots" content="noindex">\n'
            "<!-- GERADO por divulgacao/demo/gerar.py a partir de site/" + origem + ". Não editar aqui. -->\n" + FAIXA_CSS)
     novo = novo.replace("</head>", cab + "\n</head>", 1)
+    # contagem de acessos da demonstração (só conta a janela principal, não o app no iframe)
+    novo = novo.replace("</body>", '<script src="/acesso.js" defer></script>\n</body>', 1)
     faixa = FAIXA_PORTAL if origem == "cliente/index.html" else SELO_APP
     novo = re.sub(r"(<body[^>]*>)", lambda m: m.group(1) + "\n" + faixa, novo, count=1)
     return novo

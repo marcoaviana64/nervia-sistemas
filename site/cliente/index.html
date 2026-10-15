@@ -105,6 +105,7 @@ header{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdro
 .aviso-emp{color:#a15c00;margin-top:6px}
 table.aud{width:100%;border-collapse:collapse;font-size:.84rem}table.aud th,table.aud td{border-top:1px solid var(--border);padding:7px 6px;text-align:left;vertical-align:top}
 table.aud th{color:var(--muted);font-weight:600}table.aud a{color:var(--teal, #107E99)}
+td.mono{font-family:ui-monospace,Consolas,monospace;font-size:.8rem}
 .usu .acoes{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
 .usu .acoes button{padding:7px 12px;font-size:.84rem}
 .tag{display:inline-block;padding:2px 8px;border-radius:20px;background:var(--icon-bg);color:var(--accent);font-size:.75rem;font-weight:700;margin-left:6px}
@@ -191,7 +192,7 @@ table.aud th{color:var(--muted);font-weight:600}table.aud a{color:var(--teal, #1
   <main id="vAdmin" class="pagina oculto">
     <h1>Administração</h1>
     <div class="sub">Logins e aplicativos da Área do Cliente</div>
-    <div class="abas"><button id="abaUsu" onclick="aba('usu')">Logins</button><button id="abaApps" onclick="aba('apps')">Aplicativos</button><button id="abaAud" onclick="aba('aud')">Auditoria</button></div>
+    <div class="abas"><button id="abaUsu" onclick="aba('usu')">Logins</button><button id="abaApps" onclick="aba('apps')">Aplicativos</button><button id="abaAud" onclick="aba('aud')">Auditoria</button><button id="abaAcs" onclick="aba('acs')">Acessos do site</button></div>
     <div id="msgAdm" class="msg"></div>
     <div id="admConteudo"></div>
   </main>
@@ -230,6 +231,9 @@ async function iniciar() {
   $("quem").textContent = perfil.nome || eu.email;
   $("ola").textContent = `Olá, ${(perfil.nome || eu.email).split(" ")[0]}!`;
   $("bAdmin").classList.toggle("oculto", !perfil.admin);
+  // equipe Nervia: os acessos deste navegador ao site não entram na contagem (site/acesso.js)
+  if (perfil.admin && location.pathname.startsWith("/cliente/")) { try { localStorage.setItem("nervia-nao-contar", "1"); } catch {} }
+  $("abaAcs").classList.toggle("oculto", location.pathname.startsWith("/demo/"));
   $("vLogin").classList.add("oculto"); $("vArea").classList.remove("oculto");
   rota();
 }
@@ -327,9 +331,9 @@ function fecharAjuda() { $("painelAjuda").classList.add("oculto"); }
 // ------------------------------------------------------------ administração
 async function aba(qual) {
   abaAtual = qual;
-  $("abaUsu").classList.toggle("on", qual === "usu"); $("abaApps").classList.toggle("on", qual === "apps"); $("abaAud").classList.toggle("on", qual === "aud");
+  $("abaUsu").classList.toggle("on", qual === "usu"); $("abaApps").classList.toggle("on", qual === "apps"); $("abaAud").classList.toggle("on", qual === "aud"); $("abaAcs").classList.toggle("on", qual === "acs");
   msg($("msgAdm"), "", "");
-  try { qual === "usu" ? await admLogins() : qual === "aud" ? await admAuditoria() : admApps(); } catch (e) { msg($("msgAdm"), "err", e.message); }
+  try { qual === "usu" ? await admLogins() : qual === "aud" ? await admAuditoria() : qual === "acs" ? await admAcessos() : admApps(); } catch (e) { msg($("msgAdm"), "err", e.message); }
 }
 
 // Registro de auditoria de toda a plataforma (somente inclusão). Comprovante imprimível por registro.
@@ -350,6 +354,94 @@ function filtrarAud() {
     l.map(r => `<tr><td>${esc(A.dataHora(r.quando))}</td><td>${A.SENSIVEL.has(r.acao) ? "<b>" + esc(A.rotulo(r.acao)) + "</b>" : esc(A.rotulo(r.acao))}</td><td>${esc(A.quem(r))}</td>
       <td>${esc(r.cnpj || "")}</td><td>${esc(A.resumo(r))}</td><td><a href="/cliente/comprovante.html?id=${r.id}" target="_blank" rel="noopener">comprovante</a></td></tr>`).join("") + "</table>"
     : '<div class="small">Nenhum registro.</div>';
+}
+
+// Acessos do site público e da demonstração (tabela site_acessos, gravada pelo worker da Cloudflare).
+const diaBR = d => new Date(d).toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+const fmtDia = s => s.split("-").reverse().join("/");
+async function admAcessos() {
+  const hoje = diaBR(new Date()), ha30 = diaBR(Date.now() - 29 * 864e5);
+  let contar = true; try { contar = localStorage.getItem("nervia-nao-contar") !== "1"; } catch {}
+  $("admConteudo").innerHTML = `<div class="cartao"><h2>Acessos do site</h2>
+    <div class="small">Visitas às páginas de nervia.com.br e da demonstração (/demo/). IP, estado e cidade vêm da Cloudflare e são aproximados (celular e VPN costumam mostrar a cidade da operadora). O IP fica 90 dias; depois só a contagem. Robôs que se identificam e a equipe Nervia não entram.</div>
+    <div class="linha" style="margin-top:10px">
+      <div><label>De</label><input id="acDe" type="date" value="${ha30}"></div>
+      <div><label>Até</label><input id="acAte" type="date" value="${hoje}"></div>
+      <div><label>Páginas</label><select id="acPag"><option value="">Site e demonstração</option><option value="site">Só o site</option><option value="demo">Só a demonstração</option></select></div>
+      <div style="align-self:end"><button onclick="carregarAcessos()">Atualizar</button> <button class="sec" onclick="csvAcessos()">CSV</button></div>
+    </div>
+    <div class="small" style="margin-top:6px">Seus acessos neste navegador ${contar ? "<b>estão sendo contados</b>" : "não são contados"}.
+      <a href="#admin" onclick="alternarContar(); return false">${contar ? "Não contar" : "Voltar a contar"}</a></div>
+    <div id="acSaida" style="margin-top:12px"><div class="small">Carregando…</div></div></div>`;
+  ["acDe", "acAte", "acPag"].forEach(id => $(id).addEventListener("change", carregarAcessos));
+  await carregarAcessos();
+}
+function alternarContar() {
+  try { localStorage.getItem("nervia-nao-contar") === "1" ? localStorage.removeItem("nervia-nao-contar") : localStorage.setItem("nervia-nao-contar", "1"); } catch {}
+  admAcessos();
+}
+async function carregarAcessos() {
+  const de = $("acDe").value, ate = $("acAte").value, pag = $("acPag").value;
+  if (!de || !ate || de > ate) return $("acSaida").innerHTML = '<div class="small">Confira as datas.</div>';
+  const fim = new Date(new Date(`${ate}T00:00:00-03:00`).getTime() + 864e5).toISOString();
+  const l = [];
+  for (let i = 0; ; i += 1000) {   // o Supabase devolve no máximo 1000 linhas por consulta
+    const parte = checar(await sb.from("site_acessos").select("quando, ip, pais, estado, estado_sigla, cidade, pagina, origem, dispositivo")
+      .gte("quando", `${de}T00:00:00-03:00`).lt("quando", fim).order("quando", { ascending: false }).range(i, i + 999)) || [];
+    l.push(...parte);
+    if (parte.length < 1000 || l.length >= 50000) break;
+  }
+  window._acs = l.filter(r => !pag || (pag === "demo") === String(r.pagina || "").startsWith("/demo"));
+  desenharAcessos(de, ate);
+}
+function agrupar(l, chave) {
+  const m = new Map();
+  for (const r of l) { const k = chave(r); if (k == null) continue; const g = m.get(k) || { k, n: 0, ips: new Set(), linhas: [] }; g.n++; if (r.ip) g.ips.add(r.ip); g.linhas.push(r); m.set(k, g); }
+  return [...m.values()].sort((a, b) => b.n - a.n);
+}
+const local = r => [r.cidade, r.estado_sigla || r.estado, r.pais && r.pais !== "BR" ? r.pais : ""].filter(Boolean).join(" / ") || "não informado";
+function desenharAcessos(de, ate) {
+  const l = window._acs || [], hoje = diaBR(new Date());
+  const ips = new Set(l.filter(r => r.ip).map(r => r.ip));
+  const nDias = Math.round((new Date(ate) - new Date(de)) / 864e5) + 1;
+  const porDia = new Map(agrupar(l, r => diaBR(r.quando)).map(g => [g.k, g]));
+  // até 62 dias: todos os dias (inclusive os sem acesso); período maior: só os dias com acesso
+  const dias = [];
+  if (nDias <= 62) { for (let d = new Date(`${ate}T12:00:00-03:00`); diaBR(d) >= de; d = new Date(d.getTime() - 864e5)) dias.push(diaBR(d)); }
+  else dias.push(...[...porDia.keys()].sort().reverse());
+  const max = Math.max(1, ...dias.map(d => porDia.get(d)?.n || 0));
+  const tab = (titulo, cab, linhas, vazio = "Nenhum acesso.") => `<h3 style="margin:18px 0 6px">${titulo}</h3>` + (linhas.length
+    ? `<div style="overflow-x:auto"><table class="aud"><tr>${cab.map(c => `<th>${c}</th>`).join("")}</tr>${linhas.join("")}</table></div>` : `<div class="small">${vazio}</div>`);
+  const kpi = (n, t) => `<div class="cartao" style="margin:0;padding:12px 14px;flex:1;min-width:140px"><div style="font-size:1.5rem;font-weight:700">${n}</div><div class="small">${t}</div></div>`;
+  const hojeG = porDia.get(hoje);
+  const estados = agrupar(l, r => r.pais === "BR" || !r.pais ? (r.estado_sigla ? `${r.estado || r.estado_sigla} (${r.estado_sigla})` : r.estado || "não informado") : `Exterior: ${r.pais}`);
+  const cidades = agrupar(l, local);
+  const porIp = agrupar(l.filter(r => r.ip), r => r.ip);
+  const paginas = agrupar(l, r => r.pagina || "/");
+  const origens = agrupar(l, r => r.origem || "direto / sem informação");
+  $("acSaida").innerHTML = `<div style="display:flex;gap:10px;flex-wrap:wrap">
+      ${kpi(l.length.toLocaleString("pt-BR"), "acessos (páginas abertas)")}${kpi(ips.size.toLocaleString("pt-BR"), "visitantes (IPs diferentes)")}
+      ${kpi((hojeG?.n || 0).toLocaleString("pt-BR"), `hoje · ${hojeG ? hojeG.ips.size : 0} IP(s)`)}${kpi((l.length / nDias).toLocaleString("pt-BR", { maximumFractionDigits: 1 }), "média por dia")}</div>
+    ${tab("Por dia", ["Dia", "Acessos", "Visitantes", ""], dias.map(d => { const g = porDia.get(d);
+      return `<tr><td>${fmtDia(d)}</td><td>${g?.n || 0}</td><td>${g ? g.ips.size : 0}</td><td style="width:45%"><div style="height:10px;border-radius:5px;background:#2BB3D1;width:${((g?.n || 0) / max * 100).toFixed(1)}%"></div></td></tr>`; }))}
+    ${tab("Por estado", ["Estado", "Acessos", "Visitantes"], estados.map(g => `<tr><td>${esc(g.k)}</td><td>${g.n}</td><td>${g.ips.size}</td></tr>`))}
+    ${tab("Por cidade", ["Cidade / estado", "Acessos", "Visitantes"], cidades.slice(0, 50).map(g => `<tr><td>${esc(g.k)}</td><td>${g.n}</td><td>${g.ips.size}</td></tr>`))}
+    ${tab("Por IP", ["IP", "Acessos", "Local", "Aparelho", "Primeiro", "Último", "Páginas"], porIp.slice(0, 200).map(g => { const r = g.linhas;
+      const pags = [...new Set(r.map(x => x.pagina))]; const A = window.NERVIA_AUDITORIA;
+      return `<tr><td class="mono">${esc(g.k)}</td><td>${g.n}</td><td>${esc(local(r[0]))}</td><td>${esc(r[0].dispositivo || "")}</td>
+        <td>${esc(A.dataHora(r[r.length - 1].quando))}</td><td>${esc(A.dataHora(r[0].quando))}</td><td>${esc(pags.slice(0, 4).join(", "))}${pags.length > 4 ? " …" : ""}</td></tr>`; }),
+      "Nenhum IP no período (depois de 90 dias o IP é apagado).")}
+    ${tab("Páginas mais vistas", ["Página", "Acessos", "Visitantes"], paginas.slice(0, 30).map(g => `<tr><td>${esc(g.k)}</td><td>${g.n}</td><td>${g.ips.size}</td></tr>`))}
+    ${tab("De onde vieram", ["Origem", "Acessos", "Visitantes"], origens.slice(0, 30).map(g => `<tr><td>${esc(g.k)}</td><td>${g.n}</td><td>${g.ips.size}</td></tr>`))}
+    ${l.length >= 50000 ? '<div class="small" style="margin-top:8px">Mostrando os 50.000 acessos mais recentes: diminua o período.</div>' : ""}`;
+}
+function csvAcessos() {
+  const l = window._acs || [], A = window.NERVIA_AUDITORIA;
+  const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const txt = ["Data e hora;IP;Cidade;Estado;País;Página;Origem;Aparelho"].concat(l.map(r =>
+    [A.dataHora(r.quando), r.ip, r.cidade, r.estado, r.pais, r.pagina, r.origem, r.dispositivo].map(q).join(";"))).join("\r\n");
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["﻿" + txt], { type: "text/csv" }));
+  a.download = `acessos-site-${$("acDe").value}-a-${$("acAte").value}.csv`; a.click(); URL.revokeObjectURL(a.href);
 }
 
 async function admLogins() {

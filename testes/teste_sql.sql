@@ -187,4 +187,40 @@ do $$ begin
   begin update auditoria set acao = 'x'; raise exception 'FALHOU: superusuário alterou';
   exception when raise_exception then raise notice 'ok  auditoria imutável até para o dono do banco (gatilho)'; end;
 end $$;
+-- ---------------------------------------------------------------- acessos do site
+do $$ declare seg text := (select valor from site_config where chave = 'acessos_segredo'); begin
+  if length(seg) < 40 then raise exception 'FALHOU: segredo gerado na migração'; end if;
+  raise notice 'ok  migração gera o segredo do worker';
+end $$;
+set role anon;
+do $$ begin
+  begin perform site_registrar_acesso('errado', '1.1.1.1', 'BR', 'Rio de Janeiro', 'RJ', 'Niterói', '/', '', 'Mozilla');
+    raise exception 'FALHOU: aceitou segredo errado';
+  exception when insufficient_privilege then raise notice 'ok  segredo errado é recusado'; end;
+  begin perform 1 from site_config; raise exception 'FALHOU: anon leu o segredo';
+  exception when insufficient_privilege then raise notice 'ok  anon não lê o segredo'; end;
+  begin insert into site_acessos (ip) values ('9.9.9.9'); raise exception 'FALHOU: anon gravou direto';
+  exception when insufficient_privilege then raise notice 'ok  anon não grava direto em site_acessos'; end;
+end $$;
+reset role;
+create temp table seg as select valor from site_config where chave = 'acessos_segredo';
+grant select on seg to anon;
+set role anon;
+select site_registrar_acesso((select valor from seg), '1.1.1.1', 'BR', 'Rio de Janeiro', 'RJ', 'Niterói', '/', 'google.com', 'Mozilla/5.0 (iPhone)');
+select site_registrar_acesso((select valor from seg), '1.1.1.1', 'BR', 'Rio de Janeiro', 'RJ', 'Niterói', '/', '', 'Mozilla/5.0 (iPhone)');
+select site_registrar_acesso((select valor from seg), '1.1.1.1', 'BR', 'Rio de Janeiro', 'RJ', 'Niterói', '/demo/', '', 'Mozilla/5.0 (iPhone)');
+select site_registrar_acesso((select valor from seg), '2.2.2.2', 'BR', 'São Paulo', 'SP', 'Campinas', '/', '', 'Googlebot/2.1');
+reset role;
+select pg_temp.ok((select count(*) = 2 from site_acessos), 'grava acessos; recarga em 10 s e robô não contam');
+select pg_temp.ok((select dispositivo = 'Celular' and origem = 'google.com' and estado_sigla = 'RJ' from site_acessos where pagina = '/'), 'grava local, origem e aparelho');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok((select count(*) = 0 from site_acessos), 'cliente não vê acessos do site');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select pg_temp.ok((select count(*) = 2 from site_acessos), 'admin vê acessos do site');
+reset role;
+update site_acessos set quando = now() - interval '91 days' where pagina = '/demo/';
+select pg_temp.ok(site_anonimizar_acessos() = 1, 'anonimiza depois de 90 dias');
+select pg_temp.ok((select ip is null and navegador is null and cidade = 'Niterói' from site_acessos where pagina = '/demo/')
+  and (select ip = '1.1.1.1' from site_acessos where pagina = '/'), 'some IP e navegador; contagem e local ficam');
 \echo 'TODOS OS TESTES SQL OK'

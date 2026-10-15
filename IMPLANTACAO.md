@@ -100,6 +100,16 @@ O servidor de NF-e da SEFAZ pede o certificado por **renegociação TLS**, que a
 Hoje não há envio automático de e-mail (decisão: sem contratar serviço de envio por enquanto). Na tela de entrada, "Esqueci minha senha" abre um e-mail pronto do próprio usuário para atendimento@nervia.com.br. A Nervia confere se veio do e-mail do login e define uma senha provisória em *Área do Cliente → Administração → Logins → Definir nova senha*.
 Se um dia quiser o link automático: o e-mail padrão do Supabase só envia para a equipe da organização (2 por hora). Seria preciso um SMTP próprio (ex.: Resend), Site URL/Redirect URLs de `nervia.com.br/cliente/` e voltar o fluxo `resetPasswordForEmail` na Área do Cliente.
 
+## 9. Acessos do site (contador próprio)
+O site avisa o worker a cada página aberta (`site/acesso.js`), e o worker grava no Supabase com IP, estado e cidade da Cloudflare (`worker/index.js`, tabela `site_acessos`). Tela: *Área do Cliente → Administração → Acessos do site*.
+1. A migração `..._site_acessos.sql` cria o segredo sozinha. Para lê-lo, no *SQL Editor* do Supabase: `select valor from site_config where chave = 'acessos_segredo';`
+2. Na Cloudflare, worker `nervia-site` → *Settings → Variables and Secrets → Add* → tipo **Secret**, nome `ACESSOS_SEGREDO`, valor = o do passo 1 → *Deploy*.
+3. Abra https://nervia.com.br numa janela anônima e confira em *Acessos do site*. Sem o segredo o site funciona normalmente, só não conta.
+- Não contam: a equipe Nervia (o navegador fica marcado ao entrar como admin na Área do Cliente; a própria tela permite desmarcar), robôs que se identificam, páginas dentro do iframe.
+- LGPD: IP e navegador apagados depois de 90 dias (pg_cron diário `site-acessos-anonimizar`); aviso em `/privacidade.html` (revisar com o advogado).
+- Limite: o plano gratuito do Workers aceita 100 mil chamadas por dia; acima disso só a contagem falha (as páginas são arquivos estáticos e não passam pelo worker).
+- Variáveis em `wrangler.jsonc` (`vars`) substituem as do painel a cada deploy; o segredo não é afetado.
+
 ## Sem a integração (alternativa pela linha de comando)
 `supabase link --project-ref <REF>` → `supabase db push` → `supabase functions deploy <nome>` para cada função → `supabase secrets set ...`.
 
@@ -125,6 +135,7 @@ Se um dia quiser o link automático: o e-mail padrão do Supabase só envia para
 python3 testes/gerar_fixtures.py                 # certificados de teste
 pip install pyopenssl                            # para o servidor que imita a renegociação da SEFAZ
 deno test -A testes/funcoes_test.ts              # lógica SEFAZ/ADN, mTLS real local, ponte (OpenSSL) com renegociação
+deno test -A testes/worker_test.ts               # worker do site (contador de acessos)
 python3 testes/conferir_assinatura.py testes/saida_envEvento.xml testes/fixtures/a1_cert.pem
 PGHOST=... PGPORT=... PGUSER=postgres testes/rodar_sql.sh   # esquema + RLS num Postgres local
 python3 testes/tela_test.py                      # site, Área do Cliente e Buscador (Playwright) com Supabase simulado
