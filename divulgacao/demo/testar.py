@@ -136,7 +136,16 @@ with sync_playwright() as p:
     sem = ctx.new_page(); sem.goto(f"{U}/demo/cotacao/"); sem.wait_for_selector("#pagina:not(.oculto)")  # sem link: abre um convite de exemplo
     assert "pede uma cotação" in sem.inner_text("#titulo"); sem.close()
 
-    # 7. celular
+    # 7. marca d'água em toda página de demonstração (uma só, mesmo com o app dentro do portal)
+    for end in ("/demo/", "/demo/compras/", "/demo/cotacao/", "/demo/produtos/", "/demo/telefonia/", "/demo/compras/proposta-exemplo.html", "/demo/apps/notas/espelho.html?ids=1"):
+        pg.goto(U + end); pg.wait_for_timeout(600)
+        assert pg.locator("#nervia-marca").count() == 1 and "DEMONSTRAÇÃO" in pg.locator("#nervia-marca").inner_html(), end
+    pg.goto(f"{U}/demo/#app/painel-nf"); pg.wait_for_selector("#vVisor:not(.oculto)"); pg.wait_for_timeout(1200)
+    assert pg.frame_locator("#frame").locator("#nervia-marca").count() == 0, "marca repetida dentro do app no portal"
+    r = pg.goto(f"{U}/apps/compras/ajuda/manual.html"); pg.wait_for_timeout(300)
+    assert "ECOSSISTEMA NERVIA APP" in pg.locator("#nervia-marca").inner_html(), "documentação sem a marca"
+
+    # 8. celular
     m = b.new_context(viewport={"width": 390, "height": 844}, is_mobile=True, locale="pt-BR"); preparar(m)
     mp = m.new_page(); mp.goto(f"{U}/demo/"); mp.wait_for_selector(".app"); mp.screenshot(path=f"{SAIDA}/demo_celular.png")
     mp.locator(".app", has_text="Painel de Notas").click(); mp.wait_for_timeout(1800); mp.screenshot(path=f"{SAIDA}/demo_celular_painel.png")

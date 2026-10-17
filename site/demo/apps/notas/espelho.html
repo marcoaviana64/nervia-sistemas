@@ -259,6 +259,7 @@ async function iniciar() {
 function falha(html) { $("info").textContent = ""; $("saida").innerHTML = `<div class="msg">${html}</div>`; }
 iniciar().catch(e => falha("Erro ao montar o espelho: " + esc(e.message)));
 </script>
+<script src="/marca-dagua.js" data-tipo="demo"></script>
 <script src="/acesso.js" defer></script>
 </body>
 </html>

@@ -114,7 +114,7 @@ def converter(html, origem):
            + (COMPRAS_CSS if origem in COMPRAS else ""))
     novo = novo.replace("</head>", cab + "\n</head>", 1)
     # contagem de acessos da demonstração (só conta a janela principal, não o app no iframe)
-    novo = novo.replace("</body>", '<script src="/acesso.js" defer></script>\n</body>', 1)
+    novo = novo.replace("</body>", '<script src="/marca-dagua.js" data-tipo="demo"></script>\n<script src="/acesso.js" defer></script>\n</body>', 1)
     faixa = {"cliente/index.html": FAIXA_PORTAL, "apps/compras/index.html": FAIXA_COMPRAS, "cotacao/index.html": FAIXA_COTACAO}.get(origem, SELO_APP)
     novo = re.sub(r"(<body[^>]*>)", lambda m: m.group(1) + "\n" + faixa, novo, count=1)
     return novo
