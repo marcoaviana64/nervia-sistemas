@@ -279,6 +279,9 @@ begin
   raise exception 'FALHOU: % (não deu erro)', nome;
 end $$;
 create or replace function pg_temp.como(u text) returns void language sql as $$ select set_config('request.jwt.claim.sub', u, false) $$;
+select pg_temp.ok((select count(*) = 22 and bool_and(descricao <> '') from cmp_grupos) and not exists (select 1 from cmp_grupos where nome in ('Tecnologia', 'Refrigeração', 'Jardinagem'))
+  and (select string_agg(nome, '|' order by ordem) from (select nome, ordem from cmp_grupos order by ordem limit 3) x) = 'Informática e tecnologia|Papelaria e material de escritório|Material de limpeza e higiene',
+  'grupos de compra da lista do Marco, com descrição e na ordem');
 select pg_temp.ok((select count(*) = 1 from apps where id = 'compras' and cartao_url = '/apps/compras/ajuda/cartao.html' and mapa_url = '/apps/compras/ajuda/mapa.html'), 'app compras cadastrado com cartão, manual e mapa mental');
 select pg_temp.ok(cmp_doc_valido('PJ', '11222333000181') and cmp_doc_valido('PJ', '12ABC345000188') and cmp_doc_valido('PF', '52998224725')
   and not cmp_doc_valido('PJ', '11222333000182') and not cmp_doc_valido('PF', '11111111111') and not cmp_doc_valido('PJ', '12ABC345000189'),
@@ -303,14 +306,14 @@ create or replace function pg_temp.id(k text) returns text language sql as $$ se
 set role authenticated;
 -- solicitante cria requisição; status/autor vêm do servidor
 select pg_temp.como('00000000-0000-0000-0000-0000000000d1');
-insert into cmp_requisicoes (unidade_id, grupo, titulo, quantidade, valor_estimado) values (pg_temp.id('itaipu')::uuid, 'Tecnologia', 'Switch 24 portas', 2, 9000);
+insert into cmp_requisicoes (unidade_id, grupo, titulo, quantidade, valor_estimado) values (pg_temp.id('itaipu')::uuid, 'Informática e tecnologia', 'Switch 24 portas', 2, 9000);
 select pg_temp.ok((select status = 'nova' and solicitante_nome = 'Carla' and id = 1001 from cmp_requisicoes), 'solicitante cria requisição (nº 1001, nova, autor do servidor)');
-select pg_temp.erro($$insert into cmp_requisicoes (unidade_id, grupo, titulo, status) values ('$$ || pg_temp.id('itaipu') || $$', 'Tecnologia', 'x', 'aprovada')$$, 'permission', 'tela não escolhe status da requisição');
-select pg_temp.erro($$select cmp_salvar_fornecedor(null, 'PJ', '11.222.333/0001-81', 'Forn A', '{Tecnologia}', '', '', '', null, '', '$$ || pg_temp.id('itaipu') || $$')$$, 'comprador, gerente ou diretor', 'solicitante não cadastra fornecedor');
+select pg_temp.erro($$insert into cmp_requisicoes (unidade_id, grupo, titulo, status) values ('$$ || pg_temp.id('itaipu') || $$', 'Informática e tecnologia', 'x', 'aprovada')$$, 'permission', 'tela não escolhe status da requisição');
+select pg_temp.erro($$select cmp_salvar_fornecedor(null, 'PJ', '11.222.333/0001-81', 'Forn A', '{"Informática e tecnologia"}', '', '', '', null, '', '$$ || pg_temp.id('itaipu') || $$')$$, 'comprador, gerente ou diretor', 'solicitante não cadastra fornecedor');
 -- outra unidade não vê
 select pg_temp.como('00000000-0000-0000-0000-0000000000d5');
 select pg_temp.ok((select count(*) = 0 from cmp_requisicoes), 'comprador do Park Sul não vê requisições do Itaipu');
-select pg_temp.erro($$insert into cmp_requisicoes (unidade_id, grupo, titulo) values ('$$ || pg_temp.id('itaipu') || $$', 'Tecnologia', 'x')$$, 'row-level security', 'não cria requisição em unidade alheia');
+select pg_temp.erro($$insert into cmp_requisicoes (unidade_id, grupo, titulo) values ('$$ || pg_temp.id('itaipu') || $$', 'Informática e tecnologia', 'x')$$, 'row-level security', 'não cria requisição em unidade alheia');
 -- login sem papel nenhum não vê fornecedores
 select pg_temp.como('00000000-0000-0000-0000-00000000000b');
 select pg_temp.ok((select count(*) = 0 from cmp_fornecedores_lista()), 'login sem papel em Compras não vê fornecedores');
@@ -318,11 +321,11 @@ select pg_temp.erro('select * from cmp_fornecedores', 'permission', 'tabela de f
 
 -- comprador cadastra fornecedores
 select pg_temp.como('00000000-0000-0000-0000-0000000000d2');
-insert into ids select 'fa', cmp_salvar_fornecedor(null, 'PJ', '11.222.333/0001-81', 'Forn A', '{Tecnologia}', 'Ana', '', '', current_date + 100, '', pg_temp.id('itaipu')::uuid);
-insert into ids select 'fb', cmp_salvar_fornecedor(null, 'PJ', '22333444000181', 'Forn B', '{Tecnologia}', '', '', '', current_date + 100, '', pg_temp.id('itaipu')::uuid);
-insert into ids select 'fc', cmp_salvar_fornecedor(null, 'PJ', '12abc345000188', 'Forn C (alfanumérico)', '{Tecnologia}', '', '', '', current_date + 100, '', pg_temp.id('itaipu')::uuid);
-insert into ids select 'fp', cmp_salvar_fornecedor(null, 'PF', '529.982.247-25', 'José Eletricista', '{Energia}', '', '', '', current_date + 100, '', pg_temp.id('itaipu')::uuid);
-insert into ids select 'fv', cmp_salvar_fornecedor(null, 'PJ', '33444555000181', 'Forn Vencido', '{Tecnologia}', '', '', '', current_date - 1, '', pg_temp.id('itaipu')::uuid);
+insert into ids select 'fa', cmp_salvar_fornecedor(null, 'PJ', '11.222.333/0001-81', 'Forn A', '{"Informática e tecnologia"}', 'Ana', '', '', current_date + 100, '', pg_temp.id('itaipu')::uuid);
+insert into ids select 'fb', cmp_salvar_fornecedor(null, 'PJ', '22333444000181', 'Forn B', '{"Informática e tecnologia"}', '', '', '', current_date + 100, '', pg_temp.id('itaipu')::uuid);
+insert into ids select 'fc', cmp_salvar_fornecedor(null, 'PJ', '12abc345000188', 'Forn C (alfanumérico)', '{"Informática e tecnologia"}', '', '', '', current_date + 100, '', pg_temp.id('itaipu')::uuid);
+insert into ids select 'fp', cmp_salvar_fornecedor(null, 'PF', '529.982.247-25', 'José Eletricista', '{"Água e energia"}', '', '', '', current_date + 100, '', pg_temp.id('itaipu')::uuid);
+insert into ids select 'fv', cmp_salvar_fornecedor(null, 'PJ', '33444555000181', 'Forn Vencido', '{"Informática e tecnologia"}', '', '', '', current_date - 1, '', pg_temp.id('itaipu')::uuid);
 select pg_temp.erro($$select cmp_salvar_fornecedor(null, 'PJ', '11222333000181', 'Duplicado', '{}', '', '', '', null, '', '$$ || pg_temp.id('itaipu') || $$')$$, 'já está cadastrado: Forn A', 'CNPJ duplicado é recusado e mostra o existente');
 select pg_temp.erro($$select cmp_salvar_fornecedor(null, 'PF', '52998224726', 'Errado', '{}', '', '', '', null, '', '$$ || pg_temp.id('itaipu') || $$')$$, 'CPF inválido', 'CPF com dígito errado é recusado');
 select pg_temp.ok((select documento = '12ABC345000188' from cmp_fornecedores_lista() where nome like 'Forn C%'), 'CNPJ alfanumérico gravado normalizado (maiúsculas, sem pontuação)');
@@ -374,7 +377,7 @@ select pg_temp.ok((select status = 'concluida' from cmp_requisicoes where id = 1
 
 -- segunda compra com Forn B, barata e menor preço: agora é automática (não é mais fornecedor novo)
 select pg_temp.como('00000000-0000-0000-0000-0000000000d1');
-insert into cmp_requisicoes (unidade_id, grupo, titulo, quantidade) values (pg_temp.id('itaipu')::uuid, 'Tecnologia', 'Cabo de rede', 1);
+insert into cmp_requisicoes (unidade_id, grupo, titulo, quantidade) values (pg_temp.id('itaipu')::uuid, 'Informática e tecnologia', 'Cabo de rede', 1);
 insert into ids select 'r2', max(id)::text from cmp_requisicoes;
 select pg_temp.como('00000000-0000-0000-0000-0000000000d2');
 select cmp_salvar_proposta(pg_temp.id('r2')::bigint, pg_temp.id('fb')::uuid, 300, 0, 0, 2, 'À vista', 0, null, '');
@@ -386,7 +389,7 @@ select pg_temp.ok((select count(*) = 1 from cmp_aprovacoes where requisicao_id =
 
 -- terceira: barata e menor preço, mas fornecedor NOVO → Gerente; acima de 50 mil → Diretor
 select pg_temp.como('00000000-0000-0000-0000-0000000000d1');
-insert into cmp_requisicoes (unidade_id, grupo, titulo, quantidade) values (pg_temp.id('itaipu')::uuid, 'Tecnologia', 'Servidor', 1);
+insert into cmp_requisicoes (unidade_id, grupo, titulo, quantidade) values (pg_temp.id('itaipu')::uuid, 'Informática e tecnologia', 'Servidor', 1);
 insert into ids select 'r3', max(id)::text from cmp_requisicoes;
 select pg_temp.como('00000000-0000-0000-0000-0000000000d2');
 select cmp_salvar_proposta(pg_temp.id('r3')::bigint, pg_temp.id('fc')::uuid, 60000, 0, 0, 20, '30/60', 45, null, '');
@@ -404,7 +407,7 @@ reset role;
 insert into cmp_membros select '00000000-0000-0000-0000-0000000000d2', pg_temp.id('itaipu')::uuid, 'gerente';
 set role authenticated;
 select pg_temp.como('00000000-0000-0000-0000-0000000000d1');
-insert into cmp_requisicoes (unidade_id, grupo, titulo, quantidade) values (pg_temp.id('itaipu')::uuid, 'Tecnologia', 'Mouse', 1);
+insert into cmp_requisicoes (unidade_id, grupo, titulo, quantidade) values (pg_temp.id('itaipu')::uuid, 'Informática e tecnologia', 'Mouse', 1);
 insert into ids select 'r4', max(id)::text from cmp_requisicoes;
 select pg_temp.como('00000000-0000-0000-0000-0000000000d2');
 select cmp_salvar_proposta(pg_temp.id('r4')::bigint, pg_temp.id('fa')::uuid, 100, 0, 0, 2, 'À vista', 0, null, '');
@@ -436,7 +439,7 @@ reset role;
 grant all on ids to anon;
 set role authenticated;
 select pg_temp.como('00000000-0000-0000-0000-0000000000d1');
-insert into cmp_requisicoes (unidade_id, grupo, titulo, quantidade, valor_estimado, descricao) values (pg_temp.id('itaipu')::uuid, 'Tecnologia', 'Nobreak 3 kVA', 2, 7000, 'Senoidal, rack');
+insert into cmp_requisicoes (unidade_id, grupo, titulo, quantidade, valor_estimado, descricao) values (pg_temp.id('itaipu')::uuid, 'Informática e tecnologia', 'Nobreak 3 kVA', 2, 7000, 'Senoidal, rack');
 insert into ids select 'r5', max(id)::text from cmp_requisicoes;
 select pg_temp.erro('select cmp_convidar(' || pg_temp.id('r5') || ', ''' || pg_temp.id('fa') || ''', '''', '''', '''', current_date + 5)', 'precisa ser: comprador', 'solicitante não convida fornecedor');
 select pg_temp.como('00000000-0000-0000-0000-0000000000d2');
@@ -482,7 +485,7 @@ set role authenticated;
 select pg_temp.como('00000000-0000-0000-0000-0000000000d2');
 select pg_temp.ok((select rodada = 2 and preco_anterior = 3000 and origem = 'fornecedor' and declarante = 'Ana Souza' and anexo like '%/1.pdf' and enviada_ip = '200.10.20.30'
   from cmp_propostas where requisicao_id = pg_temp.id('r5')::bigint and fornecedor_id = pg_temp.id('fa')::uuid), 'reenvio vira nova rodada; guarda declarante, PDF e IP');
-select pg_temp.ok((select cadastrado_por = '00000000-0000-0000-0000-0000000000d2' and cadastrado_nome = 'Rafael' and grupos = '{Tecnologia}' and documento = '44555666000181'
+select pg_temp.ok((select cadastrado_por = '00000000-0000-0000-0000-0000000000d2' and cadastrado_nome = 'Rafael' and grupos = '{"Informática e tecnologia"}' and documento = '44555666000181'
   from cmp_fornecedores_lista() where nome = 'Energia Total Ltda'), 'fornecedor novo entra na base com quem convidou como responsável');
 select pg_temp.ok((select count(*) = 1 from cmp_convites where codigo = pg_temp.id('cn') and fornecedor_id is not null and respondido_em is not null and aberto_em is not null), 'convite ligado ao fornecedor, aberto e respondido');
 select pg_temp.erro('select cmp_salvar_proposta(' || pg_temp.id('r5') || ', ''' || pg_temp.id('fa') || ''', 1, 0, 0, 1, ''x'', 0, null, '''')', 'só ele altera', 'comprador não altera proposta enviada pelo fornecedor');

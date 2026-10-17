@@ -147,7 +147,7 @@ async function iniciar() {
     UNIDADES = checar(await sb.from("cmp_unidades").select("*").order("nome"));
     if (!ADMIN) UNIDADES = UNIDADES.filter(u => u.ativo);
     if (!UNIDADES.length) { $("aviso").textContent = "Seu login ainda não tem papel em nenhuma unidade de Compras. Peça à Nervia para liberar (solicitante, comprador, gerente ou diretor)."; return; }
-    GRUPOS = checar(await sb.from("cmp_grupos").select("nome").order("ordem")).map(g => g.nome);
+    await carregarGrupos();
     const salva = localStorage.getItem("cmp-unidade");
     UNID = UNIDADES.some(u => u.id === salva) ? salva : UNIDADES[0].id;
     $("unidade").innerHTML = UNIDADES.map(u => `<option value="${u.id}">${esc(u.nome)}${u.ativo ? "" : " (inativa)"}</option>`).join("");
@@ -157,6 +157,13 @@ async function iniciar() {
     await carregar();
   } catch (e) { $("aviso").textContent = "Não foi possível carregar: " + e.message; }
 }
+// grupos de compra (nome + descrição do que entra em cada um)
+let GRUPO_DESC = {};
+async function carregarGrupos() {
+  const gs = checar(await sb.from("cmp_grupos").select("nome, descricao").order("ordem"));
+  GRUPOS = gs.map(g => g.nome); GRUPO_DESC = Object.fromEntries(gs.map(g => [g.nome, g.descricao || ""]));
+}
+const dicaGrupo = g => GRUPO_DESC[g] ? esc(GRUPO_DESC[g]) : "";
 async function carregar() {
   FORN = checar(await sb.rpc("cmp_fornecedores_lista"));
   REQS = checar(await sb.from("cmp_requisicoes").select("*").eq("unidade_id", UNID).order("id", { ascending: false }));
@@ -445,8 +452,8 @@ function vConfig() {
     <div class="grade"><div><label>Login</label><select id="mUser"></select></div><div><label>Papel</label><select id="mPapel">${Object.entries(PAPEL_NOME).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></div>
     <div style="align-self:end"><button class="bt pri" data-acao="addMembro">Dar papel</button></div></div>
     <div class="tw" style="margin-top:10px"><table id="tMembros"><tr><td class="mut">Carregando…</td></tr></table></div></div>
-  <div class="card"><h2>Grupos de compra</h2><div>${GRUPOS.map(g => tag(g, "t-acc")).join("")}</div>
-    <div class="grade" style="margin-top:8px"><div><input id="gNovo" placeholder="Novo grupo"></div><div><button class="bt" data-acao="addGrupo">Incluir grupo</button></div></div></div>`;
+  <div class="card"><h2>Grupos de compra</h2><div class="tw"><table><tr><th>Grupo</th><th>O que entra</th></tr>${GRUPOS.map(g => `<tr><td>${esc(g)}</td><td class="mut">${dicaGrupo(g)}</td></tr>`).join("")}</table></div>
+    <div class="grade" style="margin-top:8px"><div><input id="gNovo" placeholder="Novo grupo"></div><div><input id="gDesc" placeholder="O que entra nele (opcional)"></div><div><button class="bt" data-acao="addGrupo">Incluir grupo</button></div></div></div>`;
 }
 async function carregarConfig() {
   if (!ADMIN) return;
@@ -468,7 +475,7 @@ function abrir(html, aoConfirmar, rotulo = "Confirmar") {
 function dNovaReq() {
   abrir(`<h3>Nova requisição — ${esc(unidade().nome)}</h3><div class="grade">
     <div class="tudo"><label>O que precisa comprar</label><input name="titulo" required maxlength="160" placeholder="ex.: Ar-condicionado split 24.000 BTUs"></div>
-    <div><label>Grupo</label><select name="grupo">${GRUPOS.map(g => `<option>${esc(g)}</option>`).join("")}</select></div>
+    <div class="tudo"><label>Grupo</label><select name="grupo" onchange="this.nextElementSibling.textContent = GRUPO_DESC[this.value] || ''">${GRUPOS.map(g => `<option title="${dicaGrupo(g)}">${esc(g)}</option>`).join("")}</select><div class="mut" style="margin-top:3px">${dicaGrupo(GRUPOS[0])}</div></div>
     <div><label>Centro de custo</label><input name="cc" placeholder="ex.: Manutenção"></div>
     <div><label>Quantidade</label><input name="qtd" type="number" min="0.001" step="0.001" value="1" required></div>
     <div><label>Unidade de medida</label><input name="um" value="un"></div>
@@ -517,7 +524,7 @@ function dFornecedor(f) {
     <div><label>Telefone</label><input name="tel" value="${f ? esc(f.telefone) : ""}"></div>
     <div><label>E-mail</label><input name="email" type="email" value="${f ? esc(f.email) : ""}"></div>
     <div><label>Certidões válidas até</label><input name="cert" type="date" value="${f && f.certidoes_validade ? f.certidoes_validade : ""}"></div>
-    <div class="tudo"><label>Grupos</label>${GRUPOS.map(g => `<label class="chk"><input type="checkbox" name="g" value="${esc(g)}" ${f && f.grupos.includes(g) ? "checked" : ""}>${esc(g)}</label>`).join("")}</div>
+    <div class="tudo"><label>Grupos</label>${GRUPOS.map(g => `<label class="chk" title="${dicaGrupo(g)}"><input type="checkbox" name="g" value="${esc(g)}" ${f && f.grupos.includes(g) ? "checked" : ""}>${esc(g)}</label>`).join("")}</div>
     <div class="tudo"><label>Observações</label><input name="obs" value="${f ? esc(f.obs) : ""}"></div></div>
     ${f ? "" : '<p class="mut">Você fica registrado como responsável pela homologação. O fornecedor nasce sem o aval do Gerente e sem avaliação.</p>'}`,
   async d => {
@@ -633,7 +640,7 @@ document.addEventListener("click", async e => {
   }, "Criar");
   else if (a === "addMembro") { const res = await sb.from("cmp_membros").insert({ user_id: $("mUser").value, unidade_id: UNID, papel: $("mPapel").value }); if (res.error) return msg("err", res.error.message.includes("duplicate") ? "Esse login já tem esse papel." : res.error.message); carregarConfig(); msg("ok", "Papel concedido."); }
   else if (a === "delMembro") { const res = await sb.from("cmp_membros").delete().match({ user_id: b.dataset.user, unidade_id: UNID, papel: b.dataset.papel }); if (res.error) return msg("err", res.error.message); carregarConfig(); msg("ok", "Papel retirado."); }
-  else if (a === "addGrupo") { const n = $("gNovo").value.trim(); if (!n) return; const res = await sb.from("cmp_grupos").insert({ nome: n, ordem: 95 }); if (res.error) return msg("err", res.error.message); GRUPOS = checar(await sb.from("cmp_grupos").select("nome").order("ordem")).map(g => g.nome); render(); msg("ok", "Grupo incluído."); }
+  else if (a === "addGrupo") { const n = $("gNovo").value.trim(); if (!n) return; const res = await sb.from("cmp_grupos").insert({ nome: n, ordem: 900, descricao: ($("gDesc") || {}).value?.trim() || "" }); if (res.error) return msg("err", res.error.message); await carregarGrupos(); render(); msg("ok", "Grupo incluído."); }
 });
 
 sb.auth.onAuthStateChange(ev => { if (ev === "SIGNED_OUT") location.reload(); });

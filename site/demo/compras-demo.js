@@ -6,7 +6,7 @@
 // "Recomeçar" apaga e volta ao início. Usado por /demo/compras/ e /demo/cotacao/ (gerados por divulgacao/demo/gerar.py).
 (function () {
   "use strict";
-  const CHAVE = "nervia_demo_compras_v2", CHAVE_PAPEL = "nervia_demo_compras_papel";
+  const CHAVE = "nervia_demo_compras_v3", CHAVE_PAPEL = "nervia_demo_compras_papel";
   // localStorage quando houver; sem ele (janela anônima restrita), memória da própria página
   const MEM = {};
   const ls = {
@@ -48,8 +48,30 @@
       unidades: [{ id: UNID, nome: "Vale Verde Distribuidora", cnpj: null, minimo_propostas: 3, alcada_automatica: 5000, alcada_gerente: 50000,
         pesos: { preco: 40, prazo: 30, pagamento: 20, qualidade: 10 }, ativo: true, criado_em: "2026-01-05T12:00:00Z" }],
       membros: Object.entries(PESSOAS).map(([papel, p]) => ({ user_id: p.id, unidade_id: UNID, papel })),
-      grupos: ["Tecnologia", "Refrigeração", "Automação", "Energia", "Jardinagem", "Mão de obra", "Limpeza", "Segurança", "Obras civis", "Outros"]
-        .map((nome, i) => ({ nome, ordem: (i + 1) * 10 })),
+      grupos: [
+        { nome: "Informática e tecnologia", ordem: 10, descricao: "Computadores, periféricos, redes, softwares e acessórios." },
+        { nome: "Papelaria e material de escritório", ordem: 20, descricao: "Papel, canetas, pastas, etiquetas e itens de arquivo." },
+        { nome: "Material de limpeza e higiene", ordem: 30, descricao: "Produtos de limpeza, sacos de lixo, papel toalha, sabonete e dispensers." },
+        { nome: "Manutenção predial", ordem: 40, descricao: "Materiais elétricos, hidráulicos, pintura, alvenaria e ferramentas." },
+        { nome: "Ar-condicionado e ventilação", ordem: 50, descricao: "Filtros, peças, dutos e materiais de refrigeração." },
+        { nome: "Segurança e prevenção de incêndio", ordem: 60, descricao: "EPIs, sinalização, extintores, alarmes e itens de controle de acesso." },
+        { nome: "Materiais de operação", ordem: 70, descricao: "Itens da rotina das equipes de estacionamento, docas, áreas comuns e apoio operacional." },
+        { nome: "Mobiliário e equipamentos", ordem: 80, descricao: "Mesas, cadeiras, armários, estantes e equipamentos de uso administrativo ou operacional." },
+        { nome: "Comunicação visual e sinalização", ordem: 90, descricao: "Placas, banners, adesivos, impressos e materiais de orientação." },
+        { nome: "Marketing e eventos", ordem: 100, descricao: "Brindes, decoração, materiais promocionais, estruturas e serviços para campanhas." },
+        { nome: "Uniformes e identificação", ordem: 110, descricao: "Uniformes, crachás, distintivos e acessórios das equipes." },
+        { nome: "Copa e alimentação", ordem: 120, descricao: "Café, água, alimentos, utensílios e descartáveis para uso interno." },
+        { nome: "Veículos e transporte", ordem: 130, descricao: "Combustível, peças, pneus, manutenção e serviços de transporte." },
+        { nome: "Serviços contratados", ordem: 140, descricao: "Manutenção especializada, limpeza, vigilância, consultoria e mão de obra terceirizada." },
+        { nome: "Telefonia e conectividade", ordem: 150, descricao: "Celulares, linhas, chips, internet e equipamentos de comunicação." },
+        { nome: "Despesas administrativas e taxas", ordem: 160, descricao: "Cartórios, licenças, tarifas, taxas e assinaturas." },
+        { nome: "Paisagismo e áreas externas", ordem: 170, descricao: "Plantas, terra, adubo, irrigação e materiais de jardinagem." },
+        { nome: "Gestão de resíduos e sustentabilidade", ordem: 180, descricao: "Coletores, materiais de reciclagem e serviços de destinação." },
+        { nome: "Obras e reformas", ordem: 190, descricao: "Materiais e serviços para reformas, adequações e melhorias." },
+        { nome: "Água e energia", ordem: 200, descricao: "Materiais, medidores, componentes e serviços ligados ao consumo e à eficiência." },
+        { nome: "Automação", ordem: 210, descricao: "Automação predial, controladores, sensores e peças de elevadores e escadas rolantes." },
+        { nome: "Outros", ordem: 999, descricao: "O que não se encaixa nos grupos acima." },
+      ],
       fornecedores: [], avais: [], requisicoes: [], propostas: [], aprovacoes: [], avaliacoes: [], historico: [], convites: [], anexos: {},
     };
   }
@@ -381,22 +403,22 @@
         cadastrado_por: PESSOAS[quem].id, cadastrado_nome: PESSOAS[quem].nome, cadastrado_unidade: UNID,
         cadastrado_em: new Date(Date.now() - diasAtras * 864e5).toISOString(), ativo: true });
     const em = (n) => new Date(Date.now() + n * 864e5).toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
-    F("f-polar", "PJ", "41852736000186", "Polar Fino Climatização Ltda", ["Refrigeração"], "Marcelo Fontes", "(21) 99701-2201", "comercial@polarfino.exemplo", em(160), "comprador", 70);
-    F("f-arcadia", "PJ", "52739184000111", "Arcádia Refrigeração e Ar Ltda", ["Refrigeração"], "Patrícia Leal", "(21) 99702-3302", "vendas@arcadiaar.exemplo", em(95), "gerente", 260);
-    F("f-ventura", "PJ", "63918275000140", "Ventura Frio Engenharia Ltda", ["Refrigeração", "Automação"], "Hélio Matos", "(21) 99703-4403", "orcamento@venturafrio.exemplo", em(210), "gerente", 120);
-    F("f-faisca", "PJ", "74185296000118", "Faísca Instalações Elétricas Ltda", ["Energia"], "Denise Castro", "(21) 99704-5504", "contato@faisca.exemplo", em(130), "comprador", 50);
-    F("f-lumen", "PJ", "85296371000126", "Lumen Prime Iluminação Ltda", ["Energia"], "Otávio Reis", "(21) 99705-6605", "vendas@lumenprime.exemplo", em(-6), "comprador", 50);
-    F("f-ribamar", "PF", "73829461507", "José Ribamar Costa (eletricista)", ["Energia", "Mão de obra"], "José Ribamar", "(21) 99706-7706", "", em(75), "comprador", 49);
-    F("f-aurora", "PJ", "96374182000141", "Jardim Aurora Paisagismo ME", ["Jardinagem"], "Lúcia Prado", "(21) 99707-8807", "jardimaurora@exemplo.com.br", em(140), "comprador", 25);
-    F("f-folha", "PJ", "17428593000105", "Folha Nova Jardins ME", ["Jardinagem"], "Renato Alves", "(21) 99708-9908", "", em(60), "comprador", 25);
-    F("f-raiz", "PJ", "28539614000176", "Raiz Forte Paisagismo Ltda", ["Jardinagem"], "Bianca Torres", "(21) 99709-1009", "", em(25), "comprador", 25);
-    F("f-vigilia", "PJ", "39641725000113", "Vigília Total Segurança Eletrônica Ltda", ["Segurança", "Tecnologia"], "Fábio Nunes", "(21) 99710-1110", "projetos@vigiliatotal.exemplo", em(180), "comprador", 15);
-    F("f-olho", "PJ", "40752836000178", "Olho Vivo Sistemas de Vigilância Ltda", ["Segurança"], "Cíntia Rocha", "(21) 99711-1211", "", em(90), "gerente", 200);
-    F("f-nodo", "PJ", "51863947000178", "Nodo Tecnologia e Redes Ltda", ["Tecnologia", "Segurança"], "Igor Sales", "(21) 99712-1312", "comercial@nodotec.exemplo", em(22), "comprador", 15);
-    F("f-telhabem", "PJ", "62974158000121", "Telhabem Coberturas e Reformas Ltda", ["Obras civis"], "Roberto Gaspar", "(21) 99713-1413", "", em(120), "comprador", 40);
-    F("f-alicerce", "PJ", "73085269000102", "Alicerce Firme Construções Ltda", ["Obras civis"], "Mariana Lopes", "(21) 99714-1514", "obras@alicercefirme.exemplo", em(150), "gerente", 150);
-    F("f-cobertura", "PJ", "84196370000147", "Cobertura Segura Engenharia Ltda", ["Obras civis"], "Sérgio Pinho", "(21) 99715-1615", "", em(100), "comprador", 40);
-    F("f-cristalina", "PJ", "95207481000128", "Cristalina Serviços de Limpeza Ltda", ["Limpeza", "Mão de obra"], "Aline Freitas", "(21) 99716-1716", "", em(200), "gerente", 300);
+    F("f-polar", "PJ", "41852736000186", "Polar Fino Climatização Ltda", ["Ar-condicionado e ventilação"], "Marcelo Fontes", "(21) 99701-2201", "comercial@polarfino.exemplo", em(160), "comprador", 70);
+    F("f-arcadia", "PJ", "52739184000111", "Arcádia Refrigeração e Ar Ltda", ["Ar-condicionado e ventilação"], "Patrícia Leal", "(21) 99702-3302", "vendas@arcadiaar.exemplo", em(95), "gerente", 260);
+    F("f-ventura", "PJ", "63918275000140", "Ventura Frio Engenharia Ltda", ["Ar-condicionado e ventilação", "Automação"], "Hélio Matos", "(21) 99703-4403", "orcamento@venturafrio.exemplo", em(210), "gerente", 120);
+    F("f-faisca", "PJ", "74185296000118", "Faísca Instalações Elétricas Ltda", ["Água e energia"], "Denise Castro", "(21) 99704-5504", "contato@faisca.exemplo", em(130), "comprador", 50);
+    F("f-lumen", "PJ", "85296371000126", "Lumen Prime Iluminação Ltda", ["Água e energia"], "Otávio Reis", "(21) 99705-6605", "vendas@lumenprime.exemplo", em(-6), "comprador", 50);
+    F("f-ribamar", "PF", "73829461507", "José Ribamar Costa (eletricista)", ["Água e energia", "Serviços contratados"], "José Ribamar", "(21) 99706-7706", "", em(75), "comprador", 49);
+    F("f-aurora", "PJ", "96374182000141", "Jardim Aurora Paisagismo ME", ["Paisagismo e áreas externas"], "Lúcia Prado", "(21) 99707-8807", "jardimaurora@exemplo.com.br", em(140), "comprador", 25);
+    F("f-folha", "PJ", "17428593000105", "Folha Nova Jardins ME", ["Paisagismo e áreas externas"], "Renato Alves", "(21) 99708-9908", "", em(60), "comprador", 25);
+    F("f-raiz", "PJ", "28539614000176", "Raiz Forte Paisagismo Ltda", ["Paisagismo e áreas externas"], "Bianca Torres", "(21) 99709-1009", "", em(25), "comprador", 25);
+    F("f-vigilia", "PJ", "39641725000113", "Vigília Total Segurança Eletrônica Ltda", ["Segurança e prevenção de incêndio", "Informática e tecnologia"], "Fábio Nunes", "(21) 99710-1110", "projetos@vigiliatotal.exemplo", em(180), "comprador", 15);
+    F("f-olho", "PJ", "40752836000178", "Olho Vivo Sistemas de Vigilância Ltda", ["Segurança e prevenção de incêndio"], "Cíntia Rocha", "(21) 99711-1211", "", em(90), "gerente", 200);
+    F("f-nodo", "PJ", "51863947000178", "Nodo Tecnologia e Redes Ltda", ["Informática e tecnologia", "Segurança e prevenção de incêndio"], "Igor Sales", "(21) 99712-1312", "comercial@nodotec.exemplo", em(22), "comprador", 15);
+    F("f-telhabem", "PJ", "62974158000121", "Telhabem Coberturas e Reformas Ltda", ["Obras e reformas"], "Roberto Gaspar", "(21) 99713-1413", "", em(120), "comprador", 40);
+    F("f-alicerce", "PJ", "73085269000102", "Alicerce Firme Construções Ltda", ["Obras e reformas"], "Mariana Lopes", "(21) 99714-1514", "obras@alicercefirme.exemplo", em(150), "gerente", 150);
+    F("f-cobertura", "PJ", "84196370000147", "Cobertura Segura Engenharia Ltda", ["Obras e reformas"], "Sérgio Pinho", "(21) 99715-1615", "", em(100), "comprador", 40);
+    F("f-cristalina", "PJ", "95207481000128", "Cristalina Serviços de Limpeza Ltda", ["Material de limpeza e higiene", "Serviços contratados"], "Aline Freitas", "(21) 99716-1716", "", em(200), "gerente", 300);
     F("f-fardas", "PJ", "16308592000154", "Fardas & Cia Uniformes Ltda", ["Outros"], "Vera Lima", "(21) 99717-1817", "", em(80), "comprador", 30);
 
     // linha do tempo: cada passo acontece "N dias atrás", no papel de quem faz
@@ -414,7 +436,7 @@
     const entregue = (k, dias, papel) => passo(dias, 17, papel, () => RPC.cmp_marcar_entregue({ p_req: R[k] }));
     const avaliar = (k, dias, n, com) => passo(dias, 10, "gerente", () => RPC.cmp_avaliar({ p_req: R[k], p_prazo: n[0], p_qualidade: n[1], p_conformidade: n[2], p_atendimento: n[3], p_comentario: com }));
 
-    criar("ar", 58, "solicitante", { titulo: "Manutenção preventiva do ar-condicionado central", grupo: "Refrigeração", centro_custo: "Manutenção", quantidade: 1, unidade_medida: "serviço",
+    criar("ar", 58, "solicitante", { titulo: "Manutenção preventiva do ar-condicionado central", grupo: "Ar-condicionado e ventilação", centro_custo: "Manutenção", quantidade: 1, unidade_medida: "serviço",
       valor_estimado: 18000, precisa_ate: diaMaisDe(-40), descricao: "Limpeza de serpentinas, troca de filtros e checagem dos 4 fan-coils do escritório e do refeitório." });
     prop("ar", 56, "f-polar", 15800, 0, 5, "30 dias", 30, "Inclui relatório técnico com fotos.");
     prop("ar", 55, "f-arcadia", 16900, 0, 3, "28 dias", 28);
@@ -422,30 +444,30 @@
     escolher("ar", 53, "f-polar"); enviar("ar", 53); decidir("ar", 52, "gerente", "Menor preço e bom prazo.", true);
     pedido("ar", 52); entregue("ar", 44, "solicitante"); avaliar("ar", 43, [5, 4, 5, 5], "Equipe pontual, deixou tudo limpo.");
 
-    criar("led", 45, "solicitante", { titulo: "Lâmpadas LED tubulares 18 W para o estacionamento", grupo: "Energia", centro_custo: "Manutenção", quantidade: 200,
+    criar("led", 45, "solicitante", { titulo: "Lâmpadas LED tubulares 18 W para o estacionamento", grupo: "Água e energia", centro_custo: "Manutenção", quantidade: 200,
       valor_estimado: 5200, descricao: "Tubular T8 18 W, 6500 K, base G13. Garantia mínima de 2 anos." });
     prop("led", 44, "f-faisca", 21.5, 0, 4, "28 dias", 28); prop("led", 44, "f-lumen", 22.9, 0, 6, "À vista", 0); prop("led", 43, "f-ribamar", 23.4, 0, 3, "À vista", 0);
     escolher("led", 42, "f-faisca"); enviar("led", 42); decidir("led", 41, "gerente", "", true); pedido("led", 41); entregue("led", 36, "comprador");
     avaliar("led", 35, [4, 4, 4, 5], "Entregou em duas remessas, tudo certo.");
 
-    criar("piso", 35, "solicitante", { titulo: "Piso antiderrapante nos banheiros do bloco administrativo", grupo: "Obras civis", centro_custo: "Manutenção", quantidade: 64, unidade_medida: "m²",
+    criar("piso", 35, "solicitante", { titulo: "Piso antiderrapante nos banheiros do bloco administrativo", grupo: "Obras e reformas", centro_custo: "Manutenção", quantidade: 64, unidade_medida: "m²",
       valor_estimado: 14000, descricao: "Remoção do piso atual e assentamento de porcelanato antiderrapante PEI 4, com rejunte epóxi." });
     prop("piso", 33, "f-alicerce", 189, 450, 12, "30/60", 45); prop("piso", 32, "f-telhabem", 205, 0, 15, "30 dias", 30); prop("piso", 32, "f-cobertura", 214, 0, 10, "30 dias", 30);
     escolher("piso", 31, "f-alicerce"); enviar("piso", 31); decidir("piso", 30, "gerente", "Ok. Executar à noite, após o fechamento.", true);
     pedido("piso", 29); entregue("piso", 3, "solicitante");
 
-    criar("telhado", 30, "solicitante", { titulo: "Reforma do telhado do galpão de estoque", grupo: "Obras civis", centro_custo: "Obras", quantidade: 1, unidade_medida: "serviço",
+    criar("telhado", 30, "solicitante", { titulo: "Reforma do telhado do galpão de estoque", grupo: "Obras e reformas", centro_custo: "Obras", quantidade: 1, unidade_medida: "serviço",
       valor_estimado: 90000, precisa_ate: diaMaisDe(40), descricao: "Troca de 420 m² de telhas termoacústicas, calhas e rufos. Laudo com ART do engenheiro responsável." });
     prop("telhado", 24, "f-telhabem", 86400, 0, 30, "30/60/90", 60, "Com ART e garantia de 5 anos.");
     prop("telhado", 22, "f-alicerce", 91200, 0, 25, "30/60", 45); prop("telhado", 21, "f-cobertura", 97800, 0, 35, "30/60/90", 60);
     escolher("telhado", 9, "f-telhabem"); enviar("telhado", 8); decidir("telhado", 6, "gerente", "Prazo compatível com a parada do galpão. Segue para a diretoria.", true);
 
-    criar("fita", 25, "solicitante", { titulo: "Material elétrico de reposição (fitas, disjuntores, tomadas)", grupo: "Energia", centro_custo: "Manutenção", quantidade: 1, unidade_medida: "lote",
+    criar("fita", 25, "solicitante", { titulo: "Material elétrico de reposição (fitas, disjuntores, tomadas)", grupo: "Água e energia", centro_custo: "Manutenção", quantidade: 1, unidade_medida: "lote",
       valor_estimado: 1800, descricao: "Conforme lista anexa ao pedido do almoxarifado." });
     prop("fita", 24, "f-faisca", 1450, 0, 2, "28 dias", 28); prop("fita", 24, "f-lumen", 1620, 0, 4, "À vista", 0); prop("fita", 23, "f-ribamar", 1700, 0, 1, "À vista", 0);
     escolher("fita", 23, "f-faisca"); enviar("fita", 23); pedido("fita", 23); entregue("fita", 21, "solicitante"); avaliar("fita", 20, [5, 5, 5, 4], "");
 
-    criar("poda", 20, "solicitante", { titulo: "Poda das árvores do estacionamento", grupo: "Jardinagem", centro_custo: "Paisagismo", quantidade: 1, unidade_medida: "serviço",
+    criar("poda", 20, "solicitante", { titulo: "Poda das árvores do estacionamento", grupo: "Paisagismo e áreas externas", centro_custo: "Paisagismo", quantidade: 1, unidade_medida: "serviço",
       valor_estimado: 4500, descricao: "38 árvores. Inclui recolhimento dos galhos e autorização ambiental." });
     prop("poda", 18, "f-aurora", 3800, 0, 7, "30 dias", 30); prop("poda", 18, "f-folha", 4200, 0, 5, "À vista", 0); prop("poda", 17, "f-raiz", 4650, 0, 10, "30 dias", 30);
     escolher("poda", 17, "f-aurora"); enviar("poda", 17); decidir("poda", 16, "gerente", "", true); pedido("poda", 15);
@@ -453,7 +475,7 @@
     criar("cadeira", 14, "solicitante", { titulo: "Cadeiras para a sala de reunião", grupo: "Outros", quantidade: 10, valor_estimado: 6000 });
     passo(13, 10, "comprador", () => RPC.cmp_cancelar({ p_req: R.cadeira, p_motivo: "Vamos reaproveitar as cadeiras do antigo escritório da administração." }));
 
-    criar("cameras", 12, "solicitante", { titulo: "Câmeras IP 4 MP com gravador de 16 canais", grupo: "Segurança", centro_custo: "Segurança", quantidade: 8,
+    criar("cameras", 12, "solicitante", { titulo: "Câmeras IP 4 MP com gravador de 16 canais", grupo: "Segurança e prevenção de incêndio", centro_custo: "Segurança e prevenção de incêndio", quantidade: 8,
       valor_estimado: 14000, precisa_ate: diaMaisDe(20), descricao: "Cobertura da nova portaria de carga. Câmeras bullet IP67, gravador com 30 dias de gravação e instalação." });
     prop("cameras", 11, "f-vigilia", 1490, 0, 12, "30 dias", 30, "Instalação inclusa.");
     prop("cameras", 11, "f-olho", 1390, 300, 25, "28 dias", 28, "Instalação cobrada à parte.");
@@ -461,7 +483,7 @@
     escolher("cameras", 9, "f-vigilia", "O prazo de 12 dias atende a reabertura da entrada; o menor preço leva 25 dias e não inclui a instalação.");
     enviar("cameras", 9);
 
-    criar("compressor", 6, "solicitante", { titulo: "Compressor para o chiller 2", grupo: "Refrigeração", centro_custo: "Manutenção", quantidade: 1,
+    criar("compressor", 6, "solicitante", { titulo: "Compressor para o chiller 2", grupo: "Ar-condicionado e ventilação", centro_custo: "Manutenção", quantidade: 1,
       valor_estimado: 26000, precisa_ate: diaMaisDe(15), descricao: "Compressor scroll 30 TR compatível com o chiller 2 (casa de máquinas). Com instalação e partida assistida." });
     const prazoConvite = em(4);
     passo(5, 10, "comprador", () => { const p = prazoConvite; R.cv1 = RPC.cmp_convidar({ p_req: R.compressor, p_fornecedor: "f-polar", p_contato_nome: "", p_telefone: "", p_email: "", p_prazo: p }).codigo;
@@ -475,7 +497,7 @@
         validade: diaMaisDe(26), obs: "Compressor scroll 30 TR com garantia de 12 meses; partida assistida inclusa.", declarante: "Marcelo Fontes", aceite: true, anexo: nome } }); });
     passo(3, 11, null, () => { const c = S.convites.find((x) => x.fornecedor_id === "f-arcadia"); RPC.cmp_cotacao_ler({ p_codigo: c.codigo }); });
 
-    criar("uniformes", 1, "solicitante", { titulo: "Uniformes para a equipe de limpeza", grupo: "Outros", centro_custo: "Limpeza", quantidade: 24, unidade_medida: "kit",
+    criar("uniformes", 1, "solicitante", { titulo: "Uniformes para a equipe de limpeza", grupo: "Outros", centro_custo: "Material de limpeza e higiene", quantidade: 24, unidade_medida: "kit",
       valor_estimado: 3600, precisa_ate: diaMaisDe(21), descricao: "Kit com 2 camisas, 2 calças e 1 avental, tamanhos variados (lista com a supervisão)." });
 
     eventos.sort((a, b) => a.t - b.t);

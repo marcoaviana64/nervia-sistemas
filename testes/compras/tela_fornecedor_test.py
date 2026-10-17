@@ -40,10 +40,10 @@ def preparar_banco():
       insert into cmp_membros select '00000000-0000-0000-0000-0000000000d1', id, 'solicitante' from cmp_unidades;
       insert into cmp_membros select '{COMPRADOR}', id, 'comprador' from cmp_unidades;
       insert into cmp_fornecedores (tipo, documento, nome, grupos, telefone, email, certidoes_validade, cadastrado_nome) values
-        ('PJ', '22333444000181', 'InfoMais Distribuidora', '{{Energia}}', '(21) 98888-7777', 'vendas@infomais.com', current_date + 200, 'Equipe Nervia');
+        ('PJ', '22333444000181', 'InfoMais Distribuidora', '{{"Água e energia"}}', '(21) 98888-7777', 'vendas@infomais.com', current_date + 200, 'Equipe Nervia');
       set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000d1';
       insert into cmp_requisicoes (unidade_id, grupo, titulo, quantidade, valor_estimado, descricao)
-        select id, 'Energia', 'Nobreak 3 kVA senoidal', 2, 12345, 'Para o rack do CPD, com baterias.' from cmp_unidades;
+        select id, 'Água e energia', 'Nobreak 3 kVA senoidal', 2, 12345, 'Para o rack do CPD, com baterias.' from cmp_unidades;
     """)
 
 def iniciar_api():

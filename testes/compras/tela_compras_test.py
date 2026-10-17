@@ -43,8 +43,8 @@ def preparar_banco():
       insert into cmp_membros select '00000000-0000-0000-0000-0000000000d3', id, 'gerente' from cmp_unidades;
       -- dois fornecedores já cadastrados por outra pessoa (base única)
       insert into cmp_fornecedores (tipo, documento, nome, grupos, certidoes_validade, cadastrado_nome) values
-        ('PJ', '22333444000181', 'InfoMais Distribuidora', '{Tecnologia}', current_date + 200, 'Equipe Nervia'),
-        ('PJ', '33444555000181', 'Byte Center', '{Tecnologia}', current_date + 200, 'Equipe Nervia');
+        ('PJ', '22333444000181', 'InfoMais Distribuidora', '{"Informática e tecnologia"}', current_date + 200, 'Equipe Nervia'),
+        ('PJ', '33444555000181', 'Byte Center', '{"Informática e tecnologia"}', current_date + 200, 'Equipe Nervia');
     """)
 
 def iniciar_api():
@@ -109,7 +109,7 @@ try:
         # solicitante cria a requisição
         pg, er = entrar(b, "solicitante"); abrir(pg)
         ok("Solicitante" in pg.text_content("#papeis"), "solicitante vê o próprio papel")
-        pg.click("[data-acao=novaReq]"); pg.fill("[name=titulo]", "Switch 24 portas PoE"); pg.fill("[name=qtd]", "2"); pg.fill("[name=est]", "12000")
+        pg.click("[data-acao=novaReq]"); ok("Computadores, periféricos" in pg.text_content("dialog"), "nova requisição mostra o que entra no grupo"); pg.select_option("[name=grupo]", "Manutenção predial"); ok("hidráulicos" in pg.text_content("dialog"), "dica muda ao trocar o grupo"); pg.select_option("[name=grupo]", "Informática e tecnologia"); pg.fill("[name=titulo]", "Switch 24 portas PoE"); pg.fill("[name=qtd]", "2"); pg.fill("[name=est]", "12000")
         pg.fill("[name=desc]", "Gerenciável, 4 SFP."); confirmar(pg)
         ok("#1001" in pg.text_content("#tela") and "Requisição criada" in mensagem(pg), "requisição #1001 criada e aberta")
         ok(pg.locator("[data-acao=novaProp]").count() == 0, "solicitante não vê botão de registrar proposta")
@@ -122,7 +122,7 @@ try:
         pg.click("[data-acao=novoForn]"); pg.fill("[name=doc]", "22.333.444/0001-81"); pg.fill("[name=nome]", "Duplicado"); confirmar(pg)
         ok("já está cadastrado: InfoMais" in mensagem(pg), "duplicidade mostra o cadastro existente")
         pg.click("[data-acao=novoForn]"); pg.fill("[name=doc]", "11.222.333/0001-81"); pg.fill("[name=nome]", "TecnoRede Soluções")
-        pg.check("[name=g][value=Tecnologia]"); pg.fill("[name=cert]", "2027-12-31"); confirmar(pg)
+        pg.check("[name=g][value='Informática e tecnologia']"); pg.fill("[name=cert]", "2027-12-31"); confirmar(pg)
         ok("responsável pela homologação" in mensagem(pg) and "TecnoRede Soluções" in pg.text_content("#tela"), "comprador cadastra fornecedor e vira responsável")
         pg.click("[data-v=reqs]"); pg.wait_for_timeout(200); pg.click("tr[data-req='1001']"); pg.wait_for_timeout(400)
         for nome, preco, prazo in [("TecnoRede Soluções", "4800", "10"), ("InfoMais Distribuidora", "4500", "25"), ("Byte Center", "4900", "7")]:
