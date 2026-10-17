@@ -67,6 +67,7 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
   - Se outro sistema já manifestou a nota, o XML completo vem para qualquer sistema do mesmo CNPJ.
   - Certificado: vale pela raiz (8 dígitos) — o A1 da matriz consulta filiais (a função `certificado` já aceita mesma raiz).
 - NFS-e (ADN): só municípios que aderiram ao padrão nacional; NFS-e de prefeitura com sistema próprio não aparece.
+- E-mail automático (conferido em 17/10/2026; Marco vai decidir depois): Edge Functions do Supabase NÃO abrem conexão nas portas 25 e 587 (doc "Edge Functions limits") → o SMTP do Microsoft 365 (587) não funciona de dentro das funções; usar Microsoft Graph (app no Entra, permissão Mail.Send restrita a uma caixa) ou um serviço com API HTTP (Resend/Brevo/SendGrid + DNS na Cloudflare). O SMTP próprio do Supabase Auth ("Esqueci minha senha") roda no servidor do Supabase e aceita host/porta/usuário/senha. Microsoft 365: SMTP AUTH com senha fica desligado por padrão no fim de dezembro de 2026 (MC786329; o admin pode religar; remoção final a anunciar no 2º semestre de 2027); precisa SMTP AUTH ligado na caixa e não funciona com "padrões de segurança"/MFA na conta; limite ~30 mensagens/min por caixa.
 - Escala: o cron roda ~120 s por hora para todas as empresas; com muitas empresas (estimativa: acima de ~15–20) nem todas cabem numa rodada. Rever antes de passar disso.
 
 ## Regras que não podem quebrar
