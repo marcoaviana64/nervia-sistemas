@@ -141,7 +141,7 @@ end $$;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
 select pg_temp.ok((select count(*) = 0 from apps), 'login sem app liberado não vê apps');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
-select pg_temp.ok((select count(*) = 6 from apps), 'admin vê todos os apps, inclusive inativos');
+select pg_temp.ok((select count(*) = 7 from apps), 'admin vê todos os apps, inclusive inativos');
 insert into app_acessos values ('00000000-0000-0000-0000-00000000000c', 'chamados');
 update apps set ativo = false where id = 'chamados';
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
@@ -506,4 +506,89 @@ select pg_temp.ok(exists (select 1 from auditoria where acao = 'compras_proposta
   and exists (select 1 from auditoria where acao = 'compras_fornecedor_cadastrado_link') and exists (select 1 from auditoria where acao = 'compras_convite_criado')
   and exists (select 1 from auditoria where acao = 'compras_convite_cancelado') and exists (select 1 from cmp_historico where acao = 'convite_aberto'),
   'ações do link vão para o histórico e a auditoria (com IP e navegador)');
+
+-- ---------------------------------------------------------------- Monitor de Links (mon_)
+reset role;
+reset request.jwt.claim.sub;
+create or replace function pg_temp.erro2(cmd text, trecho text, nome text) returns void language plpgsql as $$
+begin
+  begin execute cmd; exception when others then
+    if sqlerrm ilike '%' || trecho || '%' then raise notice 'ok  %', nome; return; end if;
+    raise exception 'FALHOU: % (erro diferente: %)', nome, sqlerrm;
+  end;
+  raise exception 'FALHOU: % (não deu erro)', nome;
+end $$;
+select pg_temp.ok((select count(*) = 1 from apps where id = 'monitor' and cartao_url = '/apps/monitor/ajuda/cartao.html'), 'app monitor cadastrado com cartão e manual');
+select pg_temp.ok(mon_rtt_ms('12') = 12 and mon_rtt_ms('12ms') = 12 and mon_rtt_ms('1.5ms') = 1.5 and mon_rtt_ms('00:00:00.012') = 12
+  and mon_rtt_ms('800us') = 0.8 and mon_rtt_ms('1ms500us') = 1.5 and mon_rtt_ms('lixo') is null, 'rtt do RouterOS em todos os formatos');
+create temp table mids (k text primary key, v text);
+grant all on mids to anon, authenticated;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+insert into mon_locais (id, nome, cliente) values ('30000000-0000-0000-0000-000000000001', 'Matriz', 'Cliente A'), ('30000000-0000-0000-0000-000000000002', 'Filial', 'Cliente B');
+insert into mon_equipamentos (id, local_id, nome, modelo) values ('31000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000001', 'RB Matriz', 'hEX'),
+  ('31000000-0000-0000-0000-000000000002', '30000000-0000-0000-0000-000000000002', 'RB Filial', 'hEX');
+insert into mids select 'tok', mon_gerar_token('31000000-0000-0000-0000-000000000001');
+insert into mids select 'tok2', mon_gerar_token('31000000-0000-0000-0000-000000000002');
+insert into mon_acessos values ('00000000-0000-0000-0000-00000000000b', '30000000-0000-0000-0000-000000000001');
+select pg_temp.ok((select length(v) = 64 from mids where k = 'tok'), 'token de 64 caracteres gerado pelo admin');
+reset role;
+select pg_temp.ok((select token_hash <> (select v from mids where k = 'tok') and token_fim = right((select v from mids where k = 'tok'), 4)
+  from mon_equipamentos where id = '31000000-0000-0000-0000-000000000001'), 'banco guarda só o hash do token (e os 4 últimos)');
+select pg_temp.ok(exists (select 1 from auditoria where acao = 'monitor_token_gerado'), 'geração de token auditada');
+
+-- o roteador (anon) manda as medições
+set role anon;
+reset request.jwt.claim.sub;
+select pg_temp.erro2('select mon_registrar(''' || repeat('x', 64) || ''', ''{"links":[]}'')', 'token inválido', 'token errado é recusado');
+select pg_temp.erro2('select * from mon_amostras', 'permission', 'anon não lê medições');
+select pg_temp.ok((mon_registrar((select v from mids where k = 'tok'),
+  '{"v":1,"ros":"6.49.22 (long-term)","uptime":"3w2d","cpu":"7","links":[{"k":"principal","env":5,"ok":5,"rtt":"9ms"},{"k":"backup","env":5,"ok":5,"rtt":"22"}]}') ->> 'links')::int = 2,
+  'roteador registra 2 links');
+select pg_temp.ok((mon_registrar((select v from mids where k = 'tok'), '{"links":[{"k":"principal","env":5,"ok":0}]}') ->> 'motivo') = 'cedo', 'limite de 1 envio a cada 20 s');
+reset role;
+select pg_temp.ok((select count(*) = 2 and bool_and(status = 'ok') from mon_links where equipamento_id = '31000000-0000-0000-0000-000000000001'), 'links criados sozinhos com status ok');
+select pg_temp.ok((select ros_versao = '6.49.22 (long-term)' and cpu = 7 from mon_equipamentos where id = '31000000-0000-0000-0000-000000000001'), 'versão e CPU do roteador gravadas');
+-- link principal cai
+update mon_equipamentos set ultimo_contato = now() - interval '1 minute';
+set role anon;
+select mon_registrar((select v from mids where k = 'tok'), '{"links":[{"k":"principal","env":5,"ok":0},{"k":"backup","env":5,"ok":4,"rtt":"300ms"}]}');
+reset role;
+select pg_temp.ok((select status from mon_links where chave = 'principal') = 'caido' and (select status from mon_links where chave = 'backup') = 'instavel'
+  and (select count(*) = 1 from mon_quedas where tipo = 'link' and fim is null), 'link caído abre queda; perda/latência alta = instável');
+-- volta
+update mon_quedas set inicio = now() - interval '30 minutes' where tipo = 'link';
+update mon_equipamentos set ultimo_contato = now() - interval '1 minute';
+set role anon;
+select mon_registrar((select v from mids where k = 'tok'), '{"links":[{"k":"principal","env":5,"ok":5,"rtt":"10"},{"k":"backup","env":5,"ok":5,"rtt":"20"}]}');
+reset role;
+select pg_temp.ok((select count(*) = 1 from mon_quedas where tipo = 'link' and fim is not null) and (select status from mon_links where chave = 'principal') = 'ok', 'link voltou fecha a queda');
+select pg_temp.ok((select sum(amostras) = 6 and sum(no_ar) = 5 from mon_horas), 'resumo por hora acumula as amostras');
+-- equipamento some
+update mon_equipamentos set ultimo_contato = now() - interval '10 minutes' where id = '31000000-0000-0000-0000-000000000001';
+select pg_temp.ok(mon_verificar() = 1, 'vigia acha 1 equipamento calado');
+select pg_temp.ok((select sem_contato_desde is not null from mon_equipamentos where id = '31000000-0000-0000-0000-000000000001')
+  and (select count(*) = 1 from mon_quedas where tipo = 'sem_contato' and fim is null), 'vigia marca "sem contato" e abre registro');
+select pg_temp.ok(mon_verificar() = 0, 'vigia não duplica');
+set role anon;
+select mon_registrar((select v from mids where k = 'tok'), '{"links":[{"k":"principal","env":5,"ok":5,"rtt":"10"}]}');
+reset role;
+select pg_temp.ok((select sem_contato_desde is null from mon_equipamentos where id = '31000000-0000-0000-0000-000000000001')
+  and (select count(*) = 0 from mon_quedas where fim is null), 'roteador voltou fecha o "sem contato"');
+
+-- cliente
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok((select count(*) = 1 from mon_locais) and (select count(*) = 1 from mon_equipamentos) and (select count(*) = 2 from mon_links), 'cliente vê só o local liberado');
+select pg_temp.erro2('select token_hash from mon_equipamentos', 'permission', 'cliente não lê o hash do token');
+select pg_temp.erro2('select mon_gerar_token(''31000000-0000-0000-0000-000000000001'')', 'Só a equipe Nervia', 'cliente não gera token');
+select pg_temp.erro2('update mon_links set status = ''ok''', 'permission', 'cliente não altera status');
+select pg_temp.erro2('insert into mon_amostras (link_id, no_ar, perda) select id, true, 0 from mon_links limit 1', 'permission', 'cliente não inventa medição');
+select pg_temp.ok((select count(*) = 2 and min(quedas) >= 0 and bool_and(disponibilidade between 0 and 100)
+  from mon_relatorio('30000000-0000-0000-0000-000000000001', now() - interval '30 days', now())), 'relatório do local liberado');
+select pg_temp.ok((select count(*) = 0 from mon_relatorio('30000000-0000-0000-0000-000000000002', now() - interval '30 days', now())), 'relatório de local não liberado vem vazio');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.ok((select count(*) = 0 from mon_locais) and (select count(*) = 0 from mon_quedas), 'login sem acesso não vê nada');
+reset role;
+reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'
