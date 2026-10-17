@@ -177,6 +177,7 @@ td.mono{font-family:ui-monospace,Consolas,monospace;font-size:.8rem}
       <div class="dir">
         <button class="lnk" id="bCartao" onclick="abrirAjuda('cartao')">Cartão rápido</button>
         <button class="lnk" id="bManual" onclick="abrirAjuda('manual')">Manual</button>
+        <button class="lnk" id="bMapa" onclick="abrirAjuda('mapa')">Mapa</button>
         <a id="novaAba" class="small" target="_blank" rel="noopener">Abrir em nova aba ↗</a>
       </div>
     </div>
@@ -310,17 +311,19 @@ function abrirApp(id) {
   $("novaAba").href = a.url;
   $("bCartao").classList.toggle("oculto", !a.cartao_url);
   $("bManual").classList.toggle("oculto", !a.manual_url);
+  $("bMapa").classList.toggle("oculto", !a.mapa_url);
   document.title = `${a.nome} | Nervia Tecnologia`;
   const alvo = new URL(a.url, location.origin).href;
   if ($("frame").src !== alvo) $("frame").src = alvo;
   mostrar("vVisor");
 }
 
-// ------------------------------------------------------------ ajuda do app (cartão rápido e manual), num painel ao lado
+// ------------------------------------------------------------ ajuda do app (cartão rápido, manual e mapa mental), num painel ao lado
+const AJUDA = { cartao: ["cartao_url", "Cartão rápido"], manual: ["manual_url", "Manual"], mapa: ["mapa_url", "Mapa mental"] };
 function abrirAjuda(qual) {
   const a = apps.find(x => x.id === $("nomeApp").dataset.id); if (!a) return;
-  const url = qual === "cartao" ? a.cartao_url : a.manual_url; if (!url) return;
-  $("tituloAjuda").textContent = (qual === "cartao" ? "Cartão rápido" : "Manual") + " · " + a.nome;
+  const url = a[AJUDA[qual][0]]; if (!url) return;
+  $("tituloAjuda").textContent = AJUDA[qual][1] + " · " + a.nome;
   $("ajudaAba").href = url;
   const alvo = new URL(url, location.origin).href;
   if ($("frameAjuda").src !== alvo) $("frameAjuda").src = alvo;
@@ -531,6 +534,7 @@ function admApps() {
     <div class="linha">
       <div><label>Cartão de referência</label><input class="fCartao" value="${esc(a.cartao_url || "")}" placeholder="/apps/nome/ajuda/cartao.html"></div>
       <div><label>Manual de utilização</label><input class="fManual" value="${esc(a.manual_url || "")}" placeholder="/apps/nome/ajuda/manual.html"></div>
+      <div><label>Mapa mental (opcional)</label><input class="fMapa" value="${esc(a.mapa_url || "")}" placeholder="/apps/nome/ajuda/mapa.html"></div>
     </div>
     <div class="acoes">
       ${novo ? "" : `<label style="margin:0;display:flex;gap:6px;align-items:center;color:var(--text)"><input type="checkbox" class="fAtivo" ${a.ativo ? "checked" : ""}> Ativo</label>`}
@@ -539,7 +543,7 @@ function admApps() {
   $("admConteudo").innerHTML = `
     <div class="cartao"><h2>Aplicativos</h2>
       <div class="small">Endereço começando com <b>/</b> = app hospedado no site da Nervia (login único). Endereço externo (https://…) abre dentro da página também, mas o app pode pedir login próprio.<br>
-      Todo app publicado precisa de <b>cartão de referência</b> e <b>manual de utilização</b>: eles aparecem nos botões "Cartão rápido" e "Manual" ao lado do app.</div>
+      Todo app publicado precisa de <b>cartão de referência</b> e <b>manual de utilização</b>: eles aparecem nos botões "Cartão rápido" e "Manual" ao lado do app. O <b>mapa mental</b> é opcional e aparece no botão "Mapa".</div>
       ${apps.map(a => linhaApp(a, false)).join("")}
     </div>
     <div class="cartao"><h2>Novo aplicativo</h2>${linhaApp({}, true)}</div>`;
@@ -549,10 +553,10 @@ async function salvarApp(btn, novo) {
   const box = btn.closest(".usu");
   const v = cls => box.querySelector(cls)?.value?.trim() ?? "";
   const dados = { nome: v(".fNome"), url: v(".fUrl"), icone: v(".fIco"), ordem: parseInt(v(".fOrd") || "0", 10), descricao: v(".fDesc"),
-    cartao_url: v(".fCartao"), manual_url: v(".fManual") };
+    cartao_url: v(".fCartao"), manual_url: v(".fManual"), mapa_url: v(".fMapa") };
   try {
     if (!dados.nome || !dados.url) throw new Error("Informe nome e endereço.");
-    if (![dados.url, dados.cartao_url || "/", dados.manual_url || "/"].every(u => /^\/|^https:\/\//.test(u))) throw new Error("Os endereços devem começar com / ou https://");
+    if (![dados.url, dados.cartao_url || "/", dados.manual_url || "/", dados.mapa_url || "/"].every(u => /^\/|^https:\/\//.test(u))) throw new Error("Os endereços devem começar com / ou https://");
     if (novo) {
       const id = v(".fId").toLowerCase();
       if (!/^[a-z0-9-]+$/.test(id)) throw new Error("Código: só letras minúsculas, números e hífen.");

@@ -279,7 +279,7 @@ begin
   raise exception 'FALHOU: % (não deu erro)', nome;
 end $$;
 create or replace function pg_temp.como(u text) returns void language sql as $$ select set_config('request.jwt.claim.sub', u, false) $$;
-select pg_temp.ok((select count(*) = 1 from apps where id = 'compras' and cartao_url = '/apps/compras/ajuda/cartao.html'), 'app compras cadastrado com cartão e manual');
+select pg_temp.ok((select count(*) = 1 from apps where id = 'compras' and cartao_url = '/apps/compras/ajuda/cartao.html' and mapa_url = '/apps/compras/ajuda/mapa.html'), 'app compras cadastrado com cartão, manual e mapa mental');
 select pg_temp.ok(cmp_doc_valido('PJ', '11222333000181') and cmp_doc_valido('PJ', '12ABC345000188') and cmp_doc_valido('PF', '52998224725')
   and not cmp_doc_valido('PJ', '11222333000182') and not cmp_doc_valido('PF', '11111111111') and not cmp_doc_valido('PJ', '12ABC345000189'),
   'CPF, CNPJ numérico e CNPJ alfanumérico: dígitos verificadores');

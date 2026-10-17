@@ -176,7 +176,7 @@ try:
         ok(larg <= 392, f"celular sem rolagem lateral na página ({larg}px; o mapa rola dentro da própria caixa)")
         pg.screenshot(path=os.path.join(SAIDA, "compras-celular.png"), full_page=True)
         # ajuda
-        for arq in ("cartao", "manual"):
+        for arq in ("cartao", "manual", "mapa"):
             r = pg.goto(f"http://127.0.0.1:{PORTA_SITE}/apps/compras/ajuda/{arq}.html")
             ok(r.status == 200 and pg.evaluate("document.documentElement.scrollWidth") <= 392, f"{arq} abre e cabe no celular")
         b.close()

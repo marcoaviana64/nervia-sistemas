@@ -281,6 +281,7 @@ with sync_playwright() as p:
     pg.click("#bCartao"); pg.wait_for_selector("#painelAjuda:not(.oculto)")
     pg.frame_locator("#frameAjuda").locator("text=Cartão de referência").first.wait_for()
     assert "Cartão rápido" in pg.inner_text("#tituloAjuda")
+    assert pg.locator("#bMapa").is_hidden(), "app sem mapa mental não mostra o botão Mapa"
     pg.frame_locator("#frame").locator("#tab table").wait_for()  # o app continua aberto ao lado
     pg.screenshot(path=f"{SAIDA}/portal_ajuda.png")
     pg.click("#bManual"); pg.frame_locator("#frameAjuda").locator("text=Tarefas da equipe Nervia").first.wait_for()

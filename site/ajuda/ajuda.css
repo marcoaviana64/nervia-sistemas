@@ -9,7 +9,7 @@ body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.5 'Inter',system
 .cab img{height:26px}
 .cab .t{font-weight:700;font-size:1.05rem}
 .cab .s{color:var(--sub);font-size:.82rem}
-.cab .acoes{margin-left:auto;display:flex;gap:10px}
+.cab .acoes{margin-left:auto;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:4px 10px}
 .cab .acoes a,.cab .acoes button{font:inherit;font-size:.82rem;color:var(--acento);background:none;border:0;padding:0;cursor:pointer;font-weight:600;text-decoration:none}
 h1{font-size:1.3rem;margin:0 0 4px}
 h2{font-size:.95rem;margin:22px 0 8px;color:var(--acento);text-transform:uppercase;letter-spacing:.06em}
