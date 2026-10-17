@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Orçamentos de Compras | Nervia</title>
+<script src="/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<style>
+/* Orçamentos de Compras (app "compras", tabelas cmp_). Regras de negócio ficam no servidor (funções cmp_*);
+   esta tela só mostra e chama as funções. Papéis por unidade: solicitante, comprador, gerente, diretor. */
+:root{
+  --bg:#f3f6f8;--surface:#fff;--surface-2:#eaf1f4;--border:#dde6ec;--ink:#0f1b2d;--ink-soft:#4f5f73;--ink-faint:#8796a8;
+  --accent:#107e99;--accent-soft:#e3f3f7;--primary:#0b2545;
+  --ok:#1d7f46;--ok-bg:#e6f4ec;--crit:#b3261e;--crit-bg:#fbeaea;--warn:#a86400;--warn-bg:#fff3e0;--info:#2568a8;--info-bg:#e7f1fa;
+  color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0c1620;--surface:#122130;--surface-2:#18293a;--border:#24394e;--ink:#eef4f8;--ink-soft:#b3c3d1;--ink-faint:#7f93a6;
+  --accent:#3fc1dd;--accent-soft:rgba(63,193,221,.15);--primary:#cfe3f0;
+  --ok:#43c07e;--ok-bg:rgba(67,192,126,.14);--crit:#f07a72;--crit-bg:rgba(240,122,114,.14);--warn:#e3ad57;--warn-bg:rgba(227,173,87,.14);--info:#5eabe8;--info-bg:rgba(94,171,232,.14);color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.oculto{display:none!important}
+.casca{max-width:1200px;margin:0 auto;padding:12px 16px 40px}
+.topo{display:flex;align-items:center;gap:12px;padding:6px 0 10px}
+.topo .marca{width:34px;height:34px;border-radius:10px;background:linear-gradient(155deg,#107e99,#0b2545);color:#fff;display:grid;place-items:center;font-weight:800;font-size:.82rem}
+.topo span{color:var(--ink-soft);font-size:.8rem}
+.embutido .topo{display:none}
+.barra{display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:6px 8px;margin-bottom:12px}
+.barra .aba{border:0;background:none;padding:8px 12px;border-radius:8px;cursor:pointer;font:inherit;color:var(--ink-soft)}
+.barra .aba.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.barra .dir{margin-left:auto;display:flex;gap:6px;align-items:center;font-size:12px;color:var(--ink-soft)}
+.papeis{font-size:12px;color:var(--ink-soft);margin:-6px 0 10px}
+select,input,textarea{font:inherit;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink);width:100%}
+.barra select{width:auto}
+textarea{min-height:60px}
+label{display:block;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);margin-bottom:3px}
+.bt{font:inherit;font-size:13px;font-weight:600;padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--ink);cursor:pointer;white-space:nowrap}
+.bt:hover{border-color:var(--ink-soft)}.bt.pri{background:var(--accent);border-color:var(--accent);color:#fff}.bt.perigo{color:var(--crit);border-color:var(--crit)}
+.bt:disabled{opacity:.5;cursor:not-allowed}
+.lnk{background:none;border:0;padding:0;color:var(--accent);cursor:pointer;font:inherit;text-decoration:underline}
+.msg{margin:8px 0;padding:9px 12px;border-radius:8px;font-size:13px;white-space:pre-line}
+.msg.ok{background:var(--ok-bg);color:var(--ok)}.msg.err{background:var(--crit-bg);color:var(--crit)}.msg.info{background:var(--info-bg);color:var(--info)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px}
+.kpi small{display:block;color:var(--ink-soft)}.kpi b{font-size:22px;display:block}.kpi span{font-size:12px;color:var(--ink-faint)}
+.kpi.crit b{color:var(--crit)}.kpi.warn b{color:var(--warn)}.kpi.ok b{color:var(--ok)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px}
+.card h2{font-size:16px;margin:0 0 10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.card h2 .dir{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--border);vertical-align:top}
+th{color:var(--ink-soft);font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
+tr.clica{cursor:pointer}tr.clica:hover td{background:var(--surface-2)}
+td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+td.melhor{background:var(--ok-bg);font-weight:600}
+th.escolhida,td.escolhida{box-shadow:inset 0 0 0 2px var(--accent)}
+.tag{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:999px;font-weight:600;white-space:nowrap;margin:1px 2px 1px 0}
+.t-crit{background:var(--crit-bg);color:var(--crit)}.t-warn{background:var(--warn-bg);color:var(--warn)}.t-ok{background:var(--ok-bg);color:var(--ok)}
+.t-info{background:var(--info-bg);color:var(--info)}.t-mut{background:var(--surface-2);color:var(--ink-soft)}.t-acc{background:var(--accent-soft);color:var(--accent)}
+.mut{color:var(--ink-soft);font-size:12.5px}
+.grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.grade .tudo{grid-column:1/-1}
+.passos{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0}
+.passos span{font-size:12px;padding:3px 8px;border-radius:6px;background:var(--surface-2);color:var(--ink-soft)}
+.passos span.feito{background:var(--accent-soft);color:var(--accent)}.passos span.agora{background:var(--accent);color:#fff}
+.aviso{border-radius:10px;padding:10px 12px;font-size:13.5px;margin:10px 0}
+.aviso.crit{background:var(--crit-bg);color:var(--crit)}.aviso.ok{background:var(--ok-bg);color:var(--ok)}.aviso.info{background:var(--info-bg);color:var(--info)}.aviso.warn{background:var(--warn-bg);color:var(--warn)}
+.acoes{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.barrinha{height:7px;background:var(--surface-2);border-radius:99px;overflow:hidden;margin-top:3px}.barrinha i{display:block;height:100%;background:var(--accent)}
+.hist div{padding:5px 0;border-bottom:1px solid var(--border);font-size:13px}.hist div:last-child{border:0}
+dialog{border:0;border-radius:14px;padding:18px;max-width:620px;width:calc(100% - 24px);background:var(--surface);color:var(--ink)}
+dialog::backdrop{background:#0008}
+dialog h3{margin:0 0 12px}
+.chk{display:inline-flex;gap:5px;align-items:center;margin:3px 10px 3px 0;font-size:13px;text-transform:none;letter-spacing:0;font-weight:400;color:var(--ink)}
+.chk input{width:auto}
+.centro{padding:60px 16px;text-align:center;color:var(--ink-soft)}
+@media print{.barra,.acoes,.topo,.papeis{display:none!important}body{background:#fff}}
+</style>
+</head>
+<body>
+<div class="casca">
+  <div class="topo"><div class="marca">OC</div><div><b>Orçamentos de Compras</b><br><span>Requisição, 3 orçamentos, aprovação e avaliação de fornecedores</span></div></div>
+  <div id="aviso" class="centro">Carregando…</div>
+  <div id="app" class="oculto">
+    <div class="barra">
+      <button class="aba on" data-v="painel">Painel</button>
+      <button class="aba" data-v="reqs">Requisições</button>
+      <button class="aba" data-v="forn">Fornecedores</button>
+      <button class="aba" data-v="hist">Histórico</button>
+      <button class="aba" data-v="config" id="abaConfig">Configuração</button>
+      <div class="dir"><span>Unidade</span><select id="unidade"></select></div>
+    </div>
+    <div class="papeis" id="papeis"></div>
+    <div id="msg" class="msg oculto"></div>
+    <div id="tela"></div>
+  </div>
+</div>
+<dialog id="dlg"><form method="dialog" id="dlgf"></form></dialog>
+
+<script>
+const CFG = window.NERVIA_CONFIG || {};
+const EMBUTIDO = window.self !== window.top;
+if (EMBUTIDO) document.documentElement.classList.add("embutido");
+const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const checar = r => { if (r.error) throw new Error(r.error.message); return r.data; };
+const brl = v => (v == null || v === "" ? "—" : Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }));
+const num = v => Number(v || 0);
+const dataBR = v => v ? new Date(v.length === 10 ? v + "T12:00:00" : v).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "—";
+const dataHora = v => v ? new Date(v).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+const hojeISO = () => new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+const tag = (t, c) => `<span class="tag ${c}">${esc(t)}</span>`;
+function msg(tipo, texto) { const m = $("msg"); m.className = "msg " + tipo; m.textContent = texto; m.scrollIntoView({ block: "nearest" }); if (tipo === "ok") setTimeout(() => m.classList.add("oculto"), 6000); }
+function limparMsg() { $("msg").className = "msg oculto"; }
+
+const STATUS = {
+  nova: ["Nova", "t-mut"], cotacao: ["Em cotação", "t-info"], aprovacao: ["Aguardando aprovação", "t-warn"], aprovada: ["Aprovada", "t-ok"],
+  reprovada: ["Reprovada", "t-crit"], pedido: ["Pedido emitido", "t-acc"], entregue: ["Entregue · avaliar", "t-warn"], concluida: ["Concluída", "t-ok"], cancelada: ["Cancelada", "t-mut"],
+};
+const PASSOS = [["nova", "Requisição"], ["cotacao", "Cotação"], ["aprovacao", "Aprovação"], ["aprovada", "Aprovada"], ["pedido", "Pedido"], ["entregue", "Entregue"], ["concluida", "Avaliada"]];
+const PAGAMENTOS = [["À vista", 0], ["15 dias", 15], ["28 dias", 28], ["30 dias", 30], ["30/60", 45], ["30/60/90", 60], ["Outro", null]];
+const PAPEL_NOME = { solicitante: "Solicitante", comprador: "Comprador", gerente: "Gerente", diretor: "Diretor" };
+
+let EU = null, ADMIN = false, MEMBROS = [], UNIDADES = [], GRUPOS = [], FORN = [], REQS = [], UNID = null, VISTA = "painel", SEL = null, DET = null, FILTRO = { st: "abertas", g: "", q: "" };
+
+// ---------------------------------------------------------------- papéis
+const papeis = () => ADMIN ? new Set(["solicitante", "comprador", "gerente", "diretor"]) : new Set(MEMBROS.filter(m => m.unidade_id === UNID).map(m => m.papel));
+const tem = p => papeis().has(p);
+const unidade = () => UNIDADES.find(u => u.id === UNID) || {};
+const fornecedor = id => FORN.find(f => f.id === id) || { nome: "?", avais: [] };
+const temAval = (f, uid) => (f.avais || []).some(a => a.unidade_id === uid);
+
+// ---------------------------------------------------------------- carga
+async function iniciar() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { $("aviso").innerHTML = 'Entre na <a href="/cliente/" target="_top">Área do Cliente</a> para usar o app.'; return; }
+  EU = session.user;
+  try {
+    const p = checar(await sb.from("perfis").select("admin, nome, email").eq("user_id", EU.id).maybeSingle());
+    ADMIN = !!(p && p.admin);
+    MEMBROS = checar(await sb.from("cmp_membros").select("unidade_id, papel").eq("user_id", EU.id));
+    UNIDADES = checar(await sb.from("cmp_unidades").select("*").order("nome"));
+    if (!ADMIN) UNIDADES = UNIDADES.filter(u => u.ativo);
+    if (!UNIDADES.length) { $("aviso").textContent = "Seu login ainda não tem papel em nenhuma unidade de Compras. Peça à Nervia para liberar (solicitante, comprador, gerente ou diretor)."; return; }
+    GRUPOS = checar(await sb.from("cmp_grupos").select("nome").order("ordem")).map(g => g.nome);
+    const salva = localStorage.getItem("cmp-unidade");
+    UNID = UNIDADES.some(u => u.id === salva) ? salva : UNIDADES[0].id;
+    $("unidade").innerHTML = UNIDADES.map(u => `<option value="${u.id}">${esc(u.nome)}${u.ativo ? "" : " (inativa)"}</option>`).join("");
+    $("unidade").value = UNID;
+    $("abaConfig").classList.toggle("oculto", !ADMIN);
+    $("aviso").classList.add("oculto"); $("app").classList.remove("oculto");
+    await carregar();
+  } catch (e) { $("aviso").textContent = "Não foi possível carregar: " + e.message; }
+}
+async function carregar() {
+  FORN = checar(await sb.rpc("cmp_fornecedores_lista"));
+  REQS = checar(await sb.from("cmp_requisicoes").select("*").eq("unidade_id", UNID).order("id", { ascending: false }));
+  if (SEL) DET = await carregarDetalhe(SEL);
+  render();
+}
+async function carregarDetalhe(id) {
+  const [props, aprovs, hist, aval] = await Promise.all([
+    sb.from("cmp_propostas").select("*").eq("requisicao_id", id).order("id"),
+    sb.from("cmp_aprovacoes").select("*").eq("requisicao_id", id).order("id"),
+    sb.from("cmp_historico").select("*").eq("requisicao_id", id).order("id"),
+    sb.from("cmp_avaliacoes").select("*").eq("requisicao_id", id).maybeSingle(),
+  ]);
+  return { props: checar(props), aprovs: checar(aprovs), hist: checar(hist), aval: checar(aval) };
+}
+$("unidade").onchange = async () => { UNID = $("unidade").value; try { localStorage.setItem("cmp-unidade", UNID); } catch {} SEL = null; limparMsg(); await carregar(); };
+document.querySelectorAll(".barra .aba").forEach(b => b.onclick = () => { VISTA = b.dataset.v; SEL = null; limparMsg(); render(); });
+
+// chama uma função do servidor e recarrega; erro vira mensagem
+async function acao(fn, args, ok) {
+  limparMsg();
+  const r = await sb.rpc(fn, args);
+  if (r.error) { msg("err", r.error.message); return null; }
+  await carregar();
+  if (ok) msg("ok", typeof ok === "function" ? ok(r.data) : ok);
+  return r.data ?? true;
+}
+
+// ---------------------------------------------------------------- render
+function render() {
+  document.querySelectorAll(".barra .aba").forEach(b => b.classList.toggle("on", b.dataset.v === VISTA));
+  const ps = [...papeis()].map(p => PAPEL_NOME[p]);
+  $("papeis").textContent = ADMIN ? "Equipe Nervia: todos os papéis em todas as unidades." : `Seu papel em ${unidade().nome}: ${ps.join(", ") || "nenhum"}.`;
+  $("tela").innerHTML = SEL && DET ? vDetalhe() : ({ painel: vPainel, reqs: vReqs, forn: vForn, hist: vHist, config: vConfig }[VISTA] || vPainel)();
+  if (VISTA === "hist" && !SEL) carregarHist();
+  if (VISTA === "config" && !SEL) carregarConfig();
+}
+const totalProp = (p, r) => Math.round((num(p.preco_unitario) * num(r.quantidade) + num(p.frete)) * 100) / 100;
+const tcoProp = (p, r) => totalProp(p, r) + num(p.custos_extras);
+
+function esperandoMim(r) {
+  if (r.status === "aprovacao") {
+    // a etapa do Diretor só começa depois do Gerente; a tela não sabe sem o detalhe, então mostra para os dois
+    return (tem("gerente") || tem("diretor")) && r.enviado_por !== EU.id;
+  }
+  if (["nova", "cotacao", "aprovada", "pedido"].includes(r.status)) return tem("comprador");
+  if (r.status === "entregue") return tem("gerente");
+  return false;
+}
+function tabelaReqs(lista) {
+  if (!lista.length) return '<p class="mut">Nada aqui.</p>';
+  return `<div class="tw"><table><tr><th>Nº</th><th>O que</th><th>Pedida em</th><th>Precisa até</th><th class="num">Valor</th><th>Situação</th></tr>${lista.map(r => `
+    <tr class="clica" data-req="${r.id}"><td><b>#${r.id}</b></td><td>${esc(r.titulo)}<div class="mut">${esc(r.grupo)} · ${esc(r.solicitante_nome)}${r.centro_custo ? " · " + esc(r.centro_custo) : ""}</div></td>
+    <td>${dataBR(r.criado_em)}</td><td>${dataBR(r.precisa_ate)}</td>
+    <td class="num">${r.valor_aprovacao != null ? brl(r.valor_aprovacao) : `<span class="mut">est. ${brl(r.valor_estimado)}</span>`}</td>
+    <td>${tag(...STATUS[r.status])}</td></tr>`).join("")}</table></div>`;
+}
+function vPainel() {
+  const u = unidade(), ab = REQS.filter(r => !["concluida", "cancelada", "reprovada"].includes(r.status));
+  const ap = REQS.filter(r => ["aprovada", "pedido", "entregue", "concluida"].includes(r.status) && r.valor_estimado != null && r.valor_aprovacao != null);
+  const eco = ap.reduce((s, r) => s + Math.max(0, num(r.valor_estimado) - num(r.valor_aprovacao)), 0);
+  const minhas = REQS.filter(esperandoMim);
+  return `<div class="kpis">
+    <div class="kpi"><small>Abertas</small><b>${ab.length}</b><span>${REQS.filter(r => r.status === "cotacao").length} em cotação</span></div>
+    <div class="kpi warn"><small>Aguardando aprovação</small><b>${REQS.filter(r => r.status === "aprovacao").length}</b></div>
+    <div class="kpi warn"><small>Avaliações pendentes</small><b>${REQS.filter(r => r.status === "entregue").length}</b><span>pelo Gerente</span></div>
+    <div class="kpi ok"><small>Economia vs. estimado</small><b>${brl(eco)}</b><span>nas aprovadas</span></div>
+  </div>
+  <div class="card"><h2>Esperando você<span class="dir"><button class="bt pri" data-acao="novaReq">+ Nova requisição</button></span></h2>${tabelaReqs(minhas)}</div>
+  <div class="card"><h2>Regras desta unidade</h2><div class="mut">Mínimo de ${u.minimo_propostas} propostas · automática até ${brl(u.alcada_automatica)} (só menor preço e fornecedor já usado) ·
+    Gerente até ${brl(u.alcada_gerente)} · acima: Gerente e Diretor · matriz: preço ${u.pesos?.preco}%, prazo ${u.pesos?.prazo}%, pagamento ${u.pesos?.pagamento}%, qualidade ${u.pesos?.qualidade}%.</div></div>`;
+}
+function vReqs() {
+  const fs = { abertas: r => !["concluida", "cancelada", "reprovada"].includes(r.status), todas: () => true };
+  Object.keys(STATUS).forEach(k => fs[k] = r => r.status === k);
+  const l = REQS.filter(fs[FILTRO.st] || fs.abertas);
+  return `<div class="card"><h2>Requisições<span class="dir"><select id="fSt">${[["abertas", "Abertas"], ["todas", "Todas"], ...Object.entries(STATUS).map(([k, v]) => [k, v[0]])]
+    .map(([k, t]) => `<option value="${k}" ${k === FILTRO.st ? "selected" : ""}>${t}</option>`).join("")}</select><button class="bt pri" data-acao="novaReq">+ Nova requisição</button></span></h2>${tabelaReqs(l)}</div>`;
+}
+
+// ---------------------------------------------------------------- detalhe / mapa comparativo
+function notaF(f) { return f.nota == null ? null : Number(f.nota); }
+function pontuar(r, props) {
+  if (!props.length) return [];
+  const P = unidade().pesos || { preco: 40, prazo: 30, pagamento: 20, qualidade: 10 };
+  const mT = Math.min(...props.map(p => tcoProp(p, r))), mZ = Math.min(...props.map(p => p.prazo_dias)), mG = Math.max(...props.map(p => p.pagamento_dias));
+  return props.map(p => {
+    const s = { preco: tcoProp(p, r) > 0 ? mT / tcoProp(p, r) * 100 : 100, prazo: (mZ + 1) / (p.prazo_dias + 1) * 100,
+      pagamento: mG > 0 ? p.pagamento_dias / mG * 100 : 100, qualidade: (notaF(fornecedor(p.fornecedor_id)) ?? 3) / 5 * 100 };
+    s.total = (s.preco * P.preco + s.prazo * P.prazo + s.pagamento * P.pagamento + s.qualidade * P.qualidade) / 100;
+    return s;
+  });
+}
+function vDetalhe() {
+  const r = REQS.find(x => x.id === SEL); if (!r) { SEL = null; return vPainel(); }
+  const { props, aprovs, hist, aval } = DET, u = unidade(), comp = tem("comprador");
+  const edita = comp && ["nova", "cotacao"].includes(r.status);
+  const sc = pontuar(r, props), best = sc.length ? sc.indexOf(sc.reduce((a, b) => b.total > a.total ? b : a)) : -1;
+  const minT = props.length ? Math.min(...props.map(p => totalProp(p, r))) : 0, minC = props.length ? Math.min(...props.map(p => tcoProp(p, r))) : 0;
+  const minZ = props.length ? Math.min(...props.map(p => p.prazo_dias)) : 0;
+  const falta = props.length < u.minimo_propostas;
+  const esc_ = props.find(p => p.id === r.proposta_escolhida);
+  const iP = PASSOS.findIndex(p => p[0] === r.status);
+  let h = `<p><button class="bt" data-acao="voltar">← Voltar</button></p>
+  <div class="card"><h2>#${r.id} · ${esc(r.titulo)} ${tag(...STATUS[r.status])}</h2>
+    <div class="passos">${PASSOS.map(([k, t], i) => `<span class="${i < iP ? "feito" : i === iP ? "agora" : ""}">${t}</span>`).join("")}</div>
+    <div class="grade" style="margin-top:8px">
+      <div><label>Unidade · centro de custo</label>${esc(u.nome)}${r.centro_custo ? " · " + esc(r.centro_custo) : ""}</div>
+      <div><label>Grupo</label>${esc(r.grupo)}</div>
+      <div><label>Quantidade · precisa até</label>${Number(r.quantidade).toLocaleString("pt-BR")} ${esc(r.unidade_medida)} · ${dataBR(r.precisa_ate)}</div>
+      <div><label>Estimado · pedido por</label>${brl(r.valor_estimado)} · ${esc(r.solicitante_nome)}</div>
+      ${r.descricao ? `<div class="tudo"><label>Especificação</label>${esc(r.descricao).replace(/\n/g, "<br>")}</div>` : ""}
+    </div></div>`;
+  // mapa
+  h += `<div class="card"><h2>Mapa comparativo <span class="mut">${props.length} de ${u.minimo_propostas} propostas mínimas</span>${edita ? `<span class="dir"><button class="bt pri" data-acao="novaProp">+ Registrar proposta</button></span>` : ""}</h2>`;
+  if (!props.length) h += '<p class="mut">Nenhuma proposta ainda. O comprador registra as propostas recebidas dos fornecedores.</p>';
+  else {
+    const col = (fn, cls) => props.map((p, i) => `<td class="${cls ? cls(p, i) : ""}${p.id === r.proposta_escolhida ? " escolhida" : ""}">${fn(p, i)}</td>`).join("");
+    h += `<div class="tw"><table><tr><th></th>${props.map(p => `<th class="${p.id === r.proposta_escolhida ? "escolhida" : ""}">${esc(fornecedor(p.fornecedor_id).nome)}${p.rodada > 1 ? " " + tag("re-cotado", "t-info") : ""}</th>`).join("")}</tr>
+      <tr><td>Preço unitário</td>${col(p => brl(p.preco_unitario) + (p.preco_anterior != null ? `<div class="mut">antes ${brl(p.preco_anterior)}</div>` : ""))}</tr>
+      <tr><td>Total (× qtd + frete)</td>${col(p => brl(totalProp(p, r)) + `<div class="mut">frete ${brl(p.frete)}</div>`, p => totalProp(p, r) === minT ? "melhor" : "")}</tr>
+      <tr><td>Custos extras 12 meses</td>${col(p => brl(p.custos_extras))}</tr>
+      <tr><td><b>Custo total (TCO)</b></td>${col(p => brl(tcoProp(p, r)), p => tcoProp(p, r) === minC ? "melhor" : "")}</tr>
+      <tr><td>Prazo de entrega</td>${col(p => p.prazo_dias + " dias", p => p.prazo_dias === minZ ? "melhor" : "")}</tr>
+      <tr><td>Pagamento</td>${col(p => esc(p.pagamento) + (p.validade ? `<div class="mut">proposta vale até ${dataBR(p.validade)}</div>` : ""))}</tr>
+      <tr><td>Nota do fornecedor</td>${col(p => { const f = fornecedor(p.fornecedor_id); return f.nota == null ? tag("sem avaliação", "t-mut") : `${Number(f.nota).toFixed(1).replace(".", ",")} ★ <span class="mut">(${f.avaliacoes})</span>`; })}</tr>
+      <tr><td>Situação do fornecedor</td>${col(p => { const f = fornecedor(p.fornecedor_id); return (temAval(f, UNID) ? tag("aval do Gerente ✓", "t-ok") : tag("Gerente ainda não deu o aval", "t-warn"))
+        + (f.compras ? "" : tag("fornecedor novo", "t-info")) + (f.cadastrado_por === EU.id && comp ? tag("cadastrado por você", "t-crit") : "")
+        + (f.certidoes_validade && f.certidoes_validade < hojeISO() ? tag("certidões vencidas", "t-crit") : ""); })}</tr>
+      ${props.some(p => p.obs) ? `<tr><td>Observações</td>${col(p => esc(p.obs))}</tr>` : ""}
+      <tr><td><b>Nota na matriz</b><div class="mut">preço ${u.pesos.preco}% · prazo ${u.pesos.prazo}% · pagto ${u.pesos.pagamento}% · qualidade ${u.pesos.qualidade}%</div></td>
+        ${col((p, i) => `${sc[i].total.toFixed(1).replace(".", ",")}${i === best ? " · recomendado" : ""}<div class="barrinha"><i style="width:${Math.min(100, sc[i].total)}%"></i></div>`, (p, i) => i === best ? "melhor" : "")}</tr>
+      ${edita ? `<tr><td></td>${col(p => `<button class="bt ${p.id === r.proposta_escolhida ? "pri" : ""}" data-acao="escolher" data-id="${p.id}">${p.id === r.proposta_escolhida ? "✓ Escolhido" : "Escolher"}</button>
+        <div style="margin-top:6px"><button class="lnk" data-acao="editProp" data-id="${p.id}">editar / re-cotar</button> · <button class="lnk" data-acao="delProp" data-id="${p.id}">excluir</button></div>`)}</tr>` : ""}
+    </table></div>`;
+  }
+  if (falta && ["nova", "cotacao"].includes(r.status)) h += `<div class="aviso crit"><b>Trava: ${props.length} proposta(s).</b> O mínimo é ${u.minimo_propostas}. Só segue para aprovação com a exceção de fornecedor exclusivo justificada.</div>`;
+  if (r.excecao) h += `<div class="aviso info"><b>Exceção de exclusividade:</b> ${esc(r.excecao)}</div>`;
+  if (esc_) {
+    const f = fornecedor(esc_.fornecedor_id), menor = totalProp(esc_, r) <= minT;
+    h += `<div class="aviso ${menor ? "ok" : "info"}"><b>Escolhido: ${esc(f.nome)} — ${brl(totalProp(esc_, r))}.</b> ${menor ? "É o menor preço." : `Não é o menor preço (menor: ${brl(minT)}).`}
+      ${r.justificativa ? `<br><b>Justificativa:</b> ${esc(r.justificativa)}` : ""}
+      ${r.alcada ? `<br><b>Alçada:</b> ${{ automatica: "aprovação automática", gerente: "Gerente", diretor: "Gerente e depois Diretor" }[r.alcada]}` : ""}
+      ${r.fornecedor_novo ? "<br><b>Primeira compra com este fornecedor</b> — vai sempre ao Gerente." : ""}
+      ${r.cadastrado_pelo_comprador ? "<br><b>Fornecedor cadastrado por quem está comprando.</b>" : ""}
+      ${temAval(f, UNID) ? "" : "<br>O Gerente ainda não deu o aval a este fornecedor nesta unidade."}</div>`;
+  }
+  // ações
+  const bts = [];
+  if (edita) {
+    if (falta && !r.excecao) bts.push(`<button class="bt" data-acao="excecao">Exceção: fornecedor exclusivo</button>`);
+    bts.push(`<button class="bt pri" data-acao="enviar" ${(!esc_ || (falta && !r.excecao)) ? "disabled" : ""}>Enviar para aprovação</button>`);
+  }
+  if (r.status === "aprovacao") {
+    const gerOk = aprovs.some(a => a.etapa === "gerente" && a.decisao === "aprovado"), etapa = gerOk ? "diretor" : "gerente";
+    if (tem(etapa) && (r.enviado_por !== EU.id || ADMIN)) bts.push(`<button class="bt pri" data-acao="aprovar" data-etapa="${etapa}">Aprovar como ${PAPEL_NOME[etapa]}</button><button class="bt perigo" data-acao="reprovar" data-etapa="${etapa}">Reprovar</button>`);
+    else h += `<p class="mut">Aguardando o ${PAPEL_NOME[etapa]}.${r.enviado_por === EU.id && !ADMIN ? " Quem enviou não pode aprovar." : ""}</p>`;
+  }
+  if (r.status === "aprovada" && comp) bts.push(`<button class="bt pri" data-acao="pedido">Emitir pedido de compra</button>`);
+  if (r.status === "pedido" && (comp || tem("solicitante"))) bts.push(`<button class="bt pri" data-acao="entregue">Marcar como entregue</button>`);
+  if (r.status === "entregue") { if (tem("gerente")) bts.push(`<button class="bt pri" data-acao="avaliar">Avaliar fornecedor</button>`); else h += '<p class="mut">Aguardando a avaliação do fornecedor pelo Gerente.</p>'; }
+  if (r.status === "reprovada" && comp) bts.push(`<button class="bt" data-acao="reabrir">Reabrir para nova cotação</button>`);
+  if (["nova", "cotacao", "reprovada"].includes(r.status) && (comp || tem("gerente") || r.solicitante === EU.id)) bts.push(`<button class="bt perigo" data-acao="cancelar">Cancelar requisição</button>`);
+  if (["aprovada", "pedido", "entregue", "concluida"].includes(r.status)) bts.push(`<button class="bt" data-acao="imprimir">Imprimir</button>`);
+  if (bts.length) h += `<div class="acoes">${bts.join("")}</div>`;
+  h += `</div>`;
+  if (aprovs.length) h += `<div class="card"><h2>Aprovações</h2><div class="hist">${aprovs.map(a => `<div>${dataHora(a.em)} · <b>${esc(a.por_nome)}</b> (${a.etapa === "sistema" ? "automática" : PAPEL_NOME[a.etapa]}) — ${a.decisao === "aprovado" ? tag("aprovado", "t-ok") : tag("reprovado", "t-crit")} ${esc(a.comentario)}</div>`).join("")}</div></div>`;
+  if (aval) h += `<div class="card"><h2>Avaliação do fornecedor</h2><div class="mut">Prazo ${aval.prazo} · qualidade ${aval.qualidade} · conforme a proposta ${aval.conformidade} · atendimento ${aval.atendimento} — por ${esc(aval.avaliador_nome)} em ${dataHora(aval.em)}${aval.comentario ? "<br>" + esc(aval.comentario) : ""}</div></div>`;
+  h += `<div class="card"><h2>Histórico <span class="mut">somente inclusão</span></h2><div class="hist">${hist.slice().reverse().map(x => `<div>${dataHora(x.em)} · <b>${esc(x.quem_nome)}</b> — ${esc(x.texto)}</div>`).join("")}</div></div>`;
+  return h;
+}
+
+// ---------------------------------------------------------------- fornecedores
+function vForn() {
+  let l = FORN;
+  if (FILTRO.g) l = l.filter(f => f.grupos.includes(FILTRO.g));
+  if (FILTRO.q) { const q = FILTRO.q.toLowerCase(); l = l.filter(f => (f.nome + " " + f.documento).toLowerCase().includes(q)); }
+  const pode = tem("comprador") || tem("gerente") || tem("diretor"), ger = tem("gerente"), hoje = hojeISO();
+  return `<div class="card"><h2>Fornecedores <span class="mut">base única de todas as unidades</span><span class="dir">
+    <select id="fG"><option value="">Todos os grupos</option>${GRUPOS.map(g => `<option ${g === FILTRO.g ? "selected" : ""}>${esc(g)}</option>`).join("")}</select>
+    <input id="fQ" placeholder="Buscar nome ou CNPJ" value="${esc(FILTRO.q)}" style="width:200px">
+    ${pode ? '<button class="bt pri" data-acao="novoForn">+ Novo fornecedor</button>' : ""}</span></h2>
+  <div class="tw"><table><tr><th>Fornecedor</th><th>Grupos</th><th>Certidões</th><th>Cadastro / homologação</th><th>Aval do Gerente</th><th>Nota</th><th></th></tr>
+  ${l.map(f => {
+    const venc = f.certidoes_validade && f.certidoes_validade < hoje, perto = f.certidoes_validade && !venc && (new Date(f.certidoes_validade) - new Date(hoje)) / 864e5 < 30;
+    return `<tr><td><b>${esc(f.nome)}</b><div class="mut">${f.tipo === "PF" ? "CPF" : "CNPJ"} ${esc(fmtDoc(f))}</div>${f.contato || f.telefone || f.email ? `<div class="mut">${esc([f.contato, f.telefone, f.email].filter(Boolean).join(" · "))}</div>` : ""}</td>
+    <td>${f.grupos.map(g => tag(g, "t-acc")).join("")}</td>
+    <td>${!f.certidoes_validade ? tag("não informada", "t-warn") : venc ? tag("vencidas em " + dataBR(f.certidoes_validade), "t-crit") : perto ? tag("vencem " + dataBR(f.certidoes_validade), "t-warn") : tag("ok até " + dataBR(f.certidoes_validade), "t-ok")}</td>
+    <td>${esc(f.cadastrado_nome)}<div class="mut">${dataBR(f.cadastrado_em)} · homologado por quem cadastrou</div></td>
+    <td>${(f.avais || []).map(a => tag(a.unidade.replace(/^Shopping /, "") + " ✓", "t-ok")).join("")}${temAval(f, UNID) ? "" : tag(unidade().nome.replace(/^Shopping /, "") + ": pendente", "t-warn")}
+      ${ger ? `<div><button class="lnk" data-acao="aval" data-id="${f.id}" data-dar="${temAval(f, UNID) ? 0 : 1}">${temAval(f, UNID) ? "retirar aval" : "dar aval"}</button></div>` : ""}</td>
+    <td>${f.nota == null ? tag("sem avaliação", "t-mut") : `${Number(f.nota).toFixed(1).replace(".", ",")} ★<div class="mut">${f.avaliacoes} aval. · ${f.unidades_avaliacao.map(x => x.replace(/^Shopping /, "")).map(esc).join(", ")}</div>`}<div class="mut">${f.compras} compra(s)</div></td>
+    <td>${ADMIN || f.cadastrado_por === EU.id ? `<button class="lnk" data-acao="editForn" data-id="${f.id}">editar</button>` : ""}</td></tr>`;
+  }).join("") || '<tr><td colspan="7" class="mut">Nenhum fornecedor.</td></tr>'}</table></div>
+  <p class="mut">O aval do Gerente é por unidade e não impede cotação: só gera o aviso. A nota é a média das avaliações feitas pelos Gerentes após cada entrega, em todas as unidades. O CPF aparece completo só para quem cadastrou.</p></div>`;
+}
+const fmtDoc = f => f.tipo === "PF" ? (/^\d{11}$/.test(f.documento) ? f.documento.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4") : f.documento.replace(/^\*\*\*(\d{3})(\d{3})\*\*$/, "***.$1.$2-**"))
+  : f.documento.replace(/^(\w{2})(\w{3})(\w{3})(\w{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+
+// ---------------------------------------------------------------- histórico e configuração
+async function carregarHist() {
+  const r = await sb.from("cmp_historico").select("*").eq("unidade_id", UNID).order("id", { ascending: false }).limit(300);
+  const el = $("histLista"); if (!el) return;
+  if (r.error) { el.textContent = r.error.message; return; }
+  el.innerHTML = r.data.map(x => `<div>${dataHora(x.em)} · <b>${esc(x.quem_nome)}</b> — ${x.requisicao_id ? `<button class="lnk" data-req="${x.requisicao_id}">#${x.requisicao_id}</button> ` : ""}${esc(x.texto)}</div>`).join("") || '<span class="mut">Nada registrado.</span>';
+}
+function vHist() { return `<div class="card"><h2>Histórico da unidade <span class="mut">somente inclusão — ninguém altera ou apaga · últimos 300</span></h2><div class="hist" id="histLista">Carregando…</div></div>`; }
+
+let PERFIS = [], MEMBROS_U = [];
+function vConfig() {
+  if (!ADMIN) return '<p class="mut">Só a equipe Nervia.</p>';
+  const u = unidade();
+  return `<div class="card"><h2>Regras de ${esc(u.nome)}<span class="dir"><button class="bt" data-acao="novaUnidade">+ Nova unidade</button></span></h2>
+    <div class="grade">
+      <div><label>Nome</label><input id="cNome" value="${esc(u.nome)}"></div>
+      <div><label>CNPJ (liga à auditoria)</label><input id="cCnpj" value="${esc(u.cnpj || "")}"></div>
+      <div><label>Mínimo de propostas</label><input id="cMin" type="number" min="1" max="10" value="${u.minimo_propostas}"></div>
+      <div><label>Automática até (R$)</label><input id="cAuto" type="number" step="0.01" value="${u.alcada_automatica}"></div>
+      <div><label>Gerente até (R$)</label><input id="cGer" type="number" step="0.01" value="${u.alcada_gerente}"></div>
+      <div><label>Ativa</label><select id="cAtivo"><option value="1">Sim</option><option value="0" ${u.ativo ? "" : "selected"}>Não</option></select></div>
+      <div><label>Peso preço (%)</label><input id="pPreco" type="number" value="${u.pesos.preco}"></div>
+      <div><label>Peso prazo (%)</label><input id="pPrazo" type="number" value="${u.pesos.prazo}"></div>
+      <div><label>Peso pagamento (%)</label><input id="pPag" type="number" value="${u.pesos.pagamento}"></div>
+      <div><label>Peso qualidade (%)</label><input id="pQual" type="number" value="${u.pesos.qualidade}"></div>
+    </div><div class="acoes"><button class="bt pri" data-acao="salvarUnidade">Salvar regras</button><span class="mut">Os quatro pesos precisam somar 100.</span></div></div>
+  <div class="card"><h2>Papéis nesta unidade</h2>
+    <p class="mut">O login também precisa ter o app “Orçamentos de Compras” liberado em <a href="/cliente/#admin" target="_top">Administração → Logins</a>.</p>
+    <div class="grade"><div><label>Login</label><select id="mUser"></select></div><div><label>Papel</label><select id="mPapel">${Object.entries(PAPEL_NOME).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></div>
+    <div style="align-self:end"><button class="bt pri" data-acao="addMembro">Dar papel</button></div></div>
+    <div class="tw" style="margin-top:10px"><table id="tMembros"><tr><td class="mut">Carregando…</td></tr></table></div></div>
+  <div class="card"><h2>Grupos de compra</h2><div>${GRUPOS.map(g => tag(g, "t-acc")).join("")}</div>
+    <div class="grade" style="margin-top:8px"><div><input id="gNovo" placeholder="Novo grupo"></div><div><button class="bt" data-acao="addGrupo">Incluir grupo</button></div></div></div>`;
+}
+async function carregarConfig() {
+  if (!ADMIN) return;
+  PERFIS = checar(await sb.from("perfis").select("user_id, email, nome").order("email"));
+  MEMBROS_U = checar(await sb.from("cmp_membros").select("user_id, papel").eq("unidade_id", UNID));
+  if (!$("mUser")) return;
+  $("mUser").innerHTML = PERFIS.map(p => `<option value="${p.user_id}">${esc(p.email)}${p.nome ? " — " + esc(p.nome) : ""}</option>`).join("");
+  const nome = id => { const p = PERFIS.find(x => x.user_id === id); return p ? p.email + (p.nome ? " — " + p.nome : "") : id; };
+  $("tMembros").innerHTML = `<tr><th>Login</th><th>Papel</th><th></th></tr>` + (MEMBROS_U.map(m => `<tr><td>${esc(nome(m.user_id))}</td><td>${PAPEL_NOME[m.papel]}</td><td><button class="lnk" data-acao="delMembro" data-user="${m.user_id}" data-papel="${m.papel}">retirar</button></td></tr>`).join("") || '<tr><td colspan="3" class="mut">Ninguém ainda.</td></tr>');
+}
+
+// ---------------------------------------------------------------- diálogos
+const dlg = $("dlg"), dlgf = $("dlgf");
+function abrir(html, aoConfirmar, rotulo = "Confirmar") {
+  dlgf.innerHTML = html + `<div class="acoes" style="justify-content:flex-end"><button class="bt" value="cancelar" formnovalidate>Cancelar</button><button class="bt pri" value="ok">${rotulo}</button></div>`;
+  dlg.onclose = async () => { if (dlg.returnValue === "ok") await aoConfirmar(new FormData(dlgf)); };
+  dlg.returnValue = ""; dlg.showModal();
+}
+function dNovaReq() {
+  abrir(`<h3>Nova requisição — ${esc(unidade().nome)}</h3><div class="grade">
+    <div class="tudo"><label>O que precisa comprar</label><input name="titulo" required maxlength="160" placeholder="ex.: Ar-condicionado split 24.000 BTUs"></div>
+    <div><label>Grupo</label><select name="grupo">${GRUPOS.map(g => `<option>${esc(g)}</option>`).join("")}</select></div>
+    <div><label>Centro de custo</label><input name="cc" placeholder="ex.: Manutenção"></div>
+    <div><label>Quantidade</label><input name="qtd" type="number" min="0.001" step="0.001" value="1" required></div>
+    <div><label>Unidade de medida</label><input name="um" value="un"></div>
+    <div><label>Precisa até</label><input name="ate" type="date"></div>
+    <div><label>Valor estimado (R$)</label><input name="est" type="number" min="0" step="0.01"></div>
+    <div class="tudo"><label>Especificação técnica</label><textarea name="desc" placeholder="Modelo, medidas, potência, marca de referência, local de entrega…"></textarea></div></div>`,
+  async f => {
+    limparMsg();
+    const r = await sb.from("cmp_requisicoes").insert({ unidade_id: UNID, titulo: f.get("titulo").trim(), grupo: f.get("grupo"), centro_custo: f.get("cc").trim(),
+      quantidade: Number(f.get("qtd")), unidade_medida: f.get("um").trim() || "un", precisa_ate: f.get("ate") || null,
+      valor_estimado: f.get("est") === "" ? null : Number(f.get("est")), descricao: f.get("desc").trim() });
+    if (r.error) return msg("err", r.error.message);
+    await carregar(); const nova = REQS[0]; if (nova) { SEL = nova.id; DET = await carregarDetalhe(SEL); VISTA = "reqs"; render(); }
+    msg("ok", "Requisição criada.");
+  }, "Criar requisição");
+}
+function dProposta(r, p) {
+  const lista = FORN.filter(f => f.ativo && (p ? f.id === p.fornecedor_id : !DET.props.some(x => x.fornecedor_id === f.id)));
+  const doGrupo = lista.filter(f => f.grupos.includes(r.grupo)), outros = lista.filter(f => !f.grupos.includes(r.grupo));
+  const opt = f => `<option value="${f.id}">${esc(f.nome)}${f.certidoes_validade && f.certidoes_validade < hojeISO() ? " (certidões vencidas)" : ""}</option>`;
+  const pg = p ? PAGAMENTOS.find(x => x[0] === p.pagamento) : null;
+  abrir(`<h3>${p ? "Editar / re-cotar proposta" : "Registrar proposta"}</h3>
+    <p class="mut">Quantidade: ${Number(r.quantidade).toLocaleString("pt-BR")} ${esc(r.unidade_medida)}. ${p ? "Mudar o preço conta como nova rodada (re-cotação) e guarda o preço anterior." : "Não achou o fornecedor? Cadastre em Fornecedores."}</p>
+    <div class="grade"><div class="tudo"><label>Fornecedor</label><select name="f" ${p ? "disabled" : ""} required>${doGrupo.length ? `<optgroup label="${esc(r.grupo)}">${doGrupo.map(opt).join("")}</optgroup>` : ""}${outros.length ? `<optgroup label="Outros grupos">${outros.map(opt).join("")}</optgroup>` : ""}</select></div>
+    <div><label>Preço unitário (R$)</label><input name="preco" type="number" min="0" step="0.01" required value="${p ? p.preco_unitario : ""}"></div>
+    <div><label>Frete (R$)</label><input name="frete" type="number" min="0" step="0.01" value="${p ? p.frete : 0}"></div>
+    <div><label>Prazo de entrega (dias)</label><input name="prazo" type="number" min="0" required value="${p ? p.prazo_dias : ""}"></div>
+    <div><label>Pagamento</label><select name="pag">${PAGAMENTOS.map(([t]) => `<option ${p && (pg ? pg[0] === t : t === "Outro") ? "selected" : ""}>${t}</option>`).join("")}</select></div>
+    <div><label>Se "Outro": prazo médio (dias)</label><input name="pagdias" type="number" min="0" value="${p && !pg ? p.pagamento_dias : ""}"></div>
+    <div><label>Custos extras 12 meses (R$)</label><input name="extras" type="number" min="0" step="0.01" value="${p ? p.custos_extras : 0}" title="manutenção, insumos — entra no custo total (TCO)"></div>
+    <div><label>Proposta válida até</label><input name="val" type="date" value="${p && p.validade ? p.validade : ""}"></div>
+    <div class="tudo"><label>Observações</label><input name="obs" value="${p ? esc(p.obs) : ""}" placeholder="garantia, marca, condições"></div></div>`,
+  async f => {
+    const pag = f.get("pag"), dias = pag === "Outro" ? Number(f.get("pagdias") || 0) : PAGAMENTOS.find(x => x[0] === pag)[1];
+    await acao("cmp_salvar_proposta", { p_req: r.id, p_fornecedor: p ? p.fornecedor_id : f.get("f"), p_preco: Number(f.get("preco")), p_frete: Number(f.get("frete") || 0),
+      p_extras: Number(f.get("extras") || 0), p_prazo: Number(f.get("prazo")), p_pagamento: pag === "Outro" ? `Outro (${dias} dias)` : pag, p_pagamento_dias: dias,
+      p_validade: f.get("val") || null, p_obs: f.get("obs") }, p ? "Proposta atualizada." : "Proposta registrada.");
+  }, "Salvar proposta");
+}
+function dFornecedor(f) {
+  abrir(`<h3>${f ? "Editar fornecedor" : "Novo fornecedor"}</h3><div class="grade">
+    <div><label>Tipo</label><select name="tipo" ${f ? "disabled" : ""}><option value="PJ">Empresa (CNPJ)</option><option value="PF" ${f && f.tipo === "PF" ? "selected" : ""}>Pessoa física (CPF)</option></select></div>
+    <div><label>CNPJ ou CPF</label><input name="doc" ${f ? `disabled value="${esc(fmtDoc(f))}"` : 'required placeholder="aceita CNPJ com letras"'}></div>
+    <div class="tudo"><label>Razão social / nome</label><input name="nome" required value="${f ? esc(f.nome) : ""}"></div>
+    <div><label>Contato</label><input name="contato" value="${f ? esc(f.contato) : ""}"></div>
+    <div><label>Telefone</label><input name="tel" value="${f ? esc(f.telefone) : ""}"></div>
+    <div><label>E-mail</label><input name="email" type="email" value="${f ? esc(f.email) : ""}"></div>
+    <div><label>Certidões válidas até</label><input name="cert" type="date" value="${f && f.certidoes_validade ? f.certidoes_validade : ""}"></div>
+    <div class="tudo"><label>Grupos</label>${GRUPOS.map(g => `<label class="chk"><input type="checkbox" name="g" value="${esc(g)}" ${f && f.grupos.includes(g) ? "checked" : ""}>${esc(g)}</label>`).join("")}</div>
+    <div class="tudo"><label>Observações</label><input name="obs" value="${f ? esc(f.obs) : ""}"></div></div>
+    ${f ? "" : '<p class="mut">Você fica registrado como responsável pela homologação. O fornecedor nasce sem o aval do Gerente e sem avaliação.</p>'}`,
+  async d => {
+    await acao("cmp_salvar_fornecedor", { p_id: f ? f.id : null, p_tipo: f ? f.tipo : d.get("tipo"), p_documento: f ? "" : d.get("doc"), p_nome: d.get("nome"), p_grupos: d.getAll("g"),
+      p_contato: d.get("contato"), p_email: d.get("email"), p_telefone: d.get("tel"), p_certidoes: d.get("cert") || null, p_obs: d.get("obs"), p_unidade: UNID },
+      f ? "Cadastro atualizado." : "Fornecedor cadastrado. Você é o responsável pela homologação.");
+  }, "Salvar");
+}
+
+// ---------------------------------------------------------------- cliques
+document.addEventListener("change", e => {
+  if (e.target.id === "fSt") { FILTRO.st = e.target.value; render(); }
+  if (e.target.id === "fG") { FILTRO.g = e.target.value; render(); }
+  if (e.target.id === "fQ") { FILTRO.q = e.target.value; render(); }
+});
+document.addEventListener("click", async e => {
+  const linha = e.target.closest("[data-req]");
+  if (linha && !e.target.closest("[data-acao]")) { SEL = Number(linha.dataset.req); limparMsg(); DET = await carregarDetalhe(SEL); render(); window.scrollTo(0, 0); return; }
+  const b = e.target.closest("[data-acao]"); if (!b) return;
+  const a = b.dataset.acao, r = SEL ? REQS.find(x => x.id === SEL) : null, id = b.dataset.id;
+  if (a === "voltar") { SEL = null; DET = null; render(); }
+  else if (a === "novaReq") dNovaReq();
+  else if (a === "novaProp") dProposta(r);
+  else if (a === "editProp") dProposta(r, DET.props.find(p => p.id === Number(id)));
+  else if (a === "delProp") { const p = DET.props.find(x => x.id === Number(id)); abrir(`<h3>Excluir a proposta de ${esc(fornecedor(p.fornecedor_id).nome)}?</h3><p class="mut">Fica registrado no histórico.</p>`, () => acao("cmp_excluir_proposta", { p_proposta: p.id }, "Proposta excluída."), "Excluir"); }
+  else if (a === "escolher") {
+    const p = DET.props.find(x => x.id === Number(id)), minT = Math.min(...DET.props.map(x => totalProp(x, r)));
+    if (totalProp(p, r) <= minT) return acao("cmp_escolher", { p_req: r.id, p_proposta: p.id, p_justificativa: "" }, "Escolhido (menor preço).");
+    abrir(`<h3>Justificativa</h3><div class="aviso info">${esc(fornecedor(p.fornecedor_id).nome)} não é o menor preço (${brl(totalProp(p, r))} contra ${brl(minT)}). Explique por que, para seguir à aprovação.</div>
+      <textarea name="j" required minlength="10" placeholder="ex.: prazo do menor preço não atende; menor custo total com manutenção"></textarea>`,
+      f => acao("cmp_escolher", { p_req: r.id, p_proposta: p.id, p_justificativa: f.get("j") }, "Escolha registrada com justificativa."), "Escolher");
+  }
+  else if (a === "excecao") abrir(`<h3>Exceção: fornecedor exclusivo</h3><p class="mut">Permite seguir com menos de ${unidade().minimo_propostas} propostas. Fica no histórico e o aprovador vê. Guarde a carta de exclusividade do fabricante.</p>
+      <textarea name="t" required minlength="15" placeholder="ex.: peça original só vendida pelo fabricante (carta de exclusividade recebida em …)"></textarea>`,
+      f => acao("cmp_excecao", { p_req: r.id, p_texto: f.get("t") }, "Exceção registrada."), "Registrar exceção");
+  else if (a === "enviar") acao("cmp_enviar_aprovacao", { p_req: r.id }, al => al === "automatica" ? "Aprovada automaticamente (até a alçada, menor preço, fornecedor já usado)." : `Enviada para aprovação do ${al === "gerente" ? "Gerente" : "Gerente e depois do Diretor"}.`);
+  else if (a === "aprovar" || a === "reprovar") {
+    const ok = a === "aprovar", etapa = b.dataset.etapa, p = DET.props.find(x => x.id === r.proposta_escolhida), f = p ? fornecedor(p.fornecedor_id) : null;
+    const semAval = ok && etapa === "gerente" && f && !temAval(f, UNID);
+    abrir(`<h3>${ok ? "Aprovar" : "Reprovar"} como ${PAPEL_NOME[etapa]}</h3>
+      ${semAval ? `<label class="chk"><input type="checkbox" name="aval" checked> Dar também o aval do Gerente a ${esc(f.nome)} para ${esc(unidade().nome)}</label>` : ""}
+      <label style="margin-top:8px">Comentário ${ok ? "(opcional)" : "(obrigatório)"}</label><textarea name="c" ${ok ? "" : 'required minlength="5"'}></textarea>
+      <p class="mut">Fica registrado com seu login, data e hora.</p>`,
+      fd => acao("cmp_decidir", { p_req: r.id, p_aprovar: ok, p_comentario: fd.get("c"), p_dar_aval: !!fd.get("aval") },
+        st => st === "reprovada" ? "Reprovada." : st === "aprovacao" ? "Aprovada pelo Gerente. Segue para o Diretor." : "Aprovada."), ok ? "Aprovar" : "Reprovar");
+  }
+  else if (a === "pedido") acao("cmp_emitir_pedido", { p_req: r.id }, `Pedido de compra PC-${r.id} emitido.`);
+  else if (a === "entregue") acao("cmp_marcar_entregue", { p_req: r.id }, "Marcado como entregue. O Gerente avalia o fornecedor.");
+  else if (a === "avaliar") {
+    const p = DET.props.find(x => x.id === r.proposta_escolhida), f = fornecedor(p.fornecedor_id);
+    const C = [["prazo", "Prazo cumprido"], ["qualidade", "Qualidade do produto/serviço"], ["conformidade", "Conforme a proposta"], ["atendimento", "Atendimento"]];
+    abrir(`<h3>Avaliar ${esc(f.nome)}</h3><p class="mut">Compra #${r.id}. A nota vale para todas as unidades e não pode ser alterada depois.</p><div class="grade">
+      ${C.map(([k, t]) => `<div><label>${t}</label><select name="${k}">${[5, 4, 3, 2, 1].map(n => `<option value="${n}">${n} — ${["", "Péssimo", "Ruim", "Regular", "Bom", "Ótimo"][n]}</option>`).join("")}</select></div>`).join("")}
+      <div class="tudo"><label>Comentário</label><textarea name="c"></textarea></div></div>`,
+      fd => acao("cmp_avaliar", { p_req: r.id, p_prazo: Number(fd.get("prazo")), p_qualidade: Number(fd.get("qualidade")), p_conformidade: Number(fd.get("conformidade")), p_atendimento: Number(fd.get("atendimento")), p_comentario: fd.get("c") }, "Avaliação registrada. Compra concluída."), "Registrar avaliação");
+  }
+  else if (a === "reabrir") acao("cmp_reabrir", { p_req: r.id }, "Reaberta para nova cotação.");
+  else if (a === "cancelar") abrir(`<h3>Cancelar a requisição #${r.id}?</h3><label>Motivo</label><textarea name="m" required minlength="5"></textarea>`, f => acao("cmp_cancelar", { p_req: r.id, p_motivo: f.get("m") }, "Requisição cancelada."), "Cancelar requisição");
+  else if (a === "imprimir") window.print();
+  else if (a === "novoForn") dFornecedor();
+  else if (a === "editForn") dFornecedor(FORN.find(f => f.id === id));
+  else if (a === "aval") { const f = FORN.find(x => x.id === id), dar = b.dataset.dar === "1"; acao("cmp_aval", { p_fornecedor: id, p_unidade: UNID, p_dar: dar }, dar ? `Aval dado a ${f.nome}.` : `Aval retirado de ${f.nome}.`); }
+  else if (a === "salvarUnidade") {
+    const u = { nome: $("cNome").value.trim(), cnpj: $("cCnpj").value.replace(/\D/g, "") || null, minimo_propostas: Number($("cMin").value), alcada_automatica: Number($("cAuto").value),
+      alcada_gerente: Number($("cGer").value), ativo: $("cAtivo").value === "1",
+      pesos: { preco: Number($("pPreco").value), prazo: Number($("pPrazo").value), pagamento: Number($("pPag").value), qualidade: Number($("pQual").value) } };
+    if (u.pesos.preco + u.pesos.prazo + u.pesos.pagamento + u.pesos.qualidade !== 100) return msg("err", "Os quatro pesos precisam somar 100.");
+    const res = await sb.from("cmp_unidades").update(u).eq("id", UNID);
+    if (res.error) return msg("err", res.error.message);
+    UNIDADES = checar(await sb.from("cmp_unidades").select("*").order("nome")); render(); msg("ok", "Regras salvas.");
+  }
+  else if (a === "novaUnidade") abrir(`<h3>Nova unidade</h3><label>Nome</label><input name="n" required placeholder="ex.: Shopping Park Sul">`, async f => {
+    const res = await sb.from("cmp_unidades").insert({ nome: f.get("n").trim() }).select().single();
+    if (res.error) return msg("err", res.error.message);
+    UNIDADES = checar(await sb.from("cmp_unidades").select("*").order("nome")); UNID = res.data.id;
+    $("unidade").innerHTML = UNIDADES.map(u => `<option value="${u.id}">${esc(u.nome)}</option>`).join(""); $("unidade").value = UNID; await carregar(); msg("ok", "Unidade criada.");
+  }, "Criar");
+  else if (a === "addMembro") { const res = await sb.from("cmp_membros").insert({ user_id: $("mUser").value, unidade_id: UNID, papel: $("mPapel").value }); if (res.error) return msg("err", res.error.message.includes("duplicate") ? "Esse login já tem esse papel." : res.error.message); carregarConfig(); msg("ok", "Papel concedido."); }
+  else if (a === "delMembro") { const res = await sb.from("cmp_membros").delete().match({ user_id: b.dataset.user, unidade_id: UNID, papel: b.dataset.papel }); if (res.error) return msg("err", res.error.message); carregarConfig(); msg("ok", "Papel retirado."); }
+  else if (a === "addGrupo") { const n = $("gNovo").value.trim(); if (!n) return; const res = await sb.from("cmp_grupos").insert({ nome: n, ordem: 95 }); if (res.error) return msg("err", res.error.message); GRUPOS = checar(await sb.from("cmp_grupos").select("nome").order("ordem")).map(g => g.nome); render(); msg("ok", "Grupo incluído."); }
+});
+
+sb.auth.onAuthStateChange(ev => { if (ev === "SIGNED_OUT") location.reload(); });
+iniciar();
+</script>
+</body>
+</html>

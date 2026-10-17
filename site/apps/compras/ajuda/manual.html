@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manual de utilização · Orçamentos de Compras | Nervia</title>
+<link rel="stylesheet" href="/ajuda/ajuda.css">
+</head>
+<body>
+<div class="pagina">
+  <div class="cab">
+    <img src="/img/nervia-logo.png" alt="Nervia">
+    <div><div class="t">Orçamentos de Compras · Manual de utilização</div><div class="s">Requisição, 3 orçamentos, aprovação e avaliação de fornecedores</div></div>
+    <div class="acoes"><a href="cartao.html">Cartão rápido</a><button onclick="print()">Imprimir</button></div>
+  </div>
+
+  <h1>Como usar o Orçamentos de Compras</h1>
+  <p class="lead">O app organiza toda compra da administração: quem precisa pede, o comprador junta no mínimo 3 orçamentos, o app compara e recomenda, a compra é aprovada por quem tem alçada e, depois da entrega, o Gerente avalia o fornecedor. Cada passo fica registrado com nome, data e hora, num histórico que ninguém altera.</p>
+
+  <ul class="indice">
+    <li><a href="#papeis">1. Papéis: quem faz o quê</a></li>
+    <li><a href="#pedir">2. Pedir uma compra (Solicitante)</a></li>
+    <li><a href="#fornecedores">3. Cadastrar fornecedor (Comprador)</a></li>
+    <li><a href="#cotar">4. Cotar e escolher (Comprador)</a></li>
+    <li><a href="#aprovar">5. Aprovar ou reprovar (Gerente e Diretor)</a></li>
+    <li><a href="#entrega">6. Pedido, entrega e avaliação</a></li>
+    <li><a href="#situacoes">7. Situações e avisos</a></li>
+    <li><a href="#nervia">8. Tarefas da equipe Nervia</a></li>
+    <li><a href="#problemas">9. Mensagens e o que fazer</a></li>
+  </ul>
+
+  <h2 id="papeis">1. Papéis: quem faz o quê</h2>
+  <table>
+    <tr><th>Papel</th><th>Faz</th></tr>
+    <tr><td>Solicitante</td><td>Cria a requisição (o que precisa, quanto, até quando) e acompanha.</td></tr>
+    <tr><td>Comprador</td><td>Cadastra fornecedores, registra as propostas, escolhe o vencedor, envia para aprovação, emite o pedido e marca a entrega.</td></tr>
+    <tr><td>Gerente</td><td>Aprova ou reprova, dá o aval aos fornecedores da unidade e avalia o fornecedor depois da entrega.</td></tr>
+    <tr><td>Diretor</td><td>Aprova as compras acima da alçada do Gerente (depois do Gerente).</td></tr>
+  </table>
+  <p>Os papéis são por unidade (shopping). Uma pessoa pode ter mais de um papel. Quem envia uma compra para aprovação não pode aprovar essa mesma compra.</p>
+
+  <h2 id="pedir">2. Pedir uma compra (Solicitante)</h2>
+  <ol>
+    <li>Entre na Área do Cliente e abra <b>Orçamentos de Compras</b>. Confira a <b>Unidade</b> no alto.</li>
+    <li>Clique em <b>+ Nova requisição</b>.</li>
+    <li>Preencha o que precisa, o grupo, a quantidade, até quando precisa, o valor estimado e a especificação técnica.</li>
+    <li>Clique em <b>Criar requisição</b>. Ela recebe um número (#1001, #1002…) e fica <b>Nova</b> até o comprador começar a cotar.</li>
+  </ol>
+
+  <h2 id="fornecedores">3. Cadastrar fornecedor (Comprador)</h2>
+  <ol>
+    <li>Em <b>Fornecedores</b>, procure pelo nome ou CNPJ. A base é a mesma para todos os shoppings: ele pode já estar lá.</li>
+    <li>Se não estiver, clique em <b>+ Novo fornecedor</b>, escolha Empresa (CNPJ) ou Pessoa física (CPF) e digite o documento. O app confere os dígitos e aceita o CNPJ com letras que a Receita começou a usar.</li>
+    <li>Preencha nome, contato, a data de validade das certidões e os grupos em que ele atende.</li>
+    <li>Você fica registrado como <b>responsável pela homologação</b>: confira as certidões antes da primeira compra.</li>
+  </ol>
+  <p>O fornecedor novo aparece com o aviso "Gerente ainda não deu o aval" até o Gerente da unidade dar o aval. O aval não impede cotar nem comprar.</p>
+
+  <h2 id="cotar">4. Cotar e escolher (Comprador)</h2>
+  <ol>
+    <li>Abra a requisição e clique em <b>+ Registrar proposta</b> para cada orçamento recebido: preço unitário, frete, prazo de entrega, pagamento, validade e custos extras de 12 meses (manutenção, insumos), se houver.</li>
+    <li>O <b>mapa comparativo</b> mostra as propostas lado a lado. Verde marca o melhor valor de cada linha. A <b>nota na matriz</b> pondera preço, prazo, pagamento e qualidade do fornecedor, e o maior aparece como <b>recomendado</b>.</li>
+    <li>Para negociar, use <b>editar / re-cotar</b>: o novo preço conta como nova rodada e o preço anterior fica guardado.</li>
+    <li>Clique em <b>Escolher</b> no vencedor. Se não for o menor preço, escreva a justificativa (ex.: prazo, garantia, menor custo total).</li>
+    <li>Clique em <b>Enviar para aprovação</b>. Só funciona com o mínimo de propostas da unidade (3) ou com a <b>Exceção: fornecedor exclusivo</b> justificada.</li>
+  </ol>
+  <p>Quando a compra é de até R$ 5.000, é o menor preço e o fornecedor já forneceu antes, ela é aprovada na hora. Nos outros casos, vai para o Gerente; acima de R$ 50.000, vai para o Gerente e depois para o Diretor. A primeira compra com um fornecedor sempre passa pelo Gerente.</p>
+
+  <h2 id="aprovar">5. Aprovar ou reprovar (Gerente e Diretor)</h2>
+  <ol>
+    <li>No <b>Painel</b>, em <b>Esperando você</b>, clique na requisição.</li>
+    <li>Confira o mapa, a justificativa e os avisos (fornecedor novo, cadastrado pelo próprio comprador, sem aval).</li>
+    <li>Clique em <b>Aprovar como Gerente</b> (ou Diretor). Se o fornecedor ainda não tem o seu aval, a caixa <b>Dar também o aval</b> vem marcada; desmarque se não quiser dar.</li>
+    <li>Para reprovar, clique em <b>Reprovar</b> e escreva o motivo. O comprador pode <b>reabrir para nova cotação</b>.</li>
+  </ol>
+
+  <h2 id="entrega">6. Pedido, entrega e avaliação</h2>
+  <ol>
+    <li>Aprovada, o comprador clica em <b>Emitir pedido de compra</b> (número PC-nº da requisição) e envia ao fornecedor.</li>
+    <li>Quando chegar, o comprador ou o solicitante clica em <b>Marcar como entregue</b>.</li>
+    <li>O Gerente clica em <b>Avaliar fornecedor</b> e dá nota de 1 a 5 para prazo, qualidade, conformidade com a proposta e atendimento. A compra fica <b>Concluída</b>.</li>
+    <li>A nota do fornecedor é a média de todas as avaliações, de todas as unidades, e entra no critério "qualidade" das próximas cotações. A avaliação não pode ser alterada depois.</li>
+  </ol>
+
+  <h2 id="situacoes">7. Situações e avisos</h2>
+  <table>
+    <tr><th>Situação / aviso</th><th>Significa</th></tr>
+    <tr><td>Nova</td><td>Pedido criado; ainda sem proposta.</td></tr>
+    <tr><td>Em cotação</td><td>O comprador está juntando as propostas.</td></tr>
+    <tr><td>Aguardando aprovação</td><td>Com o Gerente ou o Diretor.</td></tr>
+    <tr><td>Aprovada · Pedido emitido · Entregue · avaliar · Concluída</td><td>As etapas depois da aprovação.</td></tr>
+    <tr><td>Reprovada · Cancelada</td><td>Parou. A reprovada pode ser reaberta pelo comprador.</td></tr>
+    <tr><td>Gerente ainda não deu o aval</td><td>O Gerente desta unidade ainda não validou o fornecedor. Não bloqueia.</td></tr>
+    <tr><td>Fornecedor novo</td><td>Nunca forneceu antes: a compra vai ao Gerente mesmo se for barata.</td></tr>
+    <tr><td>Cadastrado por você</td><td>Você cadastrou o fornecedor e está comprando dele. O aprovador também vê.</td></tr>
+    <tr><td>Re-cotado</td><td>O preço mudou depois da primeira proposta.</td></tr>
+    <tr><td>Sem avaliação</td><td>Ainda não há nota. No mapa ele entra com nota neutra (3).</td></tr>
+  </table>
+
+  <h2 id="nervia">8. Tarefas da equipe Nervia <span class="eq">EQUIPE NERVIA</span></h2>
+  <ol>
+    <li>Libere o app "Orçamentos de Compras" para o login em <b>Administração → Logins</b>.</li>
+    <li>No app, em <b>Configuração</b>, escolha a unidade e dê o papel ao login em <b>Papéis nesta unidade</b>.</li>
+    <li>Ajuste as regras da unidade (mínimo de propostas, alçadas, pesos que somam 100) e salve. A mudança fica no histórico.</li>
+    <li>Para um shopping novo, use <b>+ Nova unidade</b>.</li>
+  </ol>
+
+  <h2 id="problemas">9. Mensagens e o que fazer</h2>
+  <table>
+    <tr><th>Mensagem</th><th>O que fazer</th></tr>
+    <tr><td>Entre na Área do Cliente para usar o app</td><td>A sessão expirou: entre de novo em nervia.com.br/cliente.</td></tr>
+    <tr><td>Seu login ainda não tem papel em nenhuma unidade de Compras</td><td>Peça à Nervia para dar o seu papel.</td></tr>
+    <tr><td>CNPJ inválido / CPF inválido (dígito verificador não confere)</td><td>Confira o número digitado.</td></tr>
+    <tr><td>Este CNPJ já está cadastrado: …</td><td>O fornecedor já existe na base. Use o cadastro existente.</td></tr>
+    <tr><td>As certidões de … venceram em …</td><td>Peça as certidões novas ao fornecedor; quem cadastrou atualiza a data em Fornecedores → editar.</td></tr>
+    <tr><td>Escolhido não é o menor preço: escreva a justificativa</td><td>Explique a escolha (mínimo 10 caracteres).</td></tr>
+    <tr><td>Só N proposta(s): o mínimo é 3</td><td>Registre mais propostas ou a exceção de fornecedor exclusivo.</td></tr>
+    <tr><td>Escolha o fornecedor antes de enviar</td><td>Clique em Escolher no vencedor.</td></tr>
+    <tr><td>Esta etapa é do Gerente / do Diretor</td><td>Aguarde quem tem a alçada.</td></tr>
+    <tr><td>Quem enviou a compra para aprovação não pode aprová-la</td><td>Outra pessoa com o papel de Gerente ou Diretor precisa aprovar.</td></tr>
+    <tr><td>Para reprovar, escreva o motivo</td><td>Preencha o comentário.</td></tr>
+    <tr><td>Seu papel nesta unidade não permite esta ação</td><td>Peça à Nervia o papel necessário, ou peça a quem tem.</td></tr>
+    <tr><td>Só quem cadastrou o fornecedor… altera o cadastro</td><td>Peça ao responsável pela homologação (aparece na lista) ou à Nervia.</td></tr>
+    <tr><td>Os quatro pesos precisam somar 100 <span class="eq">EQUIPE NERVIA</span></td><td>Ajuste os pesos da matriz.</td></tr>
+  </table>
+  <div class="rodape">Dúvidas: WhatsApp (21) 96686-9374 · atendimento@nervia.com.br<br>Nervia Tecnologia · Manual do app Orçamentos de Compras · atualizado em 16/10/2026</div>
+</div>
+</body>
+</html>

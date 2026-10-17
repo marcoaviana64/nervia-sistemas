@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cartão de referência · Orçamentos de Compras | Nervia</title>
+<link rel="stylesheet" href="/ajuda/ajuda.css">
+</head>
+<body>
+<div class="pagina">
+  <div class="cab">
+    <img src="/img/nervia-logo.png" alt="Nervia">
+    <div><div class="t">Orçamentos de Compras · Cartão de referência</div><div class="s">Cada campo e botão em uma linha</div></div>
+    <div class="acoes"><a href="manual.html">Manual completo</a><button onclick="print()">Imprimir</button></div>
+  </div>
+
+  <p class="lead">Do pedido de compra à avaliação do fornecedor: requisição, no mínimo 3 orçamentos, mapa comparativo, aprovação pela alçada e avaliação depois da entrega. Tudo fica registrado no histórico, que ninguém altera.</p>
+
+  <h2>Topo</h2>
+  <table>
+    <tr><td>Painel · Requisições · Fornecedores · Histórico</td><td>As telas do app.</td></tr>
+    <tr><td>Unidade</td><td>O shopping em que você está trabalhando. Requisições, aprovações e regras são de cada unidade.</td></tr>
+    <tr><td>Seu papel</td><td>Solicitante (pede), Comprador (cota e escolhe), Gerente (aprova, dá aval e avalia), Diretor (aprova as compras grandes).</td></tr>
+  </table>
+
+  <h2>Painel</h2>
+  <table>
+    <tr><td>Abertas · Aguardando aprovação · Avaliações pendentes</td><td>Quantas requisições há em cada situação na unidade.</td></tr>
+    <tr><td>Economia vs. estimado</td><td>Diferença entre o valor estimado no pedido e o valor aprovado, somada nas compras aprovadas.</td></tr>
+    <tr><td>Esperando você</td><td>O que depende de você agora, conforme o seu papel. Clique na linha para abrir.</td></tr>
+    <tr><td>+ Nova requisição</td><td>Abre o pedido de compra.</td></tr>
+  </table>
+
+  <h2>Nova requisição</h2>
+  <table>
+    <tr><td>O que precisa comprar</td><td>Título curto (ex.: "Ar-condicionado split 24.000 BTUs").</td></tr>
+    <tr><td>Grupo</td><td>Tecnologia, Refrigeração, Energia… Filtra os fornecedores sugeridos.</td></tr>
+    <tr><td>Centro de custo</td><td>Área que paga a compra.</td></tr>
+    <tr><td>Quantidade · Unidade de medida</td><td>Quanto e em quê (un, m, m², serviço, mês).</td></tr>
+    <tr><td>Precisa até</td><td>Data limite para receber.</td></tr>
+    <tr><td>Valor estimado</td><td>Quanto você imagina que custa. Serve para medir a economia.</td></tr>
+    <tr><td>Especificação técnica</td><td>Modelo, medidas, potência, local de entrega. Quanto mais claro, melhores os orçamentos.</td></tr>
+  </table>
+
+  <h2>Mapa comparativo</h2>
+  <table>
+    <tr><td>+ Registrar proposta</td><td>O comprador lança o orçamento de um fornecedor: preço unitário, frete, prazo, pagamento, validade.</td></tr>
+    <tr><td>Custos extras 12 meses</td><td>Manutenção, insumos, instalação. Entra no custo total (TCO).</td></tr>
+    <tr><td>Total · Custo total (TCO)</td><td>Total = preço × quantidade + frete. TCO = total + custos extras. Verde = melhor valor da linha.</td></tr>
+    <tr><td>Nota na matriz · recomendado</td><td>Pontuação pelos pesos da unidade (preço, prazo, pagamento, qualidade). O maior é o recomendado.</td></tr>
+    <tr><td>Situação do fornecedor</td><td>Avisos: sem aval do Gerente, fornecedor novo, cadastrado por você, certidões vencidas.</td></tr>
+    <tr><td>Escolher</td><td>Marca o vencedor. Se não for o menor preço, pede justificativa.</td></tr>
+    <tr><td>editar / re-cotar</td><td>Muda a proposta. Novo preço = nova rodada; o preço anterior fica guardado.</td></tr>
+    <tr><td>excluir</td><td>Tira a proposta do mapa (fica no histórico).</td></tr>
+    <tr><td>Exceção: fornecedor exclusivo</td><td>Permite seguir com menos de 3 propostas, com justificativa.</td></tr>
+    <tr><td>Enviar para aprovação</td><td>Só libera com o mínimo de propostas (ou exceção) e o vencedor escolhido.</td></tr>
+  </table>
+
+  <h2>Aprovação e depois</h2>
+  <table>
+    <tr><td>Alçada automática</td><td>Até R$ 5.000, menor preço e fornecedor que já forneceu antes: aprovada na hora.</td></tr>
+    <tr><td>Gerente · Diretor</td><td>Até R$ 50.000: Gerente. Acima: Gerente e depois Diretor. Primeira compra com o fornecedor: sempre Gerente.</td></tr>
+    <tr><td>Aprovar · Reprovar</td><td>Reprovar exige o motivo. Quem enviou a compra não pode aprová-la.</td></tr>
+    <tr><td>Dar também o aval</td><td>Na aprovação, o Gerente pode dar o aval ao fornecedor para a unidade.</td></tr>
+    <tr><td>Reabrir para nova cotação</td><td>Depois de reprovada, o comprador ajusta e reenvia.</td></tr>
+    <tr><td>Emitir pedido de compra</td><td>Depois de aprovada. Gera o número PC-(nº da requisição).</td></tr>
+    <tr><td>Marcar como entregue</td><td>Quando o produto ou serviço chegou. Abre a avaliação.</td></tr>
+    <tr><td>Avaliar fornecedor</td><td>Gerente dá 1 a 5 em prazo, qualidade, conformidade e atendimento. Não pode ser alterada depois.</td></tr>
+    <tr><td>Cancelar requisição</td><td>Antes da aprovação (ou depois de reprovada), com motivo.</td></tr>
+    <tr><td>Imprimir</td><td>Imprime a requisição com o mapa e as aprovações.</td></tr>
+  </table>
+
+  <h2>Fornecedores</h2>
+  <table>
+    <tr><td>Base única</td><td>Todos os shoppings usam a mesma lista de fornecedores.</td></tr>
+    <tr><td>+ Novo fornecedor</td><td>CNPJ (aceita o CNPJ com letras) ou CPF de prestador. O app confere os dígitos e não aceita duplicado.</td></tr>
+    <tr><td>Cadastro / homologação</td><td>Quem cadastrou é o responsável por conferir as certidões.</td></tr>
+    <tr><td>Certidões</td><td>Vencidas: o fornecedor não recebe proposta até atualizar a data.</td></tr>
+    <tr><td>Aval do Gerente</td><td>Por unidade. Não bloqueia nada, só tira o aviso. "dar aval / retirar aval" aparece para o Gerente.</td></tr>
+    <tr><td>Nota</td><td>Média das avaliações de todas as unidades. "sem avaliação" = ainda não avaliado.</td></tr>
+    <tr><td>editar</td><td>Só quem cadastrou (ou a Nervia) altera o cadastro.</td></tr>
+    <tr><td>CPF mascarado</td><td>O CPF completo aparece só para quem cadastrou.</td></tr>
+  </table>
+
+  <h2>Configuração <span class="eq">EQUIPE NERVIA</span></h2>
+  <table>
+    <tr><td>Regras</td><td>Mínimo de propostas, alçada automática, alçada do Gerente e pesos da matriz (somam 100).</td></tr>
+    <tr><td>Papéis nesta unidade</td><td>Dá ou retira solicitante, comprador, gerente, diretor de cada login.</td></tr>
+    <tr><td>Grupos de compra</td><td>Inclui um grupo novo para todas as unidades.</td></tr>
+    <tr><td>+ Nova unidade</td><td>Cadastra outro shopping.</td></tr>
+  </table>
+
+  <h2>Bom saber</h2>
+  <table>
+    <tr><td>Histórico</td><td>Tudo o que acontece fica registrado com nome, data e hora. Ninguém altera nem apaga.</td></tr>
+    <tr><td>Ajuda</td><td>WhatsApp (21) 96686-9374 · atendimento@nervia.com.br</td></tr>
+  </table>
+  <div class="rodape">Nervia Tecnologia · Cartão de referência do app Orçamentos de Compras · atualizado em 16/10/2026</div>
+</div>
+</body>
+</html>

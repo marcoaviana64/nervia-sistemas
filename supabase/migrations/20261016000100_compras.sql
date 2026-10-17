@@ -228,6 +228,11 @@ do $$ declare t text; begin
   end loop;
 end $$;
 
+create or replace function public.cmp_brl(v numeric) returns text
+language sql immutable as $$
+  select 'R$ ' || translate(to_char(coalesce(v, 0), 'FM999,999,999,990.00'), ',.', '.,')
+$$;
+
 -- registra no histórico do app e na auditoria da plataforma
 create or replace function public.cmp_registrar(p_req bigint, p_forn uuid, p_unidade uuid, p_acao text, p_texto text, p_det jsonb default '{}')
 returns void language plpgsql security definer set search_path = public as $$
@@ -359,7 +364,7 @@ begin
     return new;
   end if;
   perform public.cmp_registrar(null, null, new.id, case when tg_op = 'INSERT' then 'unidade_criada' else 'regras_alteradas' end,
-    format('%s: mínimo %s propostas, automática até %s, Gerente até %s', new.nome, new.minimo_propostas, new.alcada_automatica, new.alcada_gerente),
+    format('%s: mínimo %s propostas, automática até %s, Gerente até %s', new.nome, new.minimo_propostas, public.cmp_brl(new.alcada_automatica), public.cmp_brl(new.alcada_gerente)),
     jsonb_build_object('pesos', new.pesos, 'ativo', new.ativo));
   return new;
 end $$;
@@ -488,7 +493,7 @@ begin
      where id = v_ant.id returning id into v_id;
     perform public.cmp_registrar(p_req, p_fornecedor, r.unidade_id, 'proposta_alterada',
       format('Proposta de %s alterada: %s → %s', f.nome,
-        to_char(round(v_ant.preco_unitario * r.quantidade + v_ant.frete, 2), 'FM999G999G990D00'), to_char(v_total, 'FM999G999G990D00')),
+        public.cmp_brl(round(v_ant.preco_unitario * r.quantidade + v_ant.frete, 2)), public.cmp_brl(v_total)),
       jsonb_build_object('preco_unitario', p_preco, 'preco_anterior', v_ant.preco_unitario, 'prazo_dias', p_prazo));
   else
     insert into public.cmp_propostas (requisicao_id, fornecedor_id, preco_unitario, frete, custos_extras, prazo_dias, pagamento,
@@ -497,7 +502,7 @@ begin
       coalesce(p_pagamento_dias, 0), p_validade, coalesce(p_obs, ''), auth.uid())
     returning id into v_id;
     perform public.cmp_registrar(p_req, p_fornecedor, r.unidade_id, 'proposta_registrada',
-      format('Proposta de %s registrada: total %s, prazo %s dias, %s', f.nome, to_char(v_total, 'FM999G999G990D00'), p_prazo, coalesce(p_pagamento, 'À vista')),
+      format('Proposta de %s registrada: total %s, prazo %s dias, %s', f.nome, public.cmp_brl(v_total), p_prazo, coalesce(p_pagamento, 'À vista')),
       jsonb_build_object('preco_unitario', p_preco, 'frete', p_frete, 'custos_extras', p_extras, 'prazo_dias', p_prazo));
   end if;
   -- qualquer mudança nas propostas desfaz a escolha (o mapa mudou)
@@ -581,7 +586,7 @@ begin
     status = case when v_alcada = 'automatica' then 'aprovada' else 'aprovacao' end
    where id = p_req;
   perform public.cmp_registrar(p_req, f.id, r.unidade_id, 'enviada_aprovacao',
-    format('Enviada para aprovação: %s, %s. Alçada: %s%s%s', f.nome, to_char(v_total, 'FM999G999G990D00'),
+    format('Enviada para aprovação: %s, %s. Alçada: %s%s%s', f.nome, public.cmp_brl(v_total),
       case v_alcada when 'automatica' then 'automática' when 'gerente' then 'Gerente' else 'Gerente e Diretor' end,
       case when v_novo then '. Primeira compra com este fornecedor' else '' end,
       case when v_comp then '. Fornecedor cadastrado por quem está comprando' else '' end),
@@ -589,7 +594,7 @@ begin
       'propostas', v_qtd, 'excecao', r.excecao));
   if v_alcada = 'automatica' then
     insert into public.cmp_aprovacoes (requisicao_id, etapa, decisao, comentario, por_nome)
-    values (p_req, 'sistema', 'aprovado', format('Até %s, menor preço e fornecedor com compras anteriores.', to_char(u.alcada_automatica, 'FM999G999G990D00')), 'Sistema');
+    values (p_req, 'sistema', 'aprovado', format('Até %s, menor preço e fornecedor com compras anteriores.', public.cmp_brl(u.alcada_automatica)), 'Sistema');
     perform public.cmp_registrar(p_req, null, r.unidade_id, 'aprovacao_automatica', 'Aprovação automática (até a alçada, menor preço).');
   end if;
   return v_alcada;
