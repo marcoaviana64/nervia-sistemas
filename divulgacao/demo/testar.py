@@ -98,10 +98,52 @@ with sync_playwright() as p:
     pg.fill("#lEmail", "teste@cliente.com.br"); pg.fill("#lSenha", "1234"); pg.keyboard.press("Enter")
     pg.wait_for_selector(".app")
 
-    # 6. celular
+    # 6. Orçamentos de Compras: comprador manda o convite, fornecedor responde pelo link, Gerente e Diretor aprovam
+    pg.goto(f"{U}/demo/compras/"); pg.evaluate("localStorage.clear()"); pg.reload(); pg.wait_for_selector("#app:not(.oculto)")
+    assert "Comprador" in pg.inner_text("#papeis") and pg.locator("#demoPapel option").count() == 4
+    corpo = pg.inner_text("body")
+    for t in ("Shopping Vale Verde", "Uniformes para a equipe de limpeza", "Compressor para o chiller 2"):
+        assert t in corpo, t
+    pg.click("[data-v=reqs]"); pg.click("tr[data-req='1009']"); pg.wait_for_timeout(300)
+    assert "2 de 3 propostas" in pg.inner_text("#tela")
+    pg.locator("tr", has_text="Arcádia").locator("[data-acao=whats]").click(); pg.wait_for_selector(".demo-modal")
+    assert "/demo/cotacao/#" in pg.inner_text(".demo-modal")
+    with ctx.expect_page() as nova:
+        pg.click(".demo-modal .pri")
+    fo = nova.value; fo.wait_for_selector("#pagina:not(.oculto)")
+    assert "Arcádia" in fo.inner_text("#cxIdent") and "26.000" not in fo.inner_text("body")  # não mostra o valor estimado
+    fo.fill("#preco", "25300"); fo.fill("#prazoDias", "8"); fo.fill("#declarante", "Patrícia Leal"); fo.check("#aceite"); fo.click("#enviar"); fo.wait_for_timeout(500)
+    assert "recebida" in fo.inner_text("#situacao"); fo.screenshot(path=f"{SAIDA}/demo_cotacao.png", full_page=True); fo.close()
+    pg.wait_for_timeout(500)
+    assert "3 de 3 propostas" in pg.inner_text("#tela") and "Patrícia Leal" in pg.inner_text("#tela")  # chega sozinha na aba do comprador
+    pg.click("[data-acao=escolher] >> nth=2"); pg.wait_for_timeout(300)
+    if pg.is_visible("dialog[open]"): pg.fill("dialog [name=j]", "Menor custo total e o menor prazo."); pg.click("dialog [value=ok]"); pg.wait_for_timeout(300)
+    pg.click("[data-acao=enviar]"); pg.wait_for_timeout(300)
+    assert "Gerente" in pg.inner_text("#msg"), pg.inner_text("#msg")
+    pg.screenshot(path=f"{SAIDA}/demo_compras_mapa.png", full_page=True)
+    pg.select_option("#demoPapel", "gerente"); pg.wait_for_selector("#app:not(.oculto)")
+    assert "#1009" in pg.inner_text("#tela") and "#1008" in pg.inner_text("#tela")
+    pg.click("tr[data-req='1009']"); pg.wait_for_timeout(300); pg.click("[data-acao=aprovar]"); pg.click("dialog [value=ok]"); pg.wait_for_timeout(300)
+    assert "Aprovada" in pg.inner_text("#msg")
+    pg.select_option("#demoPapel", "diretor"); pg.wait_for_selector("#app:not(.oculto)")
+    pg.click("tr[data-req='1004']"); pg.wait_for_timeout(300); pg.click("[data-acao=aprovar]"); pg.click("dialog [value=ok]"); pg.wait_for_timeout(300)
+    assert "Aprovada" in pg.inner_text("#msg")
+    pg.once("dialog", lambda d: d.accept())
+    with pg.expect_navigation(): pg.click("#demoRecomecar")
+    pg.wait_for_selector("#app:not(.oculto)")
+    assert pg.evaluate("window.NERVIA_DEMO_COMPRAS.papel()") == "diretor" and "Aguardando aprovação" in pg.inner_text("#tela")  # voltou ao início
+    r = pg.goto(f"{U}/apps/compras/ajuda/mapa.html"); assert r.status == 200
+    sem = ctx.new_page(); sem.goto(f"{U}/demo/cotacao/"); sem.wait_for_selector("#pagina:not(.oculto)")  # sem link: abre um convite de exemplo
+    assert "pede uma cotação" in sem.inner_text("#titulo"); sem.close()
+
+    # 7. celular
     m = b.new_context(viewport={"width": 390, "height": 844}, is_mobile=True, locale="pt-BR"); preparar(m)
     mp = m.new_page(); mp.goto(f"{U}/demo/"); mp.wait_for_selector(".app"); mp.screenshot(path=f"{SAIDA}/demo_celular.png")
     mp.locator(".app", has_text="Painel de Notas").click(); mp.wait_for_timeout(1800); mp.screenshot(path=f"{SAIDA}/demo_celular_painel.png")
+    for end in ("/demo/compras/", "/demo/cotacao/", "/"):
+        mp.goto(U + end); mp.wait_for_timeout(700)
+        assert mp.evaluate("document.documentElement.scrollWidth") <= 392, f"{end}: rolagem lateral no celular"
+    mp.goto(U + "/demo/compras/"); mp.wait_for_selector("#app:not(.oculto)"); mp.screenshot(path=f"{SAIDA}/demo_celular_compras.png")
     b.close()
 
 assert not erros, erros

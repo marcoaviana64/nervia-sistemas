@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Demonstração · Enviar proposta | Nervia</title>
+<script src="/config.js"></script>
+<script src="/demo/compras-demo.js"></script>
+<style>
+/* Página do fornecedor (Orçamentos de Compras, fase 2): abre pelo link do convite, sem login.
+   O código do convite vem depois do "#" e só é usado nas funções cmp_cotacao_ler / cmp_cotacao_enviar. */
+:root{
+  --bg:#f3f6f8;--surface:#fff;--surface-2:#eaf1f4;--border:#dde6ec;--ink:#0f1b2d;--ink-soft:#4f5f73;--ink-faint:#8796a8;
+  --accent:#107e99;--accent-soft:#e3f3f7;
+  --ok:#1d7f46;--ok-bg:#e6f4ec;--crit:#b3261e;--crit-bg:#fbeaea;--warn:#a86400;--warn-bg:#fff3e0;--info:#2568a8;--info-bg:#e7f1fa;
+  color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0c1620;--surface:#122130;--surface-2:#18293a;--border:#24394e;--ink:#eef4f8;--ink-soft:#b3c3d1;--ink-faint:#7f93a6;
+  --accent:#3fc1dd;--accent-soft:rgba(63,193,221,.15);
+  --ok:#43c07e;--ok-bg:rgba(67,192,126,.14);--crit:#f07a72;--crit-bg:rgba(240,122,114,.14);--warn:#e3ad57;--warn-bg:rgba(227,173,87,.14);--info:#5eabe8;--info-bg:rgba(94,171,232,.14);color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.oculto{display:none!important}
+.casca{max-width:760px;margin:0 auto;padding:16px 16px 48px}
+.topo{display:flex;align-items:center;gap:12px;padding:6px 0 14px}
+.topo .marca{width:38px;height:38px;border-radius:10px;background:linear-gradient(155deg,#107e99,#0b2545);color:#fff;display:grid;place-items:center;font-weight:800;font-size:.85rem;flex:none}
+.topo small{display:block;color:var(--ink-soft);font-size:.82rem}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px}
+.card h2{font-size:17px;margin:0 0 10px}
+.grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.grade .tudo{grid-column:1/-1}
+label{display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);margin-bottom:4px}
+.dado{font-size:15px}
+input,select,textarea{font:inherit;padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink);width:100%}
+textarea{min-height:70px}
+.chk{display:flex;gap:8px;align-items:flex-start;text-transform:none;letter-spacing:0;font-weight:400;color:var(--ink);font-size:14px}
+.chk input{width:auto;margin-top:4px}
+.bt{font:inherit;font-weight:700;padding:11px 18px;border-radius:10px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer}
+.bt:disabled{opacity:.55;cursor:wait}
+.mut{color:var(--ink-soft);font-size:13px}
+.aviso{border-radius:10px;padding:11px 13px;font-size:14px;margin:10px 0;white-space:pre-line}
+.aviso.crit{background:var(--crit-bg);color:var(--crit)}.aviso.ok{background:var(--ok-bg);color:var(--ok)}.aviso.info{background:var(--info-bg);color:var(--info)}.aviso.warn{background:var(--warn-bg);color:var(--warn)}
+.centro{padding:60px 16px;text-align:center;color:var(--ink-soft)}
+.rodape{font-size:12px;color:var(--ink-faint);text-align:center;margin-top:20px}
+.rodape a{color:inherit}
+</style>
+<meta name="robots" content="noindex">
+<!-- GERADO por divulgacao/demo/gerar.py a partir de site/cotacao/index.html. Não editar aqui. -->
+<style id="demo-css">
+.demo-faixa{position:sticky;top:0;z-index:9999;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;
+  padding:8px 16px;background:#0B2545;color:#fff;font:600 14px/1.35 Inter,system-ui,sans-serif;text-align:center}
+.demo-faixa b{color:#2BB3D1}
+.demo-faixa a{background:#2BB3D1;color:#06222c;text-decoration:none;border-radius:999px;padding:6px 14px;font-weight:700;white-space:nowrap}
+.demo-faixa .demo-dica{font-weight:400;color:#bcd3df}
+.visor{height:calc(100vh - 65px - var(--demo-h, 0px)) !important}
+@media (max-width:600px){.demo-faixa{font-size:12.5px;gap:8px;padding:6px 10px}.demo-faixa .demo-dica{display:none}.demo-faixa a{padding:4px 10px}}
+.demo-selo{position:fixed;right:12px;bottom:12px;z-index:9999;background:#0B2545;color:#fff;font:600 12px Inter,system-ui,sans-serif;
+  padding:6px 12px;border-radius:999px;box-shadow:0 4px 14px rgba(0,0,0,.2);opacity:.92;pointer-events:none}
+</style><style id="demo-cmp-css">
+.demo-faixa label{display:inline-flex;align-items:center;gap:6px;font-weight:600;margin:0;color:#fff;text-transform:none;letter-spacing:0;font-size:inherit}
+.demo-faixa select{width:auto;font:600 13px Inter,system-ui,sans-serif;padding:4px 8px;border-radius:8px;border:1px solid #2BB3D1;background:#0f3157;color:#fff}
+.demo-faixa .demo-sec{background:transparent;border:1px solid #2BB3D1;color:#fff;border-radius:999px;padding:5px 12px;font:600 13px Inter,system-ui,sans-serif;cursor:pointer;text-decoration:none;white-space:nowrap}
+.demo-faixa .demo-dica{max-width:520px}
+.demo-modal{position:fixed;inset:0;z-index:10000;background:#0009;display:grid;place-items:center;padding:16px}
+.demo-modal>div{background:#fff;color:#0f1b2d;border-radius:14px;max-width:560px;width:100%;padding:18px;font:14px/1.5 Inter,system-ui,sans-serif;box-shadow:0 10px 40px #0006}
+.demo-modal h3{margin:0 0 8px;font-size:16px}.demo-modal pre{white-space:pre-wrap;background:#f3f6f8;border-radius:10px;padding:10px 12px;font:13px/1.5 Inter,system-ui,sans-serif;margin:8px 0 14px;overflow-wrap:anywhere}
+.demo-modal .bts{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+.demo-modal button{font:600 14px Inter,system-ui,sans-serif;border-radius:10px;padding:9px 14px;cursor:pointer;border:1px solid #c9d3de;background:#fff;color:#0f1b2d}
+.demo-modal button.pri{background:#107e99;border-color:#107e99;color:#fff}
+@media (max-width:600px){.demo-faixa .demo-sec{padding:3px 9px;font-size:12px}}
+</style>
+</head>
+<body>
+<div class="demo-faixa" id="demoFaixa"><span><b>Demonstração</b> · esta é a página que o fornecedor recebe pelo link, sem login. Dados fictícios.</span>
+<a class="demo-sec" href="/demo/compras/">← Voltar ao app do comprador</a><a href="https://wa.me/5521966869374?text=Ol%C3%A1%2C%20vi%20a%20demonstra%C3%A7%C3%A3o%20do%20Or%C3%A7amentos%20de%20Compras%20da%20Nervia%20e%20quero%20saber%20mais." target="_blank" rel="noopener">Quero para a minha empresa</a></div>
+<script>(function(){if(!/^#[0-9a-f]{64}$/.test(location.hash)){var c=window.NERVIA_DEMO_COMPRAS.codigoExemplo();if(c)history.replaceState(null,"","#"+c);}})();</script>
+<div class="casca">
+  <div class="topo"><div class="marca">OC</div><div><b id="titulo">Pedido de cotação</b><small id="sub">Orçamentos de Compras · Nervia</small></div></div>
+  <div id="aviso" class="centro">Carregando…</div>
+  <div id="pagina" class="oculto">
+    <div class="card">
+      <h2 id="reqTitulo"></h2>
+      <div class="grade">
+        <div><label>Quantidade</label><div class="dado" id="reqQtd"></div></div>
+        <div><label>Grupo</label><div class="dado" id="reqGrupo"></div></div>
+        <div><label>Precisa receber até</label><div class="dado" id="reqAte"></div></div>
+        <div><label>Propostas até</label><div class="dado" id="prazo"></div></div>
+        <div class="tudo" id="reqDescCx"><label>Especificação</label><div class="dado" id="reqDesc"></div></div>
+      </div>
+    </div>
+    <div id="situacao"></div>
+    <form id="form" class="card" novalidate>
+      <h2 id="formTitulo">Sua proposta</h2>
+      <div id="cxEmpresa" class="grade" style="margin-bottom:14px">
+        <div><label for="tipo">Tipo</label><select id="tipo" name="tipo"><option value="PJ">Empresa (CNPJ)</option><option value="PF">Pessoa física (CPF)</option></select></div>
+        <div><label for="documento">CNPJ ou CPF</label><input id="documento" name="documento" inputmode="text" autocomplete="off" placeholder="só números (aceita CNPJ com letras)"></div>
+        <div class="tudo"><label for="nome">Razão social ou nome</label><input id="nome" name="nome" maxlength="160" autocomplete="organization"></div>
+        <div><label for="telefone">Telefone</label><input id="telefone" name="telefone" maxlength="40" autocomplete="tel"></div>
+        <div><label for="email">E-mail</label><input id="email" name="email" type="email" maxlength="160" autocomplete="email"></div>
+      </div>
+      <div id="cxIdent" class="aviso info oculto"></div>
+      <div class="grade">
+        <div><label for="preco">Preço unitário (R$)</label><input id="preco" name="preco_unitario" type="number" min="0" step="0.01" required></div>
+        <div><label for="frete">Frete (R$)</label><input id="frete" name="frete" type="number" min="0" step="0.01" value="0"></div>
+        <div><label for="prazoDias">Prazo de entrega (dias)</label><input id="prazoDias" name="prazo_dias" type="number" min="0" step="1" required></div>
+        <div><label for="pag">Pagamento</label><select id="pag" name="pag"></select></div>
+        <div id="cxPagDias" class="oculto"><label for="pagDias">Prazo médio de pagamento (dias)</label><input id="pagDias" type="number" min="0" step="1"></div>
+        <div><label for="validade">Proposta válida até</label><input id="validade" name="validade" type="date"></div>
+        <div><label for="extras">Custos extras em 12 meses (R$)</label><input id="extras" name="custos_extras" type="number" min="0" step="0.01" value="0" title="manutenção, insumos, instalação — se houver"></div>
+        <div class="tudo"><label for="obs">Observações</label><textarea id="obs" name="obs" maxlength="1000" placeholder="marca, modelo, garantia, condições"></textarea></div>
+        <div class="tudo"><label for="pdf">Proposta em PDF (opcional, até 10 MB)</label><input id="pdf" type="file" accept="application/pdf,.pdf"><div class="mut" id="pdfAtual"></div></div>
+        <div class="tudo"><label for="declarante">Seu nome</label><input id="declarante" name="declarante" maxlength="120" autocomplete="name" required></div>
+        <div class="tudo"><label class="chk"><input type="checkbox" id="aceite"> <span>Declaro que os valores e as condições acima são uma proposta válida e que posso apresentá-la em nome do fornecedor.</span></label></div>
+      </div>
+      <div id="erro" class="aviso crit oculto"></div>
+      <p><button class="bt" id="enviar" type="submit">Enviar proposta</button></p>
+      <p class="mut">Só o comprador vê a sua proposta. Você não vê as propostas dos outros fornecedores. Até o prazo, pode mudar e reenviar por este mesmo link.</p>
+    </form>
+  </div>
+  <div class="rodape">Cotação feita pelo app Orçamentos de Compras da <a href="/" target="_blank" rel="noopener">Nervia</a>. Os dados informados são usados só nesta cotação e no cadastro de fornecedores do comprador. <a href="/privacidade.html" target="_blank" rel="noopener">Privacidade</a></div>
+</div>
+
+<script>
+const CFG = window.NERVIA_CONFIG || {};
+// sem sessão: mesmo que alguém da equipe abra o link, a página age como o fornecedor
+const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
+const $ = id => document.getElementById(id);
+const CODIGO = location.hash.replace(/^#/, "").trim().toLowerCase();
+const PAGAMENTOS = [["À vista", 0], ["15 dias", 15], ["28 dias", 28], ["30 dias", 30], ["30/60", 45], ["30/60/90", 60], ["Outro", null]];
+const brl = v => Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const dataBR = v => v ? new Date(String(v).length === 10 ? v + "T12:00:00" : v).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "—";
+const dataHora = v => v ? new Date(v).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+let DADOS = null;
+
+$("pag").innerHTML = PAGAMENTOS.map(([t]) => `<option>${t}</option>`).join("");
+$("pag").onchange = () => $("cxPagDias").classList.toggle("oculto", $("pag").value !== "Outro");
+
+function avisoSituacao(d) {
+  const p = d.proposta;
+  const enviada = p ? `Proposta ${p.protocolo} recebida em ${dataHora(p.em)}: ${brl(p.preco_unitario)} por unidade, prazo de ${p.prazo_dias} dias${p.tem_anexo ? ", com PDF" : ""}.` : "";
+  const txt = {
+    aberto: [p ? "ok" : "info", p ? enviada + "\nSe precisar mudar algo, altere abaixo e envie de novo até " + dataBR(d.prazo) + "." : "Preencha a proposta e envie até " + dataBR(d.prazo) + "."],
+    encerrado: ["warn", `O prazo para enviar terminou em ${dataBR(d.prazo)}.${p ? "\n" + enviada : " Se ainda quiser participar, fale com o comprador."}`],
+    fechado: ["warn", `Esta cotação foi encerrada pelo comprador.${p ? "\n" + enviada : ""}`],
+    cancelado: ["crit", "Este convite foi cancelado pelo comprador. Se recebeu outro link, use o mais recente."],
+  }[d.situacao];
+  $("situacao").innerHTML = `<div class="aviso ${txt[0]}"></div>`;
+  $("situacao").firstChild.textContent = txt[1];
+}
+
+function preencher(d) {
+  DADOS = d;
+  const r = d.requisicao;
+  document.title = `Cotação #${r.numero} · ${d.unidade} | Nervia`;
+  $("titulo").textContent = `${d.unidade} pede uma cotação`;
+  $("sub").textContent = `Requisição #${r.numero}` + (d.fornecedor ? ` · para ${d.fornecedor.nome}` : d.contato_nome ? ` · para ${d.contato_nome}` : "");
+  $("reqTitulo").textContent = r.titulo;
+  $("reqQtd").textContent = `${Number(r.quantidade).toLocaleString("pt-BR")} ${r.unidade_medida}`;
+  $("reqGrupo").textContent = r.grupo;
+  $("reqAte").textContent = dataBR(r.precisa_ate);
+  $("prazo").textContent = dataBR(d.prazo);
+  $("reqDesc").textContent = r.descricao || ""; $("reqDescCx").classList.toggle("oculto", !r.descricao);
+  avisoSituacao(d);
+  // empresa: já identificada (convite para fornecedor da base) ou o fornecedor informa aqui
+  $("cxEmpresa").classList.toggle("oculto", !!d.fornecedor);
+  $("cxIdent").classList.toggle("oculto", !d.fornecedor);
+  if (d.fornecedor) $("cxIdent").textContent = `Proposta de ${d.fornecedor.nome} (${d.fornecedor.tipo === "PF" ? "CPF" : "CNPJ"} ${fmtDoc(d.fornecedor)}).`;
+  const p = d.proposta;
+  if (p) {
+    $("preco").value = p.preco_unitario; $("frete").value = p.frete; $("prazoDias").value = p.prazo_dias; $("extras").value = p.custos_extras;
+    $("validade").value = p.validade || ""; $("obs").value = p.obs || ""; $("declarante").value = p.declarante || "";
+    const pg = PAGAMENTOS.find(x => x[0] === p.pagamento);
+    $("pag").value = pg ? pg[0] : "Outro"; $("pagDias").value = pg ? "" : p.pagamento_dias; $("pag").onchange();
+    $("pdfAtual").textContent = p.tem_anexo ? "PDF já recebido. Anexe outro só se quiser trocar." : "";
+    $("formTitulo").textContent = "Alterar a sua proposta"; $("enviar").textContent = "Reenviar proposta";
+  }
+  $("form").classList.toggle("oculto", d.situacao !== "aberto");
+  $("aviso").classList.add("oculto"); $("pagina").classList.remove("oculto");
+}
+const fmtDoc = f => f.tipo === "PF" ? f.documento.replace(/^\*\*\*(\d{3})(\d{3})\*\*$/, "***.$1.$2-**") : f.documento.replace(/^(\w{2})(\w{3})(\w{3})(\w{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+
+async function carregar() {
+  if (!/^[0-9a-f]{64}$/.test(CODIGO)) { $("aviso").textContent = "Link de cotação incompleto. Abra de novo pelo link que o comprador enviou (copie o endereço inteiro)."; return; }
+  const r = await sb.rpc("cmp_cotacao_ler", { p_codigo: CODIGO });
+  if (r.error) { $("aviso").textContent = r.error.message; return; }
+  preencher(r.data);
+}
+
+function erro(t) { const e = $("erro"); e.textContent = t; e.classList.remove("oculto"); e.scrollIntoView({ block: "nearest" }); }
+
+$("form").onsubmit = async ev => {
+  ev.preventDefault(); $("erro").classList.add("oculto");
+  const pag = $("pag").value, dias = pag === "Outro" ? Number($("pagDias").value || 0) : PAGAMENTOS.find(x => x[0] === pag)[1];
+  if ($("preco").value === "" || $("prazoDias").value === "") return erro("Preencha o preço unitário e o prazo de entrega.");
+  if (!$("declarante").value.trim()) return erro("Informe o seu nome.");
+  if (!$("aceite").checked) return erro("Marque a declaração para enviar.");
+  const dados = { preco_unitario: $("preco").value, frete: $("frete").value || "0", custos_extras: $("extras").value || "0", prazo_dias: $("prazoDias").value,
+    pagamento: pag === "Outro" ? `Outro (${dias} dias)` : pag, pagamento_dias: String(dias), validade: $("validade").value || "",
+    obs: $("obs").value, declarante: $("declarante").value.trim(), aceite: true };
+  if (!DADOS.fornecedor) Object.assign(dados, { tipo: $("tipo").value, documento: $("documento").value, nome: $("nome").value.trim(), telefone: $("telefone").value.trim(), email: $("email").value.trim() });
+  const arq = $("pdf").files[0];
+  if (arq) {
+    if (arq.type !== "application/pdf" && !/\.pdf$/i.test(arq.name)) return erro("O anexo precisa ser um arquivo PDF.");
+    if (arq.size > 10 * 1024 * 1024) return erro("O PDF passa de 10 MB. Reduza o arquivo ou envie sem ele.");
+  }
+  $("enviar").disabled = true; $("enviar").textContent = "Enviando…";
+  try {
+    if (arq) {
+      const caminho = `${CODIGO}/${Date.now()}.pdf`;
+      const up = await sb.storage.from("cmp-propostas").upload(caminho, arq, { contentType: "application/pdf", upsert: false });
+      if (up.error) throw new Error("Não foi possível receber o PDF: " + up.error.message);
+      dados.anexo = caminho;
+    }
+    const r = await sb.rpc("cmp_cotacao_enviar", { p_codigo: CODIGO, p_dados: dados });
+    if (r.error) throw new Error(r.error.message);
+    $("pdf").value = ""; $("aceite").checked = false;
+    const novo = await sb.rpc("cmp_cotacao_ler", { p_codigo: CODIGO });
+    if (!novo.error) preencher(novo.data);
+    window.scrollTo(0, 0);
+  } catch (e) { erro(e.message); }
+  $("enviar").disabled = false; $("enviar").textContent = DADOS && DADOS.proposta ? "Reenviar proposta" : "Enviar proposta";
+};
+window.addEventListener("hashchange", () => location.reload());
+carregar();
+</script>
+<script src="/acesso.js" defer></script>
+</body>
+</html>

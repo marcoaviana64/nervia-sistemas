@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Proposta comercial (exemplo fictício) | Demonstração Nervia</title>
+<style>
+/* Proposta de fornecedor FICTÍCIA: é o que abre em "ver PDF" na demonstração do Orçamentos de Compras. */
+:root{--ink:#1d2733;--sub:#5b6b80;--linha:#dfe5ec;--cor:#1f6f9a}
+*{box-sizing:border-box}
+body{margin:0;background:#e9edf1;color:var(--ink);font:14px/1.5 Georgia,"Times New Roman",serif}
+.aviso{background:#0B2545;color:#fff;font:600 13px/1.4 system-ui,sans-serif;text-align:center;padding:8px 12px}
+.folha{background:#fff;max-width:800px;margin:20px auto;padding:36px 40px;box-shadow:0 4px 20px #0002}
+.cab{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;border-bottom:3px solid var(--cor);padding-bottom:12px}
+.marca{font:700 22px/1.1 system-ui,sans-serif;color:var(--cor)}.marca small{display:block;font:400 12px system-ui,sans-serif;color:var(--sub);margin-top:4px}
+.num{text-align:right;font:13px system-ui,sans-serif;color:var(--sub)}.num b{display:block;color:var(--ink);font-size:16px}
+h1{font-size:19px;margin:22px 0 6px}
+table{width:100%;border-collapse:collapse;margin:12px 0;font:13.5px system-ui,sans-serif}
+th,td{border-bottom:1px solid var(--linha);padding:8px 6px;text-align:left;vertical-align:top}
+th{color:var(--sub);font-weight:600;font-size:12px;text-transform:uppercase}
+td.n,th.n{text-align:right;white-space:nowrap}
+tfoot td{font-weight:700;border-top:2px solid var(--ink)}
+ul{padding-left:20px}
+.ass{margin-top:36px;display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;font:13px system-ui,sans-serif}
+.ass div{border-top:1px solid var(--ink);padding-top:6px;min-width:220px}
+@media (max-width:600px){.folha{padding:20px 16px;margin:0}}
+@media print{body{background:#fff}.aviso{display:none}.folha{box-shadow:none;margin:0}}
+</style>
+</head>
+<body>
+<div class="aviso">Exemplo fictício · Demonstração do Orçamentos de Compras da Nervia. Empresa, pessoas e valores inventados.</div>
+<div class="folha">
+  <div class="cab">
+    <div class="marca">Polar Fino Climatização<small>Polar Fino Climatização Ltda · CNPJ 41.852.736/0001-86 (fictício)<br>comercial@polarfino.exemplo · (21) 99701-2201</small></div>
+    <div class="num"><b>Proposta comercial nº 2026-418</b>Validade: 30 dias</div>
+  </div>
+  <h1>Fornecimento e instalação de compressor para o chiller 2</h1>
+  <p>Ao Shopping Vale Verde — Departamento de Compras, a/c Rafael Duarte.</p>
+  <table>
+    <thead><tr><th>Item</th><th>Descrição</th><th class="n">Qtd.</th><th class="n">Valor</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Compressor scroll 30 TR, compatível com o chiller 2, com óleo e filtro secador</td><td class="n">1</td><td class="n">R$ 21.300,00</td></tr>
+      <tr><td>2</td><td>Instalação, vácuo, carga de gás e partida assistida</td><td class="n">1</td><td class="n">R$ 3.600,00</td></tr>
+    </tbody>
+    <tfoot><tr><td colspan="3">Total</td><td class="n">R$ 24.900,00</td></tr></tfoot>
+  </table>
+  <ul>
+    <li><b>Prazo de entrega e instalação:</b> 10 dias após o pedido.</li>
+    <li><b>Pagamento:</b> 30/60 dias.</li>
+    <li><b>Garantia:</b> 12 meses do compressor e 6 meses da instalação.</li>
+    <li><b>Opcional:</b> contrato de manutenção de 12 meses, R$ 2.400,00.</li>
+  </ul>
+  <div class="ass"><div>Marcelo Fontes<br>Comercial · Polar Fino Climatização</div><div>Rio de Janeiro</div></div>
+</div>
+</body>
+</html>

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nervia Tecnologia da Informação | Suporte, Infraestrutura e Câmeras</title>
-<meta name="description" content="Nervia TI: suporte a usuários, montagem de infraestrutura e rede, instalação de câmeras, consultoria em projetos de TI e o Ecossistema Nervia App (Buscador de NF, Painel de Notas e Nervia Controle de Produtos - Perfumes) para empresas no Rio de Janeiro.">
+<meta name="description" content="Nervia TI: suporte a usuários, montagem de infraestrutura e rede, instalação de câmeras, consultoria em projetos de TI e o Ecossistema Nervia App (Buscador de NF, Painel de Notas, Orçamentos de Compras, Auditoria de Telefonia Móvel e Nervia Controle de Produtos - Perfumes) para empresas no Rio de Janeiro.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -308,7 +308,7 @@ footer{border-top:1px solid var(--border);padding:36px 0;color:var(--muted);font
     <div class="section-head">
       <span class="eyebrow">Ecossistema Nervia App</span>
       <h2>Aplicativos que trabalham pela sua empresa</h2>
-      <p class="lead">Um conjunto de aplicativos na Área do Cliente, com um login só: notas fiscais que chegam sozinhas, compras em gráficos, controle de vendas, crediário e estoque, e auditoria das linhas móveis. Funcionam no navegador, no computador ou no celular, sem instalar nada, e a Nervia adapta ao seu negócio.</p>
+      <p class="lead">Um conjunto de aplicativos na Área do Cliente, com um login só: notas fiscais que chegam sozinhas, compras em gráficos, orçamentos de compras com aprovação, controle de vendas, crediário e estoque, e auditoria das linhas móveis. Funcionam no navegador, no computador ou no celular, sem instalar nada, e a Nervia adapta ao seu negócio.</p>
     </div>
     <div class="apps-grid">
       <div class="app-list">
@@ -327,6 +327,15 @@ footer{border-top:1px solid var(--border);padding:36px 0;color:var(--muted);font
             <li><b>Maiores fornecedores</b> e quanto cada um pesa no total: base para negociar preço e prazo.</li>
             <li>Filtros por ano, mês, período e fornecedor. Usa as notas reunidas pelo Buscador.</li>
           </ul>
+        </div>
+        <div class="app-card">
+          <div class="app-top"><span class="app-ic">OC</span><div><h3>Orçamentos de Compras</h3><small>Requisição, 3 orçamentos, aprovação e avaliação de fornecedores</small></div></div>
+          <ul>
+            <li><b>Toda compra com 3 orçamentos</b> e aprovação pela alçada: Gerente e Diretor aprovam pelo valor, e ninguém aprova a própria compra.</li>
+            <li><b>O fornecedor envia a proposta pelo link</b>, sem login, e o mapa comparativo recomenda a melhor por preço, prazo, pagamento e nota.</li>
+            <li><b>Fornecedores avaliados</b> depois de cada entrega, com histórico que ninguém altera.</li>
+          </ul>
+          <div class="app-links"><a href="/demo/compras/" target="_blank" rel="noopener">Ver demonstração →</a><a href="/apps/compras/ajuda/mapa.html" target="_blank" rel="noopener">Ver o mapa mental</a><a class="js-wa-compras" href="#" target="_blank" rel="noopener">Quero para a minha empresa</a></div>
         </div>
         <div class="app-card">
           <div class="app-top"><span class="app-ic">CP</span><div><h3>Nervia Controle de Produtos - Perfumes</h3><small>Produtos, estoque, vendas e crediário para revenda</small></div></div>
@@ -351,6 +360,9 @@ footer{border-top:1px solid var(--border);padding:36px 0;color:var(--muted);font
         <div class="tela"><div class="barra"><i></i><i></i><i></i><span>nervia.com.br · Painel de Notas</span></div>
           <img src="/img/app-painel.jpg" alt="Tela do Painel de Notas com gráfico de compras por mês e maiores fornecedores" width="1440" height="825" loading="lazy"></div>
         <p class="tela-nota">Tela real do aplicativo, com dados fictícios.</p>
+        <div class="tela" style="margin-top:22px"><div class="barra"><i></i><i></i><i></i><span>nervia.com.br · Orçamentos de Compras</span></div>
+          <img src="/img/app-compras.jpg" alt="Mapa comparativo do Orçamentos de Compras: três propostas lado a lado, com a recomendada em destaque" width="1196" height="812" loading="lazy"></div>
+        <p class="tela-nota">Mapa comparativo de uma compra aguardando o Gerente. Dados fictícios.</p>
         <div class="seg-apps">
           <div><b>Certificado protegido</b>Guardado criptografado, no Brasil, só para consulta.</div>
           <div><b>Termo por escrito</b>Autorização e custódia do certificado assinadas com cada cliente.</div>
@@ -360,6 +372,7 @@ footer{border-top:1px solid var(--border);padding:36px 0;color:var(--muted);font
     </div>
     <div class="apps-ctas">
       <a class="btn btn-primary" href="/demo/" target="_blank" rel="noopener">Demonstração: notas fiscais</a>
+      <a class="btn btn-ghost" href="/demo/compras/" target="_blank" rel="noopener">Demonstração: Orçamentos de Compras</a>
       <a class="btn btn-ghost" href="/demo/perfumes/" target="_blank" rel="noopener">Demonstração: Controle de Produtos - Perfumes</a>
       <a class="btn btn-ghost" href="/demo/telefonia/" target="_blank" rel="noopener">Demonstração: Auditoria de Telefonia Móvel</a>
       <a class="btn btn-wa js-wa-apps" href="#" target="_blank" rel="noopener">Quero assinar</a>
@@ -503,6 +516,7 @@ const waBase = "https://wa.me/" + CONFIG.whatsapp;
 document.querySelectorAll(".js-wa").forEach(a => a.href = waBase + "?text=" + encodeURIComponent("Olá! Vim pelo site da Nervia e gostaria de falar sobre TI."));
 document.querySelectorAll(".js-wa-apps").forEach(a => a.href = waBase + "?text=" + encodeURIComponent("Olá! Vi o Ecossistema Nervia App no site da Nervia e quero saber mais."));
 document.querySelectorAll(".js-wa-perfumes").forEach(a => a.href = waBase + "?text=" + encodeURIComponent("Olá! Vi o app Nervia Controle de Produtos - Perfumes no site da Nervia e quero saber mais."));
+document.querySelectorAll(".js-wa-compras").forEach(a => a.href = waBase + "?text=" + encodeURIComponent("Olá! Vi o Orçamentos de Compras no site da Nervia e quero para a minha empresa."));
 document.querySelectorAll(".js-wa-telefonia").forEach(a => a.href = waBase + "?text=" + encodeURIComponent("Olá! Vi a Auditoria de Telefonia Móvel no site da Nervia e quero a auditoria das linhas da minha empresa."));
 document.querySelectorAll(".js-wa-label").forEach(el => el.textContent = CONFIG.whatsappLabel);
 document.querySelectorAll(".js-mail").forEach(a => a.href = "mailto:" + CONFIG.email);
