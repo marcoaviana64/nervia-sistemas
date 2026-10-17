@@ -21,12 +21,14 @@
     <li><a href="#papeis">1. Papéis: quem faz o quê</a></li>
     <li><a href="#pedir">2. Pedir uma compra (Solicitante)</a></li>
     <li><a href="#fornecedores">3. Cadastrar fornecedor (Comprador)</a></li>
-    <li><a href="#cotar">4. Cotar e escolher (Comprador)</a></li>
-    <li><a href="#aprovar">5. Aprovar ou reprovar (Gerente e Diretor)</a></li>
-    <li><a href="#entrega">6. Pedido, entrega e avaliação</a></li>
-    <li><a href="#situacoes">7. Situações e avisos</a></li>
-    <li><a href="#nervia">8. Tarefas da equipe Nervia</a></li>
-    <li><a href="#problemas">9. Mensagens e o que fazer</a></li>
+    <li><a href="#convites">4. Convidar fornecedores: a proposta vem pelo link (Comprador)</a></li>
+    <li><a href="#cotar">5. Cotar e escolher (Comprador)</a></li>
+    <li><a href="#aprovar">6. Aprovar ou reprovar (Gerente e Diretor)</a></li>
+    <li><a href="#entrega">7. Pedido, entrega e avaliação</a></li>
+    <li><a href="#situacoes">8. Situações e avisos</a></li>
+    <li><a href="#nervia">9. Tarefas da equipe Nervia</a></li>
+    <li><a href="#problemas">10. Mensagens e o que fazer</a></li>
+    <li><a href="#fornecedor">11. O que o fornecedor vê no link</a></li>
   </ul>
 
   <h2 id="papeis">1. Papéis: quem faz o quê</h2>
@@ -56,17 +58,30 @@
   </ol>
   <p>O fornecedor novo aparece com o aviso "Gerente ainda não deu o aval" até o Gerente da unidade dar o aval. O aval não impede cotar nem comprar.</p>
 
-  <h2 id="cotar">4. Cotar e escolher (Comprador)</h2>
+  <h2 id="convites">4. Convidar fornecedores: a proposta vem pelo link (Comprador)</h2>
+  <p>Em vez de digitar os orçamentos, você pode mandar um link para cada fornecedor. Ele abre no celular ou no computador, sem login, vê só a requisição (nunca o valor estimado, quem pediu ou as outras propostas) e envia a proposta, com PDF se quiser.</p>
   <ol>
-    <li>Abra a requisição e clique em <b>+ Registrar proposta</b> para cada orçamento recebido: preço unitário, frete, prazo de entrega, pagamento, validade e custos extras de 12 meses (manutenção, insumos), se houver.</li>
+    <li>Abra a requisição e, em <b>Convites aos fornecedores</b>, clique em <b>+ Convidar fornecedor</b>.</li>
+    <li>Escolha o fornecedor da base. Se ele ainda não está cadastrado, deixe <b>Fornecedor novo (ainda sem cadastro)</b> e escreva o nome do contato ou da empresa.</li>
+    <li>Confira o telefone e o e-mail (se ficarem vazios, vale o do cadastro) e o prazo em <b>Propostas até</b> (sugestão: 5 dias).</li>
+    <li>Clique em <b>Criar convite</b>. Depois clique em <b>WhatsApp</b> ou <b>E-mail</b>: abre o seu WhatsApp ou e-mail com a mensagem e o link já escritos. Confira e envie. O link também pode ser copiado em <b>copiar link</b>.</li>
+    <li>Acompanhe a coluna <b>Situação</b>: ainda não abriu, abriu, respondeu. A proposta aparece sozinha no mapa, marcada <b>enviada pelo fornecedor</b>, com o nome de quem enviou e o <b>ver PDF</b>, se houver.</li>
+  </ol>
+  <p>O fornecedor pode mudar e reenviar a proposta pelo mesmo link até o prazo; um preço novo conta como re-cotação. Você não altera a proposta que ele mandou: se estiver errada, peça para ele reenviar ou exclua com o motivo. Para dar mais tempo, use <b>mudar prazo</b>; para desistir, <b>cancelar convite</b> (o link para na hora). Quando a requisição vai para aprovação, o link deixa de aceitar propostas.</p>
+  <p>Fornecedor novo: ele informa o CNPJ ou CPF no link. Se o documento já está na base, a proposta é ligada ao cadastro existente (o fornecedor não vê os dados do cadastro). Se não está, ele entra na base com <b>você como responsável pela homologação</b>: confira as certidões em <b>Fornecedores → editar</b> antes de comprar.</p>
+  <p>Trate o link como uma senha do fornecedor: mande só para ele. Tudo o que ele faz pelo link fica no histórico com data, hora e o endereço de internet (IP) de onde veio.</p>
+
+  <h2 id="cotar">5. Cotar e escolher (Comprador)</h2>
+  <ol>
+    <li>As propostas enviadas pelo link entram sozinhas. Para um orçamento que chegou por outro meio, clique em <b>+ Registrar proposta</b>: preço unitário, frete, prazo de entrega, pagamento, validade e custos extras de 12 meses (manutenção, insumos), se houver.</li>
     <li>O <b>mapa comparativo</b> mostra as propostas lado a lado. Verde marca o melhor valor de cada linha. A <b>nota na matriz</b> pondera preço, prazo, pagamento e qualidade do fornecedor, e o maior aparece como <b>recomendado</b>.</li>
-    <li>Para negociar, use <b>editar / re-cotar</b>: o novo preço conta como nova rodada e o preço anterior fica guardado.</li>
+    <li>Para negociar, use <b>editar / re-cotar</b> na proposta que você lançou (o novo preço conta como nova rodada e o preço anterior fica guardado). Na proposta enviada pelo fornecedor, peça para ele reenviar pelo link.</li>
     <li>Clique em <b>Escolher</b> no vencedor. Se não for o menor preço, escreva a justificativa (ex.: prazo, garantia, menor custo total).</li>
     <li>Clique em <b>Enviar para aprovação</b>. Só funciona com o mínimo de propostas da unidade (3) ou com a <b>Exceção: fornecedor exclusivo</b> justificada.</li>
   </ol>
   <p>Quando a compra é de até R$ 5.000, é o menor preço e o fornecedor já forneceu antes, ela é aprovada na hora. Nos outros casos, vai para o Gerente; acima de R$ 50.000, vai para o Gerente e depois para o Diretor. A primeira compra com um fornecedor sempre passa pelo Gerente.</p>
 
-  <h2 id="aprovar">5. Aprovar ou reprovar (Gerente e Diretor)</h2>
+  <h2 id="aprovar">6. Aprovar ou reprovar (Gerente e Diretor)</h2>
   <ol>
     <li>No <b>Painel</b>, em <b>Esperando você</b>, clique na requisição.</li>
     <li>Confira o mapa, a justificativa e os avisos (fornecedor novo, cadastrado pelo próprio comprador, sem aval).</li>
@@ -74,7 +89,7 @@
     <li>Para reprovar, clique em <b>Reprovar</b> e escreva o motivo. O comprador pode <b>reabrir para nova cotação</b>.</li>
   </ol>
 
-  <h2 id="entrega">6. Pedido, entrega e avaliação</h2>
+  <h2 id="entrega">7. Pedido, entrega e avaliação</h2>
   <ol>
     <li>Aprovada, o comprador clica em <b>Emitir pedido de compra</b> (número PC-nº da requisição) e envia ao fornecedor.</li>
     <li>Quando chegar, o comprador ou o solicitante clica em <b>Marcar como entregue</b>.</li>
@@ -82,7 +97,7 @@
     <li>A nota do fornecedor é a média de todas as avaliações, de todas as unidades, e entra no critério "qualidade" das próximas cotações. A avaliação não pode ser alterada depois.</li>
   </ol>
 
-  <h2 id="situacoes">7. Situações e avisos</h2>
+  <h2 id="situacoes">8. Situações e avisos</h2>
   <table>
     <tr><th>Situação / aviso</th><th>Significa</th></tr>
     <tr><td>Nova</td><td>Pedido criado; ainda sem proposta.</td></tr>
@@ -94,10 +109,12 @@
     <tr><td>Fornecedor novo</td><td>Nunca forneceu antes: a compra vai ao Gerente mesmo se for barata.</td></tr>
     <tr><td>Cadastrado por você</td><td>Você cadastrou o fornecedor e está comprando dele. O aprovador também vê.</td></tr>
     <tr><td>Re-cotado</td><td>O preço mudou depois da primeira proposta.</td></tr>
+    <tr><td>Enviada pelo fornecedor · lançada pelo comprador</td><td>De onde veio a proposta: do link do convite ou digitada pelo comprador.</td></tr>
+    <tr><td>Convite: ainda não abriu · abriu · respondeu · prazo vencido · cancelado</td><td>Em que ponto está cada link enviado.</td></tr>
     <tr><td>Sem avaliação</td><td>Ainda não há nota. No mapa ele entra com nota neutra (3).</td></tr>
   </table>
 
-  <h2 id="nervia">8. Tarefas da equipe Nervia <span class="eq">EQUIPE NERVIA</span></h2>
+  <h2 id="nervia">9. Tarefas da equipe Nervia <span class="eq">EQUIPE NERVIA</span></h2>
   <ol>
     <li>Libere o app "Orçamentos de Compras" para o login em <b>Administração → Logins</b>.</li>
     <li>No app, em <b>Configuração</b>, escolha a unidade e dê o papel ao login em <b>Papéis nesta unidade</b>.</li>
@@ -105,7 +122,7 @@
     <li>Para um shopping novo, use <b>+ Nova unidade</b>.</li>
   </ol>
 
-  <h2 id="problemas">9. Mensagens e o que fazer</h2>
+  <h2 id="problemas">10. Mensagens e o que fazer</h2>
   <table>
     <tr><th>Mensagem</th><th>O que fazer</th></tr>
     <tr><td>Entre na Área do Cliente para usar o app</td><td>A sessão expirou: entre de novo em nervia.com.br/cliente.</td></tr>
@@ -121,9 +138,28 @@
     <tr><td>Para reprovar, escreva o motivo</td><td>Preencha o comentário.</td></tr>
     <tr><td>Seu papel nesta unidade não permite esta ação</td><td>Peça à Nervia o papel necessário, ou peça a quem tem.</td></tr>
     <tr><td>Só quem cadastrou o fornecedor… altera o cadastro</td><td>Peça ao responsável pela homologação (aparece na lista) ou à Nervia.</td></tr>
+    <tr><td>… já tem convite nesta requisição</td><td>Use o link que já existe (WhatsApp, E-mail ou copiar link) ou cancele o convite anterior.</td></tr>
+    <tr><td>O prazo para o fornecedor responder precisa ser hoje ou depois</td><td>Escolha uma data a partir de hoje.</td></tr>
+    <tr><td>Para fornecedor ainda sem cadastro, informe o nome</td><td>Escreva o nome do contato ou da empresa no convite.</td></tr>
+    <tr><td>A proposta de … foi enviada pelo próprio fornecedor e só ele altera</td><td>Peça para ele reenviar pelo link, ou exclua com o motivo.</td></tr>
+    <tr><td>A proposta foi enviada pelo próprio fornecedor: escreva o motivo da exclusão</td><td>Preencha o motivo (fica no histórico).</td></tr>
     <tr><td>Os quatro pesos precisam somar 100 <span class="eq">EQUIPE NERVIA</span></td><td>Ajuste os pesos da matriz.</td></tr>
   </table>
-  <div class="rodape">Dúvidas: WhatsApp (21) 96686-9374 · atendimento@nervia.com.br<br>Nervia Tecnologia · Manual do app Orçamentos de Compras · atualizado em 16/10/2026</div>
+
+  <h2 id="fornecedor">11. O que o fornecedor vê no link</h2>
+  <p>A página mostra o nome do shopping, o número e o título da requisição, a quantidade, a especificação, o grupo, a data em que precisa receber e o prazo para a proposta. O fornecedor preenche preço unitário, frete, prazo de entrega, pagamento, validade, custos extras de 12 meses (se houver), observações e, se quiser, o PDF da proposta (até 10 MB). Ele escreve o próprio nome e marca a declaração de que a proposta é válida. Ao enviar, recebe um protocolo (P-número). Se o fornecedor ligar com dúvida, estas são as mensagens que ele pode ver:</p>
+  <table>
+    <tr><th>Mensagem para o fornecedor</th><th>O que fazer</th></tr>
+    <tr><td>Link de cotação incompleto / inválido</td><td>O endereço foi cortado ao copiar. Mande o link de novo (copiar link).</td></tr>
+    <tr><td>O prazo para enviar terminou em …</td><td>Se ainda quiser a proposta, use <b>mudar prazo</b> no convite e avise o fornecedor.</td></tr>
+    <tr><td>Esta cotação foi encerrada pelo comprador</td><td>A requisição já foi para aprovação (ou foi cancelada).</td></tr>
+    <tr><td>Este convite foi cancelado pelo comprador</td><td>Se foi engano, crie outro convite e mande o novo link.</td></tr>
+    <tr><td>CNPJ inválido / CPF inválido</td><td>O fornecedor confere o número digitado.</td></tr>
+    <tr><td>Este CNPJ já recebeu outro convite para esta cotação</td><td>Ele deve usar o link do outro convite (ou cancele um dos dois).</td></tr>
+    <tr><td>Este cadastro está inativo para cotações</td><td>O fornecedor foi desativado na base. Fale com quem cadastrou ou com a Nervia.</td></tr>
+    <tr><td>O PDF passa de 10 MB / Não foi possível receber o PDF</td><td>Reduzir o arquivo, ou enviar sem o PDF.</td></tr>
+  </table>
+  <div class="rodape">Dúvidas: WhatsApp (21) 96686-9374 · atendimento@nervia.com.br<br>Nervia Tecnologia · Manual do app Orçamentos de Compras · atualizado em 17/10/2026</div>
 </div>
 </body>
 </html>

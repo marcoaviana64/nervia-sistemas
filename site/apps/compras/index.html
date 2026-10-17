@@ -53,6 +53,7 @@ label{display:block;font-size:11.5px;font-weight:700;text-transform:uppercase;le
 table{width:100%;border-collapse:collapse;font-size:13.5px}
 th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--border);vertical-align:top}
 th{color:var(--ink-soft);font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
+th div{text-transform:none;letter-spacing:0;font-weight:400}
 tr.clica{cursor:pointer}tr.clica:hover td{background:var(--surface-2)}
 td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 td.melhor{background:var(--ok-bg);font-weight:600}
@@ -163,13 +164,14 @@ async function carregar() {
   render();
 }
 async function carregarDetalhe(id) {
-  const [props, aprovs, hist, aval] = await Promise.all([
+  const [props, aprovs, hist, aval, convs] = await Promise.all([
     sb.from("cmp_propostas").select("*").eq("requisicao_id", id).order("id"),
     sb.from("cmp_aprovacoes").select("*").eq("requisicao_id", id).order("id"),
     sb.from("cmp_historico").select("*").eq("requisicao_id", id).order("id"),
     sb.from("cmp_avaliacoes").select("*").eq("requisicao_id", id).maybeSingle(),
+    sb.from("cmp_convites").select("*").eq("requisicao_id", id).order("id"),
   ]);
-  return { props: checar(props), aprovs: checar(aprovs), hist: checar(hist), aval: checar(aval) };
+  return { props: checar(props), aprovs: checar(aprovs), hist: checar(hist), aval: checar(aval), convs: checar(convs) };
 }
 $("unidade").onchange = async () => { UNID = $("unidade").value; try { localStorage.setItem("cmp-unidade", UNID); } catch {} SEL = null; limparMsg(); await carregar(); };
 document.querySelectorAll(".barra .aba").forEach(b => b.onclick = () => { VISTA = b.dataset.v; SEL = null; limparMsg(); render(); });
@@ -249,9 +251,65 @@ function pontuar(r, props) {
     return s;
   });
 }
+// de onde veio a proposta: pelo link do fornecedor (com quem enviou e o PDF) ou lançada pelo comprador
+function origemProp(p) {
+  if (p.origem !== "fornecedor") return '<span class="mut">lançada pelo comprador</span>';
+  return tag("enviada pelo fornecedor", "t-ok") + `<div class="mut">${esc(p.declarante || "")} · ${dataHora(p.atualizada_em)}</div>`
+    + (p.anexo ? `<button class="lnk" data-acao="pdf" data-id="${p.id}">ver PDF</button>` : "");
+}
+const linkConvite = c => `${location.origin}/cotacao/#${c.codigo}`;
+function situacaoConvite(c, r) {
+  if (c.revogado_em) return tag("cancelado", "t-mut");
+  if (!["nova", "cotacao"].includes(r.status)) return tag("cotação encerrada", "t-mut");
+  if (c.prazo < hojeISO()) return tag("prazo vencido", "t-warn");
+  if (c.respondido_em) return tag("respondeu " + dataHora(c.respondido_em), "t-ok");
+  if (c.aberto_em) return tag("abriu " + dataHora(c.aberto_em), "t-info");
+  return tag("ainda não abriu", "t-mut");
+}
+function vConvites(r, convs, edita) {
+  const nome = c => c.fornecedor_id ? fornecedor(c.fornecedor_id).nome : (c.contato_nome + " (sem cadastro)");
+  return `<div class="card"><h2>Convites aos fornecedores <span class="mut">o fornecedor envia a proposta pelo link, sem login</span>${edita ? `<span class="dir"><button class="bt pri" data-acao="convidar">+ Convidar fornecedor</button></span>` : ""}</h2>
+    ${convs.length ? `<div class="tw"><table><tr><th>Fornecedor</th><th>Prazo</th><th>Situação</th><th>Enviar o link</th></tr>${convs.map(c => {
+      const ativo = !c.revogado_em && edita;
+      return `<tr><td><b>${esc(nome(c))}</b><div class="mut">${esc([c.telefone, c.email].filter(Boolean).join(" · "))}</div><div class="mut">por ${esc(c.criado_nome)} em ${dataHora(c.criado_em)}</div></td>
+        <td>${dataBR(c.prazo)}${ativo ? `<div><button class="lnk" data-acao="prazoConvite" data-id="${c.id}">mudar prazo</button></div>` : ""}</td>
+        <td>${situacaoConvite(c, r)}</td>
+        <td>${ativo ? `<button class="bt" data-acao="whats" data-id="${c.id}">WhatsApp</button> <button class="bt" data-acao="emailConvite" data-id="${c.id}">E-mail</button>
+          <div style="margin-top:6px"><button class="lnk" data-acao="copiarLink" data-id="${c.id}">copiar link</button> · <button class="lnk" data-acao="cancelarConvite" data-id="${c.id}">cancelar convite</button></div>` : '<span class="mut">—</span>'}</td></tr>`;
+    }).join("")}</table></div>` : '<p class="mut">Nenhum convite ainda. Convide fornecedores da base ou um contato novo: ele mesmo informa o CNPJ e envia a proposta, com PDF se quiser. O link vale até o prazo e só mostra a requisição, nunca as outras propostas.</p>'}</div>`;
+}
+// mensagem que vai pelo WhatsApp ou e-mail do próprio comprador
+function textoConvite(c, r) {
+  const quem = c.fornecedor_id ? fornecedor(c.fornecedor_id).nome : c.contato_nome;
+  return `Olá${quem ? ", " + quem : ""}! O ${unidade().nome} pede uma cotação: ${r.titulo} (${Number(r.quantidade).toLocaleString("pt-BR")} ${r.unidade_medida}), requisição #${r.id}.\n`
+    + `Envie sua proposta até ${dataBR(c.prazo)} por este link (não precisa de login):\n${linkConvite(c)}\n\nObrigado!`;
+}
+function telWhats(t) { let d = String(t || "").replace(/\D/g, ""); if (d.length === 10 || d.length === 11) d = "55" + d; return d; }
+function dConvite(r) {
+  const ja = new Set(DET.convs.filter(c => !c.revogado_em && c.fornecedor_id).map(c => c.fornecedor_id));
+  const lista = FORN.filter(f => f.ativo && !ja.has(f.id) && !DET.props.some(p => p.fornecedor_id === f.id && p.origem === "fornecedor"));
+  const doGrupo = lista.filter(f => f.grupos.includes(r.grupo)), outros = lista.filter(f => !f.grupos.includes(r.grupo));
+  const opt = f => `<option value="${f.id}">${esc(f.nome)}</option>`;
+  const prazo = new Date(Date.now() + 5 * 864e5).toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+  abrir(`<h3>Convidar fornecedor</h3>
+    <p class="mut">O app gera um link só deste fornecedor. Depois você manda pelo seu WhatsApp ou e-mail (a mensagem já vem escrita).</p>
+    <div class="grade"><div class="tudo"><label>Fornecedor</label><select name="f">
+      <option value="">Fornecedor novo (ainda sem cadastro): ele informa o CNPJ pelo link</option>
+      ${doGrupo.length ? `<optgroup label="${esc(r.grupo)}">${doGrupo.map(opt).join("")}</optgroup>` : ""}${outros.length ? `<optgroup label="Outros grupos">${outros.map(opt).join("")}</optgroup>` : ""}</select></div>
+    <div class="tudo"><label>Nome do contato ou da empresa (obrigatório para fornecedor novo)</label><input name="contato" maxlength="120"></div>
+    <div><label>WhatsApp / telefone</label><input name="tel" placeholder="se vazio, usa o do cadastro"></div>
+    <div><label>E-mail</label><input name="email" type="email" placeholder="se vazio, usa o do cadastro"></div>
+    <div><label>Propostas até</label><input name="prazo" type="date" required value="${prazo}" min="${hojeISO()}"></div></div>
+    <p class="mut">Se o fornecedor novo informar um CNPJ que já está na base, a proposta é ligada a esse cadastro. Se não estiver, ele entra na base com você como responsável pela homologação.</p>`,
+  async d => {
+    const res = await acao("cmp_convidar", { p_req: r.id, p_fornecedor: d.get("f") || null, p_contato_nome: d.get("contato"), p_telefone: d.get("tel"), p_email: d.get("email"), p_prazo: d.get("prazo") },
+      "Convite criado. Agora mande o link pelo WhatsApp ou e-mail.");
+    if (res && DET) { const c = DET.convs.find(x => x.codigo === res.codigo); if (c) document.querySelector(`[data-acao=whats][data-id="${c.id}"]`)?.focus(); }
+  }, "Criar convite");
+}
 function vDetalhe() {
   const r = REQS.find(x => x.id === SEL); if (!r) { SEL = null; return vPainel(); }
-  const { props, aprovs, hist, aval } = DET, u = unidade(), comp = tem("comprador");
+  const { props, aprovs, hist, aval, convs } = DET, u = unidade(), comp = tem("comprador");
   const edita = comp && ["nova", "cotacao"].includes(r.status);
   const sc = pontuar(r, props), best = sc.length ? sc.indexOf(sc.reduce((a, b) => b.total > a.total ? b : a)) : -1;
   const minT = props.length ? Math.min(...props.map(p => totalProp(p, r))) : 0, minC = props.length ? Math.min(...props.map(p => tcoProp(p, r))) : 0;
@@ -271,10 +329,10 @@ function vDetalhe() {
     </div></div>`;
   // mapa
   h += `<div class="card"><h2>Mapa comparativo <span class="mut">${props.length} de ${u.minimo_propostas} propostas mínimas</span>${edita ? `<span class="dir"><button class="bt pri" data-acao="novaProp">+ Registrar proposta</button></span>` : ""}</h2>`;
-  if (!props.length) h += '<p class="mut">Nenhuma proposta ainda. O comprador registra as propostas recebidas dos fornecedores.</p>';
+  if (!props.length) h += '<p class="mut">Nenhuma proposta ainda. Convide os fornecedores (eles mesmos enviam pelo link) ou registre as propostas recebidas por outro meio.</p>';
   else {
     const col = (fn, cls) => props.map((p, i) => `<td class="${cls ? cls(p, i) : ""}${p.id === r.proposta_escolhida ? " escolhida" : ""}">${fn(p, i)}</td>`).join("");
-    h += `<div class="tw"><table><tr><th></th>${props.map(p => `<th class="${p.id === r.proposta_escolhida ? "escolhida" : ""}">${esc(fornecedor(p.fornecedor_id).nome)}${p.rodada > 1 ? " " + tag("re-cotado", "t-info") : ""}</th>`).join("")}</tr>
+    h += `<div class="tw"><table><tr><th></th>${props.map(p => `<th class="${p.id === r.proposta_escolhida ? "escolhida" : ""}">${esc(fornecedor(p.fornecedor_id).nome)}${p.rodada > 1 ? " " + tag("re-cotado", "t-info") : ""}<div>${origemProp(p)}</div></th>`).join("")}</tr>
       <tr><td>Preço unitário</td>${col(p => brl(p.preco_unitario) + (p.preco_anterior != null ? `<div class="mut">antes ${brl(p.preco_anterior)}</div>` : ""))}</tr>
       <tr><td>Total (× qtd + frete)</td>${col(p => brl(totalProp(p, r)) + `<div class="mut">frete ${brl(p.frete)}</div>`, p => totalProp(p, r) === minT ? "melhor" : "")}</tr>
       <tr><td>Custos extras 12 meses</td>${col(p => brl(p.custos_extras))}</tr>
@@ -289,7 +347,7 @@ function vDetalhe() {
       <tr><td><b>Nota na matriz</b><div class="mut">preço ${u.pesos.preco}% · prazo ${u.pesos.prazo}% · pagto ${u.pesos.pagamento}% · qualidade ${u.pesos.qualidade}%</div></td>
         ${col((p, i) => `${sc[i].total.toFixed(1).replace(".", ",")}${i === best ? " · recomendado" : ""}<div class="barrinha"><i style="width:${Math.min(100, sc[i].total)}%"></i></div>`, (p, i) => i === best ? "melhor" : "")}</tr>
       ${edita ? `<tr><td></td>${col(p => `<button class="bt ${p.id === r.proposta_escolhida ? "pri" : ""}" data-acao="escolher" data-id="${p.id}">${p.id === r.proposta_escolhida ? "✓ Escolhido" : "Escolher"}</button>
-        <div style="margin-top:6px"><button class="lnk" data-acao="editProp" data-id="${p.id}">editar / re-cotar</button> · <button class="lnk" data-acao="delProp" data-id="${p.id}">excluir</button></div>`)}</tr>` : ""}
+        <div style="margin-top:6px">${p.origem === "fornecedor" ? "" : `<button class="lnk" data-acao="editProp" data-id="${p.id}">editar / re-cotar</button> · `}<button class="lnk" data-acao="delProp" data-id="${p.id}">excluir</button></div>`)}</tr>` : ""}
     </table></div>`;
   }
   if (falta && ["nova", "cotacao"].includes(r.status)) h += `<div class="aviso crit"><b>Trava: ${props.length} proposta(s).</b> O mínimo é ${u.minimo_propostas}. Só segue para aprovação com a exceção de fornecedor exclusivo justificada.</div>`;
@@ -322,6 +380,7 @@ function vDetalhe() {
   if (["aprovada", "pedido", "entregue", "concluida"].includes(r.status)) bts.push(`<button class="bt" data-acao="imprimir">Imprimir</button>`);
   if (bts.length) h += `<div class="acoes">${bts.join("")}</div>`;
   h += `</div>`;
+  if (edita || convs.length) h += vConvites(r, convs, edita);
   if (aprovs.length) h += `<div class="card"><h2>Aprovações</h2><div class="hist">${aprovs.map(a => `<div>${dataHora(a.em)} · <b>${esc(a.por_nome)}</b> (${a.etapa === "sistema" ? "automática" : PAPEL_NOME[a.etapa]}) — ${a.decisao === "aprovado" ? tag("aprovado", "t-ok") : tag("reprovado", "t-crit")} ${esc(a.comentario)}</div>`).join("")}</div></div>`;
   if (aval) h += `<div class="card"><h2>Avaliação do fornecedor</h2><div class="mut">Prazo ${aval.prazo} · qualidade ${aval.qualidade} · conforme a proposta ${aval.conformidade} · atendimento ${aval.atendimento} — por ${esc(aval.avaliador_nome)} em ${dataHora(aval.em)}${aval.comentario ? "<br>" + esc(aval.comentario) : ""}</div></div>`;
   h += `<div class="card"><h2>Histórico <span class="mut">somente inclusão</span></h2><div class="hist">${hist.slice().reverse().map(x => `<div>${dataHora(x.em)} · <b>${esc(x.quem_nome)}</b> — ${esc(x.texto)}</div>`).join("")}</div></div>`;
@@ -483,7 +542,43 @@ document.addEventListener("click", async e => {
   else if (a === "novaReq") dNovaReq();
   else if (a === "novaProp") dProposta(r);
   else if (a === "editProp") dProposta(r, DET.props.find(p => p.id === Number(id)));
-  else if (a === "delProp") { const p = DET.props.find(x => x.id === Number(id)); abrir(`<h3>Excluir a proposta de ${esc(fornecedor(p.fornecedor_id).nome)}?</h3><p class="mut">Fica registrado no histórico.</p>`, () => acao("cmp_excluir_proposta", { p_proposta: p.id }, "Proposta excluída."), "Excluir"); }
+  else if (a === "delProp") {
+    const p = DET.props.find(x => x.id === Number(id)), doForn = p.origem === "fornecedor";
+    abrir(`<h3>Excluir a proposta de ${esc(fornecedor(p.fornecedor_id).nome)}?</h3><p class="mut">Fica registrado no histórico.${doForn ? " A proposta foi enviada pelo próprio fornecedor: escreva o motivo." : ""}</p>
+      ${doForn ? '<label>Motivo</label><textarea name="m" required minlength="5"></textarea>' : ""}`,
+      f => acao("cmp_excluir_proposta", { p_proposta: p.id, p_motivo: doForn ? f.get("m") : null }, "Proposta excluída."), "Excluir");
+  }
+  else if (a === "pdf") {
+    const p = DET.props.find(x => x.id === Number(id)), jan = window.open("", "_blank");
+    const res = await sb.storage.from("cmp-propostas").createSignedUrl(p.anexo, 300);
+    if (res.error) { if (jan) jan.close(); return msg("err", "Não foi possível abrir o PDF: " + res.error.message); }
+    if (jan) jan.location = res.data.signedUrl; else location.href = res.data.signedUrl;
+  }
+  else if (a === "convidar") dConvite(r);
+  else if (["whats", "emailConvite", "copiarLink"].includes(a)) {
+    const c = DET.convs.find(x => x.id === Number(id)), texto = textoConvite(c, r);
+    if (a === "whats") {
+      const tel = telWhats(c.telefone || (c.fornecedor_id ? fornecedor(c.fornecedor_id).telefone : ""));
+      window.open(`https://wa.me/${tel}?text=${encodeURIComponent(texto)}`, "_blank", "noopener");
+    } else if (a === "emailConvite") {
+      const para = c.email || (c.fornecedor_id ? fornecedor(c.fornecedor_id).email : "");
+      window.open(`mailto:${encodeURIComponent(para)}?subject=${encodeURIComponent(`Pedido de cotação #${r.id} — ${unidade().nome}`)}&body=${encodeURIComponent(texto)}`, "_blank");
+    } else {
+      try { await navigator.clipboard.writeText(linkConvite(c)); msg("ok", "Link copiado. Cole no WhatsApp ou e-mail do fornecedor."); }
+      catch { abrir(`<h3>Link do convite</h3><p class="mut">Copie o endereço abaixo:</p><input readonly value="${esc(linkConvite(c))}" onfocus="this.select()">`, () => {}, "Fechar"); }
+    }
+  }
+  else if (a === "cancelarConvite") {
+    const c = DET.convs.find(x => x.id === Number(id));
+    abrir(`<h3>Cancelar o convite?</h3><p class="mut">O link para de funcionar na hora. Uma proposta que o fornecedor já enviou continua no mapa (exclua à parte, se for o caso).</p>`,
+      () => acao("cmp_convite_cancelar", { p_convite: c.id }, "Convite cancelado."), "Cancelar convite");
+  }
+  else if (a === "prazoConvite") {
+    const c = DET.convs.find(x => x.id === Number(id));
+    abrir(`<h3>Mudar o prazo do convite</h3><label>Propostas até</label><input name="prazo" type="date" required value="${c.prazo}" min="${hojeISO()}">
+      <p class="mut">O link é o mesmo; avise o fornecedor do novo prazo.</p>`,
+      f => acao("cmp_convite_prazo", { p_convite: c.id, p_prazo: f.get("prazo") }, "Prazo alterado."), "Salvar prazo");
+  }
   else if (a === "escolher") {
     const p = DET.props.find(x => x.id === Number(id)), minT = Math.min(...DET.props.map(x => totalProp(x, r)));
     if (totalProp(p, r) <= minT) return acao("cmp_escolher", { p_req: r.id, p_proposta: p.id, p_justificativa: "" }, "Escolhido (menor preço).");

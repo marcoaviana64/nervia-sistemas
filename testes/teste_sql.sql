@@ -432,4 +432,78 @@ set role authenticated;
 select pg_temp.como('00000000-0000-0000-0000-0000000000d5');
 select pg_temp.ok((select count(*) = 0 from cmp_historico where unidade_id = pg_temp.id('itaipu')::uuid), 'histórico do Itaipu não aparece para o Park Sul');
 reset role;
+-- ---------------------------------------------------------------- Compras fase 2: proposta enviada pelo fornecedor (link)
+grant all on ids to anon;
+set role authenticated;
+select pg_temp.como('00000000-0000-0000-0000-0000000000d1');
+insert into cmp_requisicoes (unidade_id, grupo, titulo, quantidade, valor_estimado, descricao) values (pg_temp.id('itaipu')::uuid, 'Tecnologia', 'Nobreak 3 kVA', 2, 7000, 'Senoidal, rack');
+insert into ids select 'r5', max(id)::text from cmp_requisicoes;
+select pg_temp.erro('select cmp_convidar(' || pg_temp.id('r5') || ', ''' || pg_temp.id('fa') || ''', '''', '''', '''', current_date + 5)', 'precisa ser: comprador', 'solicitante não convida fornecedor');
+select pg_temp.como('00000000-0000-0000-0000-0000000000d2');
+select pg_temp.erro('select cmp_convidar(' || pg_temp.id('r5') || ', ''' || pg_temp.id('fa') || ''', '''', '''', '''', cmp_hoje() - 1)', 'hoje ou depois', 'prazo no passado é recusado');
+insert into ids select 'ca', cmp_convidar(pg_temp.id('r5')::bigint, pg_temp.id('fa')::uuid, '', '21999990000', '', current_date + 5) ->> 'codigo';
+select pg_temp.ok(pg_temp.id('ca') ~ '^[0-9a-f]{64}$', 'convite gera código de 64 caracteres');
+select pg_temp.ok((select status = 'cotacao' from cmp_requisicoes where id = pg_temp.id('r5')::bigint), 'convidar passa a requisição para Em cotação');
+select pg_temp.erro('select cmp_convidar(' || pg_temp.id('r5') || ', ''' || pg_temp.id('fa') || ''', '''', '''', '''', current_date + 5)', 'já tem convite', 'um convite ativo por fornecedor na requisição');
+select pg_temp.erro('select cmp_convidar(' || pg_temp.id('r5') || ', null, '''', '''', '''', current_date + 5)', 'sem cadastro', 'convite sem cadastro exige o nome do contato');
+insert into ids select 'cn', cmp_convidar(pg_temp.id('r5')::bigint, null, 'Energia Total (Marcos)', '', 'marcos@energiatotal.com', current_date + 5) ->> 'codigo';
+insert into ids select 'cx', cmp_convidar(pg_temp.id('r5')::bigint, null, 'Contato que tenta usar CNPJ alheio', '', '', current_date + 5) ->> 'codigo';
+select pg_temp.como('00000000-0000-0000-0000-0000000000d5');
+select pg_temp.ok((select count(*) = 0 from cmp_convites), 'Park Sul não vê convites do Itaipu');
+
+-- fornecedor, sem login
+reset request.jwt.claim.sub;
+set role anon;
+set request.headers = '{"x-forwarded-for":"200.10.20.30, 10.0.0.1","user-agent":"NavegadorTeste/1.0"}';
+select pg_temp.erro('select cmp_cotacao_ler(''abc'')', 'inválido', 'código malformado é recusado');
+select pg_temp.erro('select cmp_cotacao_ler(''' || repeat('0', 64) || ''')', 'inválido', 'código inexistente é recusado');
+select pg_temp.erro('select * from cmp_convites', 'permission', 'anônimo não lê convites');
+select pg_temp.erro('select * from cmp_propostas', 'permission', 'anônimo não lê propostas');
+select pg_temp.ok((select x->>'situacao' = 'aberto' and x->'requisicao'->>'titulo' = 'Nobreak 3 kVA' and x->'fornecedor'->>'nome' = 'Forn A'
+  and not (x->'requisicao') ? 'valor_estimado' and x->'proposta' = 'null'::jsonb from cmp_cotacao_ler(pg_temp.id('ca')) x),
+  'fornecedor lê a requisição pelo código (sem valor estimado)');
+select pg_temp.erro($$select cmp_cotacao_enviar('$$ || pg_temp.id('ca') || $$', '{"preco_unitario":"3000","prazo_dias":"7","declarante":"Ana Souza"}')$$, 'declaração', 'sem marcar a declaração não envia');
+select pg_temp.erro($$select cmp_cotacao_enviar('$$ || pg_temp.id('ca') || $$', '{"preco_unitario":"3000","prazo_dias":"7","aceite":true}')$$, 'seu nome', 'sem o nome de quem envia não envia');
+select pg_temp.erro($$select cmp_cotacao_enviar('$$ || pg_temp.id('ca') || $$', '{"preco_unitario":"abc","prazo_dias":"7","declarante":"Ana","aceite":true}')$$, 'Confira os números', 'número inválido é recusado');
+select pg_temp.erro($$select cmp_cotacao_enviar('$$ || pg_temp.id('ca') || $$', '{"preco_unitario":"3000","prazo_dias":"7","declarante":"Ana Souza","aceite":true,"anexo":"$$ || pg_temp.id('ca') || $$/nao-existe.pdf"}')$$, 'PDF não foi recebido', 'anexo que não está no Storage é recusado');
+select pg_temp.erro($$insert into storage.objects (bucket_id, name) values ('cmp-propostas', '$$ || repeat('0', 64) || $$/x.pdf')$$, 'row-level security', 'Storage: PDF só entra na pasta de convite aberto');
+insert into storage.objects (bucket_id, name) values ('cmp-propostas', pg_temp.id('ca') || '/1.pdf');
+select pg_temp.ok((cmp_cotacao_enviar(pg_temp.id('ca'), jsonb_build_object('preco_unitario', '3000', 'frete', '50', 'prazo_dias', '7', 'pagamento', '30 dias',
+  'pagamento_dias', '30', 'declarante', 'Ana Souza', 'aceite', true, 'anexo', pg_temp.id('ca') || '/1.pdf')) ->> 'protocolo') like 'P-%', 'fornecedor envia a proposta com PDF e recebe protocolo');
+select pg_temp.ok((select x->'proposta'->>'preco_unitario' = '3000.00' and (x->'proposta'->>'tem_anexo')::boolean from cmp_cotacao_ler(pg_temp.id('ca')) x), 'fornecedor vê a própria proposta pelo link');
+select cmp_cotacao_enviar(pg_temp.id('ca'), '{"preco_unitario":"2900","frete":"50","prazo_dias":"7","pagamento":"30 dias","pagamento_dias":"30","declarante":"Ana Souza","aceite":true}');
+-- contato sem cadastro: CNPJ errado, CNPJ de quem já foi convidado, CNPJ novo
+select pg_temp.erro($$select cmp_cotacao_enviar('$$ || pg_temp.id('cn') || $$', '{"tipo":"PJ","documento":"44555666000182","nome":"Energia Total","preco_unitario":"3100","prazo_dias":"5","declarante":"Marcos","aceite":true}')$$, 'CNPJ inválido', 'fornecedor sem cadastro: CNPJ com dígito errado é recusado');
+select pg_temp.erro($$select cmp_cotacao_enviar('$$ || pg_temp.id('cx') || $$', '{"tipo":"PJ","documento":"11.222.333/0001-81","nome":"x","preco_unitario":"1","prazo_dias":"5","declarante":"Fulano","aceite":true}')$$, 'outro convite', 'CNPJ já convidado nesta cotação não entra por outro link');
+select cmp_cotacao_enviar(pg_temp.id('cn'), '{"tipo":"PJ","documento":"44.555.666/0001-81","nome":"Energia Total Ltda","telefone":"2133334444","preco_unitario":"3100","prazo_dias":"5","pagamento":"À vista","declarante":"Marcos Lima","aceite":true}');
+reset request.headers;
+
+set role authenticated;
+select pg_temp.como('00000000-0000-0000-0000-0000000000d2');
+select pg_temp.ok((select rodada = 2 and preco_anterior = 3000 and origem = 'fornecedor' and declarante = 'Ana Souza' and anexo like '%/1.pdf' and enviada_ip = '200.10.20.30'
+  from cmp_propostas where requisicao_id = pg_temp.id('r5')::bigint and fornecedor_id = pg_temp.id('fa')::uuid), 'reenvio vira nova rodada; guarda declarante, PDF e IP');
+select pg_temp.ok((select cadastrado_por = '00000000-0000-0000-0000-0000000000d2' and cadastrado_nome = 'Rafael' and grupos = '{Tecnologia}' and documento = '44555666000181'
+  from cmp_fornecedores_lista() where nome = 'Energia Total Ltda'), 'fornecedor novo entra na base com quem convidou como responsável');
+select pg_temp.ok((select count(*) = 1 from cmp_convites where codigo = pg_temp.id('cn') and fornecedor_id is not null and respondido_em is not null and aberto_em is not null), 'convite ligado ao fornecedor, aberto e respondido');
+select pg_temp.erro('select cmp_salvar_proposta(' || pg_temp.id('r5') || ', ''' || pg_temp.id('fa') || ''', 1, 0, 0, 1, ''x'', 0, null, '''')', 'só ele altera', 'comprador não altera proposta enviada pelo fornecedor');
+select pg_temp.ok((select count(*) = 1 from storage.objects where bucket_id = 'cmp-propostas'), 'comprador da unidade vê o PDF');
+select pg_temp.como('00000000-0000-0000-0000-0000000000d5');
+select pg_temp.ok((select count(*) = 0 from storage.objects where bucket_id = 'cmp-propostas'), 'outra unidade não vê o PDF');
+select pg_temp.como('00000000-0000-0000-0000-0000000000d2');
+select pg_temp.erro('select cmp_excluir_proposta((select id from cmp_propostas where requisicao_id = ' || pg_temp.id('r5') || ' and origem = ''fornecedor'' limit 1))', 'motivo', 'excluir proposta do fornecedor exige motivo');
+-- cancelar o convite fecha o link; prazo vencido também
+select cmp_convite_cancelar((select id from cmp_convites where codigo = pg_temp.id('cx')));
+select cmp_convite_prazo((select id from cmp_convites where codigo = pg_temp.id('ca')), current_date + 10);
+reset role;
+update cmp_convites set prazo = cmp_hoje() - 1 where codigo = pg_temp.id('cn');
+set role anon; reset request.jwt.claim.sub;
+select pg_temp.ok((select cmp_cotacao_ler(pg_temp.id('cx')) ->> 'situacao') = 'cancelado', 'convite cancelado aparece como cancelado');
+select pg_temp.erro($$select cmp_cotacao_enviar('$$ || pg_temp.id('cx') || $$', '{"tipo":"PJ","documento":"55666777000181","nome":"y","preco_unitario":"1","prazo_dias":"5","declarante":"Fulano","aceite":true}')$$, 'cancelado', 'convite cancelado não recebe proposta');
+select pg_temp.erro($$select cmp_cotacao_enviar('$$ || pg_temp.id('cn') || $$', '{"preco_unitario":"1","prazo_dias":"5","declarante":"Marcos","aceite":true}')$$, 'prazo para enviar', 'depois do prazo não recebe proposta');
+select pg_temp.erro($$insert into storage.objects (bucket_id, name) values ('cmp-propostas', '$$ || pg_temp.id('cn') || $$/2.pdf')$$, 'row-level security', 'Storage: prazo vencido não recebe PDF');
+reset role;
+select pg_temp.ok(exists (select 1 from auditoria where acao = 'compras_proposta_enviada_fornecedor' and nome like '%(pelo link)' and ip = '200.10.20.30' and navegador = 'NavegadorTeste/1.0')
+  and exists (select 1 from auditoria where acao = 'compras_fornecedor_cadastrado_link') and exists (select 1 from auditoria where acao = 'compras_convite_criado')
+  and exists (select 1 from auditoria where acao = 'compras_convite_cancelado') and exists (select 1 from cmp_historico where acao = 'convite_aberto'),
+  'ações do link vão para o histórico e a auditoria (com IP e navegador)');
 \echo 'TODOS OS TESTES SQL OK'
