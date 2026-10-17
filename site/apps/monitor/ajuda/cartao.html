@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cartão de referência · Monitor de Links | Nervia</title>
+<link rel="stylesheet" href="/ajuda/ajuda.css">
+</head>
+<body>
+<div class="pagina">
+  <div class="cab">
+    <img src="/img/nervia-logo.png" alt="Nervia">
+    <div><div class="t">Monitor de Links · Cartão de referência</div><div class="s">Cada campo e botão em uma linha</div></div>
+    <div class="acoes"><a href="manual.html">Manual completo</a><button onclick="print()">Imprimir</button></div>
+  </div>
+
+  <p class="lead">O roteador de cada local mede os links de internet a cada minuto e manda para a Nervia. Aqui você vê se está tudo no ar, quando caiu, por quanto tempo, e a disponibilidade do mês para cobrar a operadora.</p>
+
+  <h2>Painel</h2>
+  <table>
+    <tr><td>Normais · Com problema agora · Instáveis</td><td>Quantos roteadores estão em cada situação.</td></tr>
+    <tr><td>Quedas em aberto</td><td>Links caídos ou roteadores sem contato agora.</td></tr>
+    <tr><td>Quedas de link em 30 dias</td><td>Quantas vezes algum link caiu no último mês.</td></tr>
+    <tr><td>Cartão do roteador</td><td>Um por equipamento, agrupado por local. Clique para ver o detalhe.</td></tr>
+    <tr><td>Normal · Instável · Em backup · Fora do ar · Sem contato</td><td>Situação do local: tudo bem; perda ou lentidão; um link caiu e outro assumiu; todos caíram; o roteador parou de mandar.</td></tr>
+    <tr><td>No ar · Instável · Caído · Sem dados</td><td>Situação de cada link. "Instável" = perda de 20% ou mais, ou latência acima do limite.</td></tr>
+    <tr><td>ms · % perda</td><td>Latência (tempo de resposta) e pacotes perdidos na última medição.</td></tr>
+    <tr><td>Atualizado · a cada 1 min</td><td>A tela se atualiza sozinha.</td></tr>
+  </table>
+
+  <h2>Detalhe do roteador</h2>
+  <table>
+    <tr><td>RouterOS · ligado há · CPU</td><td>Versão do sistema, tempo desde o último reinício e uso do processador.</td></tr>
+    <tr><td>Último envio</td><td>Quando o roteador mandou a última medição.</td></tr>
+    <tr><td>Latência agora · Perda agora · Situação desde</td><td>Última medição de cada link e desde quando ele está assim.</td></tr>
+    <tr><td>Gráfico de 24 h</td><td>Linha = latência; faixas vermelhas = minutos em que o link estava fora do ar.</td></tr>
+    <tr><td>Quedas (30 dias)</td><td>Início, o que caiu, duração e anotação da Nervia (ex.: protocolo na operadora).</td></tr>
+  </table>
+
+  <h2>Quedas e relatório</h2>
+  <table>
+    <tr><td>Quedas · Todos os locais</td><td>Histórico de 30 dias, filtrável por local.</td></tr>
+    <tr><td>Equipamento sem contato</td><td>O roteador parou de mandar: sem energia, sem nenhum link ou script parado. Não conta como link caído.</td></tr>
+    <tr><td>Relatório mensal · local · mês</td><td>Escolha o local e o mês (últimos 12).</td></tr>
+    <tr><td>Disponibilidade · meta do contrato</td><td>Percentual do mês com o link no ar, comparado à meta (SLA) do contrato. Vermelho = abaixo da meta.</td></tr>
+    <tr><td>Quedas · Tempo fora do ar · Maior queda · Latência média</td><td>Números do mês por link.</td></tr>
+    <tr><td>Linha do tempo</td><td>Um bloco por dia; vermelho = dia com queda.</td></tr>
+    <tr><td>Imprimir / PDF</td><td>Gera o relatório para anexar ao pedido de desconto à operadora.</td></tr>
+  </table>
+
+  <h2>Equipamentos <span class="eq">EQUIPE NERVIA</span></h2>
+  <table>
+    <tr><td>+ Novo local · editar</td><td>Local (endereço do cliente) e nome do cliente.</td></tr>
+    <tr><td>quem vê</td><td>Logins do cliente que veem o local. O login também precisa do app liberado em Administração → Logins.</td></tr>
+    <tr><td>+ Novo equipamento · editar</td><td>Nome, modelo, local e se está ativo.</td></tr>
+    <tr><td>gerar script</td><td>Cria o token do roteador e o script para colar no Terminal. Gerar de novo troca o token.</td></tr>
+    <tr><td>Links (nome=host de teste)</td><td>Um por linha; host de teste diferente para cada link (ex.: 8.8.8.8, 1.1.1.1).</td></tr>
+    <tr><td>Nome do link</td><td>Abre o cadastro: nome, operadora, contratado, host de teste, meta do contrato, latência de alerta, ordem, monitorar.</td></tr>
+    <tr><td>anotar (na queda)</td><td>Registra protocolo, causa ou combinado com a operadora. O cliente vê.</td></tr>
+  </table>
+
+  <h2>Bom saber</h2>
+  <table>
+    <tr><td>Medição</td><td>Feita pelo próprio roteador do local, a cada minuto, com 5 pings por link.</td></tr>
+    <tr><td>Aviso de queda</td><td>Por enquanto só na tela (sem e-mail ou WhatsApp automático).</td></tr>
+    <tr><td>Ajuda</td><td>WhatsApp (21) 96686-9374 · atendimento@nervia.com.br</td></tr>
+  </table>
+  <div class="rodape">Nervia Tecnologia · Cartão de referência do app Monitor de Links · atualizado em 17/10/2026</div>
+</div>
+<script src="/marca-dagua.js" data-tipo="doc"></script>
+</body>
+</html>

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manual de utilização · Monitor de Links | Nervia</title>
+<link rel="stylesheet" href="/ajuda/ajuda.css">
+</head>
+<body>
+<div class="pagina">
+  <div class="cab">
+    <img src="/img/nervia-logo.png" alt="Nervia">
+    <div><div class="t">Monitor de Links · Manual de utilização</div><div class="s">Links de internet e roteadores: status, quedas e disponibilidade</div></div>
+    <div class="acoes"><a href="cartao.html">Cartão rápido</a><button onclick="print()">Imprimir</button></div>
+  </div>
+
+  <h1>Como usar o Monitor de Links</h1>
+  <p class="lead">O roteador MikroTik de cada local testa os links de internet a cada minuto e manda o resultado para a Nervia. O app mostra se está tudo no ar, guarda cada queda com início e fim e calcula a disponibilidade do mês, que serve de base para cobrar da operadora quando o contrato não é cumprido.</p>
+
+  <ul class="indice">
+    <li><a href="#ver">1. Ver a situação agora</a></li>
+    <li><a href="#detalhe">2. Detalhe de um roteador</a></li>
+    <li><a href="#quedas">3. Histórico de quedas</a></li>
+    <li><a href="#relatorio">4. Relatório mensal e cobrança da operadora</a></li>
+    <li><a href="#situacoes">5. O que cada situação significa</a></li>
+    <li><a href="#nervia">6. Tarefas da equipe Nervia (cadastro e instalação)</a></li>
+    <li><a href="#problemas">7. Mensagens e o que fazer</a></li>
+  </ul>
+
+  <h2 id="ver">1. Ver a situação agora</h2>
+  <ol>
+    <li>Entre na Área do Cliente e abra <b>Monitor de Links</b>.</li>
+    <li>O <b>Painel</b> mostra um cartão por roteador, agrupado por local, com cada link e a última medição. A borda do cartão fica verde (normal), amarela (instável) ou vermelha (problema).</li>
+    <li>A tela se atualiza sozinha a cada minuto.</li>
+  </ol>
+
+  <h2 id="detalhe">2. Detalhe de um roteador</h2>
+  <ol>
+    <li>Clique no cartão do roteador.</li>
+    <li>Veja a versão do sistema, há quanto tempo está ligado, o uso de CPU e o último envio.</li>
+    <li>Para cada link: latência e perda agora, desde quando está naquela situação e o gráfico das últimas 24 horas (faixas vermelhas = fora do ar).</li>
+    <li>Embaixo, as quedas dos últimos 30 dias com a duração e a anotação da Nervia.</li>
+  </ol>
+
+  <h2 id="quedas">3. Histórico de quedas</h2>
+  <p>Na aba <b>Quedas</b>, a lista dos últimos 30 dias de todos os locais (ou de um, pelo filtro). Uma queda "em aberto" ainda não terminou. "Equipamento sem contato" quer dizer que o roteador parou de mandar: falta de energia, todos os links caídos ao mesmo tempo ou o script parado. Esse tempo não conta como link caído, porque não dá para saber o estado do link nesse período.</p>
+
+  <h2 id="relatorio">4. Relatório mensal e cobrança da operadora</h2>
+  <ol>
+    <li>Na aba <b>Relatório mensal</b>, escolha o local e o mês.</li>
+    <li>Para cada link: disponibilidade do mês comparada à meta do contrato (SLA), número de quedas, tempo total fora do ar, maior queda e latência média.</li>
+    <li>A linha do tempo mostra um bloco por dia; vermelho = dia com queda.</li>
+    <li>Se a disponibilidade ficou abaixo da meta, o relatório avisa. Clique em <b>Imprimir / PDF</b> e anexe ao pedido de desconto ou ressarcimento à operadora.</li>
+  </ol>
+  <p>Conta usada: disponibilidade = 100% − (minutos com o link caído ÷ minutos do mês). O mês começa a contar no dia em que o roteador foi cadastrado, se for depois do dia 1º.</p>
+
+  <h2 id="situacoes">5. O que cada situação significa</h2>
+  <table>
+    <tr><th>Situação</th><th>Significa</th></tr>
+    <tr><td>Normal</td><td>Todos os links no ar, sem perda relevante.</td></tr>
+    <tr><td>Instável</td><td>Algum link com 20% ou mais de perda, ou latência acima do limite combinado (padrão 150 ms).</td></tr>
+    <tr><td>Em backup</td><td>Um link caiu e outro está segurando a internet do local.</td></tr>
+    <tr><td>Fora do ar</td><td>Todos os links medidos estão caídos.</td></tr>
+    <tr><td>Sem contato</td><td>O roteador não manda medição há alguns minutos (cerca de 4).</td></tr>
+    <tr><td>Aguardando o 1º envio</td><td>Equipamento cadastrado, mas o script ainda não foi instalado ou ainda não rodou.</td></tr>
+    <tr><td>Sem dados (link)</td><td>Sem medição recente daquele link.</td></tr>
+  </table>
+
+  <h2 id="nervia">6. Tarefas da equipe Nervia <span class="eq">EQUIPE NERVIA</span></h2>
+  <ol>
+    <li>Em <b>Equipamentos</b>, crie o <b>local</b> (ex.: "Matriz") com o nome do cliente.</li>
+    <li>Crie o <b>equipamento</b> (nome e modelo) no local.</li>
+    <li><b>Antes de gerar o script, leia o roteador</b> (IP › Routes): quais são os links, os gateways de cada um e se já existem rotas de teste ou failover. Não instale sem conferir.</li>
+    <li>Clique em <b>gerar script</b>, informe os links (um por linha, <code>nome=host de teste</code>, com host diferente em cada link) e a versão do RouterOS.</li>
+    <li>No roteador, siga a ordem do próprio script:
+      <ul>
+        <li><b>Passo 0:</b> o teste de conexão segura (<code>/tool fetch url="https://nervia.com.br/" output=none</code>) deve terminar em "finished". Se falhar, o roteador não consegue falar HTTPS com a internet: não siga.</li>
+        <li><b>Passo 1:</b> para cada link, uma rota do host de teste pelo gateway daquele link e uma rota de bloqueio (blackhole, distância 250). O bloqueio impede que, com o link caído, o teste saia pelo outro link e pareça que está tudo bem.</li>
+        <li><b>Passo 2:</b> cole o resto no Terminal. Ele cria o script <code>nervia-monitor</code>, o agendamento de 1 minuto e já roda a primeira vez.</li>
+      </ul></li>
+    <li>Em até 1 minuto, os links aparecem sozinhos. Clique no nome de cada link e preencha nome, operadora, contratado e a <b>meta do contrato</b> (SLA, ex.: 99,5%).</li>
+    <li>Em <b>quem vê</b>, marque os logins do cliente. O login também precisa ter o app liberado em Administração › Logins.</li>
+    <li>Ao registrar uma reclamação na operadora, use <b>anotar</b> na queda para guardar o protocolo.</li>
+  </ol>
+  <p>O token fica dentro do script, no roteador: quem tem acesso de leitura ao roteador consegue vê-lo. Ele só permite mandar medições daquele equipamento. Se o roteador trocar de mãos, gere o script de novo (o token antigo para de valer).</p>
+
+  <h2 id="problemas">7. Mensagens e o que fazer</h2>
+  <table>
+    <tr><th>Mensagem</th><th>O que fazer</th></tr>
+    <tr><td>Entre na Área do Cliente para ver o monitor</td><td>A sessão expirou: entre de novo em nervia.com.br/cliente.</td></tr>
+    <tr><td>Nenhum local liberado para o seu login</td><td>Peça à Nervia para liberar o local.</td></tr>
+    <tr><td>Aguardando o 1º envio <span class="eq">EQUIPE NERVIA</span></td><td>Confira no roteador: System › Scheduler tem "nervia-monitor"? Rode <code>/system script run nervia-monitor</code> e veja o Log.</td></tr>
+    <tr><td>Log do roteador: "nervia-monitor: envio falhou" <span class="eq">EQUIPE NERVIA</span></td><td>Sem internet ou HTTPS bloqueado: refaça o passo 0. Se o passo 0 funciona, gere o script de novo (o token pode ter sido trocado).</td></tr>
+    <tr><td>Link sempre "No ar" mesmo desligado <span class="eq">EQUIPE NERVIA</span></td><td>Falta a rota de bloqueio (blackhole) do host de teste daquele link: o teste está saindo pelo outro link.</td></tr>
+    <tr><td>Cada link precisa de um host de teste diferente <span class="eq">EQUIPE NERVIA</span></td><td>Use hosts distintos (8.8.8.8, 1.1.1.1, 9.9.9.9…).</td></tr>
+    <tr><td>Linha inválida <span class="eq">EQUIPE NERVIA</span></td><td>Formato <code>nome=IP</code>, nome com letras minúsculas, números, - ou _.</td></tr>
+  </table>
+  <div class="rodape">Dúvidas: WhatsApp (21) 96686-9374 · atendimento@nervia.com.br<br>Nervia Tecnologia · Manual do app Monitor de Links · atualizado em 17/10/2026</div>
+</div>
+<script src="/marca-dagua.js" data-tipo="doc"></script>
+</body>
+</html>

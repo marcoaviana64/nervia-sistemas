@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Monitor de Links | Nervia</title>
+<script src="/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<style>
+/* Monitor de Links (app "monitor", tabelas mon_). Os roteadores mandam as medições para a rpc mon_registrar;
+   esta tela só lê (cliente) e cadastra/gera o script (equipe Nervia). */
+:root{
+  --bg:#f3f6f8;--surface:#fff;--surface-2:#eaf1f4;--border:#dde6ec;--ink:#0f1b2d;--ink-soft:#4f5f73;--ink-faint:#8796a8;
+  --accent:#107e99;--accent-soft:#e3f3f7;--primary:#0b2545;
+  --ok:#1d7f46;--ok-bg:#e6f4ec;--crit:#b3261e;--crit-bg:#fbeaea;--warn:#a86400;--warn-bg:#fff3e0;--info:#2568a8;--info-bg:#e7f1fa;
+  color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0c1620;--surface:#122130;--surface-2:#18293a;--border:#24394e;--ink:#eef4f8;--ink-soft:#b3c3d1;--ink-faint:#7f93a6;
+  --accent:#3fc1dd;--accent-soft:rgba(63,193,221,.15);--primary:#cfe3f0;
+  --ok:#43c07e;--ok-bg:rgba(67,192,126,.14);--crit:#f07a72;--crit-bg:rgba(240,122,114,.14);--warn:#e3ad57;--warn-bg:rgba(227,173,87,.14);--info:#5eabe8;--info-bg:rgba(94,171,232,.14);color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.oculto{display:none!important}
+.casca{max-width:1200px;margin:0 auto;padding:12px 16px 40px}
+.topo{display:flex;align-items:center;gap:12px;padding:6px 0 10px}
+.topo .marca{width:34px;height:34px;border-radius:10px;background:linear-gradient(155deg,#107e99,#0b2545);color:#fff;display:grid;place-items:center;font-weight:800;font-size:.82rem}
+.topo span{color:var(--ink-soft);font-size:.8rem}
+.embutido .topo{display:none}
+.barra{display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:6px 8px;margin-bottom:12px}
+.barra .aba{border:0;background:none;padding:8px 12px;border-radius:8px;cursor:pointer;font:inherit;color:var(--ink-soft)}
+.barra .aba.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.barra .dir{margin-left:auto;font-size:12px;color:var(--ink-soft)}
+select,input,textarea{font:inherit;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink);width:100%}
+textarea{min-height:60px}
+label{display:block;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);margin-bottom:3px}
+.bt{font:inherit;font-size:13px;font-weight:600;padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--ink);cursor:pointer;white-space:nowrap}
+.bt:hover{border-color:var(--ink-soft)}.bt.pri{background:var(--accent);border-color:var(--accent);color:#fff}.bt.perigo{color:var(--crit);border-color:var(--crit)}
+.lnk{background:none;border:0;padding:0;color:var(--accent);cursor:pointer;font:inherit;text-decoration:underline}
+.msg{margin:8px 0;padding:9px 12px;border-radius:8px;font-size:13px;white-space:pre-line}
+.msg.ok{background:var(--ok-bg);color:var(--ok)}.msg.err{background:var(--crit-bg);color:var(--crit)}.msg.info{background:var(--info-bg);color:var(--info)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px}
+.kpi small{display:block;color:var(--ink-soft)}.kpi b{font-size:22px;display:block}.kpi span{font-size:12px;color:var(--ink-faint)}
+.kpi.crit b{color:var(--crit)}.kpi.warn b{color:var(--warn)}.kpi.ok b{color:var(--ok)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px}
+.card h2{font-size:16px;margin:0 0 10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.card h2 .dir{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+.grupo{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);margin:16px 0 8px;font-weight:700}
+.equips{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}
+.eq{background:var(--surface);border:1px solid var(--border);border-left:5px solid var(--ok);border-radius:12px;padding:12px;cursor:pointer}
+.eq.crit{border-left-color:var(--crit)}.eq.warn{border-left-color:var(--warn)}.eq.mut{border-left-color:var(--ink-faint)}
+.eq h3{margin:0 0 4px;font-size:15px;display:flex;justify-content:space-between;gap:6px}
+.lk{display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:5px 0;border-top:1px dashed var(--border)}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--border);vertical-align:top}
+th{color:var(--ink-soft);font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
+td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.tag{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:999px;font-weight:600;white-space:nowrap;margin:1px 2px 1px 0}
+.t-crit{background:var(--crit-bg);color:var(--crit)}.t-warn{background:var(--warn-bg);color:var(--warn)}.t-ok{background:var(--ok-bg);color:var(--ok)}
+.t-info{background:var(--info-bg);color:var(--info)}.t-mut{background:var(--surface-2);color:var(--ink-soft)}.t-acc{background:var(--accent-soft);color:var(--accent)}
+.mut{color:var(--ink-soft);font-size:12.5px}
+.grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.grade .tudo{grid-column:1/-1}
+svg.graf{width:100%;height:90px;display:block}
+.linha{display:flex;height:14px;border-radius:4px;overflow:hidden;margin:4px 0;gap:1px}.linha i{flex:1}
+.acoes{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+pre.script{white-space:pre-wrap;word-break:break-all;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px;font:12px/1.45 ui-monospace,Consolas,monospace;max-height:420px;overflow:auto}
+.aviso{border-radius:10px;padding:10px 12px;font-size:13.5px;margin:10px 0}
+.aviso.crit{background:var(--crit-bg);color:var(--crit)}.aviso.info{background:var(--info-bg);color:var(--info)}.aviso.warn{background:var(--warn-bg);color:var(--warn)}
+dialog{border:0;border-radius:14px;padding:18px;max-width:720px;width:calc(100% - 24px);background:var(--surface);color:var(--ink)}
+dialog::backdrop{background:#0008}
+dialog h3{margin:0 0 12px}
+.chk{display:inline-flex;gap:5px;align-items:center;margin:3px 10px 3px 0;font-size:13px;text-transform:none;letter-spacing:0;font-weight:400;color:var(--ink)}
+.chk input{width:auto}
+.centro{padding:60px 16px;text-align:center;color:var(--ink-soft)}
+@media print{.barra,.acoes,.topo,.noprint{display:none!important}body{background:#fff}}
+</style>
+</head>
+<body>
+<div class="casca">
+  <div class="topo"><div class="marca">ML</div><div><b>Monitor de Links</b><br><span>Links de internet e roteadores: status, quedas e disponibilidade</span></div></div>
+  <div id="aviso" class="centro">Carregando…</div>
+  <div id="app" class="oculto">
+    <div class="barra">
+      <button class="aba on" data-v="painel">Painel</button>
+      <button class="aba" data-v="quedas">Quedas</button>
+      <button class="aba" data-v="relatorio">Relatório mensal</button>
+      <button class="aba" data-v="admin" id="abaAdmin">Equipamentos</button>
+      <div class="dir" id="atualizado"></div>
+    </div>
+    <div id="msg" class="msg oculto"></div>
+    <div id="tela"></div>
+  </div>
+</div>
+<dialog id="dlg"><form method="dialog" id="dlgf"></form></dialog>
+
+<script>
+const CFG = window.NERVIA_CONFIG || {};
+const EMBUTIDO = window.self !== window.top;
+if (EMBUTIDO) document.documentElement.classList.add("embutido");
+const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const checar = r => { if (r.error) throw new Error(r.error.message); return r.data; };
+const TZ = "America/Sao_Paulo";
+const dataHora = v => v ? new Date(v).toLocaleString("pt-BR", { timeZone: TZ, day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—";
+const dataBR = v => v ? new Date(v).toLocaleDateString("pt-BR", { timeZone: TZ }) : "—";
+const tag = (t, c) => `<span class="tag ${c}">${esc(t)}</span>`;
+const minTxt = m => { m = Math.round(m); return m < 60 ? `${m} min` : m < 1440 ? `${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}` : `${Math.floor(m / 1440)}d ${Math.floor(m % 1440 / 60)}h`; };
+const desde = v => v ? minTxt((Date.now() - new Date(v)) / 6e4) : "";
+const pct = v => v == null ? "—" : Number(v).toFixed(2).replace(".", ",") + "%";
+function msg(tipo, texto) { const m = $("msg"); m.className = "msg " + tipo; m.textContent = texto; if (tipo === "ok") setTimeout(() => m.classList.add("oculto"), 6000); }
+function limparMsg() { $("msg").className = "msg oculto"; }
+
+const ST = { ok: ["No ar", "t-ok"], instavel: ["Instável", "t-warn"], caido: ["Caído", "t-crit"], sem_dados: ["Sem dados", "t-mut"] };
+let ADMIN = false, LOCAIS = [], EQUIPS = [], LINKS = [], QUEDAS = [], VISTA = "painel", SEL = null, AMOSTRAS = [], REL = { local: "", mes: "" };
+const EQUIP_COLS = "id, local_id, nome, modelo, intervalo_seg, ativo, token_fim, token_em, ros_versao, uptime, cpu, ultimo_contato, sem_contato_desde, criado_em";
+
+async function iniciar() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { $("aviso").innerHTML = 'Entre na <a href="/cliente/" target="_top">Área do Cliente</a> para ver o monitor.'; return; }
+  try {
+    const p = checar(await sb.from("perfis").select("admin").eq("user_id", session.user.id).maybeSingle());
+    ADMIN = !!(p && p.admin);
+    $("abaAdmin").classList.toggle("oculto", !ADMIN);
+    await carregar();
+    if (!LOCAIS.length && !ADMIN) { $("aviso").textContent = "Nenhum local liberado para o seu login. Fale com a Nervia."; return; }
+    $("aviso").classList.add("oculto"); $("app").classList.remove("oculto");
+    render();
+    setInterval(async () => { if (!document.hidden && !$("dlg").open && VISTA !== "admin") { await carregar(); render(); } }, 60000);
+  } catch (e) { $("aviso").textContent = "Não foi possível carregar: " + e.message; }
+}
+async function carregar() {
+  const desde30 = new Date(Date.now() - 31 * 864e5).toISOString();
+  const [l, e, k, q] = await Promise.all([
+    sb.from("mon_locais").select("*").order("nome"),
+    sb.from("mon_equipamentos").select(EQUIP_COLS).order("nome"),
+    sb.from("mon_links").select("*").order("ordem").order("chave"),
+    sb.from("mon_quedas").select("*").or(`fim.is.null,fim.gte.${desde30}`).order("inicio", { ascending: false }).limit(500),
+  ]);
+  LOCAIS = checar(l); EQUIPS = checar(e); LINKS = checar(k); QUEDAS = checar(q);
+  if (SEL) await carregarAmostras(SEL);
+  $("atualizado").textContent = "Atualizado " + new Date().toLocaleTimeString("pt-BR", { timeZone: TZ, hour: "2-digit", minute: "2-digit" }) + " · a cada 1 min";
+}
+async function carregarAmostras(equipId) {
+  const ids = LINKS.filter(l => l.equipamento_id === equipId).map(l => l.id);
+  if (!ids.length) { AMOSTRAS = []; return; }
+  AMOSTRAS = checar(await sb.from("mon_amostras").select("link_id, em, no_ar, rtt_ms, perda").in("link_id", ids)
+    .gte("em", new Date(Date.now() - 24 * 36e5).toISOString()).order("em").limit(10000));
+}
+document.querySelectorAll(".barra .aba").forEach(b => b.onclick = () => { VISTA = b.dataset.v; SEL = null; limparMsg(); render(); });
+
+// ---------------------------------------------------------------- situação
+const local = id => LOCAIS.find(l => l.id === id) || { nome: "?" };
+const linksDe = eid => LINKS.filter(l => l.equipamento_id === eid && l.ativo);
+function situacao(e) {
+  if (!e.ativo) return ["Desativado", "mut", "t-mut"];
+  if (!e.ultimo_contato) return ["Aguardando o 1º envio", "mut", "t-mut"];
+  if (e.sem_contato_desde) return ["Sem contato", "crit", "t-crit"];
+  const ls = linksDe(e.id);
+  if (ls.some(l => l.status === "caido")) return [ls.some(l => l.status === "ok" || l.status === "instavel") ? "Em backup" : "Fora do ar", "crit", "t-crit"];
+  if (ls.some(l => l.status === "instavel")) return ["Instável", "warn", "t-warn"];
+  return ["Normal", "", "t-ok"];
+}
+function linhaLink(l) {
+  const s = ST[l.status] || ST.sem_dados;
+  return `<div class="lk"><span>${esc(l.nome || l.chave)}<br><span class="mut">${esc([l.operadora, l.contratado].filter(Boolean).join(" · "))}</span></span>
+    <span style="text-align:right">${tag(s[0], s[1])}<br><span class="mut">${l.status === "caido" ? "há " + desde(l.status_desde) : [l.ultimo_rtt != null ? Number(l.ultimo_rtt).toLocaleString("pt-BR") + " ms" : "", l.ultima_perda > 0 ? Number(l.ultima_perda).toLocaleString("pt-BR") + "% perda" : ""].filter(Boolean).join(" · ")}</span></span></div>`;
+}
+
+// ---------------------------------------------------------------- telas
+function render() {
+  document.querySelectorAll(".barra .aba").forEach(b => b.classList.toggle("on", b.dataset.v === VISTA));
+  $("tela").innerHTML = SEL ? vEquip(EQUIPS.find(e => e.id === SEL)) : ({ painel: vPainel, quedas: vQuedas, relatorio: vRelatorio, admin: vAdmin }[VISTA] || vPainel)();
+  if (VISTA === "relatorio" && !SEL) carregarRelatorio();
+  if (VISTA === "admin" && !SEL) carregarAcessos();
+}
+function vPainel() {
+  const at = EQUIPS.filter(e => e.ativo), sits = at.map(situacao);
+  const abertas = QUEDAS.filter(q => !q.fim).length, q30 = QUEDAS.filter(q => q.tipo === "link" && new Date(q.inicio) > Date.now() - 30 * 864e5).length;
+  if (!at.length) return `<div class="card"><p class="mut">${ADMIN ? "Nenhum equipamento cadastrado. Use a aba Equipamentos para cadastrar o primeiro e gerar o script do roteador." : "Nenhum equipamento monitorado ainda."}</p></div>`;
+  return `<div class="kpis">
+    <div class="kpi ok"><small>Normais</small><b>${sits.filter(s => s[1] === "").length}/${at.length}</b></div>
+    <div class="kpi crit"><small>Com problema agora</small><b>${sits.filter(s => s[1] === "crit").length}</b></div>
+    <div class="kpi warn"><small>Instáveis</small><b>${sits.filter(s => s[1] === "warn").length}</b></div>
+    <div class="kpi"><small>Quedas em aberto</small><b>${abertas}</b></div>
+    <div class="kpi"><small>Quedas de link em 30 dias</small><b>${q30}</b></div></div>
+  ${LOCAIS.filter(lo => at.some(e => e.local_id === lo.id)).map(lo => `<div class="grupo">${esc(lo.nome)}${lo.cliente ? " · " + esc(lo.cliente) : ""}</div><div class="equips">${at.filter(e => e.local_id === lo.id).map(e => {
+    const s = situacao(e);
+    return `<div class="eq ${s[1]}" data-equip="${e.id}"><h3>${esc(e.nome)}${tag(s[0], s[2])}</h3>
+      <div class="mut">${esc(e.modelo)}${e.ultimo_contato ? " · último envio " + (Date.now() - new Date(e.ultimo_contato) < 150000 ? "agora" : "há " + desde(e.ultimo_contato)) : ""}</div>
+      ${linksDe(e.id).map(linhaLink).join("") || '<div class="mut" style="margin-top:6px">Nenhum link ainda.</div>'}</div>`;
+  }).join("")}</div>`).join("")}`;
+}
+function grafico(l) {
+  const a = AMOSTRAS.filter(x => x.link_id === l.id);
+  if (!a.length) return '<p class="mut">Sem medições nas últimas 24 h.</p>';
+  const t0 = Date.now() - 24 * 36e5, W = 600, H = 90, vals = a.filter(x => x.rtt_ms != null).map(x => Number(x.rtt_ms));
+  const mx = Math.max(50, ...vals) * 1.1, X = t => ((new Date(t) - t0) / (24 * 36e5)) * W;
+  let d = "", ant = null;
+  a.forEach(x => { if (x.rtt_ms == null) { ant = null; return; } const p = `${X(x.em).toFixed(1)},${(H - Number(x.rtt_ms) / mx * (H - 6)).toFixed(1)}`; d += (ant ? "L" : "M") + p; ant = p; });
+  const caidos = a.filter(x => !x.no_ar).map(x => `<rect x="${X(x.em).toFixed(1)}" y="0" width="${Math.max(1, W / 1440).toFixed(2)}" height="${H}" fill="var(--crit)" opacity=".35"/>`).join("");
+  return `<svg class="graf" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Latência nas últimas 24 horas">${caidos}<path d="${d}" fill="none" stroke="var(--accent)" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>
+    <div class="mut" style="display:flex;justify-content:space-between"><span>há 24 h</span><span>máx. ${Math.round(Math.max(0, ...vals))} ms · faixas vermelhas = fora do ar</span><span>agora</span></div>`;
+}
+function vEquip(e) {
+  if (!e) { SEL = null; return vPainel(); }
+  const s = situacao(e), lo = local(e.local_id), qs = QUEDAS.filter(q => q.equipamento_id === e.id);
+  return `<p class="noprint"><button class="bt" data-acao="voltar">← Voltar</button></p>
+  <div class="card"><h2>${esc(e.nome)} ${tag(s[0], s[2])}</h2><div class="mut">${esc(lo.nome)} · ${esc(e.modelo)}${e.ros_versao ? " · RouterOS " + esc(e.ros_versao) : ""}${e.uptime ? " · ligado há " + esc(e.uptime) : ""}${e.cpu != null ? " · CPU " + e.cpu + "%" : ""}<br>
+    Último envio: ${dataHora(e.ultimo_contato)}${e.sem_contato_desde ? ` · <b>sem contato desde ${dataHora(e.sem_contato_desde)}</b> (sem energia, sem nenhum link ou o script parou)` : ""}</div></div>
+  ${linksDe(e.id).map(l => `<div class="card"><h2>${esc(l.nome || l.chave)} <span class="mut">${esc([l.operadora, l.contratado].filter(Boolean).join(" · "))}</span> ${tag(...(ST[l.status] || ST.sem_dados))}</h2>
+    <div class="kpis"><div class="kpi"><small>Latência agora</small><b>${l.ultimo_rtt != null ? Number(l.ultimo_rtt).toLocaleString("pt-BR") + " ms" : "—"}</b></div>
+      <div class="kpi"><small>Perda agora</small><b>${l.ultima_perda != null ? Number(l.ultima_perda).toLocaleString("pt-BR") + "%" : "—"}</b></div>
+      <div class="kpi"><small>Situação desde</small><b style="font-size:16px">${dataHora(l.status_desde)}</b></div></div>
+    <div class="mut">Latência — últimas 24 h</div>${grafico(l)}</div>`).join("")}
+  <div class="card"><h2>Quedas (30 dias)</h2>${tabQuedas(qs, false)}</div>`;
+}
+function tabQuedas(qs, comLocal) {
+  if (!qs.length) return '<p class="mut">Nenhuma queda.</p>';
+  return `<div class="tw"><table><tr>${comLocal ? "<th>Local · equipamento</th>" : ""}<th>Início</th><th>O que</th><th>Duração</th><th>Obs.</th></tr>${qs.map(q => {
+    const e = EQUIPS.find(x => x.id === q.equipamento_id) || {}, l = LINKS.find(x => x.id === q.link_id);
+    const dur = ((q.fim ? new Date(q.fim) : Date.now()) - new Date(q.inicio)) / 6e4;
+    return `<tr>${comLocal ? `<td><b>${esc(local(e.local_id).nome)}</b><div class="mut">${esc(e.nome)}</div></td>` : ""}<td>${dataHora(q.inicio)}</td>
+      <td>${q.tipo === "link" ? "Link " + esc(l ? (l.nome || l.chave) : "?") + (l && l.operadora ? `<div class="mut">${esc(l.operadora)}</div>` : "") : "Equipamento sem contato"}</td>
+      <td>${q.fim ? minTxt(dur) : tag("em aberto · " + minTxt(dur), "t-crit")}</td>
+      <td>${esc(q.obs)}${ADMIN ? ` <button class="lnk" data-acao="obsQueda" data-id="${q.id}">${q.obs ? "editar" : "anotar"}</button>` : ""}</td></tr>`;
+  }).join("")}</table></div>`;
+}
+let FQ = "";
+function vQuedas() {
+  let qs = QUEDAS; if (FQ) qs = qs.filter(q => (EQUIPS.find(e => e.id === q.equipamento_id) || {}).local_id === FQ);
+  return `<div class="card"><h2>Histórico de quedas — 30 dias<span class="dir"><select id="fLocal" style="width:auto"><option value="">Todos os locais</option>${LOCAIS.map(l => `<option value="${l.id}" ${l.id === FQ ? "selected" : ""}>${esc(l.nome)}</option>`).join("")}</select></span></h2>
+    <p class="mut">"Sem contato" = o roteador parou de mandar (sem energia, sem nenhum link ou script parado). Não conta como link caído, porque não dá para saber o estado dos links nesse período.</p>${tabQuedas(qs, true)}</div>`;
+}
+
+// ---------------------------------------------------------------- relatório
+function meses() { const r = [], d = new Date(); d.setDate(1); for (let i = 0; i < 12; i++) { r.push(d.toISOString().slice(0, 7)); d.setMonth(d.getMonth() - 1); } return r; }
+function vRelatorio() {
+  if (!REL.local || !LOCAIS.some(l => l.id === REL.local)) REL.local = (LOCAIS[0] || {}).id || "";
+  if (!REL.mes) REL.mes = meses()[0];
+  const nomeMes = m => new Date(m + "-15").toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  return `<div class="acoes noprint" style="margin:0 0 12px"><select id="rLocal" style="width:auto">${LOCAIS.map(l => `<option value="${l.id}" ${l.id === REL.local ? "selected" : ""}>${esc(l.nome)}</option>`).join("")}</select>
+    <select id="rMes" style="width:auto">${meses().map(m => `<option value="${m}" ${m === REL.mes ? "selected" : ""}>${nomeMes(m)}</option>`).join("")}</select>
+    <button class="bt pri" data-acao="imprimir">Imprimir / PDF</button></div>
+  <div class="card"><h2>Relatório de disponibilidade — ${esc(local(REL.local).nome)}</h2><div class="mut">${nomeMes(REL.mes)}${local(REL.local).cliente ? " · " + esc(local(REL.local).cliente) : ""}. Medição a cada minuto pelo próprio roteador do local.</div></div>
+  <div id="relCorpo"><p class="mut">Calculando…</p></div>`;
+}
+async function carregarRelatorio() {
+  if (!REL.local) { $("relCorpo").innerHTML = '<p class="mut">Nenhum local.</p>'; return; }
+  const de = new Date(REL.mes + "-01T00:00:00-03:00"), ate = new Date(de); ate.setMonth(ate.getMonth() + 1);
+  const r = await sb.rpc("mon_relatorio", { p_local: REL.local, p_de: de.toISOString(), p_ate: ate.toISOString() });
+  const el = $("relCorpo"); if (!el) return;
+  if (r.error) { el.innerHTML = `<div class="msg err">${esc(r.error.message)}</div>`; return; }
+  if (!r.data.length) { el.innerHTML = '<p class="mut">Sem dados neste mês.</p>'; return; }
+  const dias = Math.round((ate - de) / 864e5);
+  el.innerHTML = r.data.map(x => {
+    const qs = QUEDAS.filter(q => q.link_id === x.link_id && q.tipo === "link");
+    const abaixo = Number(x.disponibilidade) < Number(x.sla_pct);
+    return `<div class="card"><h2>${esc(x.link)} <span class="mut">${esc([x.operadora, x.contratado].filter(Boolean).join(" · "))} · ${esc(x.equipamento)}</span></h2>
+      <div class="kpis"><div class="kpi ${abaixo ? "crit" : "ok"}"><small>Disponibilidade</small><b>${pct(x.disponibilidade)}</b><span>meta do contrato ${pct(x.sla_pct)}</span></div>
+        <div class="kpi"><small>Quedas</small><b>${x.quedas}</b></div><div class="kpi"><small>Tempo fora do ar</small><b>${minTxt(x.min_caido)}</b></div>
+        <div class="kpi"><small>Maior queda</small><b>${x.quedas ? minTxt(x.maior_min) : "—"}</b></div><div class="kpi"><small>Latência média</small><b>${x.rtt_medio != null ? Number(x.rtt_medio).toLocaleString("pt-BR") + " ms" : "—"}</b></div></div>
+      <div class="mut">Linha do tempo (cada bloco = 1 dia; vermelho = teve queda)</div>
+      <div class="linha">${Array.from({ length: dias }, (_, i) => { const d0 = new Date(de.getTime() + i * 864e5), d1 = new Date(d0.getTime() + 864e5);
+        const h = qs.some(q => new Date(q.inicio) < d1 && (q.fim ? new Date(q.fim) : new Date()) > d0); return `<i style="background:${d0 > new Date() ? "var(--surface-2)" : h ? "var(--crit)" : "var(--ok-bg)"}" title="${d0.toLocaleDateString("pt-BR", { timeZone: "UTC" })}"></i>`; }).join("")}</div>
+      ${abaixo ? '<div class="aviso crit">Abaixo da meta do contrato: base para pedir desconto ou ressarcimento à operadora (anexe este relatório).</div>' : ""}
+      ${x.min_sem_contato >= 1 ? `<p class="mut">O roteador ficou ${minTxt(x.min_sem_contato)} sem contato neste mês; esse tempo não entra na conta (não se sabe o estado do link).</p>` : ""}</div>`;
+  }).join("");
+}
+
+// ---------------------------------------------------------------- administração (equipe Nervia)
+let ACESSOS = [], PERFIS = [];
+function vAdmin() {
+  if (!ADMIN) return '<p class="mut">Só a equipe Nervia.</p>';
+  return `<div class="card"><h2>Locais<span class="dir"><button class="bt pri" data-acao="novoLocal">+ Novo local</button></span></h2>
+    <div class="tw"><table><tr><th>Local</th><th>Cliente</th><th>Quem vê</th><th></th></tr>${LOCAIS.map(l => `<tr><td><b>${esc(l.nome)}</b>${l.ativo ? "" : " " + tag("inativo", "t-mut")}</td><td>${esc(l.cliente)}</td>
+      <td id="acc-${l.id}" class="mut">…</td><td><button class="lnk" data-acao="editLocal" data-id="${l.id}">editar</button> · <button class="lnk" data-acao="acessos" data-id="${l.id}">quem vê</button></td></tr>`).join("") || '<tr><td colspan="4" class="mut">Nenhum local.</td></tr>'}</table></div></div>
+  <div class="card"><h2>Equipamentos<span class="dir"><button class="bt pri" data-acao="novoEquip" ${LOCAIS.length ? "" : "disabled"}>+ Novo equipamento</button></span></h2>
+    <div class="tw"><table><tr><th>Equipamento</th><th>Local</th><th>Token</th><th>Último envio</th><th>Links</th><th></th></tr>${EQUIPS.map(e => `<tr><td><b>${esc(e.nome)}</b><div class="mut">${esc(e.modelo)} ${e.ros_versao ? "· " + esc(e.ros_versao) : ""}</div>${e.ativo ? "" : tag("desativado", "t-mut")}</td>
+      <td>${esc(local(e.local_id).nome)}</td><td>${e.token_em ? `…${esc(e.token_fim)}<div class="mut">${dataBR(e.token_em)}</div>` : tag("sem token", "t-warn")}</td>
+      <td>${dataHora(e.ultimo_contato)}</td><td>${LINKS.filter(l => l.equipamento_id === e.id).map(l => `<div><button class="lnk" data-acao="editLink" data-id="${l.id}">${esc(l.nome || l.chave)}</button> <span class="mut">${esc(l.chave)} → ${esc(l.alvo)}</span>${l.ativo ? "" : " " + tag("desligado", "t-mut")}</div>`).join("") || '<span class="mut">chegam no 1º envio</span>'}</td>
+      <td><button class="lnk" data-acao="editEquip" data-id="${e.id}">editar</button><br><button class="lnk" data-acao="script" data-id="${e.id}">${e.token_em ? "gerar novo script" : "gerar script"}</button></td></tr>`).join("") || '<tr><td colspan="6" class="mut">Nenhum equipamento.</td></tr>'}</table></div>
+    <p class="mut">O script mede cada link a cada minuto e manda para cá. Gerar um script novo troca o token: o script antigo para de valer.</p></div>`;
+}
+async function carregarAcessos() {
+  if (!ADMIN) return;
+  [ACESSOS, PERFIS] = await Promise.all([sb.from("mon_acessos").select("*").then(checar), sb.from("perfis").select("user_id, email, nome").order("email").then(checar)]);
+  LOCAIS.forEach(l => { const td = $("acc-" + l.id); if (td) td.textContent = ACESSOS.filter(a => a.local_id === l.id).map(a => (PERFIS.find(p => p.user_id === a.user_id) || {}).email || "?").join(", ") || "só a Nervia"; });
+}
+
+// gera o script do RouterOS (v6 e v7) com o token e a lista de links
+function scriptRouterOS(e, links, token, v7) {
+  const url = `${CFG.SUPABASE_URL}/rest/v1/rpc/mon_registrar`;
+  const lista = links.map(l => `"${l.chave}"="${l.alvo}"`).join(";");
+  const bh = v7 ? "blackhole" : "type=blackhole";
+  const rotas = links.map(l => `# /ip route add dst-address=${l.alvo}/32 gateway=GATEWAY_DO_LINK_${l.chave.toUpperCase()} comment="nervia-monitor ${l.chave}"\n# /ip route add dst-address=${l.alvo}/32 ${bh} distance=250 comment="nervia-monitor ${l.chave} bloqueio"`).join("\n");
+  return `# Nervia - Monitor de Links - ${e.nome} (${local(e.local_id).nome}) - gerado em ${new Date().toLocaleString("pt-BR", { timeZone: TZ })}
+# RouterOS ${v7 ? "7" : "6"}. O token abaixo é deste equipamento: não compartilhe.
+#
+# PASSO 0 (teste de conexão segura com a internet; deve mostrar "status: finished"):
+# /tool fetch url="https://nervia.com.br/" output=none
+#
+# PASSO 1 - rotas de teste: cada link é medido num host próprio, com rota fixa por ele e um bloqueio
+# (blackhole) para o teste NÃO sair pelo outro link quando este cair. Confira os gateways no roteador
+# antes (IP > Routes) e troque GATEWAY_DO_LINK_... pelo IP do gateway de cada link:
+${rotas}
+#
+# PASSO 2 - cole tudo daqui para baixo no Terminal:
+/system script remove [find name="nervia-monitor"]
+/system script add name="nervia-monitor" policy=read,write,test source={
+:local token "${token}"
+:local url "${url}"
+:local chave "${CFG.SUPABASE_ANON_KEY}"
+:local links {${lista}}
+:local itens ""
+:foreach k,alvo in=$links do={
+  :local rec 0
+  :local rtt ""
+  :do { :set rec [/ping $alvo count=5 interval=200ms] } on-error={ :set rec 0 }
+  :if ($rec > 0) do={ :do { /tool flood-ping $alvo count=3 do={ :set rtt $"avg-rtt" } } on-error={} }
+  :if ([:len $itens] > 0) do={ :set itens ($itens . ",") }
+  :set itens ($itens . "{\\"k\\":\\"" . $k . "\\",\\"env\\":5,\\"ok\\":" . $rec . ",\\"rtt\\":\\"" . $rtt . "\\"}")
+}
+:local ver [/system resource get version]
+:local up [/system resource get uptime]
+:local cpu [/system resource get cpu-load]
+:local corpo ("{\\"p_token\\":\\"" . $token . "\\",\\"p_dados\\":{\\"v\\":1,\\"ros\\":\\"" . $ver . "\\",\\"uptime\\":\\"" . $up . "\\",\\"cpu\\":\\"" . $cpu . "\\",\\"links\\":[" . $itens . "]}}")
+:do { /tool fetch url=$url http-method=post http-header-field=("apikey:" . $chave . ",Content-Type:application/json") http-data=$corpo output=none } on-error={ :log warning "nervia-monitor: envio falhou" }
+}
+/system scheduler remove [find name="nervia-monitor"]
+/system scheduler add name="nervia-monitor" interval=1m on-event="/system script run nervia-monitor" policy=read,write,test start-time=startup
+/system script run nervia-monitor
+`;
+}
+
+// ---------------------------------------------------------------- diálogos
+const dlg = $("dlg"), dlgf = $("dlgf");
+function abrir(html, aoConfirmar, rotulo = "Salvar") {
+  dlgf.innerHTML = html + `<div class="acoes" style="justify-content:flex-end"><button class="bt" value="cancelar" formnovalidate>${aoConfirmar ? "Cancelar" : "Fechar"}</button>${aoConfirmar ? `<button class="bt pri" value="ok">${rotulo}</button>` : ""}</div>`;
+  dlg.onclose = async () => { if (dlg.returnValue === "ok" && aoConfirmar) await aoConfirmar(new FormData(dlgf)); };
+  dlg.returnValue = ""; dlg.showModal();
+}
+async function gravar(prom, ok) { limparMsg(); const r = await prom; if (r.error) { msg("err", r.error.message); return false; } await carregar(); render(); if (ok) msg("ok", ok); return true; }
+function dLocal(l) {
+  abrir(`<h3>${l ? "Editar local" : "Novo local"}</h3><div class="grade"><div><label>Nome do local</label><input name="nome" required value="${l ? esc(l.nome) : ""}" placeholder="ex.: Matriz, Loja Centro"></div>
+    <div><label>Cliente</label><input name="cliente" value="${l ? esc(l.cliente) : ""}"></div><div class="tudo"><label>Observação</label><input name="obs" value="${l ? esc(l.obs) : ""}"></div>
+    ${l ? `<div><label>Ativo</label><select name="ativo"><option value="1">Sim</option><option value="0" ${l.ativo ? "" : "selected"}>Não</option></select></div>` : ""}</div>`,
+    f => { const d = { nome: f.get("nome").trim(), cliente: f.get("cliente").trim(), obs: f.get("obs").trim() }; if (l) d.ativo = f.get("ativo") === "1";
+      return gravar(l ? sb.from("mon_locais").update(d).eq("id", l.id) : sb.from("mon_locais").insert(d), "Local salvo."); });
+}
+function dEquip(e) {
+  abrir(`<h3>${e ? "Editar equipamento" : "Novo equipamento"}</h3><div class="grade"><div><label>Nome</label><input name="nome" required value="${e ? esc(e.nome) : ""}" placeholder="ex.: RB Matriz"></div>
+    <div><label>Modelo</label><input name="modelo" value="${e ? esc(e.modelo) : ""}" placeholder="ex.: hEX RB750Gr3"></div>
+    <div><label>Local</label><select name="local">${LOCAIS.map(l => `<option value="${l.id}" ${e && e.local_id === l.id ? "selected" : ""}>${esc(l.nome)}</option>`).join("")}</select></div>
+    <div><label>Ativo</label><select name="ativo"><option value="1">Sim</option><option value="0" ${e && !e.ativo ? "selected" : ""}>Não</option></select></div></div>
+    <p class="mut">Os links aparecem sozinhos no primeiro envio do roteador; depois dê nome, operadora e meta do contrato.</p>`,
+    f => { const d = { nome: f.get("nome").trim(), modelo: f.get("modelo").trim(), local_id: f.get("local"), ativo: f.get("ativo") === "1" };
+      return gravar(e ? sb.from("mon_equipamentos").update(d).eq("id", e.id) : sb.from("mon_equipamentos").insert(d), "Equipamento salvo. Agora gere o script."); });
+}
+function dLink(l) {
+  abrir(`<h3>Link ${esc(l.chave)}</h3><div class="grade"><div><label>Nome</label><input name="nome" value="${esc(l.nome)}" placeholder="ex.: Principal"></div>
+    <div><label>Operadora</label><input name="op" value="${esc(l.operadora)}"></div><div><label>Contratado</label><input name="ct" value="${esc(l.contratado)}" placeholder="ex.: Fibra 500 Mb dedicado"></div>
+    <div><label>Host de teste</label><input name="alvo" value="${esc(l.alvo)}"></div><div><label>Meta do contrato (%)</label><input name="sla" type="number" step="0.001" min="0" max="100" value="${l.sla_pct}"></div>
+    <div><label>Latência de alerta (ms)</label><input name="rtt" type="number" min="1" value="${l.rtt_alerta_ms}"></div><div><label>Ordem</label><input name="ord" type="number" value="${l.ordem}"></div>
+    <div><label>Monitorar</label><select name="at"><option value="1">Sim</option><option value="0" ${l.ativo ? "" : "selected"}>Não</option></select></div></div>
+    <p class="mut">Mudar o host de teste aqui não muda o roteador: gere o script de novo e reinstale.</p>`,
+    f => gravar(sb.from("mon_links").update({ nome: f.get("nome").trim(), operadora: f.get("op").trim(), contratado: f.get("ct").trim(), alvo: f.get("alvo").trim(),
+      sla_pct: Number(f.get("sla")), rtt_alerta_ms: Number(f.get("rtt")), ordem: Number(f.get("ord")), ativo: f.get("at") === "1" }).eq("id", l.id), "Link salvo."));
+}
+function dScript(e) {
+  const atuais = LINKS.filter(l => l.equipamento_id === e.id && l.ativo);
+  const linhas = (atuais.length ? atuais : [{ chave: "principal", alvo: "8.8.8.8" }, { chave: "backup", alvo: "1.1.1.1" }]).map(l => `${l.chave}=${l.alvo}`).join("\n");
+  const v7 = /^7\./.test(e.ros_versao || "");
+  abrir(`<h3>Script do roteador — ${esc(e.nome)}</h3>
+    ${e.token_em ? '<div class="aviso warn">Gerar de novo troca o token: o script que está no roteador para de valer até você colar o novo.</div>' : ""}
+    <div class="grade"><div class="tudo"><label>Links (um por linha: nome=host de teste)</label><textarea name="links" rows="3">${esc(linhas)}</textarea>
+      <div class="mut">Nome só com letras minúsculas, números, - ou _. Use um host de teste diferente para cada link (ex.: 8.8.8.8, 1.1.1.1, 9.9.9.9).</div></div>
+    <div><label>RouterOS</label><select name="ver"><option value="6">6.x</option><option value="7" ${v7 ? "selected" : ""}>7.x</option></select></div></div>`,
+  async f => {
+    const ls = f.get("links").split(/\n/).map(s => s.trim()).filter(Boolean).map(s => { const [chave, alvo] = s.split("=").map(x => (x || "").trim()); return { chave, alvo }; });
+    const ruim = ls.find(l => !/^[a-z0-9_-]{1,30}$/.test(l.chave) || !/^\d{1,3}(\.\d{1,3}){3}$/.test(l.alvo));
+    if (!ls.length || ls.length > 8 || ruim) return msg("err", ruim ? `Linha inválida: ${ruim.chave}=${ruim.alvo}` : "Informe de 1 a 8 links.");
+    if (new Set(ls.map(l => l.alvo)).size < ls.length) return msg("err", "Cada link precisa de um host de teste diferente.");
+    const r = await sb.rpc("mon_gerar_token", { p_equip: e.id });
+    if (r.error) return msg("err", r.error.message);
+    for (const l of ls) { const ex = LINKS.find(x => x.equipamento_id === e.id && x.chave === l.chave); if (ex && ex.alvo !== l.alvo) await sb.from("mon_links").update({ alvo: l.alvo }).eq("id", ex.id); }
+    await carregar(); render();
+    const txt = scriptRouterOS(e, ls, r.data, f.get("ver") === "7");
+    abrir(`<h3>Script de ${esc(e.nome)}</h3><div class="aviso info">Este token aparece só agora. Copie o script e cole no Terminal do roteador (WinBox → New Terminal). Antes, faça os passos 0 e 1 do topo.</div>
+      <pre class="script" id="scriptTxt">${esc(txt)}</pre><div class="acoes"><button type="button" class="bt pri" data-acao="copiar">Copiar script</button></div>`, null);
+  }, "Gerar token e script");
+}
+function dAcessos(lo) {
+  const marcados = new Set(ACESSOS.filter(a => a.local_id === lo.id).map(a => a.user_id));
+  abrir(`<h3>Quem vê ${esc(lo.nome)}</h3><p class="mut">O login também precisa ter o app "Monitor de Links" liberado em <a href="/cliente/#admin" target="_top">Administração → Logins</a>.</p>
+    <div>${PERFIS.map(p => `<label class="chk" style="display:flex"><input type="checkbox" name="u" value="${p.user_id}" ${marcados.has(p.user_id) ? "checked" : ""}> ${esc(p.email)}${p.nome ? " — " + esc(p.nome) : ""}</label>`).join("")}</div>`,
+  async f => {
+    const novos = new Set(f.getAll("u")); limparMsg();
+    for (const u of novos) if (!marcados.has(u)) { const r = await sb.from("mon_acessos").insert({ user_id: u, local_id: lo.id }); if (r.error) return msg("err", r.error.message); }
+    for (const u of marcados) if (!novos.has(u)) { const r = await sb.from("mon_acessos").delete().match({ user_id: u, local_id: lo.id }); if (r.error) return msg("err", r.error.message); }
+    await carregar(); render(); msg("ok", "Acessos atualizados.");
+  });
+}
+
+// ---------------------------------------------------------------- cliques
+document.addEventListener("change", e => {
+  if (e.target.id === "fLocal") { FQ = e.target.value; render(); }
+  if (e.target.id === "rLocal") { REL.local = e.target.value; render(); }
+  if (e.target.id === "rMes") { REL.mes = e.target.value; render(); }
+});
+document.addEventListener("click", async ev => {
+  const card = ev.target.closest("[data-equip]");
+  if (card) { SEL = card.dataset.equip; limparMsg(); await carregarAmostras(SEL); render(); window.scrollTo(0, 0); return; }
+  const b = ev.target.closest("[data-acao]"); if (!b) return;
+  const a = b.dataset.acao, id = b.dataset.id;
+  if (a === "voltar") { SEL = null; render(); }
+  else if (a === "imprimir") window.print();
+  else if (a === "novoLocal") dLocal();
+  else if (a === "editLocal") dLocal(LOCAIS.find(l => l.id === id));
+  else if (a === "acessos") { await carregarAcessos(); dAcessos(LOCAIS.find(l => l.id === id)); }
+  else if (a === "novoEquip") dEquip();
+  else if (a === "editEquip") dEquip(EQUIPS.find(e => e.id === id));
+  else if (a === "editLink") dLink(LINKS.find(l => l.id === id));
+  else if (a === "script") dScript(EQUIPS.find(e => e.id === id));
+  else if (a === "copiar") { ev.preventDefault(); try { await navigator.clipboard.writeText($("scriptTxt").textContent); b.textContent = "Copiado ✓"; } catch { b.textContent = "Selecione e copie (Ctrl+C)"; } }
+  else if (a === "obsQueda") { const q = QUEDAS.find(x => String(x.id) === id); abrir(`<h3>Anotação da queda</h3><input name="o" value="${esc(q.obs)}" placeholder="ex.: protocolo 123456 na operadora; causa: rompimento de fibra">`,
+    f => gravar(sb.from("mon_quedas").update({ obs: f.get("o").trim() }).eq("id", q.id), "Anotação salva.")); }
+});
+sb.auth.onAuthStateChange(ev => { if (ev === "SIGNED_OUT") location.reload(); });
+iniciar();
+</script>
+</body>
+</html>
