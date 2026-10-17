@@ -281,7 +281,7 @@ function vConvites(r, convs, edita) {
 // mensagem que vai pelo WhatsApp ou e-mail do próprio comprador
 function textoConvite(c, r) {
   const quem = c.fornecedor_id ? fornecedor(c.fornecedor_id).nome : c.contato_nome;
-  return `Olá${quem ? ", " + quem : ""}! O ${unidade().nome} pede uma cotação: ${r.titulo} (${Number(r.quantidade).toLocaleString("pt-BR")} ${r.unidade_medida}), requisição #${r.id}.\n`
+  return `Olá${quem ? ", " + quem : ""}! ${unidade().nome} pede uma cotação: ${r.titulo} (${Number(r.quantidade).toLocaleString("pt-BR")} ${r.unidade_medida}), requisição #${r.id}.\n`
     + `Envie sua proposta até ${dataBR(c.prazo)} por este link (não precisa de login):\n${linkConvite(c)}\n\nObrigado!`;
 }
 function telWhats(t) { let d = String(t || "").replace(/\D/g, ""); if (d.length === 10 || d.length === 11) d = "55" + d; return d; }
@@ -404,9 +404,9 @@ function vForn() {
     <td>${f.grupos.map(g => tag(g, "t-acc")).join("")}</td>
     <td>${!f.certidoes_validade ? tag("não informada", "t-warn") : venc ? tag("vencidas em " + dataBR(f.certidoes_validade), "t-crit") : perto ? tag("vencem " + dataBR(f.certidoes_validade), "t-warn") : tag("ok até " + dataBR(f.certidoes_validade), "t-ok")}</td>
     <td>${esc(f.cadastrado_nome)}<div class="mut">${dataBR(f.cadastrado_em)} · homologado por quem cadastrou</div></td>
-    <td>${(f.avais || []).map(a => tag(a.unidade.replace(/^Shopping /, "") + " ✓", "t-ok")).join("")}${temAval(f, UNID) ? "" : tag(unidade().nome.replace(/^Shopping /, "") + ": pendente", "t-warn")}
+    <td>${(f.avais || []).map(a => tag(a.unidade + " ✓", "t-ok")).join("")}${temAval(f, UNID) ? "" : tag(unidade().nome + ": pendente", "t-warn")}
       ${ger ? `<div><button class="lnk" data-acao="aval" data-id="${f.id}" data-dar="${temAval(f, UNID) ? 0 : 1}">${temAval(f, UNID) ? "retirar aval" : "dar aval"}</button></div>` : ""}</td>
-    <td>${f.nota == null ? tag("sem avaliação", "t-mut") : `${Number(f.nota).toFixed(1).replace(".", ",")} ★<div class="mut">${f.avaliacoes} aval. · ${f.unidades_avaliacao.map(x => x.replace(/^Shopping /, "")).map(esc).join(", ")}</div>`}<div class="mut">${f.compras} compra(s)</div></td>
+    <td>${f.nota == null ? tag("sem avaliação", "t-mut") : `${Number(f.nota).toFixed(1).replace(".", ",")} ★<div class="mut">${f.avaliacoes} aval. · ${f.unidades_avaliacao.map(esc).join(", ")}</div>`}<div class="mut">${f.compras} compra(s)</div></td>
     <td>${ADMIN || f.cadastrado_por === EU.id ? `<button class="lnk" data-acao="editForn" data-id="${f.id}">editar</button>` : ""}</td></tr>`;
   }).join("") || '<tr><td colspan="7" class="mut">Nenhum fornecedor.</td></tr>'}</table></div>
   <p class="mut">O aval do Gerente é por unidade e não impede cotação: só gera o aviso. A nota é a média das avaliações feitas pelos Gerentes após cada entrega, em todas as unidades. O CPF aparece completo só para quem cadastrou.</p></div>`;
@@ -625,7 +625,7 @@ document.addEventListener("click", async e => {
     if (res.error) return msg("err", res.error.message);
     UNIDADES = checar(await sb.from("cmp_unidades").select("*").order("nome")); render(); msg("ok", "Regras salvas.");
   }
-  else if (a === "novaUnidade") abrir(`<h3>Nova unidade</h3><label>Nome</label><input name="n" required placeholder="ex.: Shopping Park Sul">`, async f => {
+  else if (a === "novaUnidade") abrir(`<h3>Nova unidade</h3><label>Nome</label><input name="n" required placeholder="ex.: Filial Campinas">`, async f => {
     const res = await sb.from("cmp_unidades").insert({ nome: f.get("n").trim() }).select().single();
     if (res.error) return msg("err", res.error.message);
     UNIDADES = checar(await sb.from("cmp_unidades").select("*").order("nome")); UNID = res.data.id;

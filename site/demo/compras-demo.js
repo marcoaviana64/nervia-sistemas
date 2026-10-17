@@ -6,7 +6,7 @@
 // "Recomeçar" apaga e volta ao início. Usado por /demo/compras/ e /demo/cotacao/ (gerados por divulgacao/demo/gerar.py).
 (function () {
   "use strict";
-  const CHAVE = "nervia_demo_compras_v1", CHAVE_PAPEL = "nervia_demo_compras_papel";
+  const CHAVE = "nervia_demo_compras_v2", CHAVE_PAPEL = "nervia_demo_compras_papel";
   // localStorage quando houver; sem ele (janela anônima restrita), memória da própria página
   const MEM = {};
   const ls = {
@@ -18,7 +18,7 @@
     solicitante: { id: "u-sol", nome: "Carla Menezes", email: "carla.menezes@valeverde.exemplo", cargo: "Supervisora de manutenção" },
     comprador: { id: "u-com", nome: "Rafael Duarte", email: "rafael.duarte@valeverde.exemplo", cargo: "Comprador" },
     gerente: { id: "u-ger", nome: "Sônia Albuquerque", email: "sonia.albuquerque@valeverde.exemplo", cargo: "Gerente de operações" },
-    diretor: { id: "u-dir", nome: "Augusto Prado", email: "augusto.prado@valeverde.exemplo", cargo: "Diretor da administradora" },
+    diretor: { id: "u-dir", nome: "Augusto Prado", email: "augusto.prado@valeverde.exemplo", cargo: "Diretor administrativo" },
   };
   const papelAtual = () => { const p = ls.get(CHAVE_PAPEL); return PESSOAS[p] ? p : "comprador"; };
   let EU = PESSOAS[papelAtual()];
@@ -45,7 +45,7 @@
     return {
       seq: { req: 1000, prop: 0, aprov: 0, aval: 0, hist: 0, conv: 0 },
       perfis: Object.values(PESSOAS).map((p) => ({ user_id: p.id, email: p.email, nome: p.nome, admin: false })),
-      unidades: [{ id: UNID, nome: "Shopping Vale Verde", cnpj: null, minimo_propostas: 3, alcada_automatica: 5000, alcada_gerente: 50000,
+      unidades: [{ id: UNID, nome: "Vale Verde Distribuidora", cnpj: null, minimo_propostas: 3, alcada_automatica: 5000, alcada_gerente: 50000,
         pesos: { preco: 40, prazo: 30, pagamento: 20, qualidade: 10 }, ativo: true, criado_em: "2026-01-05T12:00:00Z" }],
       membros: Object.entries(PESSOAS).map(([papel, p]) => ({ user_id: p.id, unidade_id: UNID, papel })),
       grupos: ["Tecnologia", "Refrigeração", "Automação", "Energia", "Jardinagem", "Mão de obra", "Limpeza", "Segurança", "Obras civis", "Outros"]
@@ -373,7 +373,7 @@
   }
   const situacao = (c, r) => (c.revogado_em ? "cancelado" : !["nova", "cotacao"].includes(r.status) ? "fechado" : hoje() > c.prazo ? "encerrado" : "aberto");
 
-  // ---------------------------------------------------------------- carga inicial: a história de dois meses do Shopping Vale Verde
+  // ---------------------------------------------------------------- carga inicial: a história de dois meses da Vale Verde Distribuidora
   function semear() {
     S = vazio();
     const F = (id, tipo, documento, nome, grupos, contato, telefone, email, cert, quem, diasAtras) =>
@@ -415,7 +415,7 @@
     const avaliar = (k, dias, n, com) => passo(dias, 10, "gerente", () => RPC.cmp_avaliar({ p_req: R[k], p_prazo: n[0], p_qualidade: n[1], p_conformidade: n[2], p_atendimento: n[3], p_comentario: com }));
 
     criar("ar", 58, "solicitante", { titulo: "Manutenção preventiva do ar-condicionado central", grupo: "Refrigeração", centro_custo: "Manutenção", quantidade: 1, unidade_medida: "serviço",
-      valor_estimado: 18000, precisa_ate: diaMaisDe(-40), descricao: "Limpeza de serpentinas, troca de filtros e checagem dos 4 fan-coils da praça de alimentação." });
+      valor_estimado: 18000, precisa_ate: diaMaisDe(-40), descricao: "Limpeza de serpentinas, troca de filtros e checagem dos 4 fan-coils do escritório e do refeitório." });
     prop("ar", 56, "f-polar", 15800, 0, 5, "30 dias", 30, "Inclui relatório técnico com fotos.");
     prop("ar", 55, "f-arcadia", 16900, 0, 3, "28 dias", 28);
     prop("ar", 54, "f-ventura", 17500, 0, 7, "30/60", 45);
@@ -428,17 +428,17 @@
     escolher("led", 42, "f-faisca"); enviar("led", 42); decidir("led", 41, "gerente", "", true); pedido("led", 41); entregue("led", 36, "comprador");
     avaliar("led", 35, [4, 4, 4, 5], "Entregou em duas remessas, tudo certo.");
 
-    criar("piso", 35, "solicitante", { titulo: "Piso antiderrapante nos banheiros do piso L1", grupo: "Obras civis", centro_custo: "Manutenção", quantidade: 64, unidade_medida: "m²",
+    criar("piso", 35, "solicitante", { titulo: "Piso antiderrapante nos banheiros do bloco administrativo", grupo: "Obras civis", centro_custo: "Manutenção", quantidade: 64, unidade_medida: "m²",
       valor_estimado: 14000, descricao: "Remoção do piso atual e assentamento de porcelanato antiderrapante PEI 4, com rejunte epóxi." });
     prop("piso", 33, "f-alicerce", 189, 450, 12, "30/60", 45); prop("piso", 32, "f-telhabem", 205, 0, 15, "30 dias", 30); prop("piso", 32, "f-cobertura", 214, 0, 10, "30 dias", 30);
     escolher("piso", 31, "f-alicerce"); enviar("piso", 31); decidir("piso", 30, "gerente", "Ok. Executar à noite, após o fechamento.", true);
     pedido("piso", 29); entregue("piso", 3, "solicitante");
 
-    criar("telhado", 30, "solicitante", { titulo: "Reforma do telhado da praça de alimentação", grupo: "Obras civis", centro_custo: "Obras", quantidade: 1, unidade_medida: "serviço",
+    criar("telhado", 30, "solicitante", { titulo: "Reforma do telhado do galpão de estoque", grupo: "Obras civis", centro_custo: "Obras", quantidade: 1, unidade_medida: "serviço",
       valor_estimado: 90000, precisa_ate: diaMaisDe(40), descricao: "Troca de 420 m² de telhas termoacústicas, calhas e rufos. Laudo com ART do engenheiro responsável." });
     prop("telhado", 24, "f-telhabem", 86400, 0, 30, "30/60/90", 60, "Com ART e garantia de 5 anos.");
     prop("telhado", 22, "f-alicerce", 91200, 0, 25, "30/60", 45); prop("telhado", 21, "f-cobertura", 97800, 0, 35, "30/60/90", 60);
-    escolher("telhado", 9, "f-telhabem"); enviar("telhado", 8); decidir("telhado", 6, "gerente", "Prazo compatível com a obra da praça. Segue para a diretoria.", true);
+    escolher("telhado", 9, "f-telhabem"); enviar("telhado", 8); decidir("telhado", 6, "gerente", "Prazo compatível com a parada do galpão. Segue para a diretoria.", true);
 
     criar("fita", 25, "solicitante", { titulo: "Material elétrico de reposição (fitas, disjuntores, tomadas)", grupo: "Energia", centro_custo: "Manutenção", quantidade: 1, unidade_medida: "lote",
       valor_estimado: 1800, descricao: "Conforme lista anexa ao pedido do almoxarifado." });
@@ -454,7 +454,7 @@
     passo(13, 10, "comprador", () => RPC.cmp_cancelar({ p_req: R.cadeira, p_motivo: "Vamos reaproveitar as cadeiras do antigo escritório da administração." }));
 
     criar("cameras", 12, "solicitante", { titulo: "Câmeras IP 4 MP com gravador de 16 canais", grupo: "Segurança", centro_custo: "Segurança", quantidade: 8,
-      valor_estimado: 14000, precisa_ate: diaMaisDe(20), descricao: "Cobertura da nova entrada da praça. Câmeras bullet IP67, gravador com 30 dias de gravação e instalação." });
+      valor_estimado: 14000, precisa_ate: diaMaisDe(20), descricao: "Cobertura da nova portaria de carga. Câmeras bullet IP67, gravador com 30 dias de gravação e instalação." });
     prop("cameras", 11, "f-vigilia", 1490, 0, 12, "30 dias", 30, "Instalação inclusa.");
     prop("cameras", 11, "f-olho", 1390, 300, 25, "28 dias", 28, "Instalação cobrada à parte.");
     prop("cameras", 10, "f-nodo", 1550, 0, 10, "À vista", 0);

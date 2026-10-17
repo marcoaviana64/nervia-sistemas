@@ -60,7 +60,7 @@ COMPRAS_CSS = """<style id="demo-cmp-css">
 @media (max-width:600px){.demo-faixa .demo-sec{padding:3px 9px;font-size:12px}}
 </style>"""
 
-FAIXA_COMPRAS = f"""<div class="demo-faixa" id="demoFaixa"><span><b>Demonstração</b> · shopping, pessoas e fornecedores fictícios.</span>
+FAIXA_COMPRAS = f"""<div class="demo-faixa" id="demoFaixa"><span><b>Demonstração</b> · empresa, pessoas e fornecedores fictícios.</span>
 <label>Ver como <select id="demoPapel"></select></label><span class="demo-dica" id="demoDica"></span>
 <a class="demo-sec" href="/apps/compras/ajuda/mapa.html" target="_blank" rel="noopener">Mapa mental</a><button class="demo-sec" id="demoRecomecar" type="button">Recomeçar</button>
 <a href="{WHATS_COMPRAS}" target="_blank" rel="noopener">Quero para a minha empresa</a></div>

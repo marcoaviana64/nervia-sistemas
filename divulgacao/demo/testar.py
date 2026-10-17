@@ -102,7 +102,7 @@ with sync_playwright() as p:
     pg.goto(f"{U}/demo/compras/"); pg.evaluate("localStorage.clear()"); pg.reload(); pg.wait_for_selector("#app:not(.oculto)")
     assert "Comprador" in pg.inner_text("#papeis") and pg.locator("#demoPapel option").count() == 4
     corpo = pg.inner_text("body")
-    for t in ("Shopping Vale Verde", "Uniformes para a equipe de limpeza", "Compressor para o chiller 2"):
+    for t in ("Vale Verde Distribuidora", "Uniformes para a equipe de limpeza", "Compressor para o chiller 2"):
         assert t in corpo, t
     pg.click("[data-v=reqs]"); pg.click("tr[data-req='1009']"); pg.wait_for_timeout(300)
     assert "2 de 3 propostas" in pg.inner_text("#tela")

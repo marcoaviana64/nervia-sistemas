@@ -78,7 +78,7 @@
       ["NFSE", "9", "11111111000111", "NERVIA TECNOLOGIA", "2026-10-10T10:00:00-03:00", 4500, "Autorizada", "emitida"],
     ];
     for (const [t, n, ec, en, d, v, sit, pap] of extra) db.nf_notas.push({ id: id++, cnpj_consulta: "11111111000111", tipo: t, chave: String(id).repeat(44).slice(0, 44),
-      numero: n, emit_cnpj: ec, emit_nome: en, dest_cnpj: pap === "emitida" ? "88888888000188" : "11111111000111", dest_nome: pap === "emitida" ? "SHOPPING EXEMPLO SA" : "NERVIA TECNOLOGIA",
+      numero: n, emit_cnpj: ec, emit_nome: en, dest_cnpj: pap === "emitida" ? "88888888000188" : "11111111000111", dest_nome: pap === "emitida" ? "COMERCIAL EXEMPLO SA" : "NERVIA TECNOLOGIA",
       data_emissao: d, valor: v, situacao: sit, papel: pap, completo: true, manifestada: false, xml_path: null });
   }
   const pode = (cnpj) => papel === "admin" || db.nf_acessos.some((a) => a.user_id === eu.id && a.cnpj === cnpj);

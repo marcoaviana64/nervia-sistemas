@@ -289,7 +289,7 @@ insert into auth.users (id, email, raw_user_meta_data) values
   ('00000000-0000-0000-0000-0000000000d3', 'gerente@itaipu.com', '{"nome":"Sonia"}'),
   ('00000000-0000-0000-0000-0000000000d4', 'diretor@adm.com', '{"nome":"Augusto"}'),
   ('00000000-0000-0000-0000-0000000000d5', 'comprador@parksul.com', '{"nome":"Paulo"}');
-insert into cmp_unidades (id, nome) values ('20000000-0000-0000-0000-000000000002', 'Shopping Park Sul');
+insert into cmp_unidades (id, nome) values ('20000000-0000-0000-0000-000000000002', 'Filial Park Sul');
 insert into cmp_membros select '00000000-0000-0000-0000-0000000000d1', id, 'solicitante' from cmp_unidades where nome = 'Multicenter Itaipu';
 insert into cmp_membros select '00000000-0000-0000-0000-0000000000d2', id, 'comprador' from cmp_unidades where nome = 'Multicenter Itaipu';
 insert into cmp_membros select '00000000-0000-0000-0000-0000000000d3', id, 'gerente' from cmp_unidades where nome = 'Multicenter Itaipu';
@@ -416,8 +416,8 @@ select pg_temp.como('00000000-0000-0000-0000-0000000000d3');
 select cmp_decidir(pg_temp.id('r4')::bigint, false, 'Comprar no almoxarifado.', false);
 select pg_temp.ok((select status = 'reprovada' from cmp_requisicoes where id = pg_temp.id('r4')::bigint), 'Gerente reprova com motivo');
 
--- aval por shopping: Gerente do Itaipu não dá aval pelo Park Sul
-select pg_temp.erro('select cmp_aval(''' || pg_temp.id('fa') || ''', ''20000000-0000-0000-0000-000000000002'', true)', 'Só o Gerente', 'aval é por shopping');
+-- aval por unidade: Gerente do Itaipu não dá aval pelo Park Sul
+select pg_temp.erro('select cmp_aval(''' || pg_temp.id('fa') || ''', ''20000000-0000-0000-0000-000000000002'', true)', 'Só o Gerente', 'aval é por unidade');
 select cmp_aval(pg_temp.id('fa')::uuid, pg_temp.id('itaipu')::uuid, true);
 select pg_temp.ok((select jsonb_array_length(avais) = 1 and avais->0->>'unidade' = 'Multicenter Itaipu' from cmp_fornecedores_lista() where nome = 'Forn A'), 'aval do Itaipu aparece na lista');
 

@@ -346,7 +346,7 @@ with sync_playwright() as p:
     with pg.expect_download() as d:
         pg.click("text=Exportar CSV")
     csv = open(d.value.path(), encoding="utf-8-sig").read()
-    assert "SHOPPING EXEMPLO" not in csv and csv.count("\n") >= 1, csv
+    assert "COMERCIAL EXEMPLO SA" not in csv and csv.count("\n") >= 1, csv
     pg.screenshot(path=f"{SAIDA}/painel_nf.png", full_page=True)
     pg.set_viewport_size({"width": 390, "height": 844}); pg.wait_for_timeout(200)
     assert pg.evaluate("document.documentElement.scrollWidth") <= 390, "painel: rolagem horizontal no celular"
