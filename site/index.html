@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nervia Tecnologia da Informação | Suporte, Infraestrutura e Câmeras</title>
-<meta name="description" content="Nervia TI: suporte a usuários, montagem de infraestrutura e rede, instalação de câmeras, consultoria em projetos de TI e o Ecossistema Nervia App (Buscador de NF, Painel de Notas, Orçamentos de Compras, Auditoria de Telefonia Móvel e Nervia Controle de Produtos - Perfumes) para empresas no Rio de Janeiro.">
+<meta name="description" content="Nervia TI: suporte a usuários, montagem de infraestrutura e rede, instalação de câmeras, consultoria em projetos de TI e o Ecossistema Nervia App (Buscador de NF, Painel de Notas, Orçamentos de Compras, Auditoria de Telefonia Móvel e Nervia Controle de Produtos) para empresas no Rio de Janeiro.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -342,13 +342,13 @@ footer{border-top:1px solid var(--border);padding:36px 0;color:var(--muted);font
           <div class="app-links"><a href="/demo/compras/" target="_blank" rel="noopener">Ver demonstração →</a><a href="/apps/compras/ajuda/mapa.html" target="_blank" rel="noopener">Ver o mapa mental</a><a class="js-wa-compras" href="#" target="_blank" rel="noopener">Quero para a minha empresa</a></div>
         </div>
         <div class="app-card">
-          <div class="app-top"><span class="app-ic">CP</span><div><h3>Nervia Controle de Produtos - Perfumes</h3><small>Produtos, estoque, vendas e crediário para revenda</small></div></div>
+          <div class="app-top"><span class="app-ic">CP</span><div><h3>Nervia Controle de Produtos</h3><small>Produtos, estoque, vendas e crediário para revenda e varejo</small></div></div>
           <ul>
             <li><b>Contas a receber</b> com parcelas, atrasos em destaque e mensagem de cobrança pronta para o WhatsApp.</li>
             <li><b>Entregas pendentes</b>, clientes com aniversário e preferências, e caixa do dia por forma de pagamento.</li>
-            <li><b>Estoque por variação</b> (perfume, concentração e volume), com aviso de repor, validade e margem.</li>
+            <li><b>Estoque por variação</b> (tamanho, cor, volume ou modelo), com aviso de repor, validade e margem.</li>
           </ul>
-          <div class="app-links"><a href="/demo/perfumes/" target="_blank" rel="noopener">Ver demonstração →</a><a class="js-wa-perfumes" href="#" target="_blank" rel="noopener">Quero para o meu negócio</a></div>
+          <div class="app-links"><a href="/demo/produtos/" target="_blank" rel="noopener">Ver demonstração →</a><a class="js-wa-produtos" href="#" target="_blank" rel="noopener">Quero para o meu negócio</a></div>
         </div>
         <div class="app-card">
           <div class="app-top"><span class="app-ic">TM</span><div><h3>Auditoria de Telefonia Móvel</h3><small>Consumo, franquias e economia por linha</small></div></div>
@@ -374,7 +374,7 @@ footer{border-top:1px solid var(--border);padding:36px 0;color:var(--muted);font
     <div class="apps-ctas">
       <a class="btn btn-primary" href="/demo/" target="_blank" rel="noopener">Demonstração: notas fiscais</a>
       <a class="btn btn-ghost" href="/demo/compras/" target="_blank" rel="noopener">Demonstração: Orçamentos de Compras</a>
-      <a class="btn btn-ghost" href="/demo/perfumes/" target="_blank" rel="noopener">Demonstração: Controle de Produtos - Perfumes</a>
+      <a class="btn btn-ghost" href="/demo/produtos/" target="_blank" rel="noopener">Demonstração: Controle de Produtos</a>
       <a class="btn btn-ghost" href="/demo/telefonia/" target="_blank" rel="noopener">Demonstração: Auditoria de Telefonia Móvel</a>
       <a class="btn btn-wa js-wa-apps" href="#" target="_blank" rel="noopener">Quero assinar</a>
       <small>Cada aplicativo tem sua demonstração com dados fictícios: entre e teste à vontade, sem cadastro.</small>
@@ -516,7 +516,7 @@ const CONFIG = {
 const waBase = "https://wa.me/" + CONFIG.whatsapp;
 document.querySelectorAll(".js-wa").forEach(a => a.href = waBase + "?text=" + encodeURIComponent("Olá! Vim pelo site da Nervia e gostaria de falar sobre TI."));
 document.querySelectorAll(".js-wa-apps").forEach(a => a.href = waBase + "?text=" + encodeURIComponent("Olá! Vi o Ecossistema Nervia App no site da Nervia e quero saber mais."));
-document.querySelectorAll(".js-wa-perfumes").forEach(a => a.href = waBase + "?text=" + encodeURIComponent("Olá! Vi o app Nervia Controle de Produtos - Perfumes no site da Nervia e quero saber mais."));
+document.querySelectorAll(".js-wa-produtos").forEach(a => a.href = waBase + "?text=" + encodeURIComponent("Olá! Vi o app Nervia Controle de Produtos no site da Nervia e quero saber mais."));
 document.querySelectorAll(".js-wa-compras").forEach(a => a.href = waBase + "?text=" + encodeURIComponent("Olá! Vi o Orçamentos de Compras no site da Nervia e quero para a minha empresa."));
 document.querySelectorAll(".js-wa-telefonia").forEach(a => a.href = waBase + "?text=" + encodeURIComponent("Olá! Vi a Auditoria de Telefonia Móvel no site da Nervia e quero a auditoria das linhas da minha empresa."));
 document.querySelectorAll(".js-wa-label").forEach(el => el.textContent = CONFIG.whatsappLabel);
