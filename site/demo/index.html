@@ -87,6 +87,31 @@ header{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdro
 .ajuda iframe{background:var(--surface)}
 @media(max-width:900px){.ajuda{position:absolute;inset:0 0 0 auto;box-shadow:-8px 0 24px rgba(0,0,0,.12)}}
 .rodape-apps{margin-top:28px;color:var(--muted);font-size:.88rem}
+/* vitrine: apps da Nervia que o login ainda não tem */
+.vitrine{margin-top:36px;padding-top:8px;border-top:1px solid var(--border)}
+.vit-sec{margin-top:26px}
+.vit-sec h2{font-size:1.12rem;margin:0}
+.vit-sec .sub{margin:2px 0 14px;font-size:.9rem}
+.vit{display:flex;flex-direction:column;gap:10px;background:#fbfcfe;border:1px solid var(--border);border-radius:var(--radius);padding:18px}
+.vit .cab-vit{display:flex;gap:12px;align-items:flex-start}
+.vit .ico{flex:none;width:42px;height:42px;border-radius:12px;background:#eef2f7;color:var(--muted);display:grid;place-items:center;font-weight:800;font-size:.92rem}
+.vit.disponivel .ico{background:var(--icon-bg);color:var(--accent)}
+.vit b{display:block;font-size:1rem;color:var(--text)}
+.vit .desc{color:var(--muted);font-size:.88rem}
+.selo{display:inline-block;white-space:nowrap;margin-top:3px;font-size:.68rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:20px}
+.selo.disponivel{background:#e6f4ec;color:var(--ok)}.selo.em_breve{background:#fff4e0;color:#a15c00}.selo.em_desenvolvimento{background:#eef0f4;color:var(--muted)}
+.acoes-vit{display:flex;gap:8px;flex-wrap:wrap}
+.acoes-vit a{text-decoration:none;font-size:.85rem;font-weight:600;padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface)}
+.acoes-vit a:hover{border-color:var(--accent);color:var(--accent)}
+.acoes-vit a.pri{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.acoes-vit a.pri:hover{opacity:.92;color:var(--on-accent)}
+.reacoes{display:flex;gap:4px;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:10px;margin-top:auto}
+.reacoes button{display:flex;align-items:center;gap:5px;background:none;color:var(--muted);border:1px solid transparent;padding:5px 9px;font-size:.8rem;font-weight:500;border-radius:20px}
+.reacoes button:hover{background:#eef2f7;opacity:1}
+.reacoes button.on{border-color:var(--accent);color:var(--accent);background:var(--icon-bg);font-weight:600}
+.reacoes svg{width:16px;height:16px;flex:none}
+.faltou{display:flex;gap:6px}.faltou input{padding:7px 10px;font-size:.85rem}.faltou button{padding:7px 12px;font-size:.82rem;flex:none}
+.vit-msg:empty{display:none}.vit-msg{font-size:.8rem;color:var(--ok)}.vit-msg.err{color:var(--err)}
 .rodape-apps a{color:var(--accent);font-weight:600}
 
 /* admin */
@@ -183,6 +208,7 @@ addEventListener("resize",m);document.addEventListener("DOMContentLoaded",m);m()
     <h1 id="ola">Olá!</h1>
     <div class="sub">Seus aplicativos</div>
     <div class="grade" id="grade"></div>
+    <div id="vitrine" class="vitrine oculto"></div>
     <div class="rodape-apps">Dúvidas ou precisa de outro acesso? Fale com a Nervia pelo <a id="cWhats2" target="_blank" rel="noopener">WhatsApp</a> ou por <a id="cEmail2">e-mail</a>.</div>
   </main>
 
@@ -210,7 +236,7 @@ addEventListener("resize",m);document.addEventListener("DOMContentLoaded",m);m()
   <main id="vAdmin" class="pagina oculto">
     <h1>Administração</h1>
     <div class="sub">Logins e aplicativos da Área do Cliente</div>
-    <div class="abas"><button id="abaUsu" onclick="aba('usu')">Logins</button><button id="abaApps" onclick="aba('apps')">Aplicativos</button><button id="abaAud" onclick="aba('aud')">Auditoria</button><button id="abaAcs" onclick="aba('acs')">Acessos do site</button></div>
+    <div class="abas"><button id="abaUsu" onclick="aba('usu')">Logins</button><button id="abaApps" onclick="aba('apps')">Aplicativos</button><button id="abaInt" onclick="aba('int')">Interesse nos apps</button><button id="abaAud" onclick="aba('aud')">Auditoria</button><button id="abaAcs" onclick="aba('acs')">Acessos do site</button></div>
     <div id="msgAdm" class="msg"></div>
     <div id="admConteudo"></div>
   </main>
@@ -220,7 +246,7 @@ addEventListener("resize",m);document.addEventListener("DOMContentLoaded",m);m()
 const CFG = window.BUSCADOR_CONFIG || window.NERVIA_CONFIG || {};
 const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
 const CONTATO = Object.assign({ whatsapp: "5521966869374", email: "atendimento@nervia.com.br" }, CFG.CONTATO || {});
-let eu = null, perfil = null, apps = [], abaAtual = "usu";
+let eu = null, perfil = null, apps = [], vitrine = [], abaAtual = "usu";
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -244,8 +270,9 @@ async function iniciar() {
   const { data: { session } } = await sb.auth.getSession();
   if (!session) return telaLogin(location.hash === "#esqueci" ? "esqueci" : "entrar");
   eu = session.user;
-  perfil = checar(await sb.from("perfis").select("nome, admin").eq("user_id", eu.id).maybeSingle()) || {};
+  perfil = checar(await sb.from("perfis").select("nome, admin, empresa").eq("user_id", eu.id).maybeSingle()) || {};
   apps = checar(await sb.from("apps").select("*").order("ordem").order("nome"));
+  await carregarVitrine();
   $("quem").textContent = perfil.nome || eu.email;
   $("ola").textContent = `Olá, ${(perfil.nome || eu.email).split(" ")[0]}!`;
   $("bAdmin").classList.toggle("oculto", !perfil.admin);
@@ -306,7 +333,7 @@ function rota() {
   if (h === "#admin" && perfil.admin) { mostrar("vAdmin"); return aba(abaAtual); }
   document.title = "Área do Cliente | Nervia Tecnologia";
   $("frame").src = "about:blank"; fecharAjuda();
-  desenharGrade(); mostrar("vApps");
+  desenharGrade(); desenharVitrine(); mostrar("vApps");
 }
 window.addEventListener("hashchange", rota);
 
@@ -318,6 +345,79 @@ function desenharGrade() {
       <span><b>${esc(a.nome)}</b><span>${esc(a.descricao)}</span></span>
     </button>`).join("")
     : `<div class="vazio">Nenhum aplicativo liberado para o seu login ainda.<br>Fale com a Nervia para liberar o acesso.</div>`;
+}
+
+// ------------------------------------------------------------ vitrine: apps da Nervia que o login ainda não tem
+// Vem da função apps_vitrine() (só nome, descrição, ícone, situação e link da demonstração). Reações e cliques
+// vão para app_reagir / app_registrar_clique; os números só a equipe Nervia vê (Administração → Interesse nos apps).
+const SECOES_VITRINE = [
+  ["disponivel", "Conheça outros apps da Nervia", "Disponíveis para contratar. A demonstração usa dados fictícios."],
+  ["em_breve", "Em breve", "Já dá para ver como vai ser na demonstração."],
+  ["em_desenvolvimento", "Em desenvolvimento", "Estamos construindo. Conte se interessa: isso ajuda a Nervia a decidir o que vem primeiro."],
+];
+const SELO_VITRINE = { disponivel: "Disponível para contratar", em_breve: "Em breve", em_desenvolvimento: "Em desenvolvimento" };
+const REACOES = {
+  curti: ["Curti", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v11H3V10z"/><path d="M7 10l4-8a3 3 0 0 1 3 3v4h5.5a2 2 0 0 1 2 2.3l-1.4 8A2 2 0 0 1 18.1 21H7"/></svg>'],
+  nao_curti: ["Não curti", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 14V3h4v11z"/><path d="M17 14l-4 8a3 3 0 0 1-3-3v-4H4.5a2 2 0 0 1-2-2.3l1.4-8A2 2 0 0 1 5.9 3H17"/></svg>'],
+  interesse: ["Tenho interesse", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z"/></svg>'],
+};
+async function carregarVitrine() {
+  vitrine = [];
+  if (!sb.rpc) return;
+  try { const { data, error } = await sb.rpc("apps_vitrine"); if (error) throw error; vitrine = data || []; }
+  catch (e) { console.warn("vitrine:", e.message); }   // sem a vitrine a Área do Cliente continua funcionando
+}
+function waConhecer(a) {
+  const quem = [perfil?.nome, perfil?.empresa].filter(Boolean).join(", ");
+  const t = `Olá, Nervia! Quero conhecer o app ${a.nome}.` + (quem ? ` Sou ${quem}` : "") + (eu?.email ? ` (${eu.email}).` : "");
+  return `https://wa.me/${CONTATO.whatsapp}?text=${encodeURIComponent(t)}`;
+}
+function cartaoVitrine(a) {
+  const id = esc(a.id), botoes = [];
+  if (a.demo_url) botoes.push(`<a href="${esc(a.demo_url)}" target="_blank" rel="noopener" onclick="cliqueVitrine('${id}','demo')">Ver demonstração</a>`);
+  if (a.situacao === "disponivel") botoes.push(`<a class="pri" href="${esc(waConhecer(a))}" target="_blank" rel="noopener" onclick="cliqueVitrine('${id}','quero_conhecer')">Quero conhecer</a>`);
+  return `<div class="vit ${esc(a.situacao)}" data-app="${id}">
+    <div class="cab-vit"><span class="ico">${esc(a.icone || a.nome.slice(0, 2).toUpperCase())}</span>
+      <div><b>${esc(a.nome)}</b><span class="selo ${esc(a.situacao)}">${SELO_VITRINE[a.situacao] || ""}</span></div></div>
+    <div class="desc">${esc(a.descricao)}</div>
+    ${botoes.length ? `<div class="acoes-vit">${botoes.join("")}</div>` : ""}
+    <div class="reacoes" role="group" aria-label="Sua opinião sobre ${esc(a.nome)}">${Object.entries(REACOES).map(([r, [rot, ico]]) =>
+      `<button type="button" class="${a.reacao === r ? "on" : ""}" aria-pressed="${a.reacao === r}" data-reacao="${r}" title="${rot}${a.reacao === r ? " (clique de novo para retirar)" : ""}" onclick="reagir('${id}','${r}')">${ico}<span>${rot}</span></button>`).join("")}</div>
+    ${a.reacao === "nao_curti" ? `<div class="faltou"><input maxlength="500" placeholder="O que faltou? (opcional)" value="${esc(a.comentario || "")}" onkeydown="if(event.key==='Enter')enviarFaltou('${id}')"><button class="sec" onclick="enviarFaltou('${id}')">Enviar</button></div>` : ""}
+    <div class="vit-msg"></div>
+  </div>`;
+}
+function desenharVitrine() {
+  const html = SECOES_VITRINE.map(([sit, titulo, sub]) => {
+    const l = vitrine.filter(a => a.situacao === sit);
+    return l.length ? `<section class="vit-sec" id="vit-${sit}"><h2>${titulo}</h2><div class="sub">${sub}</div><div class="grade">${l.map(cartaoVitrine).join("")}</div></section>` : "";
+  }).join("");
+  $("vitrine").innerHTML = html ? html + '<div class="small" style="margin-top:14px">Sua opinião vai só para a Nervia: ninguém mais vê.</div>' : "";
+  $("vitrine").classList.toggle("oculto", !html);
+}
+function avisoVitrine(id, texto, erro) {
+  const el = document.querySelector(`.vit[data-app="${id}"] .vit-msg`); if (!el) return;
+  el.textContent = texto; el.classList.toggle("err", !!erro);
+}
+async function reagir(id, r) {
+  const a = vitrine.find(x => x.id === id); if (!a) return;
+  const nova = a.reacao === r ? "" : r;
+  const { error } = await sb.rpc("app_reagir", { p_app: id, p_reacao: nova, p_comentario: nova === "nao_curti" ? a.comentario || "" : "" });
+  if (error) return avisoVitrine(id, error.message, true);
+  a.reacao = nova || null; if (nova !== "nao_curti") a.comentario = "";
+  desenharVitrine();
+  avisoVitrine(id, { curti: "Obrigado pela opinião!", nao_curti: "Obrigado! Se quiser, conte o que faltou.", interesse: "Obrigado! Registramos o seu interesse." }[nova] || "Reação retirada.");
+  if (nova === "nao_curti") document.querySelector(`.vit[data-app="${id}"] .faltou input`)?.focus();
+}
+async function enviarFaltou(id) {
+  const a = vitrine.find(x => x.id === id); const inp = document.querySelector(`.vit[data-app="${id}"] .faltou input`); if (!a || !inp) return;
+  const txt = inp.value.trim();
+  const { error } = await sb.rpc("app_reagir", { p_app: id, p_reacao: "nao_curti", p_comentario: txt });
+  if (error) return avisoVitrine(id, error.message, true);
+  a.comentario = txt; avisoVitrine(id, txt ? "Obrigado! A Nervia vai ler o seu comentário." : "Comentário retirado.");
+}
+function cliqueVitrine(id, acao) {   // registro do clique; não atrasa nem impede a abertura do link
+  try { sb.rpc("app_registrar_clique", { p_app: id, p_acao: acao }).then(() => {}, () => {}); } catch {}
 }
 
 function abrirApp(id) {
@@ -351,9 +451,50 @@ function fecharAjuda() { $("painelAjuda").classList.add("oculto"); }
 // ------------------------------------------------------------ administração
 async function aba(qual) {
   abaAtual = qual;
-  $("abaUsu").classList.toggle("on", qual === "usu"); $("abaApps").classList.toggle("on", qual === "apps"); $("abaAud").classList.toggle("on", qual === "aud"); $("abaAcs").classList.toggle("on", qual === "acs");
+  ["usu", "apps", "int", "aud", "acs"].forEach(k => $("aba" + k[0].toUpperCase() + k.slice(1)).classList.toggle("on", qual === k));
   msg($("msgAdm"), "", "");
-  try { qual === "usu" ? await admLogins() : qual === "aud" ? await admAuditoria() : qual === "acs" ? await admAcessos() : admApps(); } catch (e) { msg($("msgAdm"), "err", e.message); }
+  try { qual === "usu" ? await admLogins() : qual === "aud" ? await admAuditoria() : qual === "acs" ? await admAcessos() : qual === "int" ? await admInteresse() : admApps(); } catch (e) { msg($("msgAdm"), "err", e.message); }
+}
+
+// Interesse nos apps da vitrine: reações (uma por login×app) e cliques. Só a equipe Nervia (função apps_interesse).
+async function admInteresse() {
+  const l = checar(await sb.rpc("apps_interesse")) || [];
+  window._int = l;
+  const A = window.NERVIA_AUDITORIA, nomeApp = id => apps.find(a => a.id === id)?.nome || id;
+  const quando = d => d ? A.dataHora(d) : "";
+  const conta = (r, f) => r.filter(f).length, soma = (r, c) => r.reduce((t, x) => t + (x[c] || 0), 0);
+  const lista = apps.filter(a => (a.situacao && a.situacao !== "oculto") || l.some(r => r.app_id === a.id));
+  const tab = (cab, linhas, vazio) => linhas.length ? `<div style="overflow-x:auto"><table class="aud"><tr>${cab.map(c => `<th>${c}</th>`).join("")}</tr>${linhas.join("")}</table></div>` : `<div class="small">${vazio}</div>`;
+  const pessoa = r => `${esc(r.nome || r.email)}<div class="small"><a href="mailto:${esc(r.email)}">${esc(r.email)}</a></div>`;
+  const interessados = l.filter(r => r.reacao === "interesse" || r.cliques_conhecer > 0);
+  const comentarios = l.filter(r => r.reacao === "nao_curti");
+  $("admConteudo").innerHTML = `<div class="cartao"><h2>Interesse nos apps</h2>
+    <div class="small">O que os clientes acharam dos apps da vitrine (os que eles ainda não têm). Cada pessoa tem uma reação por app e pode trocar; os cliques em "Ver demonstração" e "Quero conhecer" também contam (o mesmo clique em menos de 1 minuto conta uma vez). Só a equipe Nervia vê esta tela. A empresa vem do campo Empresa do login (Logins) ou, se vazio, das empresas que o login vê.</div>
+    <h3 style="margin:16px 0 6px">Totais por app</h3>
+    ${tab(["App", "Na vitrine", "Curti", "Não curti", "Tenho interesse", "Viram a demonstração", "Quero conhecer"], lista.map(a => { const r = l.filter(x => x.app_id === a.id);
+      return `<tr><td><b>${esc(a.nome)}</b></td><td>${esc(SITUACOES[a.situacao || "oculto"])}</td><td>${conta(r, x => x.reacao === "curti")}</td><td>${conta(r, x => x.reacao === "nao_curti")}</td>
+        <td><b>${conta(r, x => x.reacao === "interesse")}</b></td><td>${conta(r, x => x.cliques_demo > 0)} <span class="small">(${soma(r, "cliques_demo")} cliques)</span></td><td>${conta(r, x => x.cliques_conhecer > 0)}</td></tr>`; }),
+      "Nenhum app na vitrine. Escolha a situação em Aplicativos.")}
+    <h3 style="margin:18px 0 6px">Interessados</h3>
+    <div class="small" style="margin-bottom:6px">Marcaram "Tenho interesse" ou clicaram em "Quero conhecer".</div>
+    ${tab(["App", "Pessoa", "Empresa", "O que fez", "Quando"], interessados.map(r => `<tr><td>${esc(nomeApp(r.app_id))}</td><td>${pessoa(r)}</td><td>${esc(r.empresa)}</td>
+      <td>${[r.reacao === "interesse" ? "Tenho interesse" : "", r.cliques_conhecer ? `Quero conhecer (${r.cliques_conhecer}×)` : "", r.cliques_demo ? `viu a demonstração (${r.cliques_demo}×)` : ""].filter(Boolean).join(" · ")}</td>
+      <td>${esc(quando(r.reagiu_em && (!r.ultimo_clique || r.reagiu_em > r.ultimo_clique) ? r.reagiu_em : r.ultimo_clique))}</td></tr>`), "Ninguém ainda.")}
+    <h3 style="margin:18px 0 6px">Não curti · o que faltou</h3>
+    ${tab(["App", "Pessoa", "Empresa", "O que faltou", "Quando"], comentarios.map(r => `<tr><td>${esc(nomeApp(r.app_id))}</td><td>${pessoa(r)}</td><td>${esc(r.empresa)}</td>
+      <td>${r.comentario ? esc(r.comentario) : '<span class="small">sem comentário</span>'}</td><td>${esc(quando(r.reagiu_em))}</td></tr>`), "Nenhum.")}
+    <h3 style="margin:18px 0 6px">Todas as reações e cliques</h3>
+    ${tab(["App", "Pessoa", "Empresa", "Reação", "Demonstração", "Quero conhecer", "Última vez"], l.map(r => `<tr><td>${esc(nomeApp(r.app_id))}</td><td>${pessoa(r)}</td><td>${esc(r.empresa)}</td>
+      <td>${esc(REACOES[r.reacao]?.[0] || "")}</td><td>${r.cliques_demo || ""}</td><td>${r.cliques_conhecer || ""}</td><td>${esc(quando([r.reagiu_em, r.ultimo_clique].filter(Boolean).sort().pop()))}</td></tr>`), "Nada registrado ainda.")}
+    <div style="margin-top:12px"><button class="sec" onclick="csvInteresse()">CSV</button></div></div>`;
+}
+function csvInteresse() {
+  const l = window._int || [], A = window.NERVIA_AUDITORIA, q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const txt = ["App;Nome;E-mail;Empresa;Reação;O que faltou;Reagiu em;Cliques demonstração;Cliques quero conhecer;Último clique"].concat(l.map(r =>
+    [apps.find(a => a.id === r.app_id)?.nome || r.app_id, r.nome, r.email, r.empresa, REACOES[r.reacao]?.[0] || "", r.comentario,
+     r.reagiu_em ? A.dataHora(r.reagiu_em) : "", r.cliques_demo, r.cliques_conhecer, r.ultimo_clique ? A.dataHora(r.ultimo_clique) : ""].map(q).join(";"))).join("\r\n");
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["﻿" + txt], { type: "text/csv" }));
+  a.download = "interesse-nos-apps.csv"; a.click(); URL.revokeObjectURL(a.href);
 }
 
 // Registro de auditoria de toda a plataforma (somente inclusão). Comprovante imprimível por registro.
@@ -485,6 +626,7 @@ async function admLogins() {
         <div><label>Nome</label><input id="nNome"></div>
         <div><label>E-mail</label><input id="nEmail" type="email"></div>
         <div><label>Senha inicial (mín. 8)</label><input id="nSenha" autocomplete="off"></div>
+        <div><label>Empresa (opcional)</label><input id="nEmpresa"></div>
       </div>
       <label>Aplicativos</label><div class="chips" id="nApps">${apps.map(a => `<label><input type="checkbox" value="${esc(a.id)}">${esc(a.nome)}</label>`).join("")}</div>
       ${empresas ? `<label style="margin-top:12px">Empresas que a pessoa vê (Notas Fiscais e Painel de Notas)</label>
@@ -495,6 +637,8 @@ async function admLogins() {
     </div>
     <div class="cartao">${perfis.map(p => `<div class="usu">
       <b>${esc(p.nome || p.email)}</b>${p.admin ? '<span class="tag">ADMIN</span>' : ""}<div class="small">${esc(p.email)}</div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:6px;max-width:420px"><span class="small">Empresa</span>
+        <input class="fEmpresa" style="padding:6px 10px;font-size:.88rem" value="${esc(p.empresa || "")}" placeholder="nome da empresa do login" onchange="salvarEmpresa('${p.user_id}', this.value)"></div>
       ${p.admin ? '<div class="small" style="margin-top:6px">Administradores veem todos os aplicativos e todas as empresas.</div>' : chipsApps(p.user_id, acessos.filter(a => a.user_id === p.user_id).map(a => a.app_id)) +
         (empresas ? `<div class="small" style="margin-top:10px">Empresas que vê:</div>${chipsEmp(p.user_id, acessosNf.filter(a => a.user_id === p.user_id).map(a => a.cnpj))}` +
           (!acessosNf.some(a => a.user_id === p.user_id) && empresas.length ? '<div class="small aviso-emp">Nenhuma empresa marcada: a pessoa entra, mas não vê notas.</div>' : "") : "")}
@@ -509,8 +653,14 @@ async function criarLogin() {
     const r = await funcao("usuarios", { acao: "criar", nome: nNome.value.trim(), email: nEmail.value.trim(), senha: nSenha.value,
       admin: nAdmin.checked, apps: [...document.querySelectorAll("#nApps input:checked")].map(c => c.value),
       cnpjs: nAdmin.checked ? [] : [...document.querySelectorAll("#nEmpresas input:checked")].map(c => c.value) });
+    const emp = nEmpresa.value.trim();
+    if (emp && r.user_id) await sb.from("perfis").update({ empresa: emp }).eq("user_id", r.user_id);
     await admLogins(); msg($("msgAdm"), "ok", r.mensagem + " Envie o e-mail e a senha inicial ao cliente; ele pode trocar a senha depois.");
   } catch (e) { msg($("msgAdm"), "err", e.message); }
+}
+async function salvarEmpresa(uid, valor) {
+  try { checar(await sb.from("perfis").update({ empresa: valor.trim() }).eq("user_id", uid)); msg($("msgAdm"), "ok", "Empresa do login salva."); }
+  catch (e) { msg($("msgAdm"), "err", e.message); }
 }
 async function alterarAcessoApp(uid, app_id, marcar) {
   try {
@@ -538,6 +688,7 @@ async function excluirLogin(uid) {
   catch (e) { msg($("msgAdm"), "err", e.message); }
 }
 
+const SITUACOES = { disponivel: "Disponível para contratar", em_breve: "Em breve", em_desenvolvimento: "Em desenvolvimento", oculto: "Oculto (não aparece)" };
 function admApps() {
   const linhaApp = (a, novo) => `<div class="usu" data-id="${esc(a.id || "")}">
     <div class="linha">
@@ -548,6 +699,11 @@ function admApps() {
       <div><label>Ordem</label><input class="fOrd" type="number" value="${a.ordem ?? 0}"></div>
     </div>
     <label>Descrição</label><input class="fDesc" value="${esc(a.descricao || "")}">
+    <div class="linha">
+      <div><label>Na vitrine (para quem não tem o app)</label><select class="fSit">${Object.entries(SITUACOES).map(([k, t]) =>
+        `<option value="${k}" ${(a.situacao || "oculto") === k ? "selected" : ""}>${t}</option>`).join("")}</select></div>
+      <div><label>Link da demonstração (público)</label><input class="fDemo" value="${esc(a.demo_url || "")}" placeholder="/demo/nome/"></div>
+    </div>
     <div class="linha">
       <div><label>Cartão de referência</label><input class="fCartao" value="${esc(a.cartao_url || "")}" placeholder="/apps/nome/ajuda/cartao.html"></div>
       <div><label>Manual de utilização</label><input class="fManual" value="${esc(a.manual_url || "")}" placeholder="/apps/nome/ajuda/manual.html"></div>
@@ -560,7 +716,8 @@ function admApps() {
   $("admConteudo").innerHTML = `
     <div class="cartao"><h2>Aplicativos</h2>
       <div class="small">Endereço começando com <b>/</b> = app hospedado no site da Nervia (login único). Endereço externo (https://…) abre dentro da página também, mas o app pode pedir login próprio.<br>
-      Todo app publicado precisa de <b>cartão de referência</b> e <b>manual de utilização</b>: eles aparecem nos botões "Cartão rápido" e "Manual" ao lado do app. O <b>mapa mental</b> é opcional e aparece no botão "Mapa".</div>
+      Todo app publicado precisa de <b>cartão de referência</b> e <b>manual de utilização</b>: eles aparecem nos botões "Cartão rápido" e "Manual" ao lado do app. O <b>mapa mental</b> é opcional e aparece no botão "Mapa".<br>
+      <b>Vitrine</b>: quem não tem o app vê o nome, a descrição e o link da demonstração conforme a situação (Disponível = demonstração + "Quero conhecer"; Em breve = demonstração; Em desenvolvimento = só nome e descrição; Oculto = não aparece). Não ponha data prevista na descrição. App ainda sem endereço fica desativado.</div>
       ${apps.map(a => linhaApp(a, false)).join("")}
     </div>
     <div class="cartao"><h2>Novo aplicativo</h2>${linhaApp({}, true)}</div>`;
@@ -570,18 +727,21 @@ async function salvarApp(btn, novo) {
   const box = btn.closest(".usu");
   const v = cls => box.querySelector(cls)?.value?.trim() ?? "";
   const dados = { nome: v(".fNome"), url: v(".fUrl"), icone: v(".fIco"), ordem: parseInt(v(".fOrd") || "0", 10), descricao: v(".fDesc"),
-    cartao_url: v(".fCartao"), manual_url: v(".fManual"), mapa_url: v(".fMapa") };
+    cartao_url: v(".fCartao"), manual_url: v(".fManual"), mapa_url: v(".fMapa"), situacao: v(".fSit") || "oculto", demo_url: v(".fDemo") };
   try {
-    if (!dados.nome || !dados.url) throw new Error("Informe nome e endereço.");
-    if (![dados.url, dados.cartao_url || "/", dados.manual_url || "/", dados.mapa_url || "/"].every(u => /^\/|^https:\/\//.test(u))) throw new Error("Os endereços devem começar com / ou https://");
+    if (!dados.nome) throw new Error("Informe o nome.");
+    if (![dados.url || "/", dados.cartao_url || "/", dados.manual_url || "/", dados.mapa_url || "/", dados.demo_url || "/"].every(u => /^\/|^https:\/\//.test(u))) throw new Error("Os endereços devem começar com / ou https://");
     if (novo) {
       const id = v(".fId").toLowerCase();
       if (!/^[a-z0-9-]+$/.test(id)) throw new Error("Código: só letras minúsculas, números e hífen.");
-      checar(await sb.from("apps").insert({ id, ...dados }));
+      checar(await sb.from("apps").insert({ id, ...dados, ativo: !!dados.url }));   // sem endereço = só vitrine
     } else {
-      checar(await sb.from("apps").update({ ...dados, ativo: box.querySelector(".fAtivo").checked }).eq("id", box.dataset.id));
+      const ativo = box.querySelector(".fAtivo").checked;
+      if (ativo && !dados.url) throw new Error("App ativo precisa de endereço. Para mostrar só na vitrine, desmarque Ativo.");
+      checar(await sb.from("apps").update({ ...dados, ativo }).eq("id", box.dataset.id));
     }
     apps = checar(await sb.from("apps").select("*").order("ordem").order("nome"));
+    await carregarVitrine();
     admApps(); msg($("msgAdm"), "ok", "Aplicativo salvo.");
   } catch (e) { msg($("msgAdm"), "err", e.message.includes("duplicate") ? "Já existe um aplicativo com esse código." : e.message); }
 }

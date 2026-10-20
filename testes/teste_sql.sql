@@ -141,7 +141,7 @@ end $$;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
 select pg_temp.ok((select count(*) = 0 from apps), 'login sem app liberado não vê apps');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
-select pg_temp.ok((select count(*) = 7 from apps), 'admin vê todos os apps, inclusive inativos');
+select pg_temp.ok((select count(*) = 8 from apps), 'admin vê todos os apps, inclusive inativos');
 insert into app_acessos values ('00000000-0000-0000-0000-00000000000c', 'chamados');
 update apps set ativo = false where id = 'chamados';
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
@@ -592,6 +592,54 @@ select pg_temp.ok((select count(*) = 2 and min(quedas) >= 0 and bool_and(disponi
 select pg_temp.ok((select count(*) = 0 from mon_relatorio('30000000-0000-0000-0000-000000000002', now() - interval '30 days', now())), 'relatório de local não liberado vem vazio');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
 select pg_temp.ok((select count(*) = 0 from mon_locais) and (select count(*) = 0 from mon_quedas), 'login sem acesso não vê nada');
+reset role;
+reset request.jwt.claim.sub;
+-- ---------------------------------------------------------------- vitrine da Área do Cliente
+select pg_temp.ok((select string_agg(id || '=' || situacao, ',' order by id) from apps where id in ('compras', 'monitor', 'notas', 'produtos', 'telefonia'))
+  = 'compras=disponivel,monitor=oculto,notas=disponivel,produtos=em_breve,telefonia=disponivel', 'situação inicial dos apps');
+select pg_temp.ok((select not ativo and demo_url = '/demo/produtos/' from apps where id = 'produtos'), 'Controle de Produtos em breve, inativo, com demo');
+update apps set situacao = 'em_desenvolvimento', demo_url = '/segredo/' where id = 'velho';
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok((select string_agg(id, ',' order by id) from apps_vitrine()) = 'compras,painel-nf,produtos,telefonia,velho',
+  'vitrine: apps fora da grade do login, sem oculto');
+select pg_temp.ok((select demo_url = '' from apps_vitrine() where id = 'velho') and (select demo_url = '/demo/compras/' from apps_vitrine() where id = 'compras'),
+  'em desenvolvimento não mostra link de demonstração');
+select pg_temp.ok((select count(*) = 0 from apps where id = 'produtos'), 'cliente não lê o app da vitrine pela tabela');
+select app_reagir('compras', 'curti');
+select app_reagir('compras', 'nao_curti', '  faltou integração com o ERP  ');
+select pg_temp.ok((select count(*) = 1 and min(reacao) = 'nao_curti' and min(comentario) = 'faltou integração com o ERP' from app_reacoes), 'uma reação por app; trocar mantém uma linha');
+select pg_temp.ok((select reacao = 'nao_curti' and comentario <> '' from apps_vitrine() where id = 'compras'), 'vitrine devolve a minha reação');
+select app_reagir('compras', 'interesse', 'ignorado');
+select pg_temp.ok((select reacao = 'interesse' and comentario = '' from app_reacoes where app_id = 'compras'), 'comentário só no "não curti"');
+select app_reagir('produtos', 'curti');
+select app_reagir('velho', 'curti');
+select app_reagir('velho', '');
+select pg_temp.ok((select count(*) = 0 from app_reacoes where app_id = 'velho'), 'reação retirada');
+select pg_temp.erro2('select app_reagir(''notas'', ''curti'')', 'não está na vitrine', 'não reage a app que já tem');
+select pg_temp.erro2('select app_reagir(''monitor'', ''curti'')', 'não está na vitrine', 'não reage a app oculto');
+select pg_temp.erro2('select app_reagir(''compras'', ''amei'')', 'Reação inválida', 'reação fora da lista');
+select pg_temp.erro2('insert into app_reacoes (user_id, app_id, reacao) values (''00000000-0000-0000-0000-00000000000b'', ''telefonia'', ''curti'')', 'permission', 'cliente não grava reação direto');
+select app_registrar_clique('compras', 'demo');
+select app_registrar_clique('compras', 'demo');
+select app_registrar_clique('compras', 'quero_conhecer');
+select pg_temp.erro2('select app_registrar_clique(''monitor'', ''demo'')', 'não está na vitrine', 'clique em app oculto recusado');
+select pg_temp.ok((select count(*) = 0 from app_cliques), 'cliente não lê os cliques');
+select pg_temp.erro2('select * from apps_interesse()', 'Só a equipe Nervia', 'cliente não vê o interesse');
+update perfis set empresa = 'Eu mesmo' where user_id = '00000000-0000-0000-0000-00000000000b';
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.ok((select count(*) = 0 from app_reacoes), 'outro login não vê a reação dos outros');
+select pg_temp.ok((select reacao is null from apps_vitrine() where id = 'compras'), 'vitrine do outro login sem reação');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select pg_temp.ok((select string_agg(id, ',' order by id) from apps_vitrine()) = 'produtos,velho', 'admin: vitrine só com o que não está ativo');
+select pg_temp.ok((select count(*) = 2 from app_reacoes) and (select count(*) = 2 from app_cliques), 'admin lê reações e cliques (clique repetido em 1 min conta uma vez)');
+select pg_temp.ok((select empresa <> 'Eu mesmo' and empresa <> '' and cliques_demo = 1 and cliques_conhecer = 1 and reacao = 'interesse'
+  from apps_interesse() where app_id = 'compras'), 'interesse: empresa pelos acessos do login, cliques e reação');
+update perfis set empresa = 'Linum Comércio' where user_id = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok((select empresa = 'Linum Comércio' from apps_interesse() where app_id = 'compras'), 'admin preenche a empresa do login');
+reset role;
+set role anon;
+select pg_temp.erro2('select * from apps_vitrine()', 'permission', 'anônimo não vê a vitrine');
 reset role;
 reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'

@@ -180,8 +180,24 @@
 
   // ---------------------------------------------------------------- cliente falso
   window.NERVIA_DEMO = true;
+  // vitrine (apps que o login da demonstração não tem); a reação fica só nesta página
+  const vitrine = [
+    { id: "telefonia", nome: "Auditoria de Telefonia Móvel", descricao: "Consumo, franquias e economia de cada linha móvel da empresa.", icone: "TM", situacao: "disponivel", demo_url: "/demo/telefonia/", ordem: 30 },
+    { id: "compras", nome: "Orçamentos de Compras", descricao: "Requisição, cotações, mapa comparativo, aprovação por alçada e avaliação do fornecedor.", icone: "OC", situacao: "disponivel", demo_url: "/demo/compras/", ordem: 40 },
+    { id: "produtos", nome: "Controle de Produtos", descricao: "Vendas, estoque, entregas, contas a receber e caixa de uma revenda ou loja.", icone: "CP", situacao: "em_breve", demo_url: "/demo/produtos/", ordem: 60 },
+  ].map((a) => ({ ...a, reacao: null, comentario: "" }));
+  const rpc = async (nome, p = {}) => {
+    if (nome === "apps_vitrine") return { data: vitrine.map((a) => ({ ...a })), error: null };
+    const a = vitrine.find((x) => x.id === p.p_app);
+    if (!a) return { data: null, error: { message: "Aplicativo não está na vitrine." } };
+    if (nome === "app_reagir") { a.reacao = p.p_reacao || null; a.comentario = p.p_reacao === "nao_curti" ? p.p_comentario || "" : ""; return { data: null, error: null }; }
+    if (nome === "app_registrar_clique") return { data: null, error: null };
+    return { data: null, error: { message: "Na demonstração, esta função está desligada." } };
+  };
+
   window.supabase = { createClient: () => ({
     from: consulta,
+    rpc,
     auth: {
       getSession: async () => ({ data: { session: ler() ? null : { user: eu } } }),
       signInWithPassword: async () => { gravar(false); return { data: { user: eu }, error: null }; },
