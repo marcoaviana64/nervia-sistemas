@@ -124,6 +124,10 @@ const STATUS = {
 };
 const PASSOS = [["nova", "Requisição"], ["cotacao", "Cotação"], ["aprovacao", "Aprovação"], ["aprovada", "Aprovada"], ["pedido", "Pedido"], ["entregue", "Entregue"], ["concluida", "Avaliada"]];
 const PAGAMENTOS = [["À vista", 0], ["15 dias", 15], ["28 dias", 28], ["30 dias", 30], ["30/60", 45], ["30/60/90", 60], ["Outro", null]];
+// critérios da avaliação do fornecedor (coluna, nome, o que significa)
+const CRITERIOS = [["prazo", "Prazo", "entregou no prazo combinado"], ["qualidade", "Qualidade", "do produto ou serviço entregue"],
+  ["conformidade", "Conforme a proposta", "entregou o que foi proposto: item, marca, quantidade e condições"], ["atendimento", "Atendimento", "contato, respostas e pós-venda"]];
+const legendaCriterios = () => `<p class="mut">${CRITERIOS.map(([, t, d]) => `<b>${t}</b>: ${d}`).join(" · ")}. Notas de 1 (péssimo) a 5 (ótimo).</p>`;
 const PAPEL_NOME = { solicitante: "Solicitante", comprador: "Comprador", gerente: "Gerente", diretor: "Diretor" };
 
 let EU = null, ADMIN = false, MEMBROS = [], UNIDADES = [], GRUPOS = [], FORN = [], REQS = [], UNID = null, VISTA = "painel", SEL = null, DET = null, FILTRO = { st: "abertas", g: "", q: "" };
@@ -404,7 +408,7 @@ function vDetalhe() {
   h += `</div>`;
   if (edita || convs.length) h += vConvites(r, convs, edita);
   if (aprovs.length) h += `<div class="card"><h2>Aprovações</h2><div class="hist">${aprovs.map(a => `<div>${dataHora(a.em)} · <b>${esc(a.por_nome)}</b> (${a.etapa === "sistema" ? "automática" : PAPEL_NOME[a.etapa]}) — ${a.decisao === "aprovado" ? tag("aprovado", "t-ok") : tag("reprovado", "t-crit")} ${esc(a.comentario)}</div>`).join("")}</div></div>`;
-  if (aval) h += `<div class="card"><h2>Avaliação do fornecedor</h2><div class="mut">Prazo ${aval.prazo} · qualidade ${aval.qualidade} · conforme a proposta ${aval.conformidade} · atendimento ${aval.atendimento} — por ${esc(aval.avaliador_nome)} em ${dataHora(aval.em)}${aval.comentario ? "<br>" + esc(aval.comentario) : ""}</div></div>`;
+  if (aval) h += `<div class="card"><h2>Avaliação do fornecedor</h2><div class="mut">${CRITERIOS.map(([k, t]) => `${t} <b>${aval[k]}</b>`).join(" · ")} — por ${esc(aval.avaliador_nome)} em ${dataHora(aval.em)}${aval.comentario ? "<br>" + esc(aval.comentario) : ""}</div></div>`;
   h += `<div class="card"><h2>Histórico <span class="mut">somente inclusão</span></h2><div class="hist">${hist.slice().reverse().map(x => `<div>${dataHora(x.em)} · <b>${esc(x.quem_nome)}</b> — ${esc(x.texto)}</div>`).join("")}</div></div>`;
   return h;
 }
@@ -483,10 +487,10 @@ async function carregarConfig() {
 
 // ---------------------------------------------------------------- diálogos
 const dlg = $("dlg"), dlgf = $("dlgf");
-function abrir(html, aoConfirmar, rotulo = "Confirmar") {
-  dlgf.innerHTML = html + `<div class="acoes" style="justify-content:flex-end"><button class="bt" value="cancelar" formnovalidate>Cancelar</button><button class="bt pri" value="ok">${rotulo}</button></div>`;
+function abrir(html, aoConfirmar, rotulo = "Confirmar", soLeitura = false) {
+  dlgf.innerHTML = html + `<div class="acoes" style="justify-content:flex-end">${soLeitura ? "" : '<button class="bt" value="cancelar" formnovalidate>Cancelar</button>'}<button class="bt pri" value="ok">${rotulo}</button></div>`;
   dlg.onclose = async () => { if (dlg.returnValue === "ok") await aoConfirmar(new FormData(dlgf)); };
-  dlg.returnValue = ""; dlg.showModal();
+  dlg.style.maxWidth = ""; dlg.returnValue = ""; dlg.showModal();
 }
 function dNovaReq() {
   abrir(`<h3>Nova requisição — ${esc(unidade().nome)}</h3><div class="grade">
@@ -573,8 +577,10 @@ async function dAvaliacoes(f) {
   if (r.error) return msg("err", r.error.message);
   const mes = m => { const [a, b] = m.split("-"); return ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"][+b - 1] + "/" + a; };
   abrir(`<h3>Avaliações de ${esc(f.nome)}</h3><p class="mut">Feitas pelos Gerentes após cada entrega, em todas as empresas que usam o app. Aparecem sem quem avaliou.</p>
-    <div class="tw"><table><tr><th>Mês</th><th class="num">Média</th><th>Prazo · qualidade · conforme · atendimento</th><th>Comentário</th></tr>${(r.data || []).map(a => `<tr><td>${mes(a.mes)}</td>
-      <td class="num">${Number(a.media).toFixed(1).replace(".", ",")} ★</td><td>${a.prazo} · ${a.qualidade} · ${a.conformidade} · ${a.atendimento}</td><td>${esc(a.comentario) || '<span class="mut">—</span>'}</td></tr>`).join("")}</table></div>`, () => {}, "Fechar");
+    <div class="tw"><table><tr><th>Mês</th><th class="num">Média</th>${CRITERIOS.map(([, t, d]) => `<th title="${d}" style="text-align:center;max-width:100px;padding:8px 10px">${t}</th>`).join("")}<th style="min-width:150px">Comentário</th></tr>${(r.data || []).map(a => `<tr><td>${mes(a.mes)}</td>
+      <td class="num"><b>${Number(a.media).toFixed(1).replace(".", ",")} ★</b></td>${CRITERIOS.map(([k]) => `<td style="text-align:center">${a[k]}</td>`).join("")}<td>${esc(a.comentario) || '<span class="mut">—</span>'}</td></tr>`).join("")}</table></div>
+    ${legendaCriterios()}`, () => {}, "Fechar", true);
+  dlg.style.maxWidth = "820px";
 }
 function dFornecedor(f) {
   abrir(`<h3>${f ? "Editar fornecedor" : "Novo fornecedor"}</h3><div class="grade">
@@ -677,9 +683,9 @@ document.addEventListener("click", async e => {
   else if (a === "entregue") acao("cmp_marcar_entregue", { p_req: r.id }, "Marcado como entregue. O Gerente avalia o fornecedor.");
   else if (a === "avaliar") {
     const p = DET.props.find(x => x.id === r.proposta_escolhida), f = { nome: nomeProp(p) };
-    const C = [["prazo", "Prazo cumprido"], ["qualidade", "Qualidade do produto/serviço"], ["conformidade", "Conforme a proposta"], ["atendimento", "Atendimento"]];
+    const C = CRITERIOS.map(([k, t, d]) => [k, t, d]);
     abrir(`<h3>Avaliar ${esc(f.nome)}</h3><p class="mut">Compra #${r.id}. ${ehInternet(p) ? "Compra pela internet: a avaliação fica registrada nesta compra." : "A nota vale para todas as empresas, aparece sem quem avaliou e não pode ser alterada depois."}</p><div class="grade">
-      ${C.map(([k, t]) => `<div><label>${t}</label><select name="${k}">${[5, 4, 3, 2, 1].map(n => `<option value="${n}">${n} — ${["", "Péssimo", "Ruim", "Regular", "Bom", "Ótimo"][n]}</option>`).join("")}</select></div>`).join("")}
+      ${C.map(([k, t, d]) => `<div><label>${t}</label><select name="${k}">${[5, 4, 3, 2, 1].map(n => `<option value="${n}">${n} — ${["", "Péssimo", "Ruim", "Regular", "Bom", "Ótimo"][n]}</option>`).join("")}</select><div class="mut" style="margin-top:3px">${d}</div></div>`).join("")}
       <div class="tudo"><label>Comentário</label><textarea name="c"></textarea></div></div>`,
       fd => acao("cmp_avaliar", { p_req: r.id, p_prazo: Number(fd.get("prazo")), p_qualidade: Number(fd.get("qualidade")), p_conformidade: Number(fd.get("conformidade")), p_atendimento: Number(fd.get("atendimento")), p_comentario: fd.get("c") }, "Avaliação registrada. Compra concluída."), "Registrar avaliação");
   }
