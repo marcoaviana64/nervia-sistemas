@@ -57,7 +57,8 @@
     { quando: hAtras(24 * 100), ip: null, pais: "BR", estado: "Rio de Janeiro", estado_sigla: "RJ", cidade: "Rio de Janeiro", pagina: "/", origem: null, dispositivo: "Computador" },
   ];
   const linhas = [
-    ["NFE", "1", "33333333000133", "DISTRIBUIDORA DE REDES LTDA", "2026-10-08T10:00:00-03:00", 1840.9, "Autorizada", false, false],
+    // NF-e só resumo usada no teste da ciência: sempre 4 dias atrás (a ciência só vale até 10 dias da autorização)
+    ["NFE", "1", "33333333000133", "DISTRIBUIDORA DE REDES LTDA", new Date(Date.now() - 4 * 864e5).toISOString(), 1840.9, "Autorizada", false, false],
     ["NFE", "4521", "44444444000144", "KALUNGA COMERCIO SA", "2026-10-02T10:00:00-03:00", 389.7, "Autorizada", true, false],
     ["NFSE", "88", "55555555000155", "LINK FIBRA TELECOM ME", "2026-10-05T10:00:00-03:00", 1000, "Autorizada", true, false],
     ["NFE", "990", "66666666000166", "CABOS E CONECTORES EIRELI", "2026-09-22T10:00:00-03:00", 612, "Cancelada", true, false],
