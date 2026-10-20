@@ -30,7 +30,8 @@
   <h2 id="ver">1. Ver a situação agora</h2>
   <ol>
     <li>Entre na Área do Cliente e abra <b>Monitor de Links</b>.</li>
-    <li>O <b>Painel</b> mostra um cartão por roteador, agrupado por local, com cada link e a última medição. A borda do cartão fica verde (normal), amarela (instável) ou vermelha (problema).</li>
+    <li>O <b>Painel</b> mostra um cartão por roteador, lado a lado, com cada link e a última medição. A borda do cartão fica verde (normal), amarela (instável) ou vermelha (problema).</li>
+    <li>Em <b>Agrupar por</b>, escolha <b>Cliente</b> (padrão: junta os roteadores do mesmo cliente, mesmo em locais diferentes), <b>Local</b> ou <b>Sem grupos</b>. Clique no nome do grupo para fechá-lo: fica só o resumo, com o número de equipamentos e o aviso se algum tem problema. A escolha fica guardada no seu navegador.</li>
     <li>A tela se atualiza sozinha a cada minuto.</li>
   </ol>
 
@@ -71,14 +72,14 @@
     <li>Em <b>Equipamentos</b>, crie o <b>local</b> (ex.: "Matriz") com o nome do cliente.</li>
     <li>Crie o <b>equipamento</b> (nome e modelo) no local.</li>
     <li><b>Antes de gerar o script, leia o roteador</b> (IP › Routes): quais são os links, os gateways de cada um e se já existem rotas de teste ou failover. Não instale sem conferir.</li>
-    <li>Clique em <b>gerar script</b>, informe os links (um por linha, <code>nome=host de teste</code>, com host diferente em cada link) e a versão do RouterOS.</li>
+    <li>Clique em <b>gerar script</b>, informe <b>só os links que existem no local</b> (um por linha, <code>nome=host de teste</code>, com host diferente em cada link; o campo começa com <code>principal=8.8.8.8</code> e, se houver backup, acrescente <code>backup=1.1.1.1</code>) e a versão do RouterOS.</li>
     <li>No roteador, siga a ordem do próprio script:
       <ul>
         <li><b>Passo 0:</b> o teste de conexão segura (<code>/tool fetch url="https://nervia.com.br/" output=none</code>) deve terminar em "finished". Se falhar, o roteador não consegue falar HTTPS com a internet: não siga.</li>
         <li><b>Passo 1:</b> para cada link, uma rota do host de teste pelo gateway daquele link e uma rota de bloqueio (blackhole, distância 250). O bloqueio impede que, com o link caído, o teste saia pelo outro link e pareça que está tudo bem.</li>
         <li><b>Passo 2:</b> cole o resto no Terminal. Ele cria o script <code>nervia-monitor</code>, o agendamento de 1 minuto e já roda a primeira vez.</li>
       </ul></li>
-    <li>Em até 1 minuto, os links aparecem sozinhos. Clique no nome de cada link e preencha nome, operadora, contratado e a <b>meta do contrato</b> (SLA, ex.: 99,5%).</li>
+    <li>Em até 1 minuto, os links aparecem sozinhos. Se apareceu um link que o local não tem, abra-o e marque <b>Monitorar: Não</b>: ele some do painel, das quedas e do relatório (a queda em aberto dele é encerrada) e o que o roteador mandar dele passa a ser ignorado; depois, quando puder, gere o script de novo sem ele. Clique no nome de cada link e preencha nome, operadora, contratado e a <b>meta do contrato</b> (SLA, ex.: 99,5%).</li>
     <li>Em <b>quem vê</b>, marque os logins do cliente. O login também precisa ter o app liberado em Administração › Logins.</li>
     <li>Ao registrar uma reclamação na operadora, use <b>anotar</b> na queda para guardar o protocolo.</li>
   </ol>
@@ -95,7 +96,7 @@
     <tr><td>Cada link precisa de um host de teste diferente <span class="eq">EQUIPE NERVIA</span></td><td>Use hosts distintos (8.8.8.8, 1.1.1.1, 9.9.9.9…).</td></tr>
     <tr><td>Linha inválida <span class="eq">EQUIPE NERVIA</span></td><td>Formato <code>nome=IP</code>, nome com letras minúsculas, números, - ou _.</td></tr>
   </table>
-  <div class="rodape">Dúvidas: WhatsApp (21) 96686-9374 · atendimento@nervia.com.br<br>Nervia Tecnologia · Manual do app Monitor de Links · atualizado em 17/10/2026</div>
+  <div class="rodape">Dúvidas: WhatsApp (21) 96686-9374 · atendimento@nervia.com.br<br>Nervia Tecnologia · Manual do app Monitor de Links · atualizado em 20/10/2026</div>
 </div>
 <script src="/marca-dagua.js" data-tipo="doc"></script>
 </body>

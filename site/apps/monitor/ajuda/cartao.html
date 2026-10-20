@@ -21,7 +21,8 @@
     <tr><td>Normais · Com problema agora · Instáveis</td><td>Quantos roteadores estão em cada situação.</td></tr>
     <tr><td>Quedas em aberto</td><td>Links caídos ou roteadores sem contato agora.</td></tr>
     <tr><td>Quedas de link em 30 dias</td><td>Quantas vezes algum link caiu no último mês.</td></tr>
-    <tr><td>Cartão do roteador</td><td>Um por equipamento, agrupado por local. Clique para ver o detalhe.</td></tr>
+    <tr><td>Cartão do roteador</td><td>Um por equipamento, lado a lado. Clique para ver o detalhe.</td></tr>
+    <tr><td>Agrupar por · Cliente / Local / Sem grupos</td><td>Junta os cartões do mesmo cliente (ex.: todos os roteadores de um cliente) ou de cada local. Clique no nome do grupo para fechar ou abrir; fechado, mostra só o resumo (quantos equipamentos e se há problema). A escolha fica guardada neste navegador.</td></tr>
     <tr><td>Normal · Instável · Em backup · Fora do ar · Sem contato</td><td>Situação do local: tudo bem; perda ou lentidão; um link caiu e outro assumiu; todos caíram; o roteador parou de mandar.</td></tr>
     <tr><td>No ar · Instável · Caído · Sem dados</td><td>Situação de cada link. "Instável" = perda de 20% ou mais, ou latência acima do limite.</td></tr>
     <tr><td>ms · % perda</td><td>Latência (tempo de resposta) e pacotes perdidos na última medição.</td></tr>
@@ -54,8 +55,9 @@
     <tr><td>quem vê</td><td>Logins do cliente que veem o local. O login também precisa do app liberado em Administração → Logins.</td></tr>
     <tr><td>+ Novo equipamento · editar</td><td>Nome, modelo, local e se está ativo.</td></tr>
     <tr><td>gerar script</td><td>Cria o token do roteador e o script para colar no Terminal. Gerar de novo troca o token.</td></tr>
-    <tr><td>Links (nome=host de teste)</td><td>Um por linha; host de teste diferente para cada link (ex.: 8.8.8.8, 1.1.1.1).</td></tr>
+    <tr><td>Links (nome=host de teste)</td><td>Um por linha, só os links que existem no local (começa com "principal"; acrescente "backup=1.1.1.1" se houver). Host de teste diferente para cada link.</td></tr>
     <tr><td>Nome do link</td><td>Abre o cadastro: nome, operadora, contratado, host de teste, meta do contrato, latência de alerta, ordem, monitorar.</td></tr>
+    <tr><td>Monitorar: Não</td><td>Para link que não existe ou foi desligado (ex.: backup que o local não tem): some do painel, das quedas e do relatório, e o que o roteador mandar dele é ignorado. Para o roteador parar de testar, gere o script de novo sem o link.</td></tr>
     <tr><td>anotar (na queda)</td><td>Registra protocolo, causa ou combinado com a operadora. O cliente vê.</td></tr>
   </table>
 
@@ -65,7 +67,7 @@
     <tr><td>Aviso de queda</td><td>Por enquanto só na tela (sem e-mail ou WhatsApp automático).</td></tr>
     <tr><td>Ajuda</td><td>WhatsApp (21) 96686-9374 · atendimento@nervia.com.br</td></tr>
   </table>
-  <div class="rodape">Nervia Tecnologia · Cartão de referência do app Monitor de Links · atualizado em 17/10/2026</div>
+  <div class="rodape">Nervia Tecnologia · Cartão de referência do app Monitor de Links · atualizado em 20/10/2026</div>
 </div>
 <script src="/marca-dagua.js" data-tipo="doc"></script>
 </body>

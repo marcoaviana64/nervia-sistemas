@@ -170,6 +170,52 @@ try:
         t = pg.text_content("#tela")
         ok("Disponibilidade" in t and "Principal" in t and "Operadora X" in t and "meta do contrato 99,90%" in t and "Abaixo da meta" in t and "45 min" in t, "relatório mensal com disponibilidade abaixo da meta (queda de 45 min)")
         pg.screenshot(path=os.path.join(SAIDA, "monitor-relatorio.png"), full_page=True)
+
+        # ---- 20/10/2026: cartões agrupados (lado a lado) e link de backup que não existe
+        psql("""insert into mon_locais (id, nome, cliente) values ('30000000-0000-0000-0000-0000000000f1', 'Vogue', 'Cliente A Ltda');
+          insert into mon_equipamentos (id, local_id, nome, modelo, ultimo_contato) values ('31000000-0000-0000-0000-0000000000f1', '30000000-0000-0000-0000-0000000000f1', 'RB Vogue', 'hEX RB750Gr3', now());
+          insert into mon_links (equipamento_id, chave, nome, status, status_desde, ultimo_rtt, ultima_perda, ultima_amostra) values
+            ('31000000-0000-0000-0000-0000000000f1', 'principal', 'principal', 'ok', now() - interval '1 hour', 9, 0, now()),
+            ('31000000-0000-0000-0000-0000000000f1', 'backup', 'backup', 'caido', now() - interval '20 minutes', null, 100, now());
+          insert into mon_quedas (equipamento_id, link_id, tipo, inicio) select '31000000-0000-0000-0000-0000000000f1', id, 'link', now() - interval '20 minutes'
+            from mon_links where equipamento_id = '31000000-0000-0000-0000-0000000000f1' and chave = 'backup';""")
+        pg.click("[data-v=painel]"); abrir(pg)
+        ok(pg.locator("#fAgrupar").input_value() == "cliente" and pg.locator("button.grupo").count() == 1
+           and pg.locator(".equips").first.locator(".eq").count() == 2 and "2 equipamentos" in pg.text_content("button.grupo"),
+           "agrupado por cliente: os dois roteadores do mesmo cliente lado a lado num grupo")
+        ok("Vogue ·" in pg.locator(".eq", has_text="RB Vogue").text_content() and "Em backup" in pg.locator(".eq", has_text="RB Vogue").text_content(),
+           "cartão mostra o local e o backup inexistente aparece como problema (o erro relatado)")
+        pg.click("button.grupo"); pg.wait_for_timeout(200)
+        ok(pg.locator(".eq").count() == 0 and "com problema" in pg.text_content("button.grupo"), "grupo fechado mostra só o resumo (e avisa o problema)")
+        abrir(pg)
+        ok(pg.locator(".eq").count() == 0, "grupo continua fechado ao recarregar")
+        pg.click("button.grupo"); pg.wait_for_timeout(200)
+        pg.select_option("#fAgrupar", "local"); pg.wait_for_timeout(200)
+        ok(pg.locator("button.grupo").count() == 2, "agrupar por local: um grupo por local")
+        pg.select_option("#fAgrupar", "nenhum"); pg.wait_for_timeout(200)
+        ok(pg.locator("button.grupo").count() == 0 and pg.locator(".equips").count() == 1 and pg.locator(".eq").count() == 2, "sem grupos: todos os cartões juntos")
+        pg.select_option("#fAgrupar", "cliente"); pg.wait_for_timeout(200)
+        pg.click("[data-v=admin]"); pg.wait_for_timeout(400)
+        pg.locator("tr", has_text="RB Vogue").locator("[data-acao=editLink]", has_text="backup").click()
+        ok("Monitorar: Não" in pg.text_content("dialog"), "cadastro do link explica o 'Monitorar: Não'")
+        pg.select_option("dialog [name=at]", "0"); confirmar(pg)
+        ok("não monitorado" in pg.locator("tr", has_text="RB Vogue").text_content(), "backup marcado como não monitorado")
+        pg.click("[data-v=painel]"); pg.wait_for_timeout(300)
+        c = pg.locator(".eq", has_text="RB Vogue").text_content()
+        ok("Normal" in c and "backup" not in c, "painel: RB Vogue normal, só com o link que existe")
+        pg.click("[data-v=quedas]"); pg.wait_for_timeout(300)
+        ok("RB Vogue" not in (pg.text_content("#tela table") if pg.locator("#tela table").count() else ""), "a queda do link que não existe sai do histórico")
+        abertas = subprocess.run(["psql", "-h", PG["host"], "-p", PG["port"], "-U", PG["user"], "-d", DB, "-Atc",
+          "select count(*) from mon_quedas q join mon_links l on l.id = q.link_id where l.chave = 'backup' and l.equipamento_id = '31000000-0000-0000-0000-0000000000f1' and q.fim is null"],
+          capture_output=True, text=True).stdout.strip()
+        ok(abertas == "0", "desligar o link encerra a queda em aberto no banco")
+        pg.click("[data-v=admin]"); pg.wait_for_timeout(300)
+        pg.click("[data-acao=novoEquip]"); pg.fill("[name=nome]", "RB Teste"); confirmar(pg)
+        pg.locator("tr", has_text="RB Teste").locator("[data-acao=script]").click()
+        ok(pg.input_value("dialog [name=links]") == "principal=8.8.8.8", "script de equipamento novo começa com um link só")
+        pg.click("dialog [value=cancelar]"); pg.wait_for_timeout(200)
+        pg.click("[data-v=painel]"); pg.wait_for_timeout(300)
+        pg.screenshot(path=os.path.join(SAIDA, "monitor-grupos.png"), full_page=True)
         ok(not er, "sem erros de script (admin) " + str(er))
 
         # cliente A vê só a Matriz; cliente B nada

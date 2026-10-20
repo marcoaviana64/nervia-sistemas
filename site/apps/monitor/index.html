@@ -46,7 +46,9 @@ label{display:block;font-size:11.5px;font-weight:700;text-transform:uppercase;le
 .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px}
 .card h2{font-size:16px;margin:0 0 10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .card h2 .dir{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
-.grupo{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);margin:16px 0 8px;font-weight:700}
+.grupo{display:flex;align-items:center;gap:8px;flex-wrap:wrap;width:100%;border:0;background:none;padding:6px 0;cursor:pointer;font:inherit;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);margin:14px 0 6px;font-weight:700;text-align:left}
+.grupo .tag{text-transform:none;letter-spacing:0}.grupo .seta{display:inline-block;width:12px;transition:transform .15s}.grupo.fechado .seta{transform:rotate(-90deg)}
+.agrupar{display:flex;align-items:center;gap:8px;justify-content:flex-end;margin:-4px 0 4px}.agrupar select{width:auto}
 .equips{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}
 .eq{background:var(--surface);border:1px solid var(--border);border-left:5px solid var(--ok);border-radius:12px;padding:12px;cursor:pointer}
 .eq.crit{border-left-color:var(--crit)}.eq.warn{border-left-color:var(--warn)}.eq.mut{border-left-color:var(--ink-faint)}
@@ -140,7 +142,9 @@ async function carregar() {
     sb.from("mon_links").select("*").order("ordem").order("chave"),
     sb.from("mon_quedas").select("*").or(`fim.is.null,fim.gte.${desde30}`).order("inicio", { ascending: false }).limit(500),
   ]);
-  LOCAIS = checar(l); EQUIPS = checar(e); LINKS = checar(k); QUEDAS = checar(q);
+  LOCAIS = checar(l); EQUIPS = checar(e); LINKS = checar(k);
+  // link com "Monitorar: Não" (ex.: backup que não existe) some também do histórico de quedas
+  QUEDAS = checar(q).filter(x => x.tipo !== "link" || LINKS.some(lk => lk.id === x.link_id && lk.ativo));
   if (SEL) await carregarAmostras(SEL);
   $("atualizado").textContent = "Atualizado " + new Date().toLocaleTimeString("pt-BR", { timeZone: TZ, hour: "2-digit", minute: "2-digit" }) + " · a cada 1 min";
 }
@@ -187,12 +191,37 @@ function vPainel() {
     <div class="kpi warn"><small>Instáveis</small><b>${sits.filter(s => s[1] === "warn").length}</b></div>
     <div class="kpi"><small>Quedas em aberto</small><b>${abertas}</b></div>
     <div class="kpi"><small>Quedas de link em 30 dias</small><b>${q30}</b></div></div>
-  ${LOCAIS.filter(lo => at.some(e => e.local_id === lo.id)).map(lo => `<div class="grupo">${esc(lo.nome)}${lo.cliente ? " · " + esc(lo.cliente) : ""}</div><div class="equips">${at.filter(e => e.local_id === lo.id).map(e => {
-    const s = situacao(e);
-    return `<div class="eq ${s[1]}" data-equip="${e.id}"><h3>${esc(e.nome)}${tag(s[0], s[2])}</h3>
-      <div class="mut">${esc(e.modelo)}${e.ultimo_contato ? " · último envio " + (Date.now() - new Date(e.ultimo_contato) < 150000 ? "agora" : "há " + desde(e.ultimo_contato)) : ""}</div>
-      ${linksDe(e.id).map(linhaLink).join("") || '<div class="mut" style="margin-top:6px">Nenhum link ainda.</div>'}</div>`;
-  }).join("")}</div>`).join("")}`;
+  ${barraAgrupar()}${grupos(at).map(([k, nome, es]) => {
+    const st = es.map(situacao), fechado = AGRUPAR !== "nenhum" && FECHADOS.has(AGRUPAR + ":" + k);
+    const resumo = AGRUPAR === "nenhum" ? "" : `<button type="button" class="grupo${fechado ? " fechado" : ""}" data-grupo="${esc(k)}"><span class="seta">▾</span>${esc(nome)}
+      <span class="tag t-mut">${es.length} equipamento${es.length > 1 ? "s" : ""}</span>${st.some(x => x[1] === "crit") ? tag(st.filter(x => x[1] === "crit").length + " com problema", "t-crit") : ""}${st.some(x => x[1] === "warn") ? tag(st.filter(x => x[1] === "warn").length + " instável", "t-warn") : ""}${st.every(x => x[1] === "") ? tag("todos normais", "t-ok") : ""}</button>`;
+    return resumo + (fechado ? "" : `<div class="equips">${es.map(cartaoEquip).join("")}</div>`);
+  }).join("")}`;
+}
+// agrupamento dos cartões: por cliente (padrão), por local ou sem grupos; a escolha e os grupos fechados ficam neste navegador
+let AGRUPAR = "cliente", FECHADOS = new Set();
+try { AGRUPAR = localStorage.getItem("mon-agrupar") || "cliente"; FECHADOS = new Set(JSON.parse(localStorage.getItem("mon-fechados") || "[]")); } catch {}
+function salvarAgrupar() { try { localStorage.setItem("mon-agrupar", AGRUPAR); localStorage.setItem("mon-fechados", JSON.stringify([...FECHADOS])); } catch {} }
+const barraAgrupar = () => `<div class="agrupar noprint"><span class="mut">Agrupar por</span><select id="fAgrupar">${[["cliente", "Cliente"], ["local", "Local"], ["nenhum", "Sem grupos"]]
+  .map(([v, t]) => `<option value="${v}" ${AGRUPAR === v ? "selected" : ""}>${t}</option>`).join("")}</select></div>`;
+function grupos(at) {
+  const ordem = (a, b) => (local(a.local_id).nome + a.nome).localeCompare(local(b.local_id).nome + b.nome, "pt-BR");
+  if (AGRUPAR === "nenhum") return [["", "", at.slice().sort(ordem)]];
+  const m = new Map();
+  for (const e of at) {
+    const lo = local(e.local_id);
+    const k = AGRUPAR === "local" ? lo.id : (lo.cliente || "").trim().toLowerCase() || "~";
+    const nome = AGRUPAR === "local" ? lo.nome + (lo.cliente ? " · " + lo.cliente : "") : (lo.cliente || "").trim() || "Sem cliente";
+    if (!m.has(k)) m.set(k, [k, nome, []]);
+    m.get(k)[2].push(e);
+  }
+  return [...m.values()].map(g => (g[2].sort(ordem), g)).sort((a, b) => a[0] === "~" ? 1 : b[0] === "~" ? -1 : a[1].localeCompare(b[1], "pt-BR"));
+}
+function cartaoEquip(e) {
+  const s = situacao(e), lo = local(e.local_id);
+  return `<div class="eq ${s[1]}" data-equip="${e.id}"><h3>${esc(e.nome)}${tag(s[0], s[2])}</h3>
+    <div class="mut">${[AGRUPAR === "local" ? "" : esc(lo.nome), esc(e.modelo), e.ultimo_contato ? "último envio " + (Date.now() - new Date(e.ultimo_contato) < 150000 ? "agora" : "há " + desde(e.ultimo_contato)) : ""].filter(Boolean).join(" · ")}</div>
+    ${linksDe(e.id).map(linhaLink).join("") || '<div class="mut" style="margin-top:6px">Nenhum link monitorado.</div>'}</div>`;
 }
 function grafico(l) {
   const a = AMOSTRAS.filter(x => x.link_id === l.id);
@@ -281,7 +310,7 @@ function vAdmin() {
   <div class="card"><h2>Equipamentos<span class="dir"><button class="bt pri" data-acao="novoEquip" ${LOCAIS.length ? "" : "disabled"}>+ Novo equipamento</button></span></h2>
     <div class="tw"><table><tr><th>Equipamento</th><th>Local</th><th>Token</th><th>Último envio</th><th>Links</th><th></th></tr>${EQUIPS.map(e => `<tr><td><b>${esc(e.nome)}</b><div class="mut">${esc(e.modelo)} ${e.ros_versao ? "· " + esc(e.ros_versao) : ""}</div>${e.ativo ? "" : tag("desativado", "t-mut")}</td>
       <td>${esc(local(e.local_id).nome)}</td><td>${e.token_em ? `…${esc(e.token_fim)}<div class="mut">${dataBR(e.token_em)}</div>` : tag("sem token", "t-warn")}</td>
-      <td>${dataHora(e.ultimo_contato)}</td><td>${LINKS.filter(l => l.equipamento_id === e.id).map(l => `<div><button class="lnk" data-acao="editLink" data-id="${l.id}">${esc(l.nome || l.chave)}</button> <span class="mut">${esc(l.chave)} → ${esc(l.alvo)}</span>${l.ativo ? "" : " " + tag("desligado", "t-mut")}</div>`).join("") || '<span class="mut">chegam no 1º envio</span>'}</td>
+      <td>${dataHora(e.ultimo_contato)}</td><td>${LINKS.filter(l => l.equipamento_id === e.id).map(l => `<div><button class="lnk" data-acao="editLink" data-id="${l.id}">${esc(l.nome || l.chave)}</button> <span class="mut">${esc(l.chave)} → ${esc(l.alvo)}</span>${l.ativo ? "" : " " + tag("não monitorado", "t-mut")}</div>`).join("") || '<span class="mut">chegam no 1º envio</span>'}</td>
       <td><button class="lnk" data-acao="editEquip" data-id="${e.id}">editar</button><br><button class="lnk" data-acao="script" data-id="${e.id}">${e.token_em ? "gerar novo script" : "gerar script"}</button></td></tr>`).join("") || '<tr><td colspan="6" class="mut">Nenhum equipamento.</td></tr>'}</table></div>
     <p class="mut">O script mede cada link a cada minuto e manda para cá. Gerar um script novo troca o token: o script antigo para de valer.</p></div>`;
 }
@@ -366,18 +395,18 @@ function dLink(l) {
     <div><label>Host de teste</label><input name="alvo" value="${esc(l.alvo)}"></div><div><label>Meta do contrato (%)</label><input name="sla" type="number" step="0.001" min="0" max="100" value="${l.sla_pct}"></div>
     <div><label>Latência de alerta (ms)</label><input name="rtt" type="number" min="1" value="${l.rtt_alerta_ms}"></div><div><label>Ordem</label><input name="ord" type="number" value="${l.ordem}"></div>
     <div><label>Monitorar</label><select name="at"><option value="1">Sim</option><option value="0" ${l.ativo ? "" : "selected"}>Não</option></select></div></div>
-    <p class="mut">Mudar o host de teste aqui não muda o roteador: gere o script de novo e reinstale.</p>`,
+    <p class="mut"><b>Monitorar: Não</b> — para link que não existe ou foi desligado: ele some do painel, das quedas e do relatório, e as medições que o roteador ainda mandar para ele são ignoradas. Para o roteador parar de testá-lo, gere o script de novo sem esse link.<br>Mudar o host de teste aqui não muda o roteador: gere o script de novo e reinstale.</p>`,
     f => gravar(sb.from("mon_links").update({ nome: f.get("nome").trim(), operadora: f.get("op").trim(), contratado: f.get("ct").trim(), alvo: f.get("alvo").trim(),
       sla_pct: Number(f.get("sla")), rtt_alerta_ms: Number(f.get("rtt")), ordem: Number(f.get("ord")), ativo: f.get("at") === "1" }).eq("id", l.id), "Link salvo."));
 }
 function dScript(e) {
   const atuais = LINKS.filter(l => l.equipamento_id === e.id && l.ativo);
-  const linhas = (atuais.length ? atuais : [{ chave: "principal", alvo: "8.8.8.8" }, { chave: "backup", alvo: "1.1.1.1" }]).map(l => `${l.chave}=${l.alvo}`).join("\n");
+  const linhas = (atuais.length ? atuais : [{ chave: "principal", alvo: "8.8.8.8" }]).map(l => `${l.chave}=${l.alvo}`).join("\n");
   const v7 = /^7\./.test(e.ros_versao || "");
   abrir(`<h3>Script do roteador — ${esc(e.nome)}</h3>
     ${e.token_em ? '<div class="aviso warn">Gerar de novo troca o token: o script que está no roteador para de valer até você colar o novo.</div>' : ""}
     <div class="grade"><div class="tudo"><label>Links (um por linha: nome=host de teste)</label><textarea name="links" rows="3">${esc(linhas)}</textarea>
-      <div class="mut">Nome só com letras minúsculas, números, - ou _. Use um host de teste diferente para cada link (ex.: 8.8.8.8, 1.1.1.1, 9.9.9.9).</div></div>
+      <div class="mut">Um link por linha, só os que existem no local (confira no roteador). Tem link de backup? Acrescente uma linha, ex.: <code>backup=1.1.1.1</code>. Nome só com letras minúsculas, números, - ou _; host de teste diferente para cada link (8.8.8.8, 1.1.1.1, 9.9.9.9).</div></div>
     <div><label>RouterOS</label><select name="ver"><option value="6">6.x</option><option value="7" ${v7 ? "selected" : ""}>7.x</option></select></div></div>`,
   async f => {
     const ls = f.get("links").split(/\n/).map(s => s.trim()).filter(Boolean).map(s => { const [chave, alvo] = s.split("=").map(x => (x || "").trim()); return { chave, alvo }; });
@@ -408,10 +437,13 @@ function dAcessos(lo) {
 // ---------------------------------------------------------------- cliques
 document.addEventListener("change", e => {
   if (e.target.id === "fLocal") { FQ = e.target.value; render(); }
+  if (e.target.id === "fAgrupar") { AGRUPAR = e.target.value; salvarAgrupar(); render(); }
   if (e.target.id === "rLocal") { REL.local = e.target.value; render(); }
   if (e.target.id === "rMes") { REL.mes = e.target.value; render(); }
 });
 document.addEventListener("click", async ev => {
+  const gr = ev.target.closest("[data-grupo]");
+  if (gr) { const k = AGRUPAR + ":" + gr.dataset.grupo; FECHADOS.has(k) ? FECHADOS.delete(k) : FECHADOS.add(k); salvarAgrupar(); render(); return; }
   const card = ev.target.closest("[data-equip]");
   if (card) { SEL = card.dataset.equip; limparMsg(); await carregarAmostras(SEL); render(); window.scrollTo(0, 0); return; }
   const b = ev.target.closest("[data-acao]"); if (!b) return;

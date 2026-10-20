@@ -578,6 +578,22 @@ select mon_registrar((select v from mids where k = 'tok'), '{"links":[{"k":"prin
 reset role;
 select pg_temp.ok((select sem_contato_desde is null from mon_equipamentos where id = '31000000-0000-0000-0000-000000000001')
   and (select count(*) = 0 from mon_quedas where fim is null), 'roteador voltou fecha o "sem contato"');
+-- link que não existe (ex.: backup): "Monitorar: Não" encerra a queda em aberto, volta a "sem dados" e o roteador passa a ser ignorado nele
+update mon_equipamentos set ultimo_contato = now() - interval '1 minute';
+set role anon;
+select mon_registrar((select v from mids where k = 'tok'), '{"links":[{"k":"principal","env":5,"ok":5,"rtt":"10"},{"k":"backup","env":5,"ok":0}]}');
+reset role;
+select pg_temp.ok((select count(*) = 1 from mon_quedas q join mon_links l on l.id = q.link_id where l.chave = 'backup' and q.fim is null), 'backup caído abre queda');
+update mon_links set ativo = false where chave = 'backup';
+select pg_temp.ok((select count(*) = 0 from mon_quedas q join mon_links l on l.id = q.link_id where l.chave = 'backup' and q.fim is null)
+  and (select status = 'sem_dados' from mon_links where chave = 'backup'), 'link desligado: queda encerrada e status sem dados');
+update mon_equipamentos set ultimo_contato = now() - interval '1 minute';
+set role anon;
+select mon_registrar((select v from mids where k = 'tok'), '{"links":[{"k":"principal","env":5,"ok":5,"rtt":"10"},{"k":"backup","env":5,"ok":0}]}');
+reset role;
+select pg_temp.ok((select count(*) = 0 from mon_quedas q join mon_links l on l.id = q.link_id where l.chave = 'backup' and q.fim is null)
+  and (select status = 'sem_dados' from mon_links where chave = 'backup'), 'medição de link desligado é ignorada');
+update mon_links set ativo = true where chave = 'backup';
 
 -- cliente
 set role authenticated;
