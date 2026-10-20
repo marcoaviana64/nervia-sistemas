@@ -51,12 +51,13 @@
 
   <h2 id="fornecedores">3. Cadastrar fornecedor (Comprador)</h2>
   <ol>
-    <li>Em <b>Fornecedores</b>, procure pelo nome ou CNPJ. A base é a mesma para todas as unidades da empresa: ele pode já estar lá.</li>
+    <li>Em <b>Fornecedores</b>, procure pelo nome ou CNPJ. A base é única do sistema: é a mesma para todas as empresas que usam o app, então ele pode já estar lá (cadastrado por você, por outra unidade ou por outra empresa).</li>
     <li>Se não estiver, clique em <b>+ Novo fornecedor</b>, escolha Empresa (CNPJ) ou Pessoa física (CPF) e digite o documento. O app confere os dígitos e aceita o CNPJ com letras que a Receita começou a usar.</li>
     <li>Preencha nome, contato, a data de validade das certidões e os grupos em que ele atende.</li>
     <li>Você fica registrado como <b>responsável pela homologação</b>: confira as certidões antes da primeira compra.</li>
   </ol>
   <p>O fornecedor novo aparece com o aviso "Gerente ainda não deu o aval" até o Gerente da unidade dar o aval. O aval não impede cotar nem comprar.</p>
+  <p><b>Fornecedor cadastrado por outra empresa:</b> você cota e compra normalmente e vê a nota dele, mas a coluna de cadastro mostra só "outra empresa": quem cadastrou, as observações e os avais de outra empresa não aparecem. Para atualizar as certidões de um cadastro que não é seu, fale com a Nervia. As avaliações aparecem para todos <b>sem quem avaliou</b> (clique em <b>ver</b>, ao lado da nota).</p>
 
   <h2 id="convites">4. Convidar fornecedores: a proposta vem pelo link (Comprador)</h2>
   <p>Em vez de digitar os orçamentos, você pode mandar um link para cada fornecedor. Ele abre no celular ou no computador, sem login, vê só a requisição (nunca o valor estimado, quem pediu ou as outras propostas) e envia a proposta, com PDF se quiser.</p>
@@ -75,16 +76,18 @@
   <ol>
     <li>As propostas enviadas pelo link entram sozinhas. Para um orçamento que chegou por outro meio, clique em <b>+ Registrar proposta</b>: preço unitário, frete, prazo de entrega, pagamento, validade e custos extras de 12 meses (manutenção, insumos), se houver.</li>
     <li>O <b>mapa comparativo</b> mostra as propostas lado a lado. Verde marca o melhor valor de cada linha. A <b>nota na matriz</b> pondera preço, prazo, pagamento e qualidade do fornecedor, e o maior aparece como <b>recomendado</b>.</li>
+    <li><b>Compra pela internet</b> (Mercado Livre, Amazon e outros sites, onde não há CNPJ ou CPF de fornecedor): clique em <b>+ Compra pela internet</b>, informe o site, cole o <b>link do produto</b> e, se quiser, o vendedor dentro do site. Ela entra no mapa como as outras propostas, com o link "ver o produto no site".</li>
+    <li><b>Fornecedor com certidões vencidas</b> não recebe proposta. Se nesta compra as certidões não forem necessárias, peça ao <b>Gerente</b>: ele clica em <b>Dispensar certidões</b>, escolhe o fornecedor e escreve o motivo. A dispensa vale só para esta requisição e aparece para quem aprova.</li>
     <li>Para negociar, use <b>editar / re-cotar</b> na proposta que você lançou (o novo preço conta como nova rodada e o preço anterior fica guardado). Na proposta enviada pelo fornecedor, peça para ele reenviar pelo link.</li>
     <li>Clique em <b>Escolher</b> no vencedor. Se não for o menor preço, escreva a justificativa (ex.: prazo, garantia, menor custo total).</li>
     <li>Clique em <b>Enviar para aprovação</b>. Só funciona com o mínimo de propostas da unidade (3) ou com a <b>Exceção: fornecedor exclusivo</b> justificada.</li>
   </ol>
-  <p>Quando a compra é de até R$ 5.000, é o menor preço e o fornecedor já forneceu antes, ela é aprovada na hora. Nos outros casos, vai para o Gerente; acima de R$ 50.000, vai para o Gerente e depois para o Diretor. A primeira compra com um fornecedor sempre passa pelo Gerente.</p>
+  <p>Quando a compra é de até R$ 5.000, é o menor preço e o fornecedor já forneceu antes, ela é aprovada na hora. Nos outros casos, vai para o Gerente; acima de R$ 50.000, vai para o Gerente e depois para o Diretor. A primeira compra com um fornecedor na sua empresa sempre passa pelo Gerente (mesmo que ele já tenha vendido para outra empresa). A compra pela internet nunca é aprovada na hora: vai sempre ao Gerente, que dá o aval à compra (e, acima de R$ 50.000, segue para o Diretor).</p>
 
   <h2 id="aprovar">6. Aprovar ou reprovar (Gerente e Diretor)</h2>
   <ol>
     <li>No <b>Painel</b>, em <b>Esperando você</b>, clique na requisição.</li>
-    <li>Confira o mapa, a justificativa e os avisos (fornecedor novo, cadastrado pelo próprio comprador, sem aval).</li>
+    <li>Confira o mapa, a justificativa e os avisos (fornecedor novo, cadastrado pelo próprio comprador, sem aval, certidões dispensadas, compra pela internet). Na compra pela internet, abra o link do produto antes de aprovar: aprovar é o seu aval à compra naquele site.</li>
     <li>Clique em <b>Aprovar como Gerente</b> (ou Diretor). Se o fornecedor ainda não tem o seu aval, a caixa <b>Dar também o aval</b> vem marcada; desmarque se não quiser dar.</li>
     <li>Para reprovar, clique em <b>Reprovar</b> e escreva o motivo. O comprador pode <b>reabrir para nova cotação</b>.</li>
   </ol>
@@ -94,7 +97,7 @@
     <li>Aprovada, o comprador clica em <b>Emitir pedido de compra</b> (número PC-nº da requisição) e envia ao fornecedor.</li>
     <li>Quando chegar, o comprador ou o solicitante clica em <b>Marcar como entregue</b>.</li>
     <li>O Gerente clica em <b>Avaliar fornecedor</b> e dá nota de 1 a 5 para prazo, qualidade, conformidade com a proposta e atendimento. A compra fica <b>Concluída</b>.</li>
-    <li>A nota do fornecedor é a média de todas as avaliações, de todas as unidades, e entra no critério "qualidade" das próximas cotações. A avaliação não pode ser alterada depois.</li>
+    <li>A nota do fornecedor é a média de todas as avaliações, de todas as empresas que usam o app, e entra no critério "qualidade" das próximas cotações. Para as outras empresas, a avaliação aparece sem quem avaliou. A avaliação não pode ser alterada depois. Compra pela internet também é avaliada, mas fica só na compra (não há fornecedor na base).</li>
   </ol>
 
   <h2 id="situacoes">8. Situações e avisos</h2>
@@ -106,7 +109,10 @@
     <tr><td>Aprovada · Pedido emitido · Entregue · avaliar · Concluída</td><td>As etapas depois da aprovação.</td></tr>
     <tr><td>Reprovada · Cancelada</td><td>Parou. A reprovada pode ser reaberta pelo comprador.</td></tr>
     <tr><td>Gerente ainda não deu o aval</td><td>O Gerente desta unidade ainda não validou o fornecedor. Não bloqueia.</td></tr>
-    <tr><td>Fornecedor novo</td><td>Nunca forneceu antes: a compra vai ao Gerente mesmo se for barata.</td></tr>
+    <tr><td>Fornecedor novo</td><td>Nunca forneceu antes para a sua empresa: a compra vai ao Gerente mesmo se for barata.</td></tr>
+    <tr><td>Certidões vencidas · dispensadas pelo Gerente</td><td>Vencidas: não recebe proposta. Dispensadas: o Gerente liberou só nesta compra, com motivo.</td></tr>
+    <tr><td>Compra pela internet · sem CNPJ: o Gerente dá o aval na aprovação</td><td>Preço de site, com o link do produto. Se escolhida, vai sempre ao Gerente.</td></tr>
+    <tr><td>Outra empresa (em Fornecedores)</td><td>Cadastrado por outra empresa que usa o app. Você usa o cadastro e vê a nota, não quem cadastrou.</td></tr>
     <tr><td>Cadastrado por você</td><td>Você cadastrou o fornecedor e está comprando dele. O aprovador também vê.</td></tr>
     <tr><td>Re-cotado</td><td>O preço mudou depois da primeira proposta.</td></tr>
     <tr><td>Enviada pelo fornecedor · lançada pelo comprador</td><td>De onde veio a proposta: do link do convite ou digitada pelo comprador.</td></tr>
@@ -120,6 +126,7 @@
     <li>No app, em <b>Configuração</b>, escolha a unidade e dê o papel ao login em <b>Papéis nesta unidade</b>.</li>
     <li>Ajuste as regras da unidade (mínimo de propostas, alçadas, pesos que somam 100) e salve. A mudança fica no histórico.</li>
     <li>Para uma unidade nova (filial, loja ou sede), use <b>+ Nova unidade</b>.</li>
+    <li>Em <b>Empresa (agrupa unidades)</b>, escreva o mesmo nome de empresa nas unidades da mesma empresa: elas passam a ver quem cadastrou os fornecedores e os avais umas das outras, e a "primeira compra com o fornecedor" conta para a empresa toda. Vazio = a unidade é uma empresa sozinha.</li>
   </ol>
 
   <h2 id="problemas">10. Mensagens e o que fazer</h2>
@@ -128,8 +135,11 @@
     <tr><td>Entre na Área do Cliente para usar o app</td><td>A sessão expirou: entre de novo em nervia.com.br/cliente.</td></tr>
     <tr><td>Seu login ainda não tem papel em nenhuma unidade de Compras</td><td>Peça à Nervia para dar o seu papel.</td></tr>
     <tr><td>CNPJ inválido / CPF inválido (dígito verificador não confere)</td><td>Confira o número digitado.</td></tr>
-    <tr><td>Este CNPJ já está cadastrado: …</td><td>O fornecedor já existe na base. Use o cadastro existente.</td></tr>
-    <tr><td>As certidões de … venceram em …</td><td>Peça as certidões novas ao fornecedor; quem cadastrou atualiza a data em Fornecedores → editar.</td></tr>
+    <tr><td>Este CNPJ já está cadastrado: … / já está na base de fornecedores: …</td><td>O fornecedor já existe na base (da sua empresa ou de outra). Use o cadastro existente.</td></tr>
+    <tr><td>As certidões de … venceram em …</td><td>Peça as certidões novas ao fornecedor (quem cadastrou atualiza a data em Fornecedores → editar) ou, se nesta compra não forem necessárias, peça ao Gerente a dispensa.</td></tr>
+    <tr><td>As certidões de … estão em dia: não precisa de dispensa</td><td>O fornecedor já pode receber proposta.</td></tr>
+    <tr><td>Escreva o motivo da dispensa</td><td>O Gerente explica por que as certidões não são necessárias nesta compra (mínimo 10 caracteres).</td></tr>
+    <tr><td>Cole o link do produto / Informe o site da compra</td><td>Na compra pela internet, o link completo (começando com https://) e o nome do site são obrigatórios.</td></tr>
     <tr><td>Escolhido não é o menor preço: escreva a justificativa</td><td>Explique a escolha (mínimo 10 caracteres).</td></tr>
     <tr><td>Só N proposta(s): o mínimo é 3</td><td>Registre mais propostas ou a exceção de fornecedor exclusivo.</td></tr>
     <tr><td>Escolha o fornecedor antes de enviar</td><td>Clique em Escolher no vencedor.</td></tr>
@@ -159,7 +169,7 @@
     <tr><td>Este cadastro está inativo para cotações</td><td>O fornecedor foi desativado na base. Fale com quem cadastrou ou com a Nervia.</td></tr>
     <tr><td>O PDF passa de 10 MB / Não foi possível receber o PDF</td><td>Reduzir o arquivo, ou enviar sem o PDF.</td></tr>
   </table>
-  <div class="rodape">Dúvidas: WhatsApp (21) 96686-9374 · atendimento@nervia.com.br<br>Nervia Tecnologia · Manual do app Orçamentos de Compras · atualizado em 17/10/2026</div>
+  <div class="rodape">Dúvidas: WhatsApp (21) 96686-9374 · atendimento@nervia.com.br<br>Nervia Tecnologia · Manual do app Orçamentos de Compras · atualizado em 20/10/2026</div>
 </div>
 <script src="/marca-dagua.js" data-tipo="doc"></script>
 </body>

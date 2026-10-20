@@ -6,7 +6,7 @@
 // "Recomeçar" apaga e volta ao início. Usado por /demo/compras/ e /demo/cotacao/ (gerados por divulgacao/demo/gerar.py).
 (function () {
   "use strict";
-  const CHAVE = "nervia_demo_compras_v3", CHAVE_PAPEL = "nervia_demo_compras_papel";
+  const CHAVE = "nervia_demo_compras_v4", CHAVE_PAPEL = "nervia_demo_compras_papel";
   // localStorage quando houver; sem ele (janela anônima restrita), memória da própria página
   const MEM = {};
   const ls = {
@@ -72,7 +72,7 @@
         { nome: "Automação", ordem: 210, descricao: "Automação predial, controladores, sensores e peças de elevadores e escadas rolantes." },
         { nome: "Outros", ordem: 999, descricao: "O que não se encaixa nos grupos acima." },
       ],
-      fornecedores: [], avais: [], requisicoes: [], propostas: [], aprovacoes: [], avaliacoes: [], historico: [], convites: [], anexos: {},
+      fornecedores: [], avais: [], requisicoes: [], propostas: [], aprovacoes: [], avaliacoes: [], historico: [], convites: [], dispensas: [], anexos: {},
     };
   }
 
@@ -83,6 +83,10 @@
   const req = (id) => S.requisicoes.find((r) => r.id === Number(id));
   const totalP = (p, r) => r2(p.preco_unitario * r.quantidade + p.frete);
   const nomeAtual = () => (EU ? EU.nome : "sistema");
+  // fornecedor cadastrado por outra empresa que usa o app (base única do sistema): não mostra quem cadastrou
+  const mesmaEmpresa = (f) => f.cadastrado_unidade === UNID;
+  const nomeP = (p) => (p.origem === "internet" ? `Internet — ${p.site}${p.vendedor ? " (" + p.vendedor + ")" : ""}` : forn(p.fornecedor_id).nome);
+  const certOk = (reqId, f) => !f.certidoes_validade || f.certidoes_validade >= hoje() || S.dispensas.some((d) => d.requisicao_id === reqId && d.fornecedor_id === f.id);
 
   function registrar(reqId, fornId, acao, texto, det, quemNome) {
     S.historico.push({ id: novoId("hist"), requisicao_id: reqId, fornecedor_id: fornId, unidade_id: UNID, quem: quemNome ? null : EU && EU.id,
@@ -109,7 +113,7 @@
     }
     return false;
   }
-  const comprasDe = (fid) => S.requisicoes.filter((r) => ["aprovada", "pedido", "entregue", "concluida"].includes(r.status) && r.proposta_escolhida
+  const comprasDe = (fid) => S.requisicoes.filter((r) => r.unidade_id === UNID).filter((r) => ["aprovada", "pedido", "entregue", "concluida"].includes(r.status) && r.proposta_escolhida
     && (S.propostas.find((p) => p.id === r.proposta_escolhida) || {}).fornecedor_id === fid);
 
   function desfazEscolha(r, quemNome) {
@@ -122,12 +126,14 @@
     cmp_fornecedores_lista() {
       return S.fornecedores.map((f) => {
         const av = S.avaliacoes.filter((a) => a.fornecedor_id === f.id);
+        const me = mesmaEmpresa(f);
         return { ...f,
           documento: f.tipo === "PJ" || f.cadastrado_por === (EU && EU.id) ? f.documento : "***" + f.documento.slice(3, 9) + "**",
+          obs: me ? f.obs : "", cadastrado_por: me ? f.cadastrado_por : null, cadastrado_nome: me ? f.cadastrado_nome : "", cadastrado_unidade: me ? f.cadastrado_unidade : null,
           nota: av.length ? r2(av.reduce((s, a) => s + (a.prazo + a.qualidade + a.conformidade + a.atendimento) / 4, 0) / av.length) : null,
-          avaliacoes: av.length, unidades_avaliacao: av.length ? [unidade().nome] : [],
+          avaliacoes: av.length, unidades_avaliacao: [],
           avais: S.avais.filter((v) => v.fornecedor_id === f.id).map((v) => ({ unidade_id: v.unidade_id, unidade: unidade().nome, por: v.dado_por_nome, em: v.dado_em })),
-          compras: comprasDe(f.id).length };
+          compras: comprasDe(f.id).length + (f.compras_outras || 0), mesma_empresa: me, compras_empresa: comprasDe(f.id).length };
       }).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
     },
     cmp_salvar_fornecedor(a) {
@@ -136,7 +142,8 @@
         if (!temPapel(["comprador", "gerente", "diretor"])) falha("Só comprador, gerente ou diretor da unidade cadastra fornecedor.");
         if (!docValido(a.p_tipo, doc)) falha(`${a.p_tipo === "PF" ? "CPF" : "CNPJ"} inválido (dígito verificador não confere). Confira o número.`);
         const ex = S.fornecedores.find((f) => f.documento === doc);
-        if (ex) falha(`Este ${a.p_tipo === "PF" ? "CPF" : "CNPJ"} já está cadastrado: ${ex.nome} (por ${ex.cadastrado_nome} em ${dataBR(ex.cadastrado_em)}). Use o cadastro existente.`);
+        if (ex && mesmaEmpresa(ex)) falha(`Este ${a.p_tipo === "PF" ? "CPF" : "CNPJ"} já está cadastrado: ${ex.nome} (por ${ex.cadastrado_nome} em ${dataBR(ex.cadastrado_em)}). Use o cadastro existente.`);
+        if (ex) falha(`Este ${a.p_tipo === "PF" ? "CPF" : "CNPJ"} já está na base de fornecedores: ${ex.nome}. Use o cadastro existente.`);
         const f = { id: "f-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), tipo: a.p_tipo, documento: doc, nome: String(a.p_nome || "").trim(),
           grupos: a.p_grupos || [], contato: a.p_contato || "", email: a.p_email || "", telefone: a.p_telefone || "", certidoes_validade: a.p_certidoes || null,
           obs: a.p_obs || "", cadastrado_por: EU.id, cadastrado_nome: EU.nome, cadastrado_unidade: UNID, cadastrado_em: agoraISO(), ativo: true };
@@ -163,7 +170,7 @@
     cmp_salvar_proposta(a) {
       const r = reqPara(a.p_req, ["comprador"], ["nova", "cotacao"]);
       const f = forn(a.p_fornecedor); if (!f || !f.ativo) falha("Fornecedor não encontrado ou inativo.");
-      if (f.certidoes_validade && f.certidoes_validade < hoje()) falha(`As certidões de ${f.nome} venceram em ${dataBR(f.certidoes_validade)}. Atualize o cadastro antes de registrar a proposta.`);
+      if (!certOk(r.id, f)) falha(`As certidões de ${f.nome} venceram em ${dataBR(f.certidoes_validade)}. Atualize o cadastro ou peça ao Gerente a dispensa das certidões nesta compra.`);
       if (a.p_preco == null || a.p_preco < 0 || a.p_prazo == null || a.p_prazo < 0 || isNaN(a.p_preco) || isNaN(a.p_prazo)) falha("Preço e prazo são obrigatórios.");
       const dados = { preco_unitario: r2(a.p_preco), frete: r2(a.p_frete || 0), custos_extras: r2(a.p_extras || 0), prazo_dias: Number(a.p_prazo),
         pagamento: a.p_pagamento || "À vista", pagamento_dias: Number(a.p_pagamento_dias || 0), validade: a.p_validade || null, obs: a.p_obs || "" };
@@ -191,7 +198,7 @@
       if (p.origem === "fornecedor" && motivo.length < 5) falha("A proposta foi enviada pelo próprio fornecedor: escreva o motivo da exclusão.");
       if (r.proposta_escolhida === p.id) { r.proposta_escolhida = null; r.justificativa = ""; }
       S.propostas = S.propostas.filter((x) => x.id !== p.id);
-      registrar(r.id, p.fornecedor_id, "proposta_excluida", `Proposta de ${forn(p.fornecedor_id).nome} excluída${motivo ? ": " + motivo : "."}`);
+      registrar(r.id, p.fornecedor_id, "proposta_excluida", `Proposta de ${nomeP(p)} excluída${motivo ? ": " + motivo : "."}`);
       return null;
     },
     cmp_escolher(a) {
@@ -201,7 +208,7 @@
       const just = String(a.p_justificativa || "").trim();
       if (tot > min && just.length < 10) falha("Escolhido não é o menor preço: escreva a justificativa (mínimo 10 caracteres).");
       r.proposta_escolhida = p.id; r.justificativa = tot > min ? just : ""; r.atualizado_em = agoraISO();
-      registrar(r.id, null, "fornecedor_escolhido", `Escolheu ${forn(p.fornecedor_id).nome} (${tot > min ? "não é o menor preço" : "menor preço"})${tot > min ? " — justificativa: " + just : ""}`);
+      registrar(r.id, null, "fornecedor_escolhido", `Escolheu ${nomeP(p)} (${tot > min ? "não é o menor preço" : "menor preço"})${tot > min ? " — justificativa: " + just : ""}`);
       return null;
     },
     cmp_excecao(a) {
@@ -214,15 +221,18 @@
       if (!r.proposta_escolhida) falha("Escolha o fornecedor antes de enviar.");
       const props = S.propostas.filter((x) => x.requisicao_id === r.id);
       if (props.length < u.minimo_propostas && !r.excecao) falha(`Só ${props.length} proposta(s): o mínimo é ${u.minimo_propostas}. Registre mais propostas ou a exceção de exclusividade.`);
-      const p = props.find((x) => x.id === r.proposta_escolhida), f = forn(p.fornecedor_id);
-      if (f.certidoes_validade && f.certidoes_validade < hoje()) falha(`As certidões de ${f.nome} estão vencidas. Atualize o cadastro antes de enviar.`);
+      const p = props.find((x) => x.id === r.proposta_escolhida), inter = p.origem === "internet", f = inter ? null : forn(p.fornecedor_id);
+      if (f && !certOk(r.id, f)) falha(`As certidões de ${f.nome} estão vencidas. Atualize o cadastro ou peça ao Gerente a dispensa das certidões nesta compra.`);
       const tot = totalP(p, r), menor = tot <= Math.min(...props.map((x) => totalP(x, r)));
-      const novo = !comprasDe(f.id).some((x) => x.id !== r.id), comp = f.cadastrado_por === EU.id;
-      const alcada = tot <= u.alcada_automatica && menor && !novo ? "automatica" : tot <= u.alcada_gerente ? "gerente" : "diretor";
-      Object.assign(r, { alcada, valor_aprovacao: tot, fornecedor_novo: novo, cadastrado_pelo_comprador: comp, enviado_por: EU.id, enviado_em: agoraISO(),
+      const novo = f ? !comprasDe(f.id).some((x) => x.id !== r.id) : false, comp = f ? f.cadastrado_por === EU.id : false;
+      const disp = !!(f && f.certidoes_validade && f.certidoes_validade < hoje());
+      // compra pela internet: nunca automática; o Gerente dá o aval
+      const alcada = !inter && tot <= u.alcada_automatica && menor && !novo ? "automatica" : tot <= u.alcada_gerente ? "gerente" : "diretor";
+      Object.assign(r, { alcada, valor_aprovacao: tot, fornecedor_novo: novo, compra_internet: inter, cadastrado_pelo_comprador: comp, enviado_por: EU.id, enviado_em: agoraISO(),
         status: alcada === "automatica" ? "aprovada" : "aprovacao", atualizado_em: agoraISO() });
-      registrar(r.id, f.id, "enviada_aprovacao", `Enviada para aprovação: ${f.nome}, ${brl(tot)}. Alçada: ${{ automatica: "automática", gerente: "Gerente", diretor: "Gerente e Diretor" }[alcada]}`
-        + (novo ? ". Primeira compra com este fornecedor" : "") + (comp ? ". Fornecedor cadastrado por quem está comprando" : ""));
+      registrar(r.id, p.fornecedor_id, "enviada_aprovacao", `Enviada para aprovação: ${nomeP(p)}, ${brl(tot)}. Alçada: ${{ automatica: "automática", gerente: "Gerente", diretor: "Gerente e Diretor" }[alcada]}`
+        + (inter ? ". Compra pela internet: precisa do aval do Gerente" : "") + (novo ? ". Primeira compra com este fornecedor" : "") + (comp ? ". Fornecedor cadastrado por quem está comprando" : "")
+        + (disp ? ". Certidões vencidas, dispensadas pelo Gerente nesta compra" : ""));
       if (alcada === "automatica") {
         S.aprovacoes.push({ id: novoId("aprov"), requisicao_id: r.id, etapa: "sistema", decisao: "aprovado", comentario: `Até ${brl(u.alcada_automatica)}, menor preço e fornecedor com compras anteriores.`, por: null, por_nome: "Sistema", em: agoraISO() });
         registrar(r.id, null, "aprovacao_automatica", "Aprovação automática (até a alçada, menor preço).");
@@ -241,10 +251,10 @@
       S.aprovacoes.push({ id: novoId("aprov"), requisicao_id: r.id, etapa, decisao: a.p_aprovar ? "aprovado" : "reprovado", comentario: com, por: EU.id, por_nome: EU.nome, em: agoraISO() });
       const fid = S.propostas.find((x) => x.id === r.proposta_escolhida).fornecedor_id;
       if (!a.p_aprovar) { r.status = "reprovada"; registrar(r.id, fid, "reprovada", `Reprovada pelo ${etapa === "gerente" ? "Gerente" : "Diretor"}: ${com}`); return "reprovada"; }
-      if (a.p_dar_aval && etapa === "gerente") RPC.cmp_aval({ p_fornecedor: fid, p_unidade: UNID, p_dar: true });
+      if (a.p_dar_aval && etapa === "gerente" && fid) RPC.cmp_aval({ p_fornecedor: fid, p_unidade: UNID, p_dar: true });
       const novo = etapa === "gerente" && r.alcada === "diretor" ? "aprovacao" : "aprovada";
       r.status = novo; r.atualizado_em = agoraISO();
-      registrar(r.id, fid, "aprovada_" + etapa, `Aprovada pelo ${etapa === "gerente" ? "Gerente" : "Diretor"}${com ? ": " + com : ""}${novo === "aprovacao" ? ". Segue para o Diretor." : ""}`);
+      registrar(r.id, fid, "aprovada_" + etapa, `Aprovada pelo ${etapa === "gerente" ? "Gerente" : "Diretor"}${etapa === "gerente" && r.compra_internet ? " (aval à compra pela internet)" : ""}${com ? ": " + com : ""}${novo === "aprovacao" ? ". Segue para o Diretor." : ""}`);
       return novo;
     },
     cmp_emitir_pedido(a) {
@@ -256,12 +266,12 @@
       registrar(r.id, S.propostas.find((x) => x.id === r.proposta_escolhida).fornecedor_id, "entregue", "Pedido entregue. Avaliação do fornecedor pendente para o Gerente."); return null;
     },
     cmp_avaliar(a) {
-      const r = reqPara(a.p_req, ["gerente"], ["entregue"]), fid = S.propostas.find((x) => x.id === r.proposta_escolhida).fornecedor_id;
+      const r = reqPara(a.p_req, ["gerente"], ["entregue"]), pe = S.propostas.find((x) => x.id === r.proposta_escolhida), fid = pe.fornecedor_id;
       const nota = (k) => { const v = Number(a[k]); if (!(v >= 1 && v <= 5)) falha("Notas de 1 a 5."); return v; };
       S.avaliacoes.push({ id: novoId("aval"), requisicao_id: r.id, fornecedor_id: fid, unidade_id: UNID, prazo: nota("p_prazo"), qualidade: nota("p_qualidade"),
         conformidade: nota("p_conformidade"), atendimento: nota("p_atendimento"), comentario: String(a.p_comentario || "").trim(), avaliador: EU.id, avaliador_nome: EU.nome, em: agoraISO() });
       r.status = "concluida";
-      registrar(r.id, fid, "fornecedor_avaliado", `${forn(fid).nome} avaliado: prazo ${a.p_prazo}, qualidade ${a.p_qualidade}, conforme a proposta ${a.p_conformidade}, atendimento ${a.p_atendimento}${a.p_comentario ? " — " + a.p_comentario : ""}`);
+      registrar(r.id, fid, "fornecedor_avaliado", `${nomeP(pe)} avaliado: prazo ${a.p_prazo}, qualidade ${a.p_qualidade}, conforme a proposta ${a.p_conformidade}, atendimento ${a.p_atendimento}${a.p_comentario ? " — " + a.p_comentario : ""}`);
       return null;
     },
     cmp_cancelar(a) {
@@ -275,6 +285,46 @@
       const r = reqPara(a.p_req, ["comprador"], ["reprovada"]);
       Object.assign(r, { status: "cotacao", alcada: null, valor_aprovacao: null, enviado_por: null, enviado_em: null });
       registrar(r.id, null, "reaberta", "Reaberta para nova cotação após reprovação."); return null;
+    },
+    // ---- melhorias de 20/10/2026: compra pela internet, dispensa de certidões, avaliações anônimas
+    cmp_salvar_proposta_internet(a) {
+      const r = reqPara(a.p_req, ["comprador"], ["nova", "cotacao"]);
+      const site = String(a.p_site || "").trim().slice(0, 80), link = String(a.p_link || "").trim(), vend = String(a.p_vendedor || "").trim().slice(0, 120);
+      if (site.length < 2) falha("Informe o site da compra (ex.: Mercado Livre, Amazon).");
+      if (!/^https?:\/\/\S+$/i.test(link) || link.length > 1000) falha("Cole o link do produto (endereço completo, começando com https://).");
+      if (a.p_preco == null || a.p_preco < 0 || a.p_prazo == null || a.p_prazo < 0 || isNaN(a.p_preco) || isNaN(a.p_prazo)) falha("Preço e prazo são obrigatórios.");
+      const dados = { site, link, vendedor: vend || null, preco_unitario: r2(a.p_preco), frete: r2(a.p_frete || 0), custos_extras: r2(a.p_extras || 0), prazo_dias: Number(a.p_prazo),
+        pagamento: a.p_pagamento || "À vista", pagamento_dias: Number(a.p_pagamento_dias || 0), validade: a.p_validade || null, obs: a.p_obs || "" };
+      let p;
+      if (a.p_proposta) {
+        p = S.propostas.find((x) => x.id === Number(a.p_proposta) && x.requisicao_id === r.id && x.origem === "internet"); if (!p) falha("Proposta de internet não encontrada nesta requisição.");
+        const totAnt = totalP(p, r);
+        if (dados.preco_unitario !== p.preco_unitario) { p.rodada += 1; p.preco_anterior = p.preco_unitario; }
+        Object.assign(p, dados, { atualizada_em: agoraISO() });
+        registrar(r.id, null, "proposta_alterada", `Proposta ${nomeP(p)} alterada: ${brl(totAnt)} → ${brl(totalP(p, r))}`);
+      } else {
+        p = { id: novoId("prop"), requisicao_id: r.id, fornecedor_id: null, ...dados, rodada: 1, preco_anterior: null, registrada_por: EU.id,
+          registrada_em: agoraISO(), atualizada_em: agoraISO(), origem: "internet", convite_id: null, anexo: null, declarante: null, enviada_ip: null };
+        S.propostas.push(p);
+        registrar(r.id, null, "proposta_registrada", `Proposta ${nomeP(p)} registrada: total ${brl(totalP(p, r))}, prazo ${p.prazo_dias} dias, ${p.pagamento}. Link: ${link}`);
+      }
+      desfazEscolha(r);
+      return p.id;
+    },
+    cmp_dispensar_certidoes(a) {
+      const r = reqPara(a.p_req, ["gerente"], ["nova", "cotacao"]);
+      const f = forn(a.p_fornecedor); if (!f) falha("Fornecedor não encontrado.");
+      if (!f.certidoes_validade || f.certidoes_validade >= hoje()) falha(`As certidões de ${f.nome} estão em dia: não precisa de dispensa.`);
+      const m = String(a.p_motivo || "").trim(); if (m.length < 10) falha("Escreva o motivo da dispensa (mínimo 10 caracteres).");
+      if (S.dispensas.some((d) => d.requisicao_id === r.id && d.fornecedor_id === f.id)) falha(`As certidões de ${f.nome} já foram dispensadas nesta requisição.`);
+      S.dispensas.push({ id: S.dispensas.length + 1, requisicao_id: r.id, fornecedor_id: f.id, motivo: m, certidoes_validade: f.certidoes_validade, por: EU.id, por_nome: EU.nome, em: agoraISO() });
+      registrar(r.id, f.id, "certidoes_dispensadas", `Gerente dispensou as certidões de ${f.nome} nesta compra (vencidas em ${dataBR(f.certidoes_validade)}): ${m}`);
+      return null;
+    },
+    cmp_avaliacoes_fornecedor(a) {
+      return S.avaliacoes.filter((x) => x.fornecedor_id === a.p_fornecedor).sort((x, y) => (x.em < y.em ? 1 : -1)).map((x) => ({ mes: x.em.slice(0, 7),
+        prazo: x.prazo, qualidade: x.qualidade, conformidade: x.conformidade, atendimento: x.atendimento,
+        media: r2((x.prazo + x.qualidade + x.conformidade + x.atendimento) / 4), comentario: x.comentario }));
     },
     // ---- fase 2: convites e proposta pelo link
     cmp_convidar(a) {
@@ -420,6 +470,12 @@
     F("f-cobertura", "PJ", "84196370000147", "Cobertura Segura Engenharia Ltda", ["Obras e reformas"], "Sérgio Pinho", "(21) 99715-1615", "", em(100), "comprador", 40);
     F("f-cristalina", "PJ", "95207481000128", "Cristalina Serviços de Limpeza Ltda", ["Material de limpeza e higiene", "Serviços contratados"], "Aline Freitas", "(21) 99716-1716", "", em(200), "gerente", 300);
     F("f-fardas", "PJ", "16308592000154", "Fardas & Cia Uniformes Ltda", ["Outros"], "Vera Lima", "(21) 99717-1817", "", em(80), "comprador", 30);
+    // base única do sistema: fornecedor cadastrado e avaliado por OUTRA empresa que usa o app (não se vê quem; avaliações anônimas)
+    F("f-pixel", "PJ", "27418529000163", "Pixel Prime Informática Ltda", ["Informática e tecnologia"], "Diego Moraes", "(21) 99718-1918", "vendas@pixelprime.exemplo", em(110), "comprador", 180);
+    Object.assign(S.fornecedores[S.fornecedores.length - 1], { cadastrado_por: null, cadastrado_nome: "", cadastrado_unidade: "un-outra-empresa", compras_outras: 4 });
+    [[95, [5, 5, 4, 5], "Entrega rápida e nota fiscal correta."], [40, [4, 4, 4, 3], "Atendimento demorou a responder, produto ok."]].forEach(([d, n, c]) =>
+      S.avaliacoes.push({ id: novoId("aval"), requisicao_id: null, fornecedor_id: "f-pixel", unidade_id: "un-outra-empresa", prazo: n[0], qualidade: n[1], conformidade: n[2], atendimento: n[3],
+        comentario: c, avaliador: null, avaliador_nome: "", em: new Date(Date.now() - d * 864e5).toISOString() }));
 
     // linha do tempo: cada passo acontece "N dias atrás", no papel de quem faz
     const eventos = [], R = {};
@@ -497,6 +553,21 @@
         validade: diaMaisDe(26), obs: "Compressor scroll 30 TR com garantia de 12 meses; partida assistida inclusa.", declarante: "Marcelo Fontes", aceite: true, anexo: nome } }); });
     passo(3, 11, null, () => { const c = S.convites.find((x) => x.fornecedor_id === "f-arcadia"); RPC.cmp_cotacao_ler({ p_codigo: c.codigo }); });
 
+    // certidões vencidas da Lumen Prime: o Gerente dispensa só nesta compra
+    criar("refletor", 3, "solicitante", { titulo: "Refletores LED 100 W para a doca de carga", grupo: "Água e energia", centro_custo: "Manutenção", quantidade: 6,
+      valor_estimado: 1500, precisa_ate: diaMaisDe(12), descricao: "Refletor LED 100 W, IP66, 6500 K, com suporte. Troca dos refletores queimados da doca." });
+    prop("refletor", 3, "f-faisca", 239, 0, 5, "28 dias", 28); prop("refletor", 3, "f-ribamar", 255, 0, 2, "À vista", 0, "Instalação inclusa.");
+    passo(2, 10, "gerente", () => RPC.cmp_dispensar_certidoes({ p_req: R.refletor, p_fornecedor: "f-lumen", p_motivo: "Compra pequena, entrega única e pagamento só depois da entrega." }));
+    prop("refletor", 2, "f-lumen", 219, 30, 4, "À vista", 0, "Garantia de 2 anos.");
+
+    // compra pela internet ao lado de fornecedores da base (um deles cadastrado por outra empresa)
+    criar("webcam", 2, "solicitante", { titulo: "Webcams Full HD para as salas de reunião", grupo: "Informática e tecnologia", centro_custo: "Administração", quantidade: 4,
+      valor_estimado: 1800, precisa_ate: diaMaisDe(10), descricao: "Webcam 1080p com microfone embutido, conexão USB, compatível com Teams e Zoom." });
+    prop("webcam", 2, "f-nodo", 429, 0, 6, "30 dias", 30); prop("webcam", 1, "f-pixel", 398, 25, 4, "28 dias", 28);
+    passo(1, 12, "comprador", () => RPC.cmp_salvar_proposta_internet({ p_req: R.webcam, p_proposta: null, p_site: "Mercado Livre", p_link: "https://lista.mercadolivre.com.br/webcam-full-hd-1080p",
+      p_vendedor: "Loja oficial do fabricante", p_preco: 349.9, p_frete: 0, p_extras: 0, p_prazo: 3, p_pagamento: "À vista", p_pagamento_dias: 0, p_validade: null,
+      p_obs: "Preço visto no site; vendedor com reputação máxima, garantia de 12 meses." }));
+
     criar("uniformes", 1, "solicitante", { titulo: "Uniformes para a equipe de limpeza", grupo: "Outros", centro_custo: "Material de limpeza e higiene", quantidade: 24, unidade_medida: "kit",
       valor_estimado: 3600, precisa_ate: diaMaisDe(21), descricao: "Kit com 2 camisas, 2 calças e 1 avental, tamanhos variados (lista com a supervisão)." });
 
@@ -528,7 +599,8 @@
   const TABELAS = {
     perfis: () => S.perfis, cmp_membros: () => S.membros, cmp_unidades: () => S.unidades, cmp_grupos: () => S.grupos,
     cmp_requisicoes: () => S.requisicoes, cmp_propostas: () => S.propostas, cmp_aprovacoes: () => S.aprovacoes,
-    cmp_avaliacoes: () => S.avaliacoes, cmp_historico: () => S.historico, cmp_convites: () => S.convites,
+    cmp_avaliacoes: () => S.avaliacoes.filter((a) => a.unidade_id === UNID), cmp_historico: () => S.historico, cmp_convites: () => S.convites,
+    cmp_dispensas: () => S.dispensas || [],
   };
   const copia = (o) => JSON.parse(JSON.stringify(o));
   function consulta(tabela) {

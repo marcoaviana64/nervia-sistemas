@@ -5,7 +5,7 @@ Precisa de: Postgres (PGHOST/PGPORT/PGUSER), o binário do PostgREST (variável 
 Sem internet para o CDN: SUPABASE_JS=caminho do supabase.js (umd) da mesma versão.
 Uso: PGHOST=/tmp/pgd PGPORT=5433 PGUSER=postgres POSTGREST=/caminho/postgrest python3 testes/compras/tela_compras_test.py [pasta_prints]
 """
-import os, sys, json, time, glob, subprocess, threading, http.server, functools, urllib.request
+import os, sys, json, time, glob, re, subprocess, threading, http.server, functools, urllib.request
 import jwt
 from playwright.sync_api import sync_playwright
 
@@ -120,7 +120,7 @@ try:
         pg.fill("[name=doc]", "11.222.333/0001-82"); pg.fill("[name=nome]", "TecnoRede"); confirmar(pg)
         ok("CNPJ inválido" in mensagem(pg), "CNPJ com dígito errado é recusado na tela")
         pg.click("[data-acao=novoForn]"); pg.fill("[name=doc]", "22.333.444/0001-81"); pg.fill("[name=nome]", "Duplicado"); confirmar(pg)
-        ok("já está cadastrado: InfoMais" in mensagem(pg), "duplicidade mostra o cadastro existente")
+        ok("já está na base de fornecedores: InfoMais" in mensagem(pg) and "Equipe Nervia" not in mensagem(pg), "duplicidade mostra o cadastro existente (sem quem cadastrou, se for de outra empresa)")
         pg.click("[data-acao=novoForn]"); pg.fill("[name=doc]", "11.222.333/0001-81"); pg.fill("[name=nome]", "TecnoRede Soluções")
         pg.check("[name=g][value='Informática e tecnologia']"); pg.fill("[name=cert]", "2027-12-31"); confirmar(pg)
         ok("responsável pela homologação" in mensagem(pg) and "TecnoRede Soluções" in pg.text_content("#tela"), "comprador cadastra fornecedor e vira responsável")
@@ -170,6 +170,57 @@ try:
         pg.fill("#pPreco", "40"); pg.fill("#cGer", "30000"); pg.click("[data-acao=salvarUnidade]"); pg.wait_for_timeout(400)
         ok("Regras salvas" in mensagem(pg), "admin altera a alçada do Gerente")
         ok(not er, "sem erros de script (admin) " + str(er))
+
+        # ---- melhorias de 20/10/2026: dispensa de certidões, compra pela internet e base única do sistema
+        psql("""insert into cmp_fornecedores (tipo, documento, nome, grupos, certidoes_validade, cadastrado_nome) values
+                  ('PJ', '44555666000181', 'Velha Guarda Informática', '{"Informática e tecnologia"}', current_date - 5, 'Equipe Nervia');""")
+        pg, er = entrar(b, "solicitante"); abrir(pg)
+        pg.click("[data-acao=novaReq]"); pg.fill("[name=titulo]", "Mouse sem fio"); pg.fill("[name=qtd]", "10"); confirmar(pg)
+        ok("#1002" in pg.text_content("#tela"), "requisição #1002 criada")
+        pg, er = entrar(b, "comprador"); abrir(pg); pg.click("tr[data-req='1002']"); pg.wait_for_timeout(400)
+        pg.click("[data-acao=novaProp]")
+        ok("Velha Guarda Informática (certidões vencidas: precisa da dispensa do Gerente)" in pg.text_content("[name=f]"), "lista avisa que certidão vencida precisa da dispensa")
+        pg.select_option("[name=f]", label="Velha Guarda Informática (certidões vencidas: precisa da dispensa do Gerente)"); pg.fill("[name=preco]", "70"); pg.fill("[name=prazo]", "5"); confirmar(pg)
+        ok("peça ao Gerente a dispensa" in mensagem(pg), "certidão vencida trava a proposta e indica a dispensa")
+        ok(pg.locator("[data-acao=dispensar]").count() == 0, "comprador não vê o botão de dispensar certidões")
+        pg.click("[data-acao=novaPropInt]"); pg.fill("[name=site]", "Mercado Livre"); pg.fill("[name=vend]", "Loja Y")
+        pg.fill("[name=link]", "https://www.mercadolivre.com.br/mouse-sem-fio-x"); pg.fill("[name=preco]", "60"); pg.fill("[name=prazo]", "4"); confirmar(pg)
+        ok("Compra pela internet registrada" in mensagem(pg), "compra pela internet registrada (site, vendedor, link)")
+        t = pg.text_content("#tela")
+        ok("Internet — Mercado Livre (Loja Y)" in t and pg.locator("a:text('ver o produto no site ↗')").get_attribute("href") == "https://www.mercadolivre.com.br/mouse-sem-fio-x"
+           and "sem CNPJ: o Gerente dá o aval" in t, "mapa mostra a compra pela internet com o link do produto")
+        pg.click("[data-acao=novaProp]"); pg.select_option("[name=f]", label="InfoMais Distribuidora"); pg.fill("[name=preco]", "75"); pg.fill("[name=prazo]", "3"); confirmar(pg)
+        ok(not er, "sem erros de script (comprador, internet) " + str(er))
+        pg, er = entrar(b, "gerente"); abrir(pg); pg.click("[data-v=reqs]"); pg.wait_for_timeout(200); pg.click("tr[data-req='1002']"); pg.wait_for_timeout(400)
+        pg.click("[data-acao=dispensar]"); pg.select_option("[name=f]", index=0); pg.fill("dialog [name=m]", "Compra pequena, pagamento na entrega."); confirmar(pg)
+        ok("Certidões dispensadas" in mensagem(pg) and "Certidões dispensadas pelo Gerente nesta compra" in pg.text_content("#tela") and "Sonia Gerente" in pg.text_content("#tela"),
+           "Gerente dispensa as certidões nesta compra (com motivo e nome)")
+        pg, er = entrar(b, "comprador"); abrir(pg); pg.click("tr[data-req='1002']"); pg.wait_for_timeout(400)
+        pg.click("[data-acao=novaProp]"); pg.select_option("[name=f]", label="Velha Guarda Informática (certidões dispensadas pelo Gerente)"); pg.fill("[name=preco]", "70"); pg.fill("[name=prazo]", "5"); confirmar(pg)
+        ok("Proposta registrada" in mensagem(pg) and "certidões vencidas · dispensadas pelo Gerente" in pg.text_content("#tela"), "com a dispensa, a proposta entra e o mapa avisa")
+        cab = pg.eval_on_selector_all("#tela table tr:first-child th", "l => l.map(e => e.innerText)"); idx = [i for i, x in enumerate(cab) if "INTERNET" in x.upper()][0]
+        pg.locator("[data-acao=escolher]").nth(idx - 1).click(); pg.wait_for_timeout(400)
+        ok("menor preço" in mensagem(pg), "escolhe a compra pela internet (menor preço)")
+        pg.click("[data-acao=enviar]"); pg.wait_for_timeout(500)
+        ok("Gerente" in mensagem(pg) and "Compra pela internet:" in pg.text_content("#tela"), "compra pela internet barata e menor preço vai ao Gerente (não é automática)")
+        pg.screenshot(path=os.path.join(SAIDA, "compras-internet.png"), full_page=True)
+        pg, er = entrar(b, "gerente"); abrir(pg); pg.click("tr[data-req='1002']"); pg.wait_for_timeout(400); pg.click("[data-acao=aprovar]")
+        d = pg.text_content("dialog")
+        ok("Compra pela internet" in d and "dá o aval do Gerente a esta compra" in d and pg.locator("dialog [name=aval]").count() == 0, "aprovação mostra a compra pela internet e o aval")
+        confirmar(pg)
+        ok("Aprovada" in mensagem(pg) and "aval à compra pela internet" in pg.text_content("#tela"), "Gerente aprova e o histórico registra o aval à compra pela internet")
+        ok(not er, "sem erros de script (gerente, internet) " + str(er))
+        # outra empresa (unidade sem empresa em comum): usa a base, vê a nota, não vê quem cadastrou nem os avais; avaliações anônimas
+        psql("""insert into cmp_unidades (nome) values ('Loja Beta');
+                insert into cmp_membros select '00000000-0000-0000-0000-0000000000d4', id, 'comprador' from cmp_unidades where nome = 'Loja Beta';""")
+        pg, er = entrar(b, "sem"); abrir(pg); pg.click("[data-v=forn]"); pg.wait_for_timeout(400)
+        linha = pg.locator("tr:has-text('TecnoRede Soluções')").text_content()
+        ok("outra empresa" in linha and "Rafael" not in linha and "4,8 ★" in linha and "Multicenter Itaipu ✓" not in linha, "outra empresa vê nota, sem quem cadastrou e sem os avais")
+        pg.locator("tr:has-text('TecnoRede Soluções') [data-acao=verAval]").click(); pg.wait_for_timeout(400)
+        d = pg.text_content("dialog")
+        ok("Entregou certo." in d and "Sonia" not in d and "Itaipu" not in d, "avaliações aparecem anônimas")
+        pg.click("dialog [value=ok]"); pg.wait_for_timeout(200)
+        ok(not er, "sem erros de script (outra empresa) " + str(er))
         # celular
         pg, er = entrar(b, "comprador", largura=390); abrir(pg); pg.click("[data-v=reqs]"); pg.select_option("#fSt", "todas"); pg.click("tr[data-req='1001']"); pg.wait_for_timeout(400)
         larg = pg.evaluate("document.documentElement.scrollWidth")

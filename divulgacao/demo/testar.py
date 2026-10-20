@@ -104,6 +104,16 @@ with sync_playwright() as p:
     corpo = pg.inner_text("body")
     for t in ("Vale Verde Distribuidora", "Uniformes para a equipe de limpeza", "Compressor para o chiller 2"):
         assert t in corpo, t
+    # melhorias de 20/10/2026: compra pela internet, dispensa de certidões, fornecedor de outra empresa com avaliações anônimas
+    pg.click("[data-v=reqs]"); pg.click("tr[data-req='1011']"); pg.wait_for_timeout(300)
+    t = pg.inner_text("#tela").upper()
+    assert "INTERNET — MERCADO LIVRE" in t and "PIXEL PRIME" in t and pg.locator("a:text('ver o produto no site ↗')").count() == 1
+    pg.click("[data-acao=voltar]"); pg.click("[data-v=reqs]"); pg.click("tr[data-req='1010']"); pg.wait_for_timeout(300)
+    assert "dispensadas pelo Gerente" in pg.inner_text("#tela")
+    pg.click("[data-v=forn]"); pg.wait_for_timeout(300)
+    assert "outra empresa" in pg.locator("tr", has_text="Pixel Prime").inner_text()
+    pg.locator("tr", has_text="Pixel Prime").locator("[data-acao=verAval]").click(); pg.wait_for_timeout(300)
+    assert "Entrega rápida" in pg.inner_text("dialog"); pg.click("dialog [value=ok]")
     pg.click("[data-v=reqs]"); pg.click("tr[data-req='1009']"); pg.wait_for_timeout(300)
     assert "2 de 3 propostas" in pg.inner_text("#tela")
     pg.locator("tr", has_text="Arcádia").locator("[data-acao=whats]").click(); pg.wait_for_selector(".demo-modal")

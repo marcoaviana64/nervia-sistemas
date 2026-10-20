@@ -179,6 +179,12 @@ const tem = p => papeis().has(p);
 const unidade = () => UNIDADES.find(u => u.id === UNID) || {};
 const fornecedor = id => FORN.find(f => f.id === id) || { nome: "?", avais: [] };
 const temAval = (f, uid) => (f.avais || []).some(a => a.unidade_id === uid);
+// proposta de compra pela internet (sem fornecedor da base): site, link do produto e vendedor
+const ehInternet = p => p && p.origem === "internet";
+const nomeProp = p => ehInternet(p) ? `Internet — ${p.site}${p.vendedor ? " (" + p.vendedor + ")" : ""}` : fornecedor(p.fornecedor_id).nome;
+const linkSeguro = u => /^https?:\/\/\S+$/i.test(String(u || "")) ? u : "";
+const certVencida = f => !!(f && f.certidoes_validade && f.certidoes_validade < hojeISO());
+const dispensado = fid => !!(DET && (DET.disps || []).some(d => d.fornecedor_id === fid));
 
 // ---------------------------------------------------------------- carga
 async function iniciar() {
@@ -216,14 +222,15 @@ async function carregar() {
   render();
 }
 async function carregarDetalhe(id) {
-  const [props, aprovs, hist, aval, convs] = await Promise.all([
+  const [props, aprovs, hist, aval, convs, disps] = await Promise.all([
     sb.from("cmp_propostas").select("*").eq("requisicao_id", id).order("id"),
     sb.from("cmp_aprovacoes").select("*").eq("requisicao_id", id).order("id"),
     sb.from("cmp_historico").select("*").eq("requisicao_id", id).order("id"),
     sb.from("cmp_avaliacoes").select("*").eq("requisicao_id", id).maybeSingle(),
     sb.from("cmp_convites").select("*").eq("requisicao_id", id).order("id"),
+    sb.from("cmp_dispensas").select("*").eq("requisicao_id", id).order("id"),
   ]);
-  return { props: checar(props), aprovs: checar(aprovs), hist: checar(hist), aval: checar(aval), convs: checar(convs) };
+  return { props: checar(props), aprovs: checar(aprovs), hist: checar(hist), aval: checar(aval), convs: checar(convs), disps: disps.error ? [] : disps.data };
 }
 $("unidade").onchange = async () => { UNID = $("unidade").value; try { localStorage.setItem("cmp-unidade", UNID); } catch {} SEL = null; limparMsg(); await carregar(); };
 document.querySelectorAll(".barra .aba").forEach(b => b.onclick = () => { VISTA = b.dataset.v; SEL = null; limparMsg(); render(); });
@@ -305,6 +312,8 @@ function pontuar(r, props) {
 }
 // de onde veio a proposta: pelo link do fornecedor (com quem enviou e o PDF) ou lançada pelo comprador
 function origemProp(p) {
+  if (ehInternet(p)) { const l = linkSeguro(p.link);
+    return tag("compra pela internet", "t-warn") + (l ? `<div><a href="${esc(l)}" target="_blank" rel="noopener noreferrer">ver o produto no site ↗</a></div>` : ""); }
   if (p.origem !== "fornecedor") return '<span class="mut">lançada pelo comprador</span>';
   return tag("enviada pelo fornecedor", "t-ok") + `<div class="mut">${esc(p.declarante || "")} · ${dataHora(p.atualizada_em)}</div>`
     + (p.anexo ? `<button class="lnk" data-acao="pdf" data-id="${p.id}">ver PDF</button>` : "");
@@ -363,6 +372,7 @@ function vDetalhe() {
   const r = REQS.find(x => x.id === SEL); if (!r) { SEL = null; return vPainel(); }
   const { props, aprovs, hist, aval, convs } = DET, u = unidade(), comp = tem("comprador");
   const edita = comp && ["nova", "cotacao"].includes(r.status);
+  const dispPode = tem("gerente") && ["nova", "cotacao"].includes(r.status);
   const sc = pontuar(r, props), best = sc.length ? sc.indexOf(sc.reduce((a, b) => b.total > a.total ? b : a)) : -1;
   const minT = props.length ? Math.min(...props.map(p => totalProp(p, r))) : 0, minC = props.length ? Math.min(...props.map(p => tcoProp(p, r))) : 0;
   const minZ = props.length ? Math.min(...props.map(p => p.prazo_dias)) : 0;
@@ -380,38 +390,43 @@ function vDetalhe() {
       ${r.descricao ? `<div class="tudo"><label>Especificação</label>${esc(r.descricao).replace(/\n/g, "<br>")}</div>` : ""}
     </div></div>`;
   // mapa
-  h += `<div class="card"><h2>Mapa comparativo <span class="mut">${props.length} de ${u.minimo_propostas} propostas mínimas</span>${edita ? `<span class="dir"><button class="bt pri" data-acao="novaProp">+ Registrar proposta</button></span>` : ""}</h2>`;
-  if (!props.length) h += '<p class="mut">Nenhuma proposta ainda. Convide os fornecedores (eles mesmos enviam pelo link) ou registre as propostas recebidas por outro meio.</p>';
+  h += `<div class="card"><h2>Mapa comparativo <span class="mut">${props.length} de ${u.minimo_propostas} propostas mínimas</span>${edita || dispPode ? `<span class="dir">${edita ? `<button class="bt pri" data-acao="novaProp">+ Registrar proposta</button><button class="bt" data-acao="novaPropInt">+ Compra pela internet</button>` : ""}${dispPode ? `<button class="bt" data-acao="dispensar">Dispensar certidões</button>` : ""}</span>` : ""}</h2>`;
+  if (!props.length) h += '<p class="mut">Nenhuma proposta ainda. Convide os fornecedores (eles mesmos enviam pelo link), registre as propostas recebidas por outro meio ou um preço de site da internet (Mercado Livre, Amazon…).</p>';
   else {
     const col = (fn, cls) => props.map((p, i) => `<td class="${cls ? cls(p, i) : ""}${p.id === r.proposta_escolhida ? " escolhida" : ""}">${fn(p, i)}</td>`).join("");
-    h += `<div class="tw"><table><tr><th></th>${props.map(p => `<th class="${p.id === r.proposta_escolhida ? "escolhida" : ""}">${esc(fornecedor(p.fornecedor_id).nome)}${p.rodada > 1 ? " " + tag("re-cotado", "t-info") : ""}<div>${origemProp(p)}</div></th>`).join("")}</tr>
+    h += `<div class="tw"><table><tr><th></th>${props.map(p => `<th class="${p.id === r.proposta_escolhida ? "escolhida" : ""}">${esc(nomeProp(p))}${p.rodada > 1 ? " " + tag("re-cotado", "t-info") : ""}<div>${origemProp(p)}</div></th>`).join("")}</tr>
       <tr><td>Preço unitário</td>${col(p => brl(p.preco_unitario) + (p.preco_anterior != null ? `<div class="mut">antes ${brl(p.preco_anterior)}</div>` : ""))}</tr>
       <tr><td>Total (× qtd + frete)</td>${col(p => brl(totalProp(p, r)) + `<div class="mut">frete ${brl(p.frete)}</div>`, p => totalProp(p, r) === minT ? "melhor" : "")}</tr>
       <tr><td>Custos extras 12 meses</td>${col(p => brl(p.custos_extras))}</tr>
       <tr><td><b>Custo total (TCO)</b></td>${col(p => brl(tcoProp(p, r)), p => tcoProp(p, r) === minC ? "melhor" : "")}</tr>
       <tr><td>Prazo de entrega</td>${col(p => p.prazo_dias + " dias", p => p.prazo_dias === minZ ? "melhor" : "")}</tr>
       <tr><td>Pagamento</td>${col(p => esc(p.pagamento) + (p.validade ? `<div class="mut">proposta vale até ${dataBR(p.validade)}</div>` : ""))}</tr>
-      <tr><td>Nota do fornecedor</td>${col(p => { const f = fornecedor(p.fornecedor_id); return f.nota == null ? tag("sem avaliação", "t-mut") : `${Number(f.nota).toFixed(1).replace(".", ",")} ★ <span class="mut">(${f.avaliacoes})</span>`; })}</tr>
-      <tr><td>Situação do fornecedor</td>${col(p => { const f = fornecedor(p.fornecedor_id); return (temAval(f, UNID) ? tag("aval do Gerente ✓", "t-ok") : tag("Gerente ainda não deu o aval", "t-warn"))
-        + (f.compras ? "" : tag("fornecedor novo", "t-info")) + (f.cadastrado_por === EU.id && comp ? tag("cadastrado por você", "t-crit") : "")
-        + (f.certidoes_validade && f.certidoes_validade < hojeISO() ? tag("certidões vencidas", "t-crit") : ""); })}</tr>
+      <tr><td>Nota do fornecedor</td>${col(p => { if (ehInternet(p)) return tag("site da internet", "t-mut"); const f = fornecedor(p.fornecedor_id); return f.nota == null ? tag("sem avaliação", "t-mut") : `${Number(f.nota).toFixed(1).replace(".", ",")} ★ <span class="mut">(${f.avaliacoes})</span>`; })}</tr>
+      <tr><td>Situação do fornecedor</td>${col(p => { if (ehInternet(p)) return tag("sem CNPJ: o Gerente dá o aval na aprovação", "t-warn");
+        const f = fornecedor(p.fornecedor_id); return (temAval(f, UNID) ? tag("aval do Gerente ✓", "t-ok") : tag("Gerente ainda não deu o aval", "t-warn"))
+        + (f.compras_empresa ? "" : tag("fornecedor novo", "t-info")) + (f.cadastrado_por === EU.id && comp ? tag("cadastrado por você", "t-crit") : "")
+        + (certVencida(f) ? (dispensado(f.id) ? tag("certidões vencidas · dispensadas pelo Gerente", "t-warn") : tag("certidões vencidas", "t-crit")) : ""); })}</tr>
       ${props.some(p => p.obs) ? `<tr><td>Observações</td>${col(p => esc(p.obs))}</tr>` : ""}
       <tr><td><b>Nota na matriz</b><div class="mut">preço ${u.pesos.preco}% · prazo ${u.pesos.prazo}% · pagto ${u.pesos.pagamento}% · qualidade ${u.pesos.qualidade}%</div></td>
         ${col((p, i) => `${sc[i].total.toFixed(1).replace(".", ",")}${i === best ? " · recomendado" : ""}<div class="barrinha"><i style="width:${Math.min(100, sc[i].total)}%"></i></div>`, (p, i) => i === best ? "melhor" : "")}</tr>
       ${edita ? `<tr><td></td>${col(p => `<button class="bt ${p.id === r.proposta_escolhida ? "pri" : ""}" data-acao="escolher" data-id="${p.id}">${p.id === r.proposta_escolhida ? "✓ Escolhido" : "Escolher"}</button>
-        <div style="margin-top:6px">${p.origem === "fornecedor" ? "" : `<button class="lnk" data-acao="editProp" data-id="${p.id}">editar / re-cotar</button> · `}<button class="lnk" data-acao="delProp" data-id="${p.id}">excluir</button></div>`)}</tr>` : ""}
+        <div style="margin-top:6px">${p.origem === "fornecedor" ? "" : `<button class="lnk" data-acao="${ehInternet(p) ? "editPropInt" : "editProp"}" data-id="${p.id}">editar / re-cotar</button> · `}<button class="lnk" data-acao="delProp" data-id="${p.id}">excluir</button></div>`)}</tr>` : ""}
     </table></div>`;
   }
   if (falta && ["nova", "cotacao"].includes(r.status)) h += `<div class="aviso crit"><b>Trava: ${props.length} proposta(s).</b> O mínimo é ${u.minimo_propostas}. Só segue para aprovação com a exceção de fornecedor exclusivo justificada.</div>`;
   if (r.excecao) h += `<div class="aviso info"><b>Exceção de exclusividade:</b> ${esc(r.excecao)}</div>`;
   if (esc_) {
-    const f = fornecedor(esc_.fornecedor_id), menor = totalProp(esc_, r) <= minT;
-    h += `<div class="aviso ${menor ? "ok" : "info"}"><b>Escolhido: ${esc(f.nome)} — ${brl(totalProp(esc_, r))}.</b> ${menor ? "É o menor preço." : `Não é o menor preço (menor: ${brl(minT)}).`}
+    const f = ehInternet(esc_) ? null : fornecedor(esc_.fornecedor_id), menor = totalProp(esc_, r) <= minT;
+    h += `<div class="aviso ${menor ? "ok" : "info"}"><b>Escolhido: ${esc(nomeProp(esc_))} — ${brl(totalProp(esc_, r))}.</b> ${menor ? "É o menor preço." : `Não é o menor preço (menor: ${brl(minT)}).`}
       ${r.justificativa ? `<br><b>Justificativa:</b> ${esc(r.justificativa)}` : ""}
       ${r.alcada ? `<br><b>Alçada:</b> ${{ automatica: "aprovação automática", gerente: "Gerente", diretor: "Gerente e depois Diretor" }[r.alcada]}` : ""}
       ${r.fornecedor_novo ? "<br><b>Primeira compra com este fornecedor</b> — vai sempre ao Gerente." : ""}
       ${r.cadastrado_pelo_comprador ? "<br><b>Fornecedor cadastrado por quem está comprando.</b>" : ""}
-      ${temAval(f, UNID) ? "" : "<br>O Gerente ainda não deu o aval a este fornecedor nesta unidade."}</div>`;
+      ${f ? (temAval(f, UNID) ? "" : "<br>O Gerente ainda não deu o aval a este fornecedor nesta unidade.") : "<br><b>Compra pela internet:</b> vai sempre ao Gerente, que dá o aval na aprovação (nunca é automática)."}
+      ${f && certVencida(f) && dispensado(f.id) ? "<br><b>Certidões vencidas, dispensadas pelo Gerente nesta compra.</b>" : ""}</div>`;
+  }
+  if (DET.disps && DET.disps.length) {
+    h += `<div class="aviso warn"><b>Certidões dispensadas pelo Gerente nesta compra:</b>${DET.disps.map(d => `<br>${esc(fornecedor(d.fornecedor_id).nome)} (vencidas em ${dataBR(d.certidoes_validade)}) — ${esc(d.motivo)} <span class="mut">· ${esc(d.por_nome)}, ${dataHora(d.em)}</span>`).join("")}</div>`;
   }
   // ações
   const bts = [];
@@ -445,7 +460,7 @@ function vForn() {
   if (FILTRO.g) l = l.filter(f => f.grupos.includes(FILTRO.g));
   if (FILTRO.q) { const q = FILTRO.q.toLowerCase(); l = l.filter(f => (f.nome + " " + f.documento).toLowerCase().includes(q)); }
   const pode = tem("comprador") || tem("gerente") || tem("diretor"), ger = tem("gerente"), hoje = hojeISO();
-  return `<div class="card"><h2>Fornecedores <span class="mut">base única de todas as unidades</span><span class="dir">
+  return `<div class="card"><h2>Fornecedores <span class="mut">base única do sistema: todas as empresas que usam o app</span><span class="dir">
     <select id="fG"><option value="">Todos os grupos</option>${GRUPOS.map(g => `<option ${g === FILTRO.g ? "selected" : ""}>${esc(g)}</option>`).join("")}</select>
     <input id="fQ" placeholder="Buscar nome ou CNPJ" value="${esc(FILTRO.q)}" style="width:200px">
     ${pode ? '<button class="bt pri" data-acao="novoForn">+ Novo fornecedor</button>' : ""}</span></h2>
@@ -455,13 +470,13 @@ function vForn() {
     return `<tr><td><b>${esc(f.nome)}</b><div class="mut">${f.tipo === "PF" ? "CPF" : "CNPJ"} ${esc(fmtDoc(f))}</div>${f.contato || f.telefone || f.email ? `<div class="mut">${esc([f.contato, f.telefone, f.email].filter(Boolean).join(" · "))}</div>` : ""}</td>
     <td>${f.grupos.map(g => tag(g, "t-acc")).join("")}</td>
     <td>${!f.certidoes_validade ? tag("não informada", "t-warn") : venc ? tag("vencidas em " + dataBR(f.certidoes_validade), "t-crit") : perto ? tag("vencem " + dataBR(f.certidoes_validade), "t-warn") : tag("ok até " + dataBR(f.certidoes_validade), "t-ok")}</td>
-    <td>${esc(f.cadastrado_nome)}<div class="mut">${dataBR(f.cadastrado_em)} · homologado por quem cadastrou</div></td>
+    <td>${f.mesma_empresa === false ? `<span class="mut">outra empresa</span><div class="mut">${dataBR(f.cadastrado_em)}</div>` : `${esc(f.cadastrado_nome)}<div class="mut">${dataBR(f.cadastrado_em)} · homologado por quem cadastrou</div>`}</td>
     <td>${(f.avais || []).map(a => tag(a.unidade + " ✓", "t-ok")).join("")}${temAval(f, UNID) ? "" : tag(unidade().nome + ": pendente", "t-warn")}
       ${ger ? `<div><button class="lnk" data-acao="aval" data-id="${f.id}" data-dar="${temAval(f, UNID) ? 0 : 1}">${temAval(f, UNID) ? "retirar aval" : "dar aval"}</button></div>` : ""}</td>
-    <td>${f.nota == null ? tag("sem avaliação", "t-mut") : `${Number(f.nota).toFixed(1).replace(".", ",")} ★<div class="mut">${f.avaliacoes} aval. · ${f.unidades_avaliacao.map(esc).join(", ")}</div>`}<div class="mut">${f.compras} compra(s)</div></td>
+    <td>${f.nota == null ? tag("sem avaliação", "t-mut") : `${Number(f.nota).toFixed(1).replace(".", ",")} ★<div class="mut">${f.avaliacoes} avaliação(ões) · <button class="lnk" data-acao="verAval" data-id="${f.id}">ver</button></div>`}<div class="mut">${f.compras} compra(s) no sistema</div></td>
     <td>${ADMIN || f.cadastrado_por === EU.id ? `<button class="lnk" data-acao="editForn" data-id="${f.id}">editar</button>` : ""}</td></tr>`;
   }).join("") || '<tr><td colspan="7" class="mut">Nenhum fornecedor.</td></tr>'}</table></div>
-  <p class="mut">O aval do Gerente é por unidade e não impede cotação: só gera o aviso. A nota é a média das avaliações feitas pelos Gerentes após cada entrega, em todas as unidades. O CPF aparece completo só para quem cadastrou.</p></div>`;
+  <p class="mut">A base é de todas as empresas que usam o app: qualquer uma pode cotar com o fornecedor, mas quem cadastrou e as observações só aparecem para a mesma empresa. O aval do Gerente é por unidade, não impede cotação (só gera o aviso) e cada empresa vê só os próprios avais. A nota é a média das avaliações feitas pelos Gerentes após cada entrega, em todas as empresas, e as avaliações aparecem sem quem avaliou. Certidões vencidas travam a proposta, salvo dispensa do Gerente naquela compra. O CPF aparece completo só para quem cadastrou.</p></div>`;
 }
 const fmtDoc = f => f.tipo === "PF" ? (/^\d{11}$/.test(f.documento) ? f.documento.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4") : f.documento.replace(/^\*\*\*(\d{3})(\d{3})\*\*$/, "***.$1.$2-**"))
   : f.documento.replace(/^(\w{2})(\w{3})(\w{3})(\w{4})(\d{2})$/, "$1.$2.$3/$4-$5");
@@ -483,6 +498,7 @@ function vConfig() {
     <div class="grade">
       <div><label>Nome</label><input id="cNome" value="${esc(u.nome)}"></div>
       <div><label>CNPJ (liga à auditoria)</label><input id="cCnpj" value="${esc(u.cnpj || "")}"></div>
+      <div><label title="Unidades com o mesmo nome de empresa veem quem cadastrou os fornecedores e os avais umas das outras">Empresa (agrupa unidades)</label><input id="cEmp" value="${esc(u.empresa || "")}" placeholder="vazio = empresa só desta unidade"></div>
       <div><label>Mínimo de propostas</label><input id="cMin" type="number" min="1" max="10" value="${u.minimo_propostas}"></div>
       <div><label>Automática até (R$)</label><input id="cAuto" type="number" step="0.01" value="${u.alcada_automatica}"></div>
       <div><label>Gerente até (R$)</label><input id="cGer" type="number" step="0.01" value="${u.alcada_gerente}"></div>
@@ -540,7 +556,7 @@ function dNovaReq() {
 function dProposta(r, p) {
   const lista = FORN.filter(f => f.ativo && (p ? f.id === p.fornecedor_id : !DET.props.some(x => x.fornecedor_id === f.id)));
   const doGrupo = lista.filter(f => f.grupos.includes(r.grupo)), outros = lista.filter(f => !f.grupos.includes(r.grupo));
-  const opt = f => `<option value="${f.id}">${esc(f.nome)}${f.certidoes_validade && f.certidoes_validade < hojeISO() ? " (certidões vencidas)" : ""}</option>`;
+  const opt = f => `<option value="${f.id}">${esc(f.nome)}${certVencida(f) ? (dispensado(f.id) ? " (certidões dispensadas pelo Gerente)" : " (certidões vencidas: precisa da dispensa do Gerente)") : ""}</option>`;
   const pg = p ? PAGAMENTOS.find(x => x[0] === p.pagamento) : null;
   abrir(`<h3>${p ? "Editar / re-cotar proposta" : "Registrar proposta"}</h3>
     <p class="mut">Quantidade: ${Number(r.quantidade).toLocaleString("pt-BR")} ${esc(r.unidade_medida)}. ${p ? "Mudar o preço conta como nova rodada (re-cotação) e guarda o preço anterior." : "Não achou o fornecedor? Cadastre em Fornecedores."}</p>
@@ -559,6 +575,51 @@ function dProposta(r, p) {
       p_extras: Number(f.get("extras") || 0), p_prazo: Number(f.get("prazo")), p_pagamento: pag === "Outro" ? `Outro (${dias} dias)` : pag, p_pagamento_dias: dias,
       p_validade: f.get("val") || null, p_obs: f.get("obs") }, p ? "Proposta atualizada." : "Proposta registrada.");
   }, "Salvar proposta");
+}
+// compra pela internet: sem CNPJ/CPF; site, link do produto e (opcional) o vendedor. O Gerente dá o aval na aprovação.
+const SITES = ["Mercado Livre", "Amazon", "Magazine Luiza", "Shopee", "Americanas", "Casas Bahia", "Kabum", "Leroy Merlin"];
+function dPropostaInternet(r, p) {
+  const pg = p ? PAGAMENTOS.find(x => x[0] === p.pagamento) : null;
+  abrir(`<h3>${p ? "Editar / re-cotar compra pela internet" : "Compra pela internet"}</h3>
+    <p class="mut">Para preço de site (Mercado Livre, Amazon…), onde não há CNPJ ou CPF de fornecedor. Conta como proposta no mapa. Se for a escolhida, a compra vai sempre ao Gerente, que dá o aval (nunca é aprovação automática).</p>
+    <div class="grade"><div><label>Site</label><input name="site" list="listaSites" required maxlength="80" value="${p ? esc(p.site) : ""}" placeholder="ex.: Mercado Livre"><datalist id="listaSites">${SITES.map(x => `<option value="${x}">`).join("")}</datalist></div>
+    <div><label>Vendedor / loja no site (opcional)</label><input name="vend" maxlength="120" value="${p ? esc(p.vendedor || "") : ""}"></div>
+    <div class="tudo"><label>Link do produto</label><input name="link" type="url" required maxlength="1000" value="${p ? esc(p.link) : ""}" placeholder="https://..."></div>
+    <div><label>Preço unitário (R$)</label><input name="preco" type="number" min="0" step="0.01" required value="${p ? p.preco_unitario : ""}"></div>
+    <div><label>Frete (R$)</label><input name="frete" type="number" min="0" step="0.01" value="${p ? p.frete : 0}"></div>
+    <div><label>Prazo de entrega (dias)</label><input name="prazo" type="number" min="0" required value="${p ? p.prazo_dias : ""}"></div>
+    <div><label>Pagamento</label><select name="pag">${PAGAMENTOS.map(([t]) => `<option ${p && (pg ? pg[0] === t : t === "Outro") ? "selected" : ""}>${t}</option>`).join("")}</select></div>
+    <div><label>Se "Outro": prazo médio (dias)</label><input name="pagdias" type="number" min="0" value="${p && !pg ? p.pagamento_dias : ""}"></div>
+    <div><label>Preço visto em / válido até</label><input name="val" type="date" value="${p && p.validade ? p.validade : ""}"></div>
+    <div class="tudo"><label>Observações</label><input name="obs" value="${p ? esc(p.obs) : ""}" placeholder="garantia, avaliação do vendedor no site, cupom"></div></div>`,
+  async f => {
+    const pag = f.get("pag"), dias = pag === "Outro" ? Number(f.get("pagdias") || 0) : PAGAMENTOS.find(x => x[0] === pag)[1];
+    await acao("cmp_salvar_proposta_internet", { p_req: r.id, p_proposta: p ? p.id : null, p_site: f.get("site"), p_link: f.get("link"), p_vendedor: f.get("vend"),
+      p_preco: Number(f.get("preco")), p_frete: Number(f.get("frete") || 0), p_extras: 0, p_prazo: Number(f.get("prazo")),
+      p_pagamento: pag === "Outro" ? `Outro (${dias} dias)` : pag, p_pagamento_dias: dias, p_validade: f.get("val") || null, p_obs: f.get("obs") },
+      p ? "Proposta da internet atualizada." : "Compra pela internet registrada.");
+  }, "Salvar");
+}
+// Gerente: dispensa as certidões vencidas de um fornecedor só nesta compra
+function dDispensa(r) {
+  const lista = FORN.filter(f => f.ativo && certVencida(f) && !dispensado(f.id));
+  if (!lista.length) return msg("info", "Nenhum fornecedor com certidões vencidas para dispensar nesta compra.");
+  const doGrupo = lista.filter(f => f.grupos.includes(r.grupo)), outros = lista.filter(f => !f.grupos.includes(r.grupo));
+  const opt = f => `<option value="${f.id}">${esc(f.nome)} (vencidas em ${dataBR(f.certidoes_validade)})</option>`;
+  abrir(`<h3>Dispensar certidões nesta compra</h3>
+    <p class="mut">Para compras em que as certidões não são necessárias. Vale só para a requisição #${r.id}; nas outras compras as certidões vencidas continuam travando. Fica registrado com seu nome e aparece para quem aprova.</p>
+    <div class="grade"><div class="tudo"><label>Fornecedor</label><select name="f" required>${doGrupo.length ? `<optgroup label="${esc(r.grupo)}">${doGrupo.map(opt).join("")}</optgroup>` : ""}${outros.length ? `<optgroup label="Outros grupos">${outros.map(opt).join("")}</optgroup>` : ""}</select></div>
+    <div class="tudo"><label>Motivo</label><textarea name="m" required minlength="10" placeholder="ex.: compra única e de pequeno valor, pagamento na entrega"></textarea></div></div>`,
+  d => acao("cmp_dispensar_certidoes", { p_req: r.id, p_fornecedor: d.get("f"), p_motivo: d.get("m") }, "Certidões dispensadas nesta compra."), "Dispensar");
+}
+// avaliações do fornecedor, anônimas (sem quem avaliou nem a unidade)
+async function dAvaliacoes(f) {
+  const r = await sb.rpc("cmp_avaliacoes_fornecedor", { p_fornecedor: f.id });
+  if (r.error) return msg("err", r.error.message);
+  const mes = m => { const [a, b] = m.split("-"); return ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"][+b - 1] + "/" + a; };
+  abrir(`<h3>Avaliações de ${esc(f.nome)}</h3><p class="mut">Feitas pelos Gerentes após cada entrega, em todas as empresas que usam o app. Aparecem sem quem avaliou.</p>
+    <div class="tw"><table><tr><th>Mês</th><th class="num">Média</th><th>Prazo · qualidade · conforme · atendimento</th><th>Comentário</th></tr>${(r.data || []).map(a => `<tr><td>${mes(a.mes)}</td>
+      <td class="num">${Number(a.media).toFixed(1).replace(".", ",")} ★</td><td>${a.prazo} · ${a.qualidade} · ${a.conformidade} · ${a.atendimento}</td><td>${esc(a.comentario) || '<span class="mut">—</span>'}</td></tr>`).join("")}</table></div>`, () => {}, "Fechar");
 }
 function dFornecedor(f) {
   abrir(`<h3>${f ? "Editar fornecedor" : "Novo fornecedor"}</h3><div class="grade">
@@ -594,9 +655,13 @@ document.addEventListener("click", async e => {
   else if (a === "novaReq") dNovaReq();
   else if (a === "novaProp") dProposta(r);
   else if (a === "editProp") dProposta(r, DET.props.find(p => p.id === Number(id)));
+  else if (a === "novaPropInt") dPropostaInternet(r);
+  else if (a === "editPropInt") dPropostaInternet(r, DET.props.find(p => p.id === Number(id)));
+  else if (a === "dispensar") dDispensa(r);
+  else if (a === "verAval") dAvaliacoes(FORN.find(f => f.id === id));
   else if (a === "delProp") {
     const p = DET.props.find(x => x.id === Number(id)), doForn = p.origem === "fornecedor";
-    abrir(`<h3>Excluir a proposta de ${esc(fornecedor(p.fornecedor_id).nome)}?</h3><p class="mut">Fica registrado no histórico.${doForn ? " A proposta foi enviada pelo próprio fornecedor: escreva o motivo." : ""}</p>
+    abrir(`<h3>Excluir a proposta de ${esc(nomeProp(p))}?</h3><p class="mut">Fica registrado no histórico.${doForn ? " A proposta foi enviada pelo próprio fornecedor: escreva o motivo." : ""}</p>
       ${doForn ? '<label>Motivo</label><textarea name="m" required minlength="5"></textarea>' : ""}`,
       f => acao("cmp_excluir_proposta", { p_proposta: p.id, p_motivo: doForn ? f.get("m") : null }, "Proposta excluída."), "Excluir");
   }
@@ -634,7 +699,7 @@ document.addEventListener("click", async e => {
   else if (a === "escolher") {
     const p = DET.props.find(x => x.id === Number(id)), minT = Math.min(...DET.props.map(x => totalProp(x, r)));
     if (totalProp(p, r) <= minT) return acao("cmp_escolher", { p_req: r.id, p_proposta: p.id, p_justificativa: "" }, "Escolhido (menor preço).");
-    abrir(`<h3>Justificativa</h3><div class="aviso info">${esc(fornecedor(p.fornecedor_id).nome)} não é o menor preço (${brl(totalProp(p, r))} contra ${brl(minT)}). Explique por que, para seguir à aprovação.</div>
+    abrir(`<h3>Justificativa</h3><div class="aviso info">${esc(nomeProp(p))} não é o menor preço (${brl(totalProp(p, r))} contra ${brl(minT)}). Explique por que, para seguir à aprovação.</div>
       <textarea name="j" required minlength="10" placeholder="ex.: prazo do menor preço não atende; menor custo total com manutenção"></textarea>`,
       f => acao("cmp_escolher", { p_req: r.id, p_proposta: p.id, p_justificativa: f.get("j") }, "Escolha registrada com justificativa."), "Escolher");
   }
@@ -643,9 +708,10 @@ document.addEventListener("click", async e => {
       f => acao("cmp_excecao", { p_req: r.id, p_texto: f.get("t") }, "Exceção registrada."), "Registrar exceção");
   else if (a === "enviar") acao("cmp_enviar_aprovacao", { p_req: r.id }, al => al === "automatica" ? "Aprovada automaticamente (até a alçada, menor preço, fornecedor já usado)." : `Enviada para aprovação do ${al === "gerente" ? "Gerente" : "Gerente e depois do Diretor"}.`);
   else if (a === "aprovar" || a === "reprovar") {
-    const ok = a === "aprovar", etapa = b.dataset.etapa, p = DET.props.find(x => x.id === r.proposta_escolhida), f = p ? fornecedor(p.fornecedor_id) : null;
-    const semAval = ok && etapa === "gerente" && f && !temAval(f, UNID);
+    const ok = a === "aprovar", etapa = b.dataset.etapa, p = DET.props.find(x => x.id === r.proposta_escolhida), f = p && !ehInternet(p) ? fornecedor(p.fornecedor_id) : null;
+    const semAval = ok && etapa === "gerente" && f && !temAval(f, UNID), lk = p && ehInternet(p) ? linkSeguro(p.link) : "";
     abrir(`<h3>${ok ? "Aprovar" : "Reprovar"} como ${PAPEL_NOME[etapa]}</h3>
+      ${p && ehInternet(p) && etapa === "gerente" ? `<div class="aviso warn">Compra pela internet: <b>${esc(nomeProp(p))}</b>${lk ? ` · <a href="${esc(lk)}" target="_blank" rel="noopener noreferrer">ver o produto ↗</a>` : ""}.<br>${ok ? "Ao aprovar, você dá o aval do Gerente a esta compra." : ""}</div>` : ""}
       ${semAval ? `<label class="chk"><input type="checkbox" name="aval" checked> Dar também o aval do Gerente a ${esc(f.nome)} para ${esc(unidade().nome)}</label>` : ""}
       <label style="margin-top:8px">Comentário ${ok ? "(opcional)" : "(obrigatório)"}</label><textarea name="c" ${ok ? "" : 'required minlength="5"'}></textarea>
       <p class="mut">Fica registrado com seu login, data e hora.</p>`,
@@ -655,9 +721,9 @@ document.addEventListener("click", async e => {
   else if (a === "pedido") acao("cmp_emitir_pedido", { p_req: r.id }, `Pedido de compra PC-${r.id} emitido.`);
   else if (a === "entregue") acao("cmp_marcar_entregue", { p_req: r.id }, "Marcado como entregue. O Gerente avalia o fornecedor.");
   else if (a === "avaliar") {
-    const p = DET.props.find(x => x.id === r.proposta_escolhida), f = fornecedor(p.fornecedor_id);
+    const p = DET.props.find(x => x.id === r.proposta_escolhida), f = { nome: nomeProp(p) };
     const C = [["prazo", "Prazo cumprido"], ["qualidade", "Qualidade do produto/serviço"], ["conformidade", "Conforme a proposta"], ["atendimento", "Atendimento"]];
-    abrir(`<h3>Avaliar ${esc(f.nome)}</h3><p class="mut">Compra #${r.id}. A nota vale para todas as unidades e não pode ser alterada depois.</p><div class="grade">
+    abrir(`<h3>Avaliar ${esc(f.nome)}</h3><p class="mut">Compra #${r.id}. ${ehInternet(p) ? "Compra pela internet: a avaliação fica registrada nesta compra." : "A nota vale para todas as empresas, aparece sem quem avaliou e não pode ser alterada depois."}</p><div class="grade">
       ${C.map(([k, t]) => `<div><label>${t}</label><select name="${k}">${[5, 4, 3, 2, 1].map(n => `<option value="${n}">${n} — ${["", "Péssimo", "Ruim", "Regular", "Bom", "Ótimo"][n]}</option>`).join("")}</select></div>`).join("")}
       <div class="tudo"><label>Comentário</label><textarea name="c"></textarea></div></div>`,
       fd => acao("cmp_avaliar", { p_req: r.id, p_prazo: Number(fd.get("prazo")), p_qualidade: Number(fd.get("qualidade")), p_conformidade: Number(fd.get("conformidade")), p_atendimento: Number(fd.get("atendimento")), p_comentario: fd.get("c") }, "Avaliação registrada. Compra concluída."), "Registrar avaliação");
@@ -669,7 +735,7 @@ document.addEventListener("click", async e => {
   else if (a === "editForn") dFornecedor(FORN.find(f => f.id === id));
   else if (a === "aval") { const f = FORN.find(x => x.id === id), dar = b.dataset.dar === "1"; acao("cmp_aval", { p_fornecedor: id, p_unidade: UNID, p_dar: dar }, dar ? `Aval dado a ${f.nome}.` : `Aval retirado de ${f.nome}.`); }
   else if (a === "salvarUnidade") {
-    const u = { nome: $("cNome").value.trim(), cnpj: $("cCnpj").value.replace(/\D/g, "") || null, minimo_propostas: Number($("cMin").value), alcada_automatica: Number($("cAuto").value),
+    const u = { nome: $("cNome").value.trim(), cnpj: $("cCnpj").value.replace(/\D/g, "") || null, empresa: ($("cEmp")?.value || "").trim(), minimo_propostas: Number($("cMin").value), alcada_automatica: Number($("cAuto").value),
       alcada_gerente: Number($("cGer").value), ativo: $("cAtivo").value === "1",
       pesos: { preco: Number($("pPreco").value), prazo: Number($("pPrazo").value), pagamento: Number($("pPag").value), qualidade: Number($("pQual").value) } };
     if (u.pesos.preco + u.pesos.prazo + u.pesos.pagamento + u.pesos.qualidade !== 100) return msg("err", "Os quatro pesos precisam somar 100.");

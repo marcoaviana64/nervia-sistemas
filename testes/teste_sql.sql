@@ -594,6 +594,103 @@ set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
 select pg_temp.ok((select count(*) = 0 from mon_locais) and (select count(*) = 0 from mon_quedas), 'login sem acesso não vê nada');
 reset role;
 reset request.jwt.claim.sub;
+-- ---------------------------------------------------------------- Compras: melhorias de 20/10/2026
+-- base única do SISTEMA: outra empresa usa o fornecedor e vê a nota, sem quem cadastrou, sem observações e sem os avais
+set role authenticated;
+select pg_temp.como('00000000-0000-0000-0000-0000000000d5');
+select pg_temp.ok((select cadastrado_nome = '' and cadastrado_por is null and cadastrado_unidade is null and not mesma_empresa
+  and nota = 4.5 and avaliacoes = 1 and unidades_avaliacao = '{}' and avais = '[]'::jsonb from cmp_fornecedores_lista() where nome = 'Forn B'),
+  'outra empresa vê o fornecedor e a nota, sem quem cadastrou e sem os avais');
+select pg_temp.ok((select count(*) = 0 from cmp_avaliacoes) and (select count(*) = 0 from cmp_avais), 'outra empresa não lê avaliações (com avaliador) nem avais');
+select pg_temp.ok((select count(*) = 1 and min(media) = 4.5 and min(comentario) = 'Entregou antes do prazo' from cmp_avaliacoes_fornecedor(pg_temp.id('fb')::uuid)),
+  'avaliações anônimas (nota e comentário, sem quem avaliou)');
+select pg_temp.erro($$select cmp_salvar_fornecedor(null, 'PJ', '11222333000181', 'Dup', '{}', '', '', '', null, '', '20000000-0000-0000-0000-000000000002')$$,
+  'já está na base de fornecedores: Forn A. Use', 'CNPJ repetido de outra empresa: não diz quem cadastrou');
+-- primeira compra conta por empresa: Forn B já foi comprado pelo Itaipu, mas é novo para o Park Sul
+insert into cmp_requisicoes (unidade_id, grupo, titulo, quantidade) values ('20000000-0000-0000-0000-000000000002', 'Informática e tecnologia', 'Cabo Park Sul', 1);
+insert into ids select 'ps1', max(id)::text from cmp_requisicoes;
+select cmp_salvar_proposta(pg_temp.id('ps1')::bigint, pg_temp.id('fb')::uuid, 300, 0, 0, 2, 'À vista', 0, null, '');
+select cmp_salvar_proposta(pg_temp.id('ps1')::bigint, pg_temp.id('fa')::uuid, 350, 0, 0, 2, 'À vista', 0, null, '');
+select cmp_salvar_proposta(pg_temp.id('ps1')::bigint, pg_temp.id('fc')::uuid, 360, 0, 0, 2, 'À vista', 0, null, '');
+select cmp_escolher(pg_temp.id('ps1')::bigint, (select id from cmp_propostas where requisicao_id = pg_temp.id('ps1')::bigint and fornecedor_id = pg_temp.id('fb')::uuid), '');
+insert into ids values ('al_ps1', cmp_enviar_aprovacao(pg_temp.id('ps1')::bigint));
+select pg_temp.ok(pg_temp.id('al_ps1') = 'gerente' and (select fornecedor_novo from cmp_requisicoes where id = pg_temp.id('ps1')::bigint),
+  'primeira compra por empresa: fornecedor usado por outra empresa ainda é novo (vai ao Gerente)');
+-- mesma empresa (duas unidades com o mesmo nome de empresa): vê quem cadastrou e os avais; avaliação continua anônima
+reset role;
+update cmp_unidades set empresa = 'Grupo Teste' where nome in ('Multicenter Itaipu', 'Filial Park Sul');
+set role authenticated;
+select pg_temp.como('00000000-0000-0000-0000-0000000000d5');
+select pg_temp.ok((select cadastrado_nome = 'Rafael' and mesma_empresa and jsonb_array_length(avais) = 1 and unidades_avaliacao = '{}' and compras_empresa = 2
+  from cmp_fornecedores_lista() where nome = 'Forn B'), 'outra unidade da mesma empresa vê quem cadastrou e os avais; avaliação anônima');
+reset role;
+update cmp_unidades set empresa = '' where nome in ('Multicenter Itaipu', 'Filial Park Sul');
+select pg_temp.ok((select count(*) = 2 from cmp_historico where acao = 'regras_alteradas' and texto like '%empresa Grupo Teste%'), 'mudança de empresa da unidade fica no histórico');
+set role authenticated;
+
+-- dispensa de certidões pelo Gerente, por compra
+select pg_temp.como('00000000-0000-0000-0000-0000000000d1');
+insert into cmp_requisicoes (unidade_id, grupo, titulo, quantidade) values (pg_temp.id('itaipu')::uuid, 'Informática e tecnologia', 'Teclado', 1);
+insert into ids select 'r6', max(id)::text from cmp_requisicoes;
+insert into cmp_requisicoes (unidade_id, grupo, titulo, quantidade) values (pg_temp.id('itaipu')::uuid, 'Informática e tecnologia', 'Monitor', 1);
+insert into ids select 'r7', max(id)::text from cmp_requisicoes;
+select pg_temp.erro('select cmp_dispensar_certidoes(' || pg_temp.id('r7') || ', ''' || pg_temp.id('fv') || ''', ''Compra pequena e única.'')', 'precisa ser: gerente', 'só o Gerente dispensa certidões');
+select pg_temp.como('00000000-0000-0000-0000-0000000000d2');
+select pg_temp.erro('select cmp_salvar_proposta(' || pg_temp.id('r7') || ', ''' || pg_temp.id('fv') || ''', 1, 0, 0, 1, ''x'', 0, null, '''')', 'peça ao Gerente a dispensa', 'certidão vencida: mensagem indica a dispensa');
+select pg_temp.como('00000000-0000-0000-0000-0000000000d3');
+select pg_temp.erro('select cmp_dispensar_certidoes(' || pg_temp.id('r7') || ', ''' || pg_temp.id('fv') || ''', ''curto'')', 'motivo', 'dispensa exige motivo');
+select pg_temp.erro('select cmp_dispensar_certidoes(' || pg_temp.id('r7') || ', ''' || pg_temp.id('fa') || ''', ''Compra pequena e única.'')', 'estão em dia', 'não dispensa certidão em dia');
+select cmp_dispensar_certidoes(pg_temp.id('r7')::bigint, pg_temp.id('fv')::uuid, 'Compra pequena e única, entrega imediata.');
+select pg_temp.erro('select cmp_dispensar_certidoes(' || pg_temp.id('r7') || ', ''' || pg_temp.id('fv') || ''', ''Compra pequena e única.'')', 'já foram dispensadas', 'dispensa não se repete');
+select pg_temp.ok((select count(*) = 1 and min(por_nome) = 'Sonia' from cmp_dispensas where requisicao_id = pg_temp.id('r7')::bigint)
+  and (select count(*) = 1 from cmp_historico where acao = 'certidoes_dispensadas' and texto like 'Gerente dispensou as certidões de Forn Vencido%'), 'dispensa registrada (quem, motivo) e no histórico');
+select pg_temp.erro('insert into cmp_dispensas (requisicao_id, fornecedor_id, motivo) values (' || pg_temp.id('r6') || ', ''' || pg_temp.id('fv') || ''', ''x'')', 'permission', 'dispensa não é gravada direto pela tela');
+select pg_temp.como('00000000-0000-0000-0000-0000000000d2');
+select pg_temp.erro('select cmp_salvar_proposta(' || pg_temp.id('r6') || ', ''' || pg_temp.id('fv') || ''', 1, 0, 0, 1, ''x'', 0, null, '''')', 'venceram', 'a dispensa vale só para a compra em que foi dada');
+select cmp_salvar_proposta(pg_temp.id('r7')::bigint, pg_temp.id('fv')::uuid, 900, 0, 0, 2, 'À vista', 0, null, '');
+select cmp_excecao(pg_temp.id('r7')::bigint, 'Único fornecedor com o modelo em estoque.');
+select cmp_escolher(pg_temp.id('r7')::bigint, (select id from cmp_propostas where requisicao_id = pg_temp.id('r7')::bigint), '');
+insert into ids values ('al_r7', cmp_enviar_aprovacao(pg_temp.id('r7')::bigint));
+select pg_temp.ok(pg_temp.id('al_r7') = 'gerente'
+  and (select count(*) = 1 from cmp_historico where requisicao_id = pg_temp.id('r7')::bigint and acao = 'enviada_aprovacao' and texto like '%dispensadas pelo Gerente%'),
+  'com a dispensa, a proposta entra e a compra segue para aprovação (aviso no histórico)');
+select pg_temp.como('00000000-0000-0000-0000-0000000000d5');
+select pg_temp.ok((select count(*) = 0 from cmp_dispensas), 'outra unidade não lê as dispensas');
+
+-- compra pela internet
+select pg_temp.como('00000000-0000-0000-0000-0000000000d2');
+select pg_temp.erro('select cmp_salvar_proposta_internet(' || pg_temp.id('r6') || ', null, ''Mercado Livre'', ''mercadolivre.com.br/x'', '''', 80, 0, 0, 5, ''À vista'', 0, null, '''')', 'link do produto', 'internet: link precisa ser endereço completo');
+select pg_temp.erro('select cmp_salvar_proposta_internet(' || pg_temp.id('r6') || ', null, '''', ''https://www.mercadolivre.com.br/x'', '''', 80, 0, 0, 5, ''À vista'', 0, null, '''')', 'Informe o site', 'internet: site obrigatório');
+insert into ids select 'pi', cmp_salvar_proposta_internet(pg_temp.id('r6')::bigint, null, 'Mercado Livre', 'https://www.mercadolivre.com.br/teclado-abnt2', 'Loja Tech', 85, 0, 0, 5, 'À vista', 0, null, '')::text;
+select cmp_salvar_proposta_internet(pg_temp.id('r6')::bigint, pg_temp.id('pi')::bigint, 'Mercado Livre', 'https://www.mercadolivre.com.br/teclado-abnt2', 'Loja Tech', 80, 0, 0, 5, 'À vista', 0, null, '');
+select pg_temp.ok((select fornecedor_id is null and origem = 'internet' and rodada = 2 and preco_anterior = 85 and vendedor = 'Loja Tech' from cmp_propostas where id = pg_temp.id('pi')::bigint),
+  'proposta da internet sem fornecedor, com site, link e vendedor; re-cotação guarda o preço anterior');
+insert into ids select 'pi2', cmp_salvar_proposta_internet(pg_temp.id('r6')::bigint, null, 'Amazon', 'https://www.amazon.com.br/dp/B000', '', 95, 0, 0, 3, 'À vista', 0, null, '')::text;
+select cmp_excluir_proposta(pg_temp.id('pi2')::bigint, null);
+select pg_temp.ok((select count(*) = 1 from cmp_historico where acao = 'proposta_excluida' and texto = 'Proposta de Internet — Amazon excluída.'), 'exclui proposta da internet');
+select cmp_salvar_proposta(pg_temp.id('r6')::bigint, pg_temp.id('fa')::uuid, 100, 0, 0, 2, 'À vista', 0, null, '');
+select cmp_salvar_proposta(pg_temp.id('r6')::bigint, pg_temp.id('fb')::uuid, 110, 0, 0, 2, 'À vista', 0, null, '');
+select cmp_escolher(pg_temp.id('r6')::bigint, pg_temp.id('pi')::bigint, '');
+insert into ids values ('al_r6', cmp_enviar_aprovacao(pg_temp.id('r6')::bigint));
+select pg_temp.ok(pg_temp.id('al_r6') = 'gerente'
+  and (select compra_internet and not fornecedor_novo and status = 'aprovacao' from cmp_requisicoes where id = pg_temp.id('r6')::bigint),
+  'internet: menor preço e barata, mesmo assim vai ao Gerente (nunca automática)');
+select pg_temp.como('00000000-0000-0000-0000-0000000000d3');
+insert into ids values ('de_r6', cmp_decidir(pg_temp.id('r6')::bigint, true, '', true));
+select pg_temp.ok(pg_temp.id('de_r6') = 'aprovada'
+  and (select count(*) = 1 from cmp_historico where requisicao_id = pg_temp.id('r6')::bigint and texto like 'Aprovada pelo Gerente (aval à compra pela internet)%'),
+  'Gerente dá o aval à compra pela internet ao aprovar');
+select pg_temp.como('00000000-0000-0000-0000-0000000000d2');
+select cmp_emitir_pedido(pg_temp.id('r6')::bigint);
+select cmp_marcar_entregue(pg_temp.id('r6')::bigint);
+select pg_temp.como('00000000-0000-0000-0000-0000000000d3');
+select cmp_avaliar(pg_temp.id('r6')::bigint, 4, 4, 5, 3, 'Chegou rápido');
+select pg_temp.ok((select status = 'concluida' from cmp_requisicoes where id = pg_temp.id('r6')::bigint)
+  and (select fornecedor_id is null from cmp_avaliacoes where requisicao_id = pg_temp.id('r6')::bigint), 'compra pela internet avaliada e concluída');
+reset role;
+select pg_temp.erro('insert into cmp_propostas (requisicao_id, origem, site, link, preco_unitario, prazo_dias) values (' || pg_temp.id('r6') || ', ''internet'', ''ML'', ''javascript:alert(1)'', 1, 1)',
+  'cmp_propostas_internet', 'banco recusa link que não é http(s)');
+reset request.jwt.claim.sub;
 -- ---------------------------------------------------------------- vitrine da Área do Cliente
 select pg_temp.ok((select string_agg(id || '=' || situacao, ',' order by id) from apps where id in ('compras', 'monitor', 'notas', 'produtos', 'telefonia'))
   = 'compras=disponivel,monitor=oculto,notas=disponivel,produtos=em_breve,telefonia=disponivel', 'situação inicial dos apps');
