@@ -114,6 +114,7 @@ SET = [
     ("Eva Prado", "eva@parksul.exemplo.com.br", "Microsoft 365 Business Basic+Microsoft 365 Apps for business", False),
     ("Fábio Cruz", "fabio@parksul.exemplo.com.br", "Power BI Pro", True),
     ("Gil Outra", "gil@outraempresa.exemplo", "Microsoft 365 Business Standard", False),
+    ("Recepção Vogue", "recepcao.vogue@outraempresa.exemplo", "Microsoft 365 Business Basic", False, "", "SMTP:recepcao.vogue@outraempresa.exemplo"),   # "vogue" só antes do @: é de outra empresa
     ("Convidado", "conv_x.com#EXT#@tenant.onmicrosoft.com", "Unlicensed", False),
 ]
 OUT = [
@@ -144,7 +145,7 @@ try:
         ok("faltam as colunas" in mensagem(pg), "arquivo que não é a exportação de usuários é recusado com explicação")
         carregar_csv(pg, "users_01_09_2026.csv", export(SET))
         t = pg.text_content("#previa")
-        ok("8 contas no arquivo" in t and "6 das unidades" in t and "1 de outras empresas" in t and "1 convidados" in t and pg.input_value("#cDataCsv") == "2026-09-01",
+        ok("9 contas no arquivo" in t and "6 das unidades" in t and "2 de outras empresas" in t and "1 convidados" in t and pg.input_value("#cDataCsv") == "2026-09-01",
            "prévia: separa as unidades no navegador (inclusive pelo proxy), ignora outra empresa e convidado, pega a data do nome")
         pg.click("[data-acao=gravarCarga]"); pg.wait_for_timeout(800)
         ok("01/09/2026 carregada: 6 contas" in mensagem(pg), "carga de 01/09 gravada")

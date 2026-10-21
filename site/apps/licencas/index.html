@@ -354,7 +354,7 @@ function vAdmin() {
       <td class="num">${brl(fs.reduce((t, f) => t + f.quantidade * f.valor_unitario, 0))}</td><td>${esc(fs[0].carregado_nome)}<div class="mut">${dataHora(fs[0].carregado_em)}</div></td>
       <td><button class="lnk" data-acao="verFatura" data-id="${m}">ver</button> · <button class="lnk" data-acao="excluirFatura" data-id="${m}">excluir</button></td></tr>`; }).join("")}</table></div>` : '<p class="mut">Nenhuma ainda.</p>'}</div>
   <div class="card"><h2>Unidades<span class="dir"><button class="bt pri" data-acao="novaUnidade">+ Nova unidade</button></span></h2>
-    <p class="mut">Domínio = trecho que identifica a unidade no login ou nos endereços de proxy da conta (ex.: <code>multicenteritaipu</code>). Apelidos = como a unidade aparece na coluna "local" da fatura.</p>
+    <p class="mut">Domínio = trecho do domínio do e-mail (depois do @) do login ou dos endereços de proxy da conta (ex.: <code>multicenteritaipu</code> para @multicenteritaipu.com.br); o nome antes do @ não conta. Apelidos = como a unidade aparece na coluna "local" da fatura.</p>
     <div class="tw"><table><tr><th>Unidade</th><th>Domínio</th><th>Apelidos na fatura</th><th>Quem vê</th><th></th></tr>${UNIDADES.map(u => `<tr><td><b>${esc(u.nome)}</b>${u.ativo ? "" : " " + tag("inativa", "t-mut")}</td><td><code>${esc(u.dominio)}</code></td>
       <td class="mut">${esc((u.apelidos || []).join(", "))}</td><td id="acc-${u.id}" class="mut">…</td><td><button class="lnk" data-acao="editUnidade" data-id="${u.id}">editar</button> · <button class="lnk" data-acao="acessos" data-id="${u.id}">quem vê</button></td></tr>`).join("")}</table></div>
     <p class="mut">O login também precisa ter o app "Contas e Licenças Microsoft 365" liberado em <a href="/cliente/#admin" target="_top">Administração → Logins</a>.</p></div>`;
@@ -452,7 +452,10 @@ function separarContas(txt) {
     const login = v(l, "User principal name");
     if (!login) continue;
     if (login.includes("#EXT#")) { convidados++; continue; }   // convidado B2B: não é uma conta da unidade
-    const onde = (login + " " + v(l, "Proxy addresses")).toLowerCase(), u = us.find(x => onde.includes(x.dominio));
+    // só a parte depois do @ (o domínio): "recepcao.parksul@iguardei.com.br" é do domínio iguardei, não do Park Sul;
+    // primeiro o domínio do login, depois os dos endereços de proxy
+    const doms = [login, ...v(l, "Proxy addresses").split("+")].map(e => (e.split("@")[1] || "").toLowerCase().trim()).filter(Boolean);
+    let u = null; for (const d of doms) { u = us.find(x => d.includes(x.dominio)); if (u) break; }
     if (!u) { fora++; continue; }
     const lic = v(l, "Licenses"), partes = !lic || lic === "Unlicensed" ? [] : lic.split("+").map(s => s.trim()).filter(Boolean);
     const nome = v(l, "Display name"), criada = v(l, "When created");
@@ -530,7 +533,7 @@ function abrir(html, aoConfirmar, rotulo = "Salvar") {
 async function gravar(prom, ok) { limparMsg(); const r = await prom; if (r.error) { msg("err", r.error.message); return false; } await carregar(); render(); if (ok) msg("ok", ok); return true; }
 function dUnidade(u) {
   abrir(`<h3>${u ? "Editar unidade" : "Nova unidade"}</h3><div class="grade"><div><label>Nome</label><input name="nome" required value="${u ? esc(u.nome) : ""}"></div>
-    <div><label>Domínio (trecho do login)</label><input name="dom" required pattern="[a-z0-9.\\-]{3,}" value="${u ? esc(u.dominio) : ""}" placeholder="ex.: multicenteritaipu"></div>
+    <div><label>Domínio (trecho depois do @)</label><input name="dom" required pattern="[a-z0-9.\\-]{3,}" value="${u ? esc(u.dominio) : ""}" placeholder="ex.: multicenteritaipu"></div>
     <div class="tudo"><label>Apelidos na fatura (separados por vírgula)</label><input name="ap" value="${u ? esc((u.apelidos || []).join(", ")) : ""}" placeholder="ex.: multicenter, itaipu"></div>
     <div><label>Ordem</label><input name="ord" type="number" value="${u ? u.ordem : 100}"></div>
     ${u ? `<div><label>Ativa</label><select name="at"><option value="1">Sim</option><option value="0" ${u.ativo ? "" : "selected"}>Não</option></select></div>` : ""}</div>
