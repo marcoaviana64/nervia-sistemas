@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cartão de referência · Contas e Licenças Microsoft 365 | Nervia</title>
+<link rel="stylesheet" href="/ajuda/ajuda.css">
+</head>
+<body>
+<div class="pagina">
+  <div class="cab">
+    <img src="/img/nervia-logo.png" alt="Nervia">
+    <div><div class="t">Contas e Licenças Microsoft 365 · Cartão de referência</div><div class="s">Cada campo e botão em uma linha</div></div>
+    <div class="acoes"><a href="manual.html">Manual completo</a><button onclick="print()">Imprimir</button></div>
+  </div>
+
+  <p class="lead">Mostra as contas do Microsoft 365 de cada unidade, as licenças em uso, o que mudou desde a exportação anterior e, com a fatura, as licenças pagas que estão sem uso. Os dados são carregados pela Nervia a partir da exportação de usuários do Microsoft 365.</p>
+
+  <h2>Topo</h2>
+  <table>
+    <tr><td>Painel · Contas · Mudanças</td><td>As telas do app.</td></tr>
+    <tr><td>Exportação de</td><td>Data da exportação que está na tela. Escolha uma anterior para ver como estava; as mudanças são sempre em relação à exportação anterior a ela.</td></tr>
+  </table>
+
+  <h2>Painel</h2>
+  <table>
+    <tr><td>Contas</td><td>Total de contas das unidades, ativas e bloqueadas.</td></tr>
+    <tr><td>Licenças pagas em uso</td><td>Licenças atribuídas às contas (inclusive bloqueadas). Free e Trial não contam.</td></tr>
+    <tr><td>Bloqueadas com licença</td><td>Contas bloqueadas que continuam com licença paga: a licença segue sendo cobrada.</td></tr>
+    <tr><td>Pago por mês · Sem uso por mês</td><td>Valor das licenças compradas (fatura) e das compradas que não estão em nenhuma conta.</td></tr>
+    <tr><td>Cartão da unidade</td><td>Resumo de cada unidade. Clique para abrir. Borda vermelha = conta bloqueada com licença; amarela = licença comprada sem uso.</td></tr>
+    <tr><td>Licenças em uso por produto</td><td>Quantas licenças de cada produto cada unidade usa.</td></tr>
+  </table>
+
+  <h2>Unidade</h2>
+  <table>
+    <tr><td>Licenças compradas x em uso</td><td>Por produto: compradas (fatura), em uso, uso em %, situação e valor sem uso por mês.</td></tr>
+    <tr><td>sem uso · sem folga · faltam N</td><td>Sobra licença paga; todas as compradas em uso; mais contas com a licença do que compradas.</td></tr>
+    <tr><td>em uso sem compra na fatura</td><td>Licença atribuída que não aparece na fatura carregada: confira a fatura.</td></tr>
+    <tr><td>Mudanças desde … · ver detalhes</td><td>Resumo do que mudou desde a exportação anterior.</td></tr>
+    <tr><td>Contas · filtro · busca · CSV</td><td>Lista das contas com situação e licenças. Filtre por ativas, bloqueadas, sem licença ou bloqueadas com licença; busque por nome, login, cargo ou licença; baixe em CSV.</td></tr>
+  </table>
+
+  <h2>Mudanças</h2>
+  <table>
+    <tr><td>Contas novas · removidas</td><td>Contas que apareceram ou sumiram entre as duas exportações.</td></tr>
+    <tr><td>Mudaram de situação</td><td>Ativa → Bloqueada (ou o contrário). Bloqueada que continua com licença aparece em vermelho.</td></tr>
+    <tr><td>Trocaram de licença</td><td>+ licença acrescentada · − licença retirada.</td></tr>
+  </table>
+
+  <h2>Cargas e fatura <span class="eq">EQUIPE NERVIA</span></h2>
+  <table>
+    <tr><td>Carregar exportação</td><td>CSV de Usuários → Usuários ativos → Exportar usuários (tenant inteiro). As contas das unidades são separadas no navegador; o resto não sai do computador.</td></tr>
+    <tr><td>Data da exportação · substituir</td><td>Vem do nome do arquivo (DD_MM_AAAA). Uma carga por data; "substituir" troca a existente.</td></tr>
+    <tr><td>Fatura de licenças do mês</td><td>Linhas <code>local,quantidade,licença,valor unitário</code>. "Conferir" mostra o que foi entendido e as linhas não aproveitadas.</td></tr>
+    <tr><td>Unidades · domínio · apelidos</td><td>Domínio = trecho do login ou do proxy da conta; apelidos = nome da unidade na fatura.</td></tr>
+    <tr><td>quem vê</td><td>Logins que veem a unidade (contas, mudanças e valores). O login também precisa do app liberado em Administração → Logins.</td></tr>
+  </table>
+
+  <h2>Bom saber</h2>
+  <table>
+    <tr><td>Dados</td><td>Fotos da data de cada exportação: não é em tempo real.</td></tr>
+    <tr><td>Fatura</td><td>A quantidade comprada não deveria cair de um mês para o outro (contrato anual): quando cai, o app avisa.</td></tr>
+    <tr><td>Ajuda</td><td>WhatsApp (21) 96686-9374 · atendimento@nervia.com.br</td></tr>
+  </table>
+  <div class="rodape">Nervia Tecnologia · Cartão de referência do app Contas e Licenças Microsoft 365 · atualizado em 21/10/2026</div>
+</div>
+<script src="/marca-dagua.js" data-tipo="doc"></script>
+</body>
+</html>

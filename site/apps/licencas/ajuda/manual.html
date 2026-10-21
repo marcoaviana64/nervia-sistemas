@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manual de utilização · Contas e Licenças Microsoft 365 | Nervia</title>
+<link rel="stylesheet" href="/ajuda/ajuda.css">
+</head>
+<body>
+<div class="pagina">
+  <div class="cab">
+    <img src="/img/nervia-logo.png" alt="Nervia">
+    <div><div class="t">Contas e Licenças Microsoft 365 · Manual de utilização</div><div class="s">Contas, licenças em uso, mudanças e licenças pagas sem uso</div></div>
+    <div class="acoes"><a href="cartao.html">Cartão rápido</a><button onclick="print()">Imprimir</button></div>
+  </div>
+
+  <h1>Como usar o Contas e Licenças Microsoft 365</h1>
+  <p class="lead">O app mostra as contas do Microsoft 365 de cada unidade da empresa, quais licenças cada conta usa e o que mudou de uma exportação para a outra. Com a fatura de licenças, mostra quanto está pago e sem uso: licenças compradas sem conta e contas bloqueadas que continuam ocupando licença.</p>
+
+  <ul class="indice">
+    <li><a href="#painel">1. Ver o painel</a></li>
+    <li><a href="#unidade">2. Detalhe de uma unidade</a></li>
+    <li><a href="#mudancas">3. Mudanças entre exportações</a></li>
+    <li><a href="#economia">4. Onde está o desperdício</a></li>
+    <li><a href="#nervia">5. Tarefas da equipe Nervia (cargas, fatura, unidades)</a></li>
+    <li><a href="#problemas">6. Mensagens e o que fazer</a></li>
+  </ul>
+
+  <h2 id="painel">1. Ver o painel</h2>
+  <ol>
+    <li>Entre na Área do Cliente e abra <b>Contas e Licenças Microsoft 365</b>.</li>
+    <li>No topo, <b>Exportação de</b> mostra a data dos dados. Eles são uma foto daquela data, não tempo real.</li>
+    <li>Os números de cima somam as unidades que você vê: contas, licenças pagas em uso, contas bloqueadas com licença e, se a fatura foi carregada, quanto é pago por mês e quanto está sem uso.</li>
+    <li>Cada cartão é uma unidade. Clique para abrir. Se você vê uma unidade só, o app já abre nela.</li>
+  </ol>
+
+  <h2 id="unidade">2. Detalhe de uma unidade</h2>
+  <ol>
+    <li><b>Licenças compradas x em uso</b>: para cada produto, quantas foram compradas (fatura do mês), quantas estão atribuídas, a porcentagem de uso e o valor sem uso por mês.</li>
+    <li><b>Mudanças desde …</b>: o resumo do que mudou desde a exportação anterior; "ver detalhes" abre a lista.</li>
+    <li><b>Contas</b>: a lista com nome, login, cargo, situação e licenças. Use o filtro (ativas, bloqueadas, sem licença paga, bloqueadas com licença), a busca e o botão <b>CSV</b> para levar a lista para o Excel.</li>
+  </ol>
+  <p>Licenças gratuitas e de avaliação (Free, Trial) aparecem embaixo das licenças da conta como "grátis" e não entram em nenhuma conta de licenças.</p>
+
+  <h2 id="mudancas">3. Mudanças entre exportações</h2>
+  <p>Na aba <b>Mudanças</b>, para cada unidade: contas novas, contas removidas, contas que foram bloqueadas ou reativadas e contas que ganharam ou perderam licença. A comparação é sempre entre a exportação escolhida no topo e a anterior a ela. Para ver um período antigo, escolha outra data no topo.</p>
+
+  <h2 id="economia">4. Onde está o desperdício</h2>
+  <table>
+    <tr><th>Aviso</th><th>O que fazer</th></tr>
+    <tr><td>Bloqueadas com licença</td><td>A conta não é usada, mas a licença continua sendo cobrada. No Microsoft 365 Admin Center, retire a licença da conta (ou reative a conta, se ela ainda é usada). A licença liberada pode ir para outra pessoa.</td></tr>
+    <tr><td>N sem uso</td><td>Licenças compradas que não estão em nenhuma conta. Use para alguém que precisa, ou reduza na renovação do contrato.</td></tr>
+    <tr><td>faltam N</td><td>Mais contas com a licença do que compradas na fatura: confira a fatura ou a atribuição.</td></tr>
+    <tr><td>em uso sem compra na fatura</td><td>Licença atribuída que não aparece na fatura carregada: pode faltar um item na fatura.</td></tr>
+    <tr><td>Fatura: comprada caiu de … para …</td><td>O contrato é anual e a quantidade não deveria diminuir de um mês para o outro: confira a fatura mais recente.</td></tr>
+  </table>
+
+  <h2 id="nervia">5. Tarefas da equipe Nervia <span class="eq">EQUIPE NERVIA</span></h2>
+  <ol>
+    <li><b>Exportar</b>: no Microsoft 365 Admin Center, Usuários → Usuários ativos → <b>Exportar usuários</b>. O arquivo vem com todas as contas do tenant.</li>
+    <li><b>Carregar</b>: no app, aba <b>Cargas e fatura</b> → <b>Carregar exportação</b> → escolha o CSV. O app separa as contas das unidades <b>no seu computador</b> (pelo domínio no login ou nos endereços de proxy) e mostra a prévia: contas por unidade, contas de outras empresas e convidados (que não são enviados). Confira a data (vem do nome do arquivo, DD_MM_AAAA) e clique em <b>Gravar carga</b>.</li>
+    <li>Para montar o histórico, carregue as exportações antigas <b>da mais antiga para a mais nova</b>. Uma carga por data; para corrigir, carregue de novo marcando <b>substituir</b>.</li>
+    <li><b>Fatura</b>: em <b>Fatura de licenças do mês</b>, escolha o mês e cole as linhas (ou escolha o .txt) no formato <code>local,quantidade,licença,valor unitário</code>, o mesmo do arquivo Licencas/licencas.txt. Clique em <b>Conferir</b>: aparecem os itens entendidos e as linhas não aproveitadas. Depois, <b>Gravar fatura</b>.</li>
+    <li><b>Unidades</b>: cada unidade tem um domínio (trecho que aparece no login ou no proxy, ex.: <code>multicenteritaipu</code>) e apelidos (como ela aparece na coluna "local" da fatura). Para outra empresa do tenant, crie a unidade com o domínio dela.</li>
+    <li><b>Quem vê</b>: marque os logins de cada unidade. Eles veem contas, mudanças e valores da unidade. O login também precisa ter o app liberado em Administração → Logins.</li>
+  </ol>
+  <p>Cargas, faturas, exclusões, acessos e mudanças nas unidades ficam no registro de auditoria.</p>
+
+  <h2 id="problemas">6. Mensagens e o que fazer</h2>
+  <table>
+    <tr><th>Mensagem</th><th>O que fazer</th></tr>
+    <tr><td>Entre na Área do Cliente para ver as contas e licenças</td><td>A sessão expirou: entre de novo em nervia.com.br/cliente.</td></tr>
+    <tr><td>Nenhuma unidade liberada para o seu login</td><td>Peça à Nervia para liberar a unidade.</td></tr>
+    <tr><td>Este não parece ser o CSV de usuários do Microsoft 365 <span class="eq">EQUIPE NERVIA</span></td><td>Exporte de novo em Usuários → Usuários ativos → Exportar usuários, sem abrir e salvar o arquivo no Excel.</td></tr>
+    <tr><td>Nenhuma conta das unidades cadastradas neste arquivo <span class="eq">EQUIPE NERVIA</span></td><td>Confira os domínios das unidades em Cargas e fatura → Unidades.</td></tr>
+    <tr><td>Já existe uma carga de … / Já existe fatura de … <span class="eq">EQUIPE NERVIA</span></td><td>Marque "substituir" para trocar pela nova.</td></tr>
+    <tr><td>unidade "…" não reconhecida / licença "…" não reconhecida <span class="eq">EQUIPE NERVIA</span></td><td>Acrescente o apelido na unidade, ou fale com a Nervia para incluir o produto.</td></tr>
+  </table>
+  <div class="rodape">Dúvidas: WhatsApp (21) 96686-9374 · atendimento@nervia.com.br<br>Nervia Tecnologia · Manual do app Contas e Licenças Microsoft 365 · atualizado em 21/10/2026</div>
+</div>
+<script src="/marca-dagua.js" data-tipo="doc"></script>
+</body>
+</html>

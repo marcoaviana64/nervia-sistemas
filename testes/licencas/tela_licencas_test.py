@@ -1,0 +1,212 @@
+"""Teste de ponta a ponta do app Contas e Licenças Microsoft 365: tela real + banco real (Postgres local com as migrações)
+servido pelo PostgREST (o mesmo motor da API do Supabase). Dados FICTÍCIOS (exportação montada aqui).
+
+Precisa de: Postgres (PGHOST/PGPORT/PGUSER), o binário do PostgREST (variável POSTGREST, v12+) e Playwright.
+Sem internet para o CDN: SUPABASE_JS=caminho do supabase.js (umd) da mesma versão.
+Uso: PGHOST=/tmp/pgd PGPORT=5433 PGUSER=postgres POSTGREST=/caminho/postgrest python3 testes/licencas/tela_licencas_test.py [pasta_prints]
+"""
+import os, sys, json, time, glob, subprocess, threading, http.server, functools, urllib.request, re
+import jwt
+from playwright.sync_api import sync_playwright
+
+RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+SAIDA = sys.argv[1] if len(sys.argv) > 1 else os.path.join(RAIZ, "testes")
+PG = dict(host=os.environ.get("PGHOST", "localhost"), port=os.environ.get("PGPORT", "5432"), user=os.environ.get("PGUSER", "postgres"))
+DB = "teste_licencas_tela"
+SEGREDO = "segredo-de-teste-com-mais-de-32-caracteres!!"
+PORTA_API, PORTA_SITE = 3904, 8816
+
+def psql(sql=None, arquivo=None, db=DB, saida=False):
+    cmd = ["psql", "-h", PG["host"], "-p", PG["port"], "-U", PG["user"], "-d", db, "-v", "ON_ERROR_STOP=1", "-q", "-At"]
+    cmd += ["-f", arquivo] if arquivo else ["-c", sql]
+    r = subprocess.run(cmd, check=True, stdout=subprocess.PIPE if saida else subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+    return r.stdout.strip() if saida else None
+
+def preparar_banco():
+    psql(f"drop database if exists {DB}", db="postgres"); psql(f"create database {DB}", db="postgres")
+    psql(arquivo=os.path.join(RAIZ, "testes", "stubs_supabase.sql"))
+    sql = "\n".join(l for f in sorted(glob.glob(os.path.join(RAIZ, "supabase", "migrations", "*.sql")))
+                    for l in open(f, encoding="utf-8").read().splitlines() if not l.startswith("create extension"))
+    caminho = os.path.join(SAIDA, "_migracoes_licencas.sql"); open(caminho, "w", encoding="utf-8").write(sql)
+    psql(arquivo=caminho); os.remove(caminho)
+    psql("""do $$ begin create role autenticador login password 'x' noinherit; exception when duplicate_object then null; end $$;
+      grant anon, authenticated to autenticador;""")
+    psql("""
+      insert into auth.users (id, email, raw_user_meta_data) values
+        ('00000000-0000-0000-0000-0000000000a1', 'marco@nervia.com.br', '{"nome":"Marco"}'),
+        ('00000000-0000-0000-0000-0000000000c1', 'ti@vogue.exemplo', '{"nome":"TI Vogue"}'),
+        ('00000000-0000-0000-0000-0000000000c2', 'outro@x.exemplo', '{"nome":"Outro"}');
+      update perfis set admin = true where email = 'marco@nervia.com.br';
+    """)
+
+def iniciar_api():
+    conf = os.path.join(SAIDA, "_postgrest_licencas.conf")
+    open(conf, "w").write(f'db-uri = "postgres://autenticador:x@localhost:{PG["port"]}/{DB}"\ndb-schemas = "public"\ndb-anon-role = "anon"\n'
+                          f'jwt-secret = "{SEGREDO}"\nserver-port = {PORTA_API}\nlog-level = "crit"\n')
+    proc = subprocess.Popen([os.environ["POSTGREST"], conf], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    for _ in range(50):
+        try: urllib.request.urlopen(f"http://localhost:{PORTA_API}/"); break
+        except Exception: time.sleep(0.2)
+    return proc, conf
+
+def token(uid, email):
+    return jwt.encode({"sub": uid, "email": email, "role": "authenticated", "aud": "authenticated", "exp": int(time.time()) + 3600}, SEGREDO, algorithm="HS256")
+
+USU = {"admin": ("00000000-0000-0000-0000-0000000000a1", "marco@nervia.com.br"), "clienteA": ("00000000-0000-0000-0000-0000000000c1", "ti@vogue.exemplo"),
+       "clienteB": ("00000000-0000-0000-0000-0000000000c2", "outro@x.exemplo")}
+CONFIG = f'window.NERVIA_CONFIG={{SUPABASE_URL:"http://127.0.0.1:{PORTA_SITE}",SUPABASE_ANON_KEY:"anon"}};'
+
+def entrar(b, papel, largura=1300):
+    uid, email = USU[papel]; t = token(uid, email)
+    sessao = {"access_token": t, "refresh_token": "x", "token_type": "bearer", "expires_in": 3600, "expires_at": int(time.time()) + 3600,
+              "user": {"id": uid, "email": email, "aud": "authenticated", "role": "authenticated"}}
+    ctx = b.new_context(viewport={"width": largura, "height": 900}, accept_downloads=True)
+    ctx.add_init_script(f"localStorage.setItem('sb-127-auth-token', {json.dumps(json.dumps(sessao))});")
+    ctx.route("**/config.js", lambda r: r.fulfill(body=CONFIG, content_type="text/javascript"))
+    if os.environ.get("SUPABASE_JS"):
+        ctx.route("**/supabase-js@*/**", lambda r: r.fulfill(path=os.environ["SUPABASE_JS"], content_type="text/javascript"))
+    def api(rota):
+        url = rota.request.url.replace(f"http://127.0.0.1:{PORTA_SITE}/rest/v1", f"http://localhost:{PORTA_API}")
+        rota.fulfill(response=rota.fetch(url=url))
+    ctx.route(f"http://127.0.0.1:{PORTA_SITE}/rest/v1/**", api)
+    pg = ctx.new_page(); erros = []
+    pg.on("pageerror", lambda e: erros.append(str(e)))
+    return pg, erros
+
+def abrir(pg):
+    pg.goto(f"http://127.0.0.1:{PORTA_SITE}/apps/licencas/"); pg.wait_for_selector("#app:not(.oculto), #aviso:not(.oculto)"); pg.wait_for_timeout(400)
+
+def confirmar(pg):
+    pg.click("dialog [value=ok]"); pg.wait_for_timeout(500)
+
+def mensagem(pg): return pg.text_content("#msg") if pg.is_visible("#msg") else ""
+
+def ok(cond, nome):
+    if not cond: raise SystemExit("FALHOU: " + nome)
+    print("ok ", nome)
+
+# ---------------------------------------------------------------- exportação fictícia (mesmo cabeçalho do Microsoft 365 Admin Center)
+CAB = "Display name,DirSyncEnabled,User principal name,Object Id,First name,Last name,When created,Soft deletion time stamp,AgeGroup,Title,Department,Preferred data location,City,CountryOrRegion,Office,StateOrProvince,Usage location,Last dirsync time,Block credential,Licenses,Password never expires,Last password change time stamp,Mobile Phone,Phone number,Postal code,Preferred language,Street address,Fax,Proxy addresses,MemberType"
+def linha(nome, upn, lic, bloq=False, cargo="", proxy="", depto=""):
+    c = [nome, "False", upn, "id", "", "", "2025-03-10 12:00:00Z", "", "", cargo, depto, "", "", "", "", "", "BR", "", str(bloq), lic, "False", "", "", "(21) 99999-0000", "", "", "Rua Fictícia, 10", "", proxy, ""]
+    return ",".join(f'"{x}"' if ("," in x or '"' in x) else x for x in c)
+def export(contas): return "﻿" + CAB + "\n" + "\n".join(linha(*c) for c in contas) + "\n"
+SET = [
+    ("Ana Lima", "ana@vogue.exemplo.com.br", "Microsoft 365 Business Standard", False, "Gerente, Operações"),
+    ("Bruno Reis", "bruno@vogue.exemplo.com.br", "Microsoft 365 Business Standard+Microsoft Fabric (Free)", False),
+    ("Caixa Compartilhada (shared)", "contato@vogue.exemplo.com.br", "Exchange Online (Plan 1)", False),
+    ("Diego Souza", "diego@empresa-mae.exemplo", "Unlicensed", False, "", "SMTP:diego@vogue.exemplo.com.br"),
+    ("Eva Prado", "eva@parksul.exemplo.com.br", "Microsoft 365 Business Basic+Microsoft 365 Apps for business", False),
+    ("Fábio Cruz", "fabio@parksul.exemplo.com.br", "Power BI Pro", True),
+    ("Gil Outra", "gil@outraempresa.exemplo", "Microsoft 365 Business Standard", False),
+    ("Convidado", "conv_x.com#EXT#@tenant.onmicrosoft.com", "Unlicensed", False),
+]
+OUT = [
+    ("Ana Lima", "ana@vogue.exemplo.com.br", "Microsoft 365 Business Standard", False, "Gerente, Operações"),
+    ("Bruno Reis", "bruno@vogue.exemplo.com.br", "Microsoft 365 Business Standard", True),           # bloqueado e continua com licença
+    ("Caixa Compartilhada (shared)", "contato@vogue.exemplo.com.br", "Exchange Online (Plan 1)+Power BI Pro", False),   # ganhou Power BI
+    ("Hugo Nunes", "hugo@vogue.exemplo.com.br", "Microsoft 365 Business Standard", False),            # novo
+    ("Eva Prado", "eva@parksul.exemplo.com.br", "Microsoft 365 Business Basic+Microsoft 365 Apps for business", False),
+    ("Fábio Cruz", "fabio@parksul.exemplo.com.br", "Power BI Pro", True),
+    ("Gil Outra", "gil@outraempresa.exemplo", "Microsoft 365 Business Standard", False),
+]   # Diego saiu
+FATURA = "local,quantidade,licença,valor unitario\nvogue,4,microsoft 365 bussiness standard, 70,50\nvogue,1,Exchange OnLine (Plan1), 24,65\nsul,1,power bi, 96,40\nxyz,1,power bi, 10,00\n"
+
+def carregar_csv(pg, nome, conteudo):
+    pg.set_input_files("#arqCsv", files=[{"name": nome, "mimeType": "text/csv", "buffer": conteudo.encode("utf-8")}]); pg.wait_for_timeout(500)
+
+preparar_banco()
+api, conf = iniciar_api()
+srv = http.server.ThreadingHTTPServer(("127.0.0.1", PORTA_SITE), functools.partial(http.server.SimpleHTTPRequestHandler, directory=os.path.join(RAIZ, "site")))
+http.server.SimpleHTTPRequestHandler.log_message = lambda *a: None
+threading.Thread(target=srv.serve_forever, daemon=True).start()
+try:
+    with sync_playwright() as p:
+        b = p.chromium.launch()
+        pg, er = entrar(b, "admin"); abrir(pg)
+        ok("Carregar exportação do Microsoft 365" in pg.text_content("#tela"), "sem dados, o admin cai direto em Cargas e fatura")
+        carregar_csv(pg, "nada.csv", "a,b\n1,2\n")
+        ok("faltam as colunas" in mensagem(pg), "arquivo que não é a exportação de usuários é recusado com explicação")
+        carregar_csv(pg, "users_01_09_2026.csv", export(SET))
+        t = pg.text_content("#previa")
+        ok("8 contas no arquivo" in t and "6 das unidades" in t and "1 de outras empresas" in t and "1 convidados" in t and pg.input_value("#cDataCsv") == "2026-09-01",
+           "prévia: separa as unidades no navegador (inclusive pelo proxy), ignora outra empresa e convidado, pega a data do nome")
+        pg.click("[data-acao=gravarCarga]"); pg.wait_for_timeout(800)
+        ok("01/09/2026 carregada: 6 contas" in mensagem(pg), "carga de 01/09 gravada")
+        ok(psql("select count(*) from lic_contas where login like '%outraempresa%' or nome = 'Convidado'", saida=True) == "0"
+           and psql("select count(*) from lic_contas where login = 'diego@empresa-mae.exemplo'", saida=True) == "1",
+           "no banco só as contas das unidades (outra empresa e convidado não saem do computador)")
+        ok(psql("select cargo || '|' || array_to_string(gratuitas, ',') from lic_contas where nome = 'Ana Lima'", saida=True) == "Gerente, Operações|"
+           and psql("select array_to_string(licencas, ',') || '|' || array_to_string(gratuitas, ',') from lic_contas where nome = 'Bruno Reis'", saida=True) == "Microsoft 365 Business Standard|Microsoft Fabric (Free)",
+           "campo com vírgula entre aspas e licença gratuita separada")
+        carregar_csv(pg, "users_01_10_2026.csv", export(OUT))
+        pg.click("[data-acao=gravarCarga]"); pg.wait_for_timeout(800)
+        carregar_csv(pg, "users_01_10_2026.csv", export(OUT))
+        ok("Já existe uma carga de 01/10/2026" in pg.text_content("#previa"), "mesma data avisa que já existe")
+        pg.click("[data-acao=cancelarPrevia]")
+        # fatura
+        pg.fill("#fatMes", "2026-10"); pg.fill("#fatTxt", FATURA); pg.click("[data-acao=conferirFatura]"); pg.wait_for_timeout(300)
+        t = pg.text_content("#previaFat").replace("\xa0", " ")
+        ok('unidade "xyz" não reconhecida' in t and "Microsoft 365 Business Standard" in t and "R$ 282,00" in t and "Shopping Park Sul" in t,
+           "fatura: lê o formato antigo (valor com vírgula, erro de digitação, apelido) e avisa linha não reconhecida")
+        pg.click("[data-acao=gravarFatura]"); pg.wait_for_timeout(700)
+        ok("Fatura de out/2026 gravada: 3" in mensagem(pg), "fatura gravada")
+        ok(not er, "sem erros de script (admin, cargas) " + str(er))
+
+        # painel
+        pg.click("[data-v=painel]"); pg.wait_for_timeout(400)
+        t = re.sub(r"\s+", " ", pg.inner_text("#tela").replace("\xa0", " "))
+        ok(pg.locator(".un").count() == 2 and "01/10/2026" in t and "comparada com a de 01/09/2026" in t, "painel com as 2 unidades com dados, comparando as exportações")
+        ok("Bloqueadas com licença 2" in t, "alerta: contas bloqueadas que continuam com licença paga")
+        vogue = re.sub(r"\s+", " ", pg.locator(".un", has_text="Vogue").inner_text())
+        ok("1 alerta" in vogue and "+1 −1" in vogue and "Compradas sem uso" in vogue, "cartão da unidade com alerta, mudanças e licenças sem uso")
+        pg.screenshot(path=os.path.join(SAIDA, "licencas-painel.png"), full_page=True)
+        pg.click(".un >> text=Vogue"); pg.wait_for_timeout(400)
+        t = re.sub(r"\s+", " ", pg.inner_text("#tela").replace("\xa0", " "))
+        ok("1 conta(s) bloqueada(s) com licença paga" in t and "Bruno Reis — Microsoft 365 Business Standard" in t, "detalhe: quem está bloqueado com licença")
+        ok("Power BI Pro" in t and "1 em uso sem compra na fatura" in t and "sem folga" in t, "compradas x em uso: Standard 4 de 4, Power BI em uso sem compra")
+        ok("1 conta(s) nova(s), 1 removida(s), 1 mudaram de situação, 1 trocaram de licença" in t, "resumo das mudanças da unidade")
+        pg.select_option("#fSt", "alerta"); pg.wait_for_timeout(200)
+        ok(pg.locator("#listaContas tr").count() == 2, "filtro 'bloqueadas com licença'")
+        pg.select_option("#fSt", ""); pg.fill("#fQ", "hugo"); pg.wait_for_timeout(200)
+        ok(pg.locator("#listaContas tr").count() == 2 and "Hugo Nunes" in pg.text_content("#listaContas"), "busca por nome")
+        with pg.expect_download() as d: pg.click("[data-acao=csv]")
+        ok("Hugo Nunes" in open(d.value.path(), encoding="utf-8-sig").read(), "CSV das contas")
+        pg.screenshot(path=os.path.join(SAIDA, "licencas-unidade.png"), full_page=True)
+        pg.click("[data-acao=verMud]"); pg.wait_for_timeout(300)
+        t = re.sub(r"\s+", " ", pg.inner_text("#tela").replace("\xa0", " "))
+        ok("Contas novas (1)" in t and "Hugo Nunes" in t and "Contas removidas (1)" in t and "Diego Souza" in t and "Ativa → Bloqueada" in t and "+ Power BI Pro" in t,
+           "mudanças: nova, removida, bloqueada e licença acrescentada")
+        pg.select_option("#selCarga", label="01/09/2026"); pg.wait_for_timeout(500)
+        ok("é a primeira" in pg.text_content("#tela"), "na primeira exportação não há mudanças")
+        pg.select_option("#selCarga", label="01/10/2026"); pg.wait_for_timeout(500)
+        # quem vê
+        pg.click("[data-v=admin]"); pg.wait_for_timeout(500)
+        pg.locator("tr", has_text="Vogue").locator("[data-acao=acessos]").click(); pg.wait_for_timeout(400)
+        pg.check("dialog input[value='00000000-0000-0000-0000-0000000000c1']"); confirmar(pg)
+        ok("Acessos atualizados" in mensagem(pg), "admin libera a Vogue para o cliente")
+        ok(not er, "sem erros de script (admin) " + str(er))
+
+        # cliente: só a Vogue, direto no detalhe
+        pc, erc = entrar(b, "clienteA"); abrir(pc)
+        t = pc.text_content("#tela")
+        ok("Vogue" in t and "Eva Prado" not in pc.text_content("body") and pc.locator("#abaAdmin.oculto").count() == 1 and "Compradas" in t,
+           "cliente vê só a unidade liberada (com a fatura) e não vê Cargas e fatura")
+        ok(psql("select count(*) from auditoria where acao in ('licencas_carga', 'licencas_fatura', 'licencas_acesso_liberado')", saida=True) == "4", "cargas, fatura e acesso na auditoria")
+        pc.click("[data-v=contas]"); pc.wait_for_timeout(300)
+        ok(pc.locator("#fU").count() == 0 and pc.locator("#listaContas tr").count() == 5, "aba Contas do cliente: 4 contas da Vogue")
+        ok(not erc, "sem erros de script (cliente) " + str(erc))
+        pb, erb = entrar(b, "clienteB"); abrir(pb)
+        ok("Nenhuma unidade liberada" in pb.text_content("#aviso"), "login sem unidade recebe aviso claro")
+        pm, erm = entrar(b, "clienteA", 390); abrir(pm)
+        ok(pm.evaluate("document.documentElement.scrollWidth") <= 392, "celular sem rolagem lateral")
+        pm.screenshot(path=os.path.join(SAIDA, "licencas-celular.png"), full_page=True)
+        for arq in ("cartao", "manual"):
+            r = pm.goto(f"http://127.0.0.1:{PORTA_SITE}/apps/licencas/ajuda/{arq}.html")
+            ok(r.status == 200 and pm.evaluate("document.documentElement.scrollWidth") <= 392, f"{arq} abre e cabe no celular")
+        b.close()
+    print("TODOS OS TESTES DE TELA DE LICENÇAS OK")
+finally:
+    api.terminate(); srv.shutdown()
+    try: os.remove(conf)
+    except OSError: pass

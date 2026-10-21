@@ -141,7 +141,7 @@ end $$;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
 select pg_temp.ok((select count(*) = 0 from apps), 'login sem app liberado não vê apps');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
-select pg_temp.ok((select count(*) = 8 from apps), 'admin vê todos os apps, inclusive inativos');
+select pg_temp.ok((select count(*) = 9 from apps), 'admin vê todos os apps, inclusive inativos');
 insert into app_acessos values ('00000000-0000-0000-0000-00000000000c', 'chamados');
 update apps set ativo = false where id = 'chamados';
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
@@ -706,6 +706,49 @@ select pg_temp.ok((select status = 'concluida' from cmp_requisicoes where id = p
 reset role;
 select pg_temp.erro('insert into cmp_propostas (requisicao_id, origem, site, link, preco_unitario, prazo_dias) values (' || pg_temp.id('r6') || ', ''internet'', ''ML'', ''javascript:alert(1)'', 1, 1)',
   'cmp_propostas_internet', 'banco recusa link que não é http(s)');
+reset request.jwt.claim.sub;
+-- ---------------------------------------------------------------- Contas e Licenças Microsoft 365 (lic_)
+select pg_temp.ok((select count(*) = 7 from lic_unidades) and (select count(*) = 1 from apps where id = 'licencas' and manual_url like '/apps/licencas/ajuda/%'),
+  'licenças: 7 unidades iniciais e app cadastrado com cartão e manual');
+insert into lic_acessos select '00000000-0000-0000-0000-00000000000b', id from lic_unidades where dominio = 'vogue';
+create temp table lic_ids (k text primary key, v text); grant all on lic_ids to authenticated;
+insert into lic_ids select dominio, id::text from lic_unidades where dominio in ('vogue', 'parksul');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.erro2($$select lic_carregar(current_date, 'x.csv', 1, '[{"unidade_id":"$$ || (select v from lic_ids where k = 'vogue') || $$","login":"a@vogue.com.br"}]')$$,
+  'Só a equipe Nervia', 'cliente não carrega exportação');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select lic_carregar('2026-09-01', 'users_01_09_2026.csv', 50, jsonb_build_array(
+  jsonb_build_object('unidade_id', (select v from lic_ids where k = 'vogue'), 'login', 'Ana@vogue.com.br', 'nome', 'Ana', 'licencas', '{"Microsoft 365 Business Standard"}'),
+  jsonb_build_object('unidade_id', (select v from lic_ids where k = 'vogue'), 'login', 'bia@vogue.com.br', 'nome', 'Bia', 'bloqueada', true, 'licencas', '{"Exchange Online (Plan 1)"}'),
+  jsonb_build_object('unidade_id', (select v from lic_ids where k = 'parksul'), 'login', 'caio@parksul.com.br', 'nome', 'Caio', 'licencas', '{}')));
+select pg_temp.ok((select contas = 3 and linhas_arquivo = 50 and carregado_nome <> '' from lic_cargas where exportado_em = '2026-09-01')
+  and (select login = 'ana@vogue.com.br' from lic_contas where nome = 'Ana'), 'admin carrega a exportação (login em minúsculas)');
+select pg_temp.erro2($$select lic_carregar('2026-09-01', 'x.csv', 1, '[{"unidade_id":"$$ || (select v from lic_ids where k = 'vogue') || $$","login":"z@vogue.com.br"}]')$$,
+  'Já existe uma carga de 01/09/2026', 'mesma data não substitui sem marcar');
+select pg_temp.erro2($$select lic_carregar('2026-09-02', 'x.csv', 1, '[{"unidade_id":"$$ || (select v from lic_ids where k = 'vogue') || $$","login":"x#EXT#@vogue.com.br"}]')$$,
+  'convidado', 'conta de convidado recusada');
+select pg_temp.erro2($$select lic_carregar('2026-09-02', 'x.csv', 1, '[]')$$, 'Nenhuma conta', 'arquivo sem contas das unidades recusado');
+select lic_salvar_fatura('2026-09-15', jsonb_build_array(
+  jsonb_build_object('unidade_id', (select v from lic_ids where k = 'vogue'), 'produto', 'Microsoft 365 Business Standard', 'quantidade', 3, 'valor_unitario', 70.5),
+  jsonb_build_object('unidade_id', (select v from lic_ids where k = 'vogue'), 'produto', 'Microsoft 365 Business Standard', 'quantidade', 1, 'valor_unitario', 70.5)));
+select pg_temp.ok((select quantidade = 4 and mes = '2026-09-01' from lic_faturas), 'fatura do mês: linhas do mesmo produto somadas, mês normalizado');
+select pg_temp.erro2($$select lic_salvar_fatura('2026-09-01', '[{"unidade_id":"$$ || (select v from lic_ids where k = 'vogue') || $$","produto":"x","quantidade":1}]')$$,
+  'Já existe fatura', 'fatura do mesmo mês não substitui sem marcar');
+select pg_temp.ok((select count(*) >= 3 from auditoria where acao in ('licencas_carga', 'licencas_fatura', 'licencas_acesso_liberado')), 'carga, fatura e acesso auditados');
+-- cliente vê só a unidade liberada
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok((select count(*) = 2 from lic_contas) and (select count(*) = 1 from lic_unidades) and (select count(*) = 1 from lic_faturas)
+  and (select count(*) = 1 from lic_cargas), 'cliente vê só as contas, a unidade e a fatura liberadas');
+select pg_temp.erro2('insert into lic_contas (carga_id, unidade_id, login) select id, (select v from lic_ids where k = ''vogue'')::uuid, ''hack@vogue.com.br'' from lic_cargas',
+  'permission', 'cliente não grava conta direto');
+select pg_temp.erro2('select lic_excluir_carga((select id from lic_cargas))', 'Só a equipe Nervia', 'cliente não exclui carga');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.ok((select count(*) = 0 from lic_contas) and (select count(*) = 0 from lic_cargas), 'login sem acesso não vê nada');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select lic_excluir_carga((select id from lic_cargas));
+select pg_temp.ok((select count(*) = 0 from lic_contas), 'excluir a carga apaga as contas dela');
+reset role;
 reset request.jwt.claim.sub;
 -- ---------------------------------------------------------------- vitrine da Área do Cliente
 select pg_temp.ok((select string_agg(id || '=' || situacao, ',' order by id) from apps where id in ('compras', 'monitor', 'notas', 'produtos', 'telefonia'))

@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Contas e Licenças Microsoft 365 | Nervia</title>
+<script src="/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<style>
+/* Contas e Licenças Microsoft 365 (app "licencas", tabelas lic_). A equipe Nervia carrega a exportação de usuários do
+   Microsoft 365 e a fatura do mês; o cliente só lê as unidades liberadas para ele. */
+:root{
+  --bg:#f3f6f8;--surface:#fff;--surface-2:#eaf1f4;--border:#dde6ec;--ink:#0f1b2d;--ink-soft:#4f5f73;--ink-faint:#8796a8;
+  --accent:#107e99;--accent-soft:#e3f3f7;--primary:#0b2545;
+  --ok:#1d7f46;--ok-bg:#e6f4ec;--crit:#b3261e;--crit-bg:#fbeaea;--warn:#a86400;--warn-bg:#fff3e0;--info:#2568a8;--info-bg:#e7f1fa;
+  color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0c1620;--surface:#122130;--surface-2:#18293a;--border:#24394e;--ink:#eef4f8;--ink-soft:#b3c3d1;--ink-faint:#7f93a6;
+  --accent:#3fc1dd;--accent-soft:rgba(63,193,221,.15);--primary:#cfe3f0;
+  --ok:#43c07e;--ok-bg:rgba(67,192,126,.14);--crit:#f07a72;--crit-bg:rgba(240,122,114,.14);--warn:#e3ad57;--warn-bg:rgba(227,173,87,.14);--info:#5eabe8;--info-bg:rgba(94,171,232,.14);color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.oculto{display:none!important}
+.casca{max-width:1200px;margin:0 auto;padding:12px 16px 40px}
+.topo{display:flex;align-items:center;gap:12px;padding:6px 0 10px}
+.topo .marca{width:34px;height:34px;border-radius:10px;background:linear-gradient(155deg,#107e99,#0b2545);color:#fff;display:grid;place-items:center;font-weight:800;font-size:.82rem}
+.topo span{color:var(--ink-soft);font-size:.8rem}
+.embutido .topo{display:none}
+.barra{display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:6px 8px;margin-bottom:12px}
+.barra .aba{border:0;background:none;padding:8px 12px;border-radius:8px;cursor:pointer;font:inherit;color:var(--ink-soft)}
+.barra .aba.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.barra .dir{margin-left:auto;display:flex;gap:6px;align-items:center;font-size:12px;color:var(--ink-soft)}
+.barra .dir select{width:auto}
+select,input,textarea{font:inherit;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink);width:100%}
+textarea{min-height:90px;font-family:ui-monospace,Consolas,monospace;font-size:12.5px}
+label{display:block;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);margin-bottom:3px}
+.bt{font:inherit;font-size:13px;font-weight:600;padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--ink);cursor:pointer;white-space:nowrap}
+.bt:hover{border-color:var(--ink-soft)}.bt.pri{background:var(--accent);border-color:var(--accent);color:#fff}.bt.perigo{color:var(--crit);border-color:var(--crit)}
+.bt:disabled{opacity:.5;cursor:not-allowed}
+.lnk{background:none;border:0;padding:0;color:var(--accent);cursor:pointer;font:inherit;text-decoration:underline}
+.msg{margin:8px 0;padding:9px 12px;border-radius:8px;font-size:13px;white-space:pre-line}
+.msg.ok{background:var(--ok-bg);color:var(--ok)}.msg.err{background:var(--crit-bg);color:var(--crit)}.msg.info{background:var(--info-bg);color:var(--info)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px}
+.kpi small{display:block;color:var(--ink-soft)}.kpi b{font-size:22px;display:block;font-variant-numeric:tabular-nums}.kpi span{font-size:12px;color:var(--ink-faint)}
+.kpi.crit b{color:var(--crit)}.kpi.warn b{color:var(--warn)}.kpi.ok b{color:var(--ok)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px}
+.card h2{font-size:16px;margin:0 0 10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.card h2 .dir{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+.unids{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-bottom:14px}
+.un{background:var(--surface);border:1px solid var(--border);border-left:5px solid var(--ok);border-radius:12px;padding:12px;cursor:pointer}
+.un.crit{border-left-color:var(--crit)}.un.warn{border-left-color:var(--warn)}
+.un h3{margin:0 0 6px;font-size:15px;display:flex;justify-content:space-between;gap:6px}
+.un .lin{display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:4px 0;border-top:1px dashed var(--border)}
+.un .lin b{font-variant-numeric:tabular-nums}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--border);vertical-align:top}
+th{color:var(--ink-soft);font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
+td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+tr.total td{font-weight:700;background:var(--surface-2)}
+.tag{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:999px;font-weight:600;white-space:nowrap;margin:1px 2px 1px 0}
+.t-crit{background:var(--crit-bg);color:var(--crit)}.t-warn{background:var(--warn-bg);color:var(--warn)}.t-ok{background:var(--ok-bg);color:var(--ok)}
+.t-info{background:var(--info-bg);color:var(--info)}.t-mut{background:var(--surface-2);color:var(--ink-soft)}.t-acc{background:var(--accent-soft);color:var(--accent)}
+.mut{color:var(--ink-soft);font-size:12.5px}
+.grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.grade .tudo{grid-column:1/-1}
+.filtros{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}.filtros select{width:auto}.filtros input{flex:1;min-width:160px}
+.barrinha{display:inline-block;width:90px;height:8px;background:var(--surface-2);border-radius:99px;overflow:hidden;vertical-align:middle;margin-right:6px}.barrinha i{display:block;height:100%}
+.aviso{border-radius:10px;padding:10px 12px;font-size:13.5px;margin:10px 0}
+.aviso.crit{background:var(--crit-bg);color:var(--crit)}.aviso.info{background:var(--info-bg);color:var(--info)}.aviso.warn{background:var(--warn-bg);color:var(--warn)}.aviso.ok{background:var(--ok-bg);color:var(--ok)}
+.acoes{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center}
+.mud h3{font-size:14px;margin:12px 0 4px}
+dialog{border:0;border-radius:14px;padding:18px;max-width:720px;width:calc(100% - 24px);background:var(--surface);color:var(--ink)}
+dialog::backdrop{background:#0008}
+dialog h3{margin:0 0 12px}
+.chk{display:inline-flex;gap:5px;align-items:center;margin:3px 10px 3px 0;font-size:13px;text-transform:none;letter-spacing:0;font-weight:400;color:var(--ink)}
+.chk input{width:auto}
+.centro{padding:60px 16px;text-align:center;color:var(--ink-soft)}
+@media print{.barra,.acoes,.topo,.noprint{display:none!important}body{background:#fff}}
+</style>
+</head>
+<body>
+<div class="casca">
+  <div class="topo"><div class="marca">CL</div><div><b>Contas e Licenças Microsoft 365</b><br><span>Contas, licenças em uso, mudanças e licenças pagas sem uso</span></div></div>
+  <div id="aviso" class="centro">Carregando…</div>
+  <div id="app" class="oculto">
+    <div class="barra">
+      <button class="aba on" data-v="painel">Painel</button>
+      <button class="aba" data-v="contas">Contas</button>
+      <button class="aba" data-v="mudancas">Mudanças</button>
+      <button class="aba" data-v="admin" id="abaAdmin">Cargas e fatura</button>
+      <div class="dir"><span>Exportação de</span><select id="selCarga"></select></div>
+    </div>
+    <div id="msg" class="msg oculto"></div>
+    <div id="tela"></div>
+  </div>
+</div>
+<dialog id="dlg"><form method="dialog" id="dlgf"></form></dialog>
+
+<script>
+const CFG = window.NERVIA_CONFIG || {};
+const EMBUTIDO = window.self !== window.top;
+if (EMBUTIDO) document.documentElement.classList.add("embutido");
+const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const checar = r => { if (r.error) throw new Error(r.error.message); return r.data; };
+const TZ = "America/Sao_Paulo";
+const dataBR = v => v ? (v.length === 10 ? v.split("-").reverse().join("/") : new Date(v).toLocaleDateString("pt-BR", { timeZone: TZ })) : "—";
+const dataHora = v => v ? new Date(v).toLocaleString("pt-BR", { timeZone: TZ, day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+const mesBR = m => { const [a, b] = String(m).slice(0, 7).split("-"); return ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"][+b - 1] + "/" + a; };
+const brl = v => Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const n = v => Number(v || 0).toLocaleString("pt-BR");
+const tag = (t, c) => `<span class="tag ${c}">${esc(t)}</span>`;
+function msg(tipo, texto) { const m = $("msg"); m.className = "msg " + tipo; m.textContent = texto; m.scrollIntoView({ block: "nearest" }); if (tipo === "ok") setTimeout(() => m.classList.add("oculto"), 6000); }
+function limparMsg() { $("msg").className = "msg oculto"; }
+
+let ADMIN = false, UNIDADES = [], CARGAS = [], FATURAS = [], CARGA = null, CONTAS = [], ANT = [], VISTA = "painel", SEL = null, FILTRO = { u: "", st: "", q: "" };
+
+// ---------------------------------------------------------------- carga
+async function iniciar() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { $("aviso").innerHTML = 'Entre na <a href="/cliente/" target="_top">Área do Cliente</a> para ver as contas e licenças.'; return; }
+  try {
+    const p = checar(await sb.from("perfis").select("admin").eq("user_id", session.user.id).maybeSingle());
+    ADMIN = !!(p && p.admin);
+    $("abaAdmin").classList.toggle("oculto", !ADMIN);
+    await carregar();
+    if (!UNIDADES.length && !ADMIN) { $("aviso").textContent = "Nenhuma unidade liberada para o seu login. Fale com a Nervia."; return; }
+    $("aviso").classList.add("oculto"); $("app").classList.remove("oculto");
+    if (!CARGAS.length && ADMIN) VISTA = "admin";
+    render();
+  } catch (e) { $("aviso").textContent = "Não foi possível carregar: " + e.message; }
+}
+async function todas(q) {   // o Supabase devolve no máximo 1000 linhas por consulta
+  const l = [];
+  for (let i = 0; ; i += 1000) { const parte = checar(await q().range(i, i + 999)) || []; l.push(...parte); if (parte.length < 1000) break; }
+  return l;
+}
+async function carregar() {
+  UNIDADES = checar(await sb.from("lic_unidades").select("*").order("ordem").order("nome"));
+  CARGAS = checar(await sb.from("lic_cargas").select("*").order("exportado_em", { ascending: false }));
+  FATURAS = await todas(() => sb.from("lic_faturas").select("*").order("mes"));
+  if (!CARGAS.some(c => c.id === CARGA)) CARGA = CARGAS.length ? CARGAS[0].id : null;
+  await carregarContas();
+  $("selCarga").innerHTML = CARGAS.length ? CARGAS.map(c => `<option value="${c.id}" ${c.id === CARGA ? "selected" : ""}>${dataBR(c.exportado_em)}</option>`).join("") : "<option>nenhuma</option>";
+}
+async function carregarContas() {
+  const i = CARGAS.findIndex(c => c.id === CARGA), ant = i >= 0 ? CARGAS[i + 1] : null;
+  const cols = "carga_id, unidade_id, login, nome, cargo, departamento, bloqueada, compartilhada, licencas, gratuitas, criada_em";
+  CONTAS = CARGA ? await todas(() => sb.from("lic_contas").select(cols).eq("carga_id", CARGA).order("nome")) : [];
+  ANT = ant ? await todas(() => sb.from("lic_contas").select(cols).eq("carga_id", ant.id).order("nome")) : [];
+}
+$("selCarga").onchange = async () => { CARGA = Number($("selCarga").value); limparMsg(); await carregarContas(); render(); };
+document.querySelectorAll(".barra .aba").forEach(b => b.onclick = () => { VISTA = b.dataset.v; SEL = null; limparMsg(); render(); });
+
+// ---------------------------------------------------------------- cálculos
+const cargaAtual = () => CARGAS.find(c => c.id === CARGA);
+const cargaAnterior = () => { const i = CARGAS.findIndex(c => c.id === CARGA); return i >= 0 ? CARGAS[i + 1] : null; };
+const unidade = id => UNIDADES.find(u => u.id === id) || { nome: "?" };
+const pagas = a => (a.licencas || []).length > 0;
+const alerta = a => a.bloqueada && pagas(a);   // conta bloqueada que continua ocupando licença paga
+function uso(contas) { const m = {}; contas.forEach(a => (a.licencas || []).forEach(s => m[s] = (m[s] || 0) + 1)); return m; }
+function resumo(uid) {
+  const cs = CONTAS.filter(a => a.unidade_id === uid), u = uso(cs);
+  return { contas: cs, total: cs.length, ativas: cs.filter(a => !a.bloqueada).length, bloqueadas: cs.filter(a => a.bloqueada).length,
+    sem: cs.filter(a => !pagas(a)).length, alertas: cs.filter(alerta), uso: u, emUso: Object.values(u).reduce((s, x) => s + x, 0), comp: comparar(uid, u) };
+}
+// fatura: por produto vale o mês mais recente até o mês da exportação (ou o mais recente, se a fatura for de depois)
+function compradas(uid) {
+  const c = cargaAtual(), lim = c ? c.exportado_em.slice(0, 7) + "-01" : "9999-12-01";
+  const fs = FATURAS.filter(f => f.unidade_id === uid), ate = fs.filter(f => f.mes <= lim), base = ate.length ? ate : fs;
+  const por = {};
+  base.forEach(f => { if (!por[f.produto] || f.mes > por[f.produto].mes) por[f.produto] = f; });
+  return por;
+}
+function comparar(uid, u) {
+  const comp = compradas(uid), skus = [...new Set([...Object.keys(comp), ...Object.keys(u)])].sort();
+  if (!Object.keys(comp).length) return null;
+  const linhas = skus.map(s => { const c = comp[s], q = c ? c.quantidade : 0, emUso = u[s] || 0, vu = c ? Number(c.valor_unitario) : 0;
+    return { produto: s, compradas: q, emUso, sobra: q - emUso, pct: q ? Math.round(100 * emUso / q) : null, vu, mes: c ? c.mes : null, semFatura: !c }; });
+  const t = { compradas: 0, emUso: 0, valor: 0, ocioso: 0, falta: 0, ociosas: 0 };
+  linhas.forEach(l => { t.compradas += l.compradas; t.emUso += l.emUso; t.valor += l.compradas * l.vu;
+    if (l.sobra > 0) { t.ocioso += l.sobra * l.vu; t.ociosas += l.sobra; } else if (l.sobra < 0) t.falta += -l.sobra; });
+  return { linhas, t };
+}
+// faturas: a quantidade comprada não deveria cair de um mês para o outro (contrato anual)
+function alertasFatura(uid) {
+  const fs = FATURAS.filter(f => !uid || f.unidade_id === uid), av = [];
+  const grupos = {};
+  fs.forEach(f => (grupos[f.unidade_id + "|" + f.produto] ||= []).push(f));
+  Object.values(grupos).forEach(g => { g.sort((a, b) => a.mes < b.mes ? -1 : 1);
+    for (let i = 1; i < g.length; i++) if (g[i].quantidade < g[i - 1].quantidade)
+      av.push(`${unidade(g[i].unidade_id).nome} · ${g[i].produto}: comprada caiu de ${g[i - 1].quantidade} (${mesBR(g[i - 1].mes)}) para ${g[i].quantidade} (${mesBR(g[i].mes)}). O contrato é anual e não deveria diminuir: confira a fatura.`); });
+  return av;
+}
+function mudancas(uid) {
+  const novo = CONTAS.filter(a => a.unidade_id === uid), velho = ANT.filter(a => a.unidade_id === uid);
+  const mv = new Map(velho.map(a => [a.login, a])), mn = new Map(novo.map(a => [a.login, a]));
+  const add = novo.filter(a => !mv.has(a.login)), rem = velho.filter(a => !mn.has(a.login)), st = [], lic = [];
+  novo.forEach(a => { const o = mv.get(a.login); if (!o) return;
+    if (o.bloqueada !== a.bloqueada) st.push({ a, de: o.bloqueada ? "Bloqueada" : "Ativa", para: a.bloqueada ? "Bloqueada" : "Ativa" });
+    const so = new Set(o.licencas || []), sn = new Set(a.licencas || []);
+    const mais = [...sn].filter(x => !so.has(x)), menos = [...so].filter(x => !sn.has(x));
+    if (mais.length || menos.length) lic.push({ a, mais, menos }); });
+  return { add, rem, st, lic, total: add.length + rem.length + st.length + lic.length, antes: velho.length, depois: novo.length };
+}
+
+// ---------------------------------------------------------------- telas
+function render() {
+  document.querySelectorAll(".barra .aba").forEach(b => b.classList.toggle("on", b.dataset.v === VISTA));
+  $("selCarga").parentElement.classList.toggle("oculto", VISTA === "admin");
+  if (VISTA !== "admin" && !CARGAS.length) { $("tela").innerHTML = `<div class="card"><p class="mut">${ADMIN ? "Nenhuma exportação carregada ainda. Use a aba Cargas e fatura." : "A Nervia ainda não carregou os dados."}</p></div>`; return; }
+  $("tela").innerHTML = SEL ? vUnidade(SEL) : ({ painel: vPainel, contas: vContas, mudancas: vMudancas, admin: vAdmin }[VISTA] || vPainel)();
+  if (VISTA === "admin" && !SEL) carregarAcessos();
+}
+const origem = () => { const c = cargaAtual(), a = cargaAnterior(); return `<p class="mut">Exportação do Microsoft 365 de <b>${dataBR(c.exportado_em)}</b>${a ? `, comparada com a de ${dataBR(a.exportado_em)}` : ""}. Licenças gratuitas e de avaliação (Free, Trial) não entram na conta.</p>`; };
+function kpis(rs) {
+  const s = k => rs.reduce((t, r) => t + (typeof r[k] === "number" ? r[k] : r[k].length), 0);
+  const comp = rs.map(r => r.comp).filter(Boolean), val = comp.reduce((t, c) => t + c.t.valor, 0), oc = comp.reduce((t, c) => t + c.t.ocioso, 0), ociosas = comp.reduce((t, c) => t + c.t.ociosas, 0);
+  const al = s("alertas");
+  return `<div class="kpis">
+    <div class="kpi"><small>Contas</small><b>${n(s("total"))}</b><span>${n(s("ativas"))} ativas · ${n(s("bloqueadas"))} bloqueadas</span></div>
+    <div class="kpi"><small>Licenças pagas em uso</small><b>${n(s("emUso"))}</b><span>${n(s("sem"))} contas sem licença paga</span></div>
+    <div class="kpi ${al ? "crit" : "ok"}"><small>Bloqueadas com licença</small><b>${n(al)}</b><span>${al ? "licença paga sem uso: revisar" : "nenhuma"}</span></div>
+    ${comp.length ? `<div class="kpi"><small>Pago por mês (fatura)</small><b>${brl(val)}</b><span>licenças compradas</span></div>
+    <div class="kpi ${oc > 0 ? "warn" : "ok"}"><small>Sem uso por mês</small><b>${brl(oc)}</b><span>${n(ociosas)} licença(s) comprada(s) sem conta</span></div>` : ""}</div>`;
+}
+function vPainel() {
+  if (UNIDADES.length === 1) return vUnidade(UNIDADES[0].id, true);
+  // só as unidades com contas nesta exportação (ou com fatura): unidade cadastrada sem dados não ocupa espaço
+  const rs = UNIDADES.filter(u => CONTAS.some(a => a.unidade_id === u.id) || FATURAS.some(f => f.unidade_id === u.id)).map(u => ({ u, ...resumo(u.id), m: mudancas(u.id) }));
+  const skus = [...new Set(rs.flatMap(r => Object.keys(r.uso)))].sort((a, b) => rs.reduce((t, r) => t + (r.uso[b] || 0) - (r.uso[a] || 0), 0));
+  const av = alertasFatura();
+  return origem() + kpis(rs) + (av.length ? `<div class="aviso warn"><b>Fatura:</b><br>${av.map(esc).join("<br>")}</div>` : "") +
+  `<div class="unids">${rs.map(r => { const cls = r.alertas.length ? "crit" : r.comp && r.comp.t.ociosas ? "warn" : "";
+    return `<div class="un ${cls}" data-un="${r.u.id}"><h3>${esc(r.u.nome)}${r.alertas.length ? tag(r.alertas.length + " alerta" + (r.alertas.length > 1 ? "s" : ""), "t-crit") : tag("OK", "t-ok")}</h3>
+      <div class="lin"><span>Contas</span><b>${n(r.total)} <span class="mut">(${n(r.bloqueadas)} bloq.)</span></b></div>
+      <div class="lin"><span>Licenças pagas em uso</span><b>${n(r.emUso)}</b></div>
+      ${r.comp ? `<div class="lin"><span>Compradas sem uso</span><b>${n(r.comp.t.ociosas)} · ${brl(r.comp.t.ocioso)}/mês</b></div>` : `<div class="lin"><span class="mut">Fatura não carregada</span></div>`}
+      ${cargaAnterior() ? `<div class="lin"><span>Mudanças desde ${dataBR(cargaAnterior().exportado_em)}</span><b>${r.m.total ? `+${r.m.add.length} −${r.m.rem.length}${r.m.st.length + r.m.lic.length ? ` · ${r.m.st.length + r.m.lic.length} alterada(s)` : ""}` : "nenhuma"}</b></div>` : ""}</div>`; }).join("")}</div>
+  <div class="card"><h2>Licenças em uso por produto</h2>${skus.length ? `<div class="tw"><table><tr><th>Produto</th>${rs.map(r => `<th class="num">${esc(r.u.nome)}</th>`).join("")}<th class="num">Total</th></tr>
+    ${skus.map(s => `<tr><td>${esc(s)}</td>${rs.map(r => `<td class="num">${r.uso[s] || "–"}</td>`).join("")}<td class="num"><b>${rs.reduce((t, r) => t + (r.uso[s] || 0), 0)}</b></td></tr>`).join("")}
+    <tr class="total"><td>Total</td>${rs.map(r => `<td class="num">${r.emUso}</td>`).join("")}<td class="num">${rs.reduce((t, r) => t + r.emUso, 0)}</td></tr></table></div>` : '<p class="mut">Nenhuma licença paga.</p>'}</div>`;
+}
+function tabCompras(comp) {
+  if (!comp) return '<div class="card"><h2>Licenças compradas x em uso</h2><p class="mut">A fatura de licenças desta unidade ainda não foi carregada. Com ela, aparece quanto está pago e sem uso.</p></div>';
+  const barra = l => { if (l.pct == null) return '<span class="mut">fora da fatura</span>';
+    const cor = l.pct >= 100 ? "var(--crit)" : l.pct >= 85 ? "var(--warn)" : "var(--accent)";
+    return `<span class="barrinha"><i style="width:${Math.min(100, l.pct)}%;background:${cor}"></i></span>${l.pct}%`; };
+  const sit = l => l.semFatura ? tag(`${l.emUso} em uso sem compra na fatura`, "t-crit") : l.sobra > 0 ? tag(`${l.sobra} sem uso`, "t-warn") : l.sobra < 0 ? tag(`faltam ${-l.sobra}`, "t-crit") : tag("sem folga", "t-info");
+  return `<div class="card"><h2>Licenças compradas x em uso <span class="mut">fatura de ${mesBR(comp.linhas.filter(l => l.mes).map(l => l.mes).sort().pop())}</span></h2>
+    <div class="tw"><table><tr><th>Produto</th><th class="num">Compradas</th><th class="num">Em uso</th><th>Uso</th><th>Situação</th><th class="num">Valor unit.</th><th class="num">Sem uso / mês</th></tr>
+    ${comp.linhas.map(l => `<tr><td>${esc(l.produto)}</td><td class="num">${l.compradas}</td><td class="num">${l.emUso}</td><td>${barra(l)}</td><td>${sit(l)}</td>
+      <td class="num">${l.vu ? brl(l.vu) : "—"}</td><td class="num">${l.sobra > 0 && l.vu ? brl(l.sobra * l.vu) : "—"}</td></tr>`).join("")}
+    <tr class="total"><td>Total</td><td class="num">${comp.t.compradas}</td><td class="num">${comp.t.emUso}</td><td></td><td>${comp.t.falta ? `faltam ${comp.t.falta}` : ""}</td><td class="num">${brl(comp.t.valor)}/mês</td><td class="num">${brl(comp.t.ocioso)}</td></tr></table></div>
+    <p class="mut">Compradas = fatura mais recente até o mês da exportação. Em uso = contas com a licença atribuída (inclusive bloqueadas).</p></div>`;
+}
+function tabContas(cs, comUnidade) {
+  if (!cs.length) return '<p class="mut">Nenhuma conta com esse filtro.</p>';
+  return `<div class="tw"><table><tr><th>Conta</th>${comUnidade ? "<th>Unidade</th>" : ""}<th>Login</th><th>Situação</th><th>Licenças pagas</th><th>Criada em</th></tr>
+    ${cs.map(a => `<tr><td><b>${esc(a.nome || a.login)}</b>${a.cargo || a.departamento ? `<div class="mut">${esc([a.cargo, a.departamento].filter(Boolean).join(" · "))}</div>` : ""}${a.compartilhada ? tag("compartilhada", "t-mut") : ""}</td>
+      ${comUnidade ? `<td>${esc(unidade(a.unidade_id).nome)}</td>` : ""}<td class="mut">${esc(a.login)}</td>
+      <td>${a.bloqueada ? tag("Bloqueada", alerta(a) ? "t-crit" : "t-mut") : tag("Ativa", "t-ok")}</td>
+      <td>${pagas(a) ? a.licencas.map(s => tag(s, "t-acc")).join("") : '<span class="mut">sem licença paga</span>'}${(a.gratuitas || []).length ? `<div class="mut">grátis: ${esc(a.gratuitas.join(", "))}</div>` : ""}</td>
+      <td>${dataBR(a.criada_em)}</td></tr>`).join("")}</table></div>`;
+}
+const FILTROS_ST = [["", "Todas"], ["ativas", "Ativas"], ["bloqueadas", "Bloqueadas"], ["sem", "Sem licença paga"], ["alerta", "Bloqueadas com licença"]];
+function filtrar(cs) {
+  const q = FILTRO.q.trim().toLowerCase(), f = { ativas: a => !a.bloqueada, bloqueadas: a => a.bloqueada, sem: a => !pagas(a), alerta }[FILTRO.st] || (() => true);
+  return cs.filter(a => f(a) && (!q || [a.nome, a.login, a.cargo, a.departamento, ...(a.licencas || [])].join(" ").toLowerCase().includes(q)));
+}
+const barraFiltros = (comUnidade) => `<div class="filtros noprint">${comUnidade ? `<select id="fU"><option value="">Todas as unidades</option>${UNIDADES.map(u => `<option value="${u.id}" ${u.id === FILTRO.u ? "selected" : ""}>${esc(u.nome)}</option>`).join("")}</select>` : ""}
+  <select id="fSt">${FILTROS_ST.map(([k, t]) => `<option value="${k}" ${k === FILTRO.st ? "selected" : ""}>${t}</option>`).join("")}</select>
+  <input id="fQ" type="search" placeholder="Buscar nome, login, cargo ou licença" value="${esc(FILTRO.q)}"><button class="bt" data-acao="csv">CSV</button></div>`;
+function vUnidade(uid, unica) {
+  const u = unidade(uid), r = resumo(uid), m = mudancas(uid), av = alertasFatura(uid);
+  return `${unica ? "" : '<p class="noprint"><button class="bt" data-acao="voltar">← Todas as unidades</button></p>'}
+    <div class="card"><h2>${esc(u.nome)}</h2>${origem()}</div>${kpis([r])}
+    ${r.alertas.length ? `<div class="aviso crit"><b>${r.alertas.length} conta(s) bloqueada(s) com licença paga.</b> A licença continua sendo cobrada: retire a licença da conta (ou reative a conta, se ela ainda é usada).<br>${r.alertas.map(a => `${esc(a.nome || a.login)} — ${esc(a.licencas.join(", "))}`).join("<br>")}</div>` : ""}
+    ${av.length ? `<div class="aviso warn"><b>Fatura:</b><br>${av.map(esc).join("<br>")}</div>` : ""}
+    ${tabCompras(r.comp)}
+    ${cargaAnterior() ? `<div class="card"><h2>Mudanças desde ${dataBR(cargaAnterior().exportado_em)}<span class="dir"><button class="lnk" data-acao="verMud" data-id="${uid}">ver detalhes</button></span></h2>
+      <p class="mut">${m.total ? `${m.add.length} conta(s) nova(s), ${m.rem.length} removida(s), ${m.st.length} mudaram de situação, ${m.lic.length} trocaram de licença.` : "Nenhuma mudança."}</p></div>` : ""}
+    <div class="card"><h2>Contas <span class="mut">${r.total}</span></h2>${barraFiltros(false)}<div id="listaContas">${tabContas(filtrar(r.contas), false)}</div></div>`;
+}
+function vContas() {
+  const cs = filtrar(CONTAS.filter(a => !FILTRO.u || a.unidade_id === FILTRO.u));
+  return origem() + `<div class="card"><h2>Contas <span class="mut">${cs.length} de ${CONTAS.length}</span></h2>${barraFiltros(UNIDADES.length > 1)}<div id="listaContas">${tabContas(cs, UNIDADES.length > 1)}</div></div>`;
+}
+let MUD_U = "";
+function vMudancas() {
+  const a = cargaAnterior(), c = cargaAtual();
+  if (!a) return `<div class="card"><p class="mut">A exportação de ${dataBR(c.exportado_em)} é a primeira: as mudanças aparecem a partir da próxima.</p></div>`;
+  const us = UNIDADES.filter(u => (!MUD_U || u.id === MUD_U) && (CONTAS.some(a => a.unidade_id === u.id) || ANT.some(a => a.unidade_id === u.id)));
+  const lista = (t, l, f) => l.length ? `<h3>${t} (${l.length})</h3><div class="tw"><table>${l.map(f).join("")}</table></div>` : "";
+  return `<div class="card"><h2>Mudanças de ${dataBR(a.exportado_em)} para ${dataBR(c.exportado_em)}<span class="dir"><select id="fMudU" style="width:auto"><option value="">Todas as unidades</option>${UNIDADES.map(u => `<option value="${u.id}" ${u.id === MUD_U ? "selected" : ""}>${esc(u.nome)}</option>`).join("")}</select></span></h2>
+    <p class="mut">Para ver outro período, escolha outra exportação no topo: a comparação é sempre com a exportação anterior a ela.</p></div>` +
+  us.map(u => { const m = mudancas(u.id);
+    return `<div class="card mud"><h2>${esc(u.nome)} <span class="mut">${m.antes} → ${m.depois} contas</span>${m.total ? "" : tag("sem mudanças", "t-ok")}</h2>
+      ${lista("Contas novas", m.add, x => `<tr><td><b>${esc(x.nome || x.login)}</b><div class="mut">${esc(x.login)}</div></td><td>${pagas(x) ? x.licencas.map(s => tag(s, "t-acc")).join("") : '<span class="mut">sem licença paga</span>'}</td><td>${x.bloqueada ? tag("Bloqueada", "t-mut") : tag("Ativa", "t-ok")}</td></tr>`)}
+      ${lista("Contas removidas", m.rem, x => `<tr><td><b>${esc(x.nome || x.login)}</b><div class="mut">${esc(x.login)}</div></td><td>${pagas(x) ? x.licencas.map(s => tag(s, "t-mut")).join("") : '<span class="mut">sem licença paga</span>'}</td></tr>`)}
+      ${lista("Mudaram de situação", m.st, x => `<tr><td><b>${esc(x.a.nome || x.a.login)}</b><div class="mut">${esc(x.a.login)}</div></td><td>${x.de} → <b>${x.para}</b>${alerta(x.a) ? " " + tag("continua com licença paga", "t-crit") : ""}</td></tr>`)}
+      ${lista("Trocaram de licença", m.lic, x => `<tr><td><b>${esc(x.a.nome || x.a.login)}</b><div class="mut">${esc(x.a.login)}</div></td><td>${x.mais.map(s => tag("+ " + s, "t-ok")).join("")}${x.menos.map(s => tag("− " + s, "t-crit")).join("")}</td></tr>`)}</div>`; }).join("");
+}
+
+// ---------------------------------------------------------------- administração (equipe Nervia)
+let ACESSOS = [], PERFIS = [], PREVIA = null, PREVIA_FAT = null;
+function vAdmin() {
+  if (!ADMIN) return '<p class="mut">Só a equipe Nervia.</p>';
+  const meses = [...new Set(FATURAS.map(f => f.mes))].sort().reverse();
+  return `<div class="card"><h2>Carregar exportação do Microsoft 365</h2>
+    <p class="mut">No Microsoft 365 Admin Center: Usuários → Usuários ativos → Exportar usuários (CSV de todas as contas do tenant). Escolha o arquivo aqui: as contas são separadas pelas unidades <b>neste computador</b>, e só as contas das unidades (nome, login, cargo, departamento, situação, licenças e data de criação) vão para o servidor. Contas de outras empresas, telefones e endereços não saem do computador.</p>
+    <div class="grade"><div class="tudo"><label>Arquivo CSV</label><input type="file" id="arqCsv" accept=".csv,text/csv"></div></div>
+    <div id="previa"></div></div>
+  <div class="card"><h2>Exportações carregadas</h2>${CARGAS.length ? `<div class="tw"><table><tr><th>Exportação de</th><th>Arquivo</th><th class="num">Contas das unidades</th><th class="num">Linhas no arquivo</th><th>Carregado por</th><th></th></tr>
+    ${CARGAS.map(c => `<tr><td><b>${dataBR(c.exportado_em)}</b></td><td class="mut">${esc(c.arquivo)}</td><td class="num">${n(c.contas)}</td><td class="num">${n(c.linhas_arquivo)}</td><td>${esc(c.carregado_nome)}<div class="mut">${dataHora(c.carregado_em)}</div></td>
+      <td><button class="lnk" data-acao="excluirCarga" data-id="${c.id}">excluir</button></td></tr>`).join("")}</table></div>` : '<p class="mut">Nenhuma ainda. Para montar o histórico, carregue as exportações antigas da mais antiga para a mais nova.</p>'}</div>
+  <div class="card"><h2>Fatura de licenças do mês</h2>
+    <p class="mut">Uma linha por item: <code>local,quantidade,licença,valor unitário</code> (o mesmo formato do arquivo Licencas/licencas.txt; valor com vírgula, ex.: <code>rio2,12,microsoft 365 business basic, 30,78</code>). Cole o texto ou escolha o arquivo. A fatura de um mês substitui a anterior do mesmo mês.</p>
+    <div class="grade"><div><label>Mês da fatura</label><input type="month" id="fatMes" value="${new Date().toISOString().slice(0, 7)}"></div><div><label>Arquivo .txt (opcional)</label><input type="file" id="arqFat" accept=".txt,.csv,text/plain"></div>
+      <div class="tudo"><label>Itens</label><textarea id="fatTxt" placeholder="local,quantidade,licença,valor unitario"></textarea></div></div>
+    <div class="acoes"><button class="bt" data-acao="conferirFatura">Conferir</button></div><div id="previaFat"></div></div>
+  <div class="card"><h2>Faturas carregadas</h2>${meses.length ? `<div class="tw"><table><tr><th>Mês</th><th class="num">Itens</th><th class="num">Licenças</th><th class="num">Valor mensal</th><th>Carregado por</th><th></th></tr>
+    ${meses.map(m => { const fs = FATURAS.filter(f => f.mes === m); return `<tr><td><b>${mesBR(m)}</b></td><td class="num">${fs.length}</td><td class="num">${fs.reduce((t, f) => t + f.quantidade, 0)}</td>
+      <td class="num">${brl(fs.reduce((t, f) => t + f.quantidade * f.valor_unitario, 0))}</td><td>${esc(fs[0].carregado_nome)}<div class="mut">${dataHora(fs[0].carregado_em)}</div></td>
+      <td><button class="lnk" data-acao="verFatura" data-id="${m}">ver</button> · <button class="lnk" data-acao="excluirFatura" data-id="${m}">excluir</button></td></tr>`; }).join("")}</table></div>` : '<p class="mut">Nenhuma ainda.</p>'}</div>
+  <div class="card"><h2>Unidades<span class="dir"><button class="bt pri" data-acao="novaUnidade">+ Nova unidade</button></span></h2>
+    <p class="mut">Domínio = trecho que identifica a unidade no login ou nos endereços de proxy da conta (ex.: <code>multicenteritaipu</code>). Apelidos = como a unidade aparece na coluna "local" da fatura.</p>
+    <div class="tw"><table><tr><th>Unidade</th><th>Domínio</th><th>Apelidos na fatura</th><th>Quem vê</th><th></th></tr>${UNIDADES.map(u => `<tr><td><b>${esc(u.nome)}</b>${u.ativo ? "" : " " + tag("inativa", "t-mut")}</td><td><code>${esc(u.dominio)}</code></td>
+      <td class="mut">${esc((u.apelidos || []).join(", "))}</td><td id="acc-${u.id}" class="mut">…</td><td><button class="lnk" data-acao="editUnidade" data-id="${u.id}">editar</button> · <button class="lnk" data-acao="acessos" data-id="${u.id}">quem vê</button></td></tr>`).join("")}</table></div>
+    <p class="mut">O login também precisa ter o app "Contas e Licenças Microsoft 365" liberado em <a href="/cliente/#admin" target="_top">Administração → Logins</a>.</p></div>`;
+}
+async function carregarAcessos() {
+  if (!ADMIN) return;
+  [ACESSOS, PERFIS] = await Promise.all([sb.from("lic_acessos").select("*").then(checar), sb.from("perfis").select("user_id, email, nome").order("email").then(checar)]);
+  UNIDADES.forEach(u => { const td = $("acc-" + u.id); if (td) td.textContent = ACESSOS.filter(a => a.unidade_id === u.id).map(a => (PERFIS.find(p => p.user_id === a.user_id) || {}).email || "?").join(", ") || "só a Nervia"; });
+}
+
+// ---- leitura do CSV do Microsoft 365 (no navegador)
+function lerCsv(txt) {
+  const linhas = []; let campo = "", linha = [], aspas = false;
+  txt = txt.replace(/^﻿/, "");
+  for (let i = 0; i < txt.length; i++) {
+    const c = txt[i];
+    if (aspas) { if (c === '"') { if (txt[i + 1] === '"') { campo += '"'; i++; } else aspas = false; } else campo += c; }
+    else if (c === '"') aspas = true;
+    else if (c === ",") { linha.push(campo); campo = ""; }
+    else if (c === "\n" || c === "\r") { if (c === "\r" && txt[i + 1] === "\n") i++; linha.push(campo); campo = ""; if (linha.some(x => x !== "")) linhas.push(linha); linha = []; }
+    else campo += c;
+  }
+  linha.push(campo); if (linha.some(x => x !== "")) linhas.push(linha);
+  return linhas;
+}
+const OBRIG = ["Display name", "User principal name", "Block credential", "Licenses"];
+function separarContas(txt) {
+  const ls = lerCsv(txt); if (!ls.length) throw new Error("Arquivo vazio.");
+  const cab = ls[0].map(h => h.trim()), ix = h => cab.indexOf(h);
+  const falta = OBRIG.filter(h => ix(h) < 0);
+  if (falta.length) throw new Error(`Este não parece ser o CSV de usuários do Microsoft 365: faltam as colunas ${falta.join(", ")}. Exporte em Usuários → Usuários ativos → Exportar usuários.`);
+  const v = (l, h) => ix(h) >= 0 ? (l[ix(h)] || "").trim() : "";
+  const us = UNIDADES.filter(u => u.ativo), contas = [], por = {}; let convidados = 0, fora = 0;
+  for (const l of ls.slice(1)) {
+    const login = v(l, "User principal name");
+    if (!login) continue;
+    if (login.includes("#EXT#")) { convidados++; continue; }   // convidado B2B: não é uma conta da unidade
+    const onde = (login + " " + v(l, "Proxy addresses")).toLowerCase(), u = us.find(x => onde.includes(x.dominio));
+    if (!u) { fora++; continue; }
+    const lic = v(l, "Licenses"), partes = !lic || lic === "Unlicensed" ? [] : lic.split("+").map(s => s.trim()).filter(Boolean);
+    const nome = v(l, "Display name"), criada = v(l, "When created");
+    contas.push({ unidade_id: u.id, login: login.toLowerCase(), nome, cargo: v(l, "Title"), departamento: v(l, "Department"),
+      bloqueada: v(l, "Block credential").toLowerCase() === "true", compartilhada: /shared/i.test(nome),
+      licencas: partes.filter(p => !/free|trial/i.test(p)), gratuitas: partes.filter(p => /free|trial/i.test(p)),
+      criada_em: /^\d{4}-\d{2}-\d{2}/.test(criada) ? criada.replace(" ", "T").replace(/Z?$/, "Z") : null });
+    por[u.id] = (por[u.id] || 0) + 1;
+  }
+  return { contas, por, convidados, fora, linhas: ls.length - 1 };
+}
+function dataDoNome(nome) { const m = /(\d{2})_(\d{2})_(\d{4})/.exec(nome); return m ? `${m[3]}-${m[2]}-${m[1]}` : ""; }
+function vPrevia() {
+  const p = PREVIA; if (!p) return "";
+  const existe = CARGAS.find(c => c.exportado_em === $("cDataCsv")?.value || c.exportado_em === p.data);
+  return `<div class="aviso info"><b>${esc(p.arquivo)}</b>: ${n(p.r.linhas)} contas no arquivo · <b>${n(p.r.contas.length)} das unidades</b> · ${n(p.r.fora)} de outras empresas (ficam neste computador) · ${n(p.r.convidados)} convidados ignorados.</div>
+    <div class="tw"><table><tr><th>Unidade</th><th class="num">Contas</th><th class="num">Bloqueadas</th><th class="num">Licenças pagas</th></tr>${UNIDADES.filter(u => p.r.contas.some(a => a.unidade_id === u.id)).map(u => { const cs = p.r.contas.filter(a => a.unidade_id === u.id);
+      return `<tr><td>${esc(u.nome)}</td><td class="num">${cs.length}</td><td class="num">${cs.filter(a => a.bloqueada).length}</td><td class="num">${cs.reduce((t, a) => t + a.licencas.length, 0)}</td></tr>`; }).join("")}</table></div>
+    <div class="grade" style="margin-top:10px"><div><label>Data da exportação</label><input type="date" id="cDataCsv" value="${p.data}" required></div>
+      <div style="align-self:end"><label class="chk"><input type="checkbox" id="cSubst" ${existe ? "" : "disabled"}> substituir a carga desta data</label></div></div>
+    ${existe ? `<div class="aviso warn">Já existe uma carga de ${dataBR(existe.exportado_em)}. Marque "substituir" para trocar.</div>` : ""}
+    <div class="acoes"><button class="bt pri" data-acao="gravarCarga" ${p.r.contas.length ? "" : "disabled"}>Gravar carga</button><button class="bt" data-acao="cancelarPrevia">Cancelar</button></div>`;
+}
+
+// ---- fatura (mesmas regras do script antigo atualizar_painel.py)
+const sem = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+function unidadeDoLocal(local) {
+  const s = sem(local); if (!s) return null;
+  return UNIDADES.find(u => (u.apelidos || []).some(a => sem(a) === s)) || UNIDADES.find(u => u.dominio.includes(s) || s.includes(u.dominio)) || null;
+}
+function produtoDaFatura(raw) {   // nome na fatura (com erros comuns de digitação) → nome igual ao do Microsoft 365
+  const s = raw.toLowerCase().replace(/bussiness/g, "business").replace(/\s+/g, " ").trim();
+  if (s.includes("power bi")) return "Power BI Pro";
+  if (s.includes("exchange")) return s.replace(/ /g, "").includes("plan2") ? "Exchange Online (Plan 2)" : "Exchange Online (Plan 1)";
+  if (s.includes("apps for business") || s.includes("app for business")) return "Microsoft 365 Apps for business";
+  if (s.includes("business basic")) return s.includes("no teams") ? "Microsoft 365 Business Basic (no Teams)" : "Microsoft 365 Business Basic";
+  if (s.includes("business standard")) return "Microsoft 365 Business Standard";
+  if (s.includes("business premium")) return "Microsoft 365 Business Premium";
+  return null;
+}
+function lerFatura(txt) {
+  const itens = [], avisos = [];
+  txt.replace(/^﻿/, "").split(/\r?\n/).forEach((linha, i) => {
+    const c = linha.split(",").map(x => x.trim()); if (!c.some(Boolean) || c[0].toLowerCase() === "local") return;
+    if (c.length < 3) return avisos.push(`Linha ${i + 1}: colunas insuficientes (${linha})`);
+    const u = unidadeDoLocal(c[0]); if (!u) return avisos.push(`Linha ${i + 1}: unidade "${c[0]}" não reconhecida`);
+    const p = produtoDaFatura(c[2]); if (!p) return avisos.push(`Linha ${i + 1}: licença "${c[2]}" não reconhecida (${u.nome})`);
+    const q = parseInt(c[1], 10); if (!(q >= 0) || String(q) !== c[1].replace(/^0+(?=\d)/, "")) return avisos.push(`Linha ${i + 1}: quantidade inválida "${c[1]}"`);
+    const vr = c.slice(3).join(",").replace(/R\$/g, "").trim(), vu = vr ? Number(vr.replace(/\./g, "").replace(",", ".")) : 0;
+    if (isNaN(vu)) return avisos.push(`Linha ${i + 1}: valor inválido "${vr}"`);
+    itens.push({ unidade_id: u.id, produto: p, quantidade: q, valor_unitario: vu });
+  });
+  return { itens, avisos };
+}
+function vPreviaFat() {
+  const p = PREVIA_FAT; if (!p) return "";
+  const existe = FATURAS.some(f => f.mes === p.mes + "-01");
+  return `${p.avisos.length ? `<div class="aviso warn"><b>Linhas não aproveitadas:</b><br>${p.avisos.map(esc).join("<br>")}</div>` : ""}
+    <div class="tw"><table><tr><th>Unidade</th><th>Licença</th><th class="num">Quantidade</th><th class="num">Valor unit.</th><th class="num">Total/mês</th></tr>
+    ${p.itens.map(i => `<tr><td>${esc(unidade(i.unidade_id).nome)}</td><td>${esc(i.produto)}</td><td class="num">${i.quantidade}</td><td class="num">${brl(i.valor_unitario)}</td><td class="num">${brl(i.quantidade * i.valor_unitario)}</td></tr>`).join("")}
+    <tr class="total"><td colspan="2">Total de ${mesBR(p.mes + "-01")}</td><td class="num">${p.itens.reduce((t, i) => t + i.quantidade, 0)}</td><td></td><td class="num">${brl(p.itens.reduce((t, i) => t + i.quantidade * i.valor_unitario, 0))}</td></tr></table></div>
+    ${existe ? `<label class="chk" style="margin-top:8px"><input type="checkbox" id="fSubst"> substituir a fatura de ${mesBR(p.mes + "-01")} já carregada</label>` : ""}
+    <div class="acoes"><button class="bt pri" data-acao="gravarFatura" ${p.itens.length ? "" : "disabled"}>Gravar fatura</button></div>`;
+}
+
+// ---------------------------------------------------------------- diálogos
+const dlg = $("dlg"), dlgf = $("dlgf");
+function abrir(html, aoConfirmar, rotulo = "Salvar") {
+  dlgf.innerHTML = html + `<div class="acoes" style="justify-content:flex-end"><button class="bt" value="cancelar" formnovalidate>${aoConfirmar ? "Cancelar" : "Fechar"}</button>${aoConfirmar ? `<button class="bt pri" value="ok">${rotulo}</button>` : ""}</div>`;
+  dlg.onclose = async () => { if (dlg.returnValue === "ok" && aoConfirmar) await aoConfirmar(new FormData(dlgf)); };
+  dlg.returnValue = ""; dlg.showModal();
+}
+async function gravar(prom, ok) { limparMsg(); const r = await prom; if (r.error) { msg("err", r.error.message); return false; } await carregar(); render(); if (ok) msg("ok", ok); return true; }
+function dUnidade(u) {
+  abrir(`<h3>${u ? "Editar unidade" : "Nova unidade"}</h3><div class="grade"><div><label>Nome</label><input name="nome" required value="${u ? esc(u.nome) : ""}"></div>
+    <div><label>Domínio (trecho do login)</label><input name="dom" required pattern="[a-z0-9.\\-]{3,}" value="${u ? esc(u.dominio) : ""}" placeholder="ex.: multicenteritaipu"></div>
+    <div class="tudo"><label>Apelidos na fatura (separados por vírgula)</label><input name="ap" value="${u ? esc((u.apelidos || []).join(", ")) : ""}" placeholder="ex.: multicenter, itaipu"></div>
+    <div><label>Ordem</label><input name="ord" type="number" value="${u ? u.ordem : 100}"></div>
+    ${u ? `<div><label>Ativa</label><select name="at"><option value="1">Sim</option><option value="0" ${u.ativo ? "" : "selected"}>Não</option></select></div>` : ""}</div>
+    <p class="mut">Mudar o domínio vale para as próximas cargas; as já gravadas não mudam.</p>`,
+    f => { const d = { nome: f.get("nome").trim(), dominio: f.get("dom").trim().toLowerCase(), apelidos: f.get("ap").split(",").map(s => s.trim()).filter(Boolean), ordem: Number(f.get("ord") || 0) };
+      if (u) d.ativo = f.get("at") === "1";
+      return gravar(u ? sb.from("lic_unidades").update(d).eq("id", u.id) : sb.from("lic_unidades").insert(d), "Unidade salva."); });
+}
+function dAcessos(u) {
+  const marcados = new Set(ACESSOS.filter(a => a.unidade_id === u.id).map(a => a.user_id));
+  abrir(`<h3>Quem vê ${esc(u.nome)}</h3><p class="mut">Vê as contas, as licenças, as mudanças e a fatura (valores) desta unidade.</p>
+    <div>${PERFIS.map(p => `<label class="chk" style="display:flex"><input type="checkbox" name="u" value="${p.user_id}" ${marcados.has(p.user_id) ? "checked" : ""}> ${esc(p.email)}${p.nome ? " — " + esc(p.nome) : ""}</label>`).join("")}</div>`,
+  async f => {
+    const novos = new Set(f.getAll("u")); limparMsg();
+    for (const x of novos) if (!marcados.has(x)) { const r = await sb.from("lic_acessos").insert({ user_id: x, unidade_id: u.id }); if (r.error) return msg("err", r.error.message); }
+    for (const x of marcados) if (!novos.has(x)) { const r = await sb.from("lic_acessos").delete().match({ user_id: x, unidade_id: u.id }); if (r.error) return msg("err", r.error.message); }
+    await carregar(); render(); msg("ok", "Acessos atualizados.");
+  });
+}
+function csvContas() {
+  const cs = SEL ? filtrar(CONTAS.filter(a => a.unidade_id === SEL)) : filtrar(CONTAS.filter(a => !FILTRO.u || a.unidade_id === FILTRO.u));
+  const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const txt = ["Unidade;Nome;Login;Cargo;Departamento;Situação;Licenças pagas;Gratuitas;Criada em"].concat(cs.map(a =>
+    [unidade(a.unidade_id).nome, a.nome, a.login, a.cargo, a.departamento, a.bloqueada ? "Bloqueada" : "Ativa", (a.licencas || []).join(" + "), (a.gratuitas || []).join(" + "), dataBR(a.criada_em)].map(q).join(";"))).join("\r\n");
+  const el = document.createElement("a"); el.href = URL.createObjectURL(new Blob(["﻿" + txt], { type: "text/csv" }));
+  el.download = `contas-${(cargaAtual() || {}).exportado_em || ""}.csv`; el.click(); URL.revokeObjectURL(el.href);
+}
+
+// ---------------------------------------------------------------- eventos
+document.addEventListener("change", async e => {
+  const t = e.target;
+  if (t.id === "fSt" || t.id === "fU") { FILTRO[t.id === "fSt" ? "st" : "u"] = t.value; render(); }
+  if (t.id === "fMudU") { MUD_U = t.value; render(); }
+  if (t.id === "arqCsv" && t.files[0]) {
+    limparMsg(); const f = t.files[0];
+    try { PREVIA = { arquivo: f.name, data: dataDoNome(f.name), r: separarContas(await f.text()) }; $("previa").innerHTML = vPrevia(); }
+    catch (er) { PREVIA = null; $("previa").innerHTML = ""; msg("err", er.message); }
+  }
+  if (t.id === "cDataCsv" && PREVIA) { PREVIA.data = t.value; $("previa").innerHTML = vPrevia(); }
+  if (t.id === "arqFat" && t.files[0]) { $("fatTxt").value = await t.files[0].text(); const d = dataDoNome(t.files[0].name); if (d) $("fatMes").value = d.slice(0, 7); }
+});
+document.addEventListener("input", e => {
+  if (e.target.id === "fQ") { FILTRO.q = e.target.value; const el = $("listaContas"); if (!el) return;
+    const cs = SEL || UNIDADES.length === 1 ? CONTAS.filter(a => a.unidade_id === (SEL || UNIDADES[0].id)) : CONTAS.filter(a => !FILTRO.u || a.unidade_id === FILTRO.u);
+    el.innerHTML = tabContas(filtrar(cs), !SEL && UNIDADES.length > 1 && VISTA === "contas"); }
+});
+document.addEventListener("click", async ev => {
+  const un = ev.target.closest("[data-un]");
+  if (un) { SEL = un.dataset.un; FILTRO.st = ""; FILTRO.q = ""; limparMsg(); render(); window.scrollTo(0, 0); return; }
+  const b = ev.target.closest("[data-acao]"); if (!b) return;
+  const a = b.dataset.acao, id = b.dataset.id;
+  if (a === "voltar") { SEL = null; render(); }
+  else if (a === "verMud") { MUD_U = id; SEL = null; VISTA = "mudancas"; render(); }
+  else if (a === "csv") csvContas();
+  else if (a === "cancelarPrevia") { PREVIA = null; $("arqCsv").value = ""; $("previa").innerHTML = ""; }
+  else if (a === "gravarCarga") {
+    const data = $("cDataCsv").value; if (!data) return msg("err", "Informe a data da exportação.");
+    b.disabled = true; b.textContent = "Gravando…";
+    const r = await sb.rpc("lic_carregar", { p_exportado_em: data, p_arquivo: PREVIA.arquivo, p_linhas: PREVIA.r.linhas, p_contas: PREVIA.r.contas, p_substituir: !!($("cSubst") && $("cSubst").checked) });
+    if (r.error) { b.disabled = false; b.textContent = "Gravar carga"; return msg("err", r.error.message); }
+    const qtd = PREVIA.r.contas.length; PREVIA = null; CARGA = r.data; await carregar(); render(); msg("ok", `Exportação de ${dataBR(data)} carregada: ${qtd} contas das unidades.`);
+  }
+  else if (a === "excluirCarga") { const c = CARGAS.find(x => String(x.id) === id);
+    abrir(`<h3>Excluir a exportação de ${dataBR(c.exportado_em)}?</h3><p class="mut">Apaga as ${c.contas} contas desta carga. As mudanças passam a ser comparadas com a exportação anterior a ela. Fica registrado na auditoria.</p>`,
+      () => gravar(sb.rpc("lic_excluir_carga", { p_id: c.id }), "Exportação excluída."), "Excluir"); }
+  else if (a === "conferirFatura") {
+    const mes = $("fatMes").value; if (!mes) return msg("err", "Informe o mês da fatura.");
+    PREVIA_FAT = { mes, ...lerFatura($("fatTxt").value) }; $("previaFat").innerHTML = vPreviaFat();
+    if (!PREVIA_FAT.itens.length) msg("err", "Nenhum item reconhecido. Formato: local,quantidade,licença,valor unitário.");
+  }
+  else if (a === "gravarFatura") {
+    const p = PREVIA_FAT, r = await sb.rpc("lic_salvar_fatura", { p_mes: p.mes + "-01", p_itens: p.itens, p_substituir: !!($("fSubst") && $("fSubst").checked) });
+    if (r.error) return msg("err", r.error.message);
+    PREVIA_FAT = null; await carregar(); render(); msg("ok", `Fatura de ${mesBR(p.mes + "-01")} gravada: ${r.data} item(ns).`);
+  }
+  else if (a === "verFatura") { const fs = FATURAS.filter(f => f.mes === id);
+    abrir(`<h3>Fatura de ${mesBR(id)}</h3><div class="tw"><table><tr><th>Unidade</th><th>Licença</th><th class="num">Qtd.</th><th class="num">Valor unit.</th></tr>${fs.map(f => `<tr><td>${esc(unidade(f.unidade_id).nome)}</td><td>${esc(f.produto)}</td><td class="num">${f.quantidade}</td><td class="num">${brl(f.valor_unitario)}</td></tr>`).join("")}</table></div>`, null); }
+  else if (a === "excluirFatura") abrir(`<h3>Excluir a fatura de ${mesBR(id)}?</h3><p class="mut">Fica registrado na auditoria.</p>`, () => gravar(sb.rpc("lic_excluir_fatura", { p_mes: id }), "Fatura excluída."), "Excluir");
+  else if (a === "novaUnidade") dUnidade();
+  else if (a === "editUnidade") dUnidade(UNIDADES.find(u => u.id === id));
+  else if (a === "acessos") { await carregarAcessos(); dAcessos(UNIDADES.find(u => u.id === id)); }
+});
+sb.auth.onAuthStateChange(ev => { if (ev === "SIGNED_OUT") location.reload(); });
+iniciar();
+</script>
+</body>
+</html>
