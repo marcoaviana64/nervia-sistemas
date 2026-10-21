@@ -376,7 +376,7 @@ function textoLink(p) {
 function dConferir(r) {
   const p = PEDIDOS.find(x => x.id === r.pedido_id), mes = p.mes, ant = {};
   FATURAS.filter(f => f.mes < mes).forEach(f => { const k = f.unidade_id + "|" + f.produto; if (!ant[k] || f.mes > ant[k].mes) ant[k] = f; });
-  const jaTem = FATURAS.some(f => f.mes === mes), tot = r.itens.reduce((t, i) => t + i.quantidade * i.valor_unitario, 0);
+  const jaTem = FATURAS.some(f => f.mes === mes && p.unidades.includes(f.unidade_id)), tot = r.itens.reduce((t, i) => t + i.quantidade * i.valor_unitario, 0);
   const comp = i => { const a = ant[i.unidade_id + "|" + i.produto]; if (!a) return tag("novo", "t-info");
     const d = []; if (a.quantidade !== i.quantidade) d.push(`qtd ${a.quantidade} → ${i.quantidade}`); if (Number(a.valor_unitario) !== Number(i.valor_unitario)) d.push(`valor ${brl(a.valor_unitario)} → ${brl(i.valor_unitario)}`);
     return d.length ? tag(d.join(" · "), i.quantidade < a.quantidade ? "t-crit" : "t-warn") : tag("igual a " + mesBR(a.mes), "t-ok"); };
@@ -387,7 +387,7 @@ function dConferir(r) {
     <div class="tw"><table><tr><th>Unidade</th><th>Licença</th><th class="num">Qtd.</th><th class="num">Valor unit.</th><th class="num">Total</th><th>Comparado à anterior</th></tr>
     ${r.itens.map(i => `<tr><td>${esc(unidade(i.unidade_id).nome)}</td><td>${esc(i.produto)}${i.fora_da_lista ? " " + tag("fora da lista", "t-warn") : ""}</td><td class="num">${i.quantidade}</td><td class="num">${brl(i.valor_unitario)}</td><td class="num">${brl(i.quantidade * i.valor_unitario)}</td><td>${comp(i)}</td></tr>`).join("")}
     <tr class="total"><td colspan="2">Total</td><td class="num">${r.itens.reduce((t, i) => t + i.quantidade, 0)}</td><td></td><td class="num">${brl(tot)}</td><td></td></tr></table></div>
-    ${pend ? `${jaTem ? `<label class="chk" style="margin-top:8px"><input type="checkbox" name="subst"> substituir a fatura de ${mesBR(mes)} já carregada (senão a aprovação é recusada)</label>` : ""}
+    ${pend ? `${jaTem ? `<label class="chk" style="margin-top:8px"><input type="checkbox" name="subst"> substituir a fatura de ${mesBR(mes)} já carregada destas unidades (senão a aprovação é recusada; as outras unidades do mês ficam como estão)</label>` : ""}
       <label style="margin-top:10px">Para descartar, escreva o motivo</label><input name="motivo" placeholder="ex.: valores errados, pedi para reenviar">
       <div class="acoes"><button class="bt perigo" value="descartar">Descartar</button></div>` : ""}`,
     pend ? async f => gravar(sb.rpc("lic_resposta_aprovar", { p_id: r.id, p_substituir: !!f.get("subst") }), `Fatura de ${mesBR(mes)} registrada a partir do formulário.`) : null, "Aprovar e registrar a fatura");

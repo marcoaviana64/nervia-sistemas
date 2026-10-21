@@ -784,9 +784,18 @@ set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
 select pg_temp.ok((select count(*) = 0 from lic_respostas), 'cliente com login não vê as respostas');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
-select lic_resposta_aprovar((select id from lic_respostas where status = 'pendente'));
-select pg_temp.ok((select count(*) = 2 and sum(quantidade) = 5 from lic_faturas where mes = '2026-10-01')
+-- fatura de outubro já carregada para Vogue (link) e Park Sul (fora do link)
+select lic_salvar_fatura('2026-10-01', jsonb_build_array(
+  jsonb_build_object('unidade_id', (select v from lic_ids where k = 'vogue'), 'produto', 'Power BI Pro', 'quantidade', 9, 'valor_unitario', 1),
+  jsonb_build_object('unidade_id', (select v from lic_ids where k = 'parksul'), 'produto', 'Microsoft 365 Business Basic', 'quantidade', 7, 'valor_unitario', 30.78)));
+select pg_temp.erro2($$select lic_resposta_aprovar((select id from lic_respostas where status = 'pendente'))$$,
+  'Já existe fatura de 10/2026 para estas unidades (1 itens)', 'aprovar não substitui sem marcar');
+select lic_resposta_aprovar((select id from lic_respostas where status = 'pendente'), true);
+select pg_temp.ok((select count(*) = 2 and sum(quantidade) = 5 from lic_faturas where mes = '2026-10-01' and unidade_id = (select v from lic_ids where k = 'vogue')::uuid)
   and (select status = 'aprovada' and decidido_nome <> '' from lic_respostas order by id desc limit 1), 'Nervia aprova e a resposta vira a fatura do mês');
+select pg_temp.ok((select count(*) = 1 and sum(quantidade) = 7 from lic_faturas where mes = '2026-10-01' and unidade_id = (select v from lic_ids where k = 'parksul')::uuid)
+  and exists (select 1 from auditoria where acao = 'licencas_fatura' and detalhes ->> 'origem' like 'formulário F-%'),
+  'substituir pelo formulário troca só as unidades do link (Park Sul fica)');
 select pg_temp.erro2('select lic_resposta_aprovar((select max(id) from lic_respostas))', 'já foi aprovada', 'não aprova duas vezes');
 select lic_pedido_cancelar((select max(id) from lic_pedidos));
 reset role;
