@@ -750,6 +750,51 @@ select lic_excluir_carga((select id from lic_cargas));
 select pg_temp.ok((select count(*) = 0 from lic_contas), 'excluir a carga apaga as contas dela');
 reset role;
 reset request.jwt.claim.sub;
+-- formulário da fatura pelo link
+grant all on lic_ids to anon;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.erro2($$select lic_pedido_criar(current_date, current_date + 5, array['$$ || (select v from lic_ids where k = 'vogue') || $$']::uuid[], 'x', '', '')$$, 'Só a equipe Nervia', 'cliente não gera link');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select lic_salvar_fatura('2026-09-01', jsonb_build_array(jsonb_build_object('unidade_id', (select v from lic_ids where k = 'vogue'), 'produto', 'Power BI Pro', 'quantidade', 2, 'valor_unitario', 96.4)), true);
+insert into lic_ids select 'cod', lic_pedido_criar('2026-10-20', current_date + 5, array[(select v from lic_ids where k = 'vogue')::uuid], 'Fulana', '21999990000', '') ->> 'codigo';
+reset role;
+set role anon;
+select pg_temp.erro2('select * from lic_pedidos', 'permission', 'anônimo não lê os pedidos');
+select pg_temp.erro2($$select lic_formulario_ler('$$ || repeat('0', 64) || $$')$$, 'Link inválido', 'código errado recusado');
+select pg_temp.ok((select (d ->> 'situacao') = 'aberto' and (d ->> 'mes') = '2026-10-01' and jsonb_array_length(d -> 'unidades') = 1
+  and (d -> 'anterior' -> 0 ->> 'produto') = 'Power BI Pro' and d -> 'resposta' = 'null'::jsonb
+  from (select lic_formulario_ler((select v from lic_ids where k = 'cod')) d) x), 'link mostra mês, unidade e a fatura anterior para conferir');
+select pg_temp.erro2($$select lic_formulario_enviar('$$ || (select v from lic_ids where k = 'cod') || $$', '{"declarante":"Fulana","aceite":true,"itens":[{"unidade_id":"$$ || (select v from lic_ids where k = 'parksul') || $$","produto":"Power BI Pro","quantidade":1,"valor_unitario":1}]}')$$,
+  'Unidade fora deste formulário', 'não envia para unidade fora do link');
+select pg_temp.erro2($$select lic_formulario_enviar('$$ || (select v from lic_ids where k = 'cod') || $$', '{"declarante":"Fulana","itens":[]}')$$, 'declaração', 'exige a declaração');
+select lic_formulario_enviar((select v from lic_ids where k = 'cod'), jsonb_build_object('declarante', 'Fulana de Tal', 'aceite', true, 'itens', jsonb_build_array(
+  jsonb_build_object('unidade_id', (select v from lic_ids where k = 'vogue'), 'produto', 'Power BI Pro', 'quantidade', '3', 'valor_unitario', '96.40'))));
+select lic_formulario_enviar((select v from lic_ids where k = 'cod'), jsonb_build_object('declarante', 'Fulana de Tal', 'aceite', true, 'itens', jsonb_build_array(
+  jsonb_build_object('unidade_id', (select v from lic_ids where k = 'vogue'), 'produto', 'Power BI Pro', 'quantidade', 4, 'valor_unitario', 96.4),
+  jsonb_build_object('unidade_id', (select v from lic_ids where k = 'vogue'), 'produto', 'Copilot', 'quantidade', 1, 'valor_unitario', 150))));
+reset role;
+select pg_temp.ok((select string_agg(status, ',' order by id) = 'substituida,pendente' from lic_respostas)
+  and (select (itens -> 1 ->> 'fora_da_lista')::boolean from lic_respostas where status = 'pendente')
+  and (select count(*) = 2 from auditoria where acao = 'licencas_link_respondido' and papel = 'sistema' and nome = 'Fulana de Tal (pelo link)')
+  and (select count(*) = 1 from auditoria where acao = 'licencas_link_aberto'),
+  'reenvio substitui a pendente; licença fora da lista marcada; abertura e envio auditados');
+select pg_temp.ok((select count(*) = 0 from lic_faturas where mes = '2026-10-01'), 'resposta pendente ainda não é fatura');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok((select count(*) = 0 from lic_respostas), 'cliente com login não vê as respostas');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select lic_resposta_aprovar((select id from lic_respostas where status = 'pendente'));
+select pg_temp.ok((select count(*) = 2 and sum(quantidade) = 5 from lic_faturas where mes = '2026-10-01')
+  and (select status = 'aprovada' and decidido_nome <> '' from lic_respostas order by id desc limit 1), 'Nervia aprova e a resposta vira a fatura do mês');
+select pg_temp.erro2('select lic_resposta_aprovar((select max(id) from lic_respostas))', 'já foi aprovada', 'não aprova duas vezes');
+select lic_pedido_cancelar((select max(id) from lic_pedidos));
+reset role;
+set role anon;
+select pg_temp.erro2($$select lic_formulario_enviar('$$ || (select v from lic_ids where k = 'cod') || $$', '{"declarante":"Fulana","aceite":true,"itens":[{"unidade_id":"x","produto":"Power BI Pro","quantidade":1,"valor_unitario":1}]}')$$,
+  'cancelado', 'link cancelado não recebe mais');
+reset role;
+reset request.jwt.claim.sub;
 -- ---------------------------------------------------------------- vitrine da Área do Cliente
 select pg_temp.ok((select string_agg(id || '=' || situacao, ',' order by id) from apps where id in ('compras', 'monitor', 'notas', 'produtos', 'telefonia'))
   = 'compras=disponivel,monitor=oculto,notas=disponivel,produtos=em_breve,telefonia=disponivel', 'situação inicial dos apps');

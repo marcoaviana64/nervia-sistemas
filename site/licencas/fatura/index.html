@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Licenças Microsoft 365 pagas | Nervia</title>
+<script src="/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<style>
+/* Formulário da fatura de licenças (app Contas e Licenças Microsoft 365): abre pelo link, sem login.
+   O código vem depois do "#" e só é usado nas funções lic_formulario_ler / lic_formulario_enviar. */
+:root{
+  --bg:#f3f6f8;--surface:#fff;--surface-2:#eaf1f4;--border:#dde6ec;--ink:#0f1b2d;--ink-soft:#4f5f73;--ink-faint:#8796a8;
+  --accent:#107e99;--accent-soft:#e3f3f7;
+  --ok:#1d7f46;--ok-bg:#e6f4ec;--crit:#b3261e;--crit-bg:#fbeaea;--warn:#a86400;--warn-bg:#fff3e0;--info:#2568a8;--info-bg:#e7f1fa;
+  color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0c1620;--surface:#122130;--surface-2:#18293a;--border:#24394e;--ink:#eef4f8;--ink-soft:#b3c3d1;--ink-faint:#7f93a6;
+  --accent:#3fc1dd;--accent-soft:rgba(63,193,221,.15);
+  --ok:#43c07e;--ok-bg:rgba(67,192,126,.14);--crit:#f07a72;--crit-bg:rgba(240,122,114,.14);--warn:#e3ad57;--warn-bg:rgba(227,173,87,.14);--info:#5eabe8;--info-bg:rgba(94,171,232,.14);color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.oculto{display:none!important}
+.casca{max-width:860px;margin:0 auto;padding:16px 16px 48px}
+.topo{display:flex;align-items:center;gap:12px;padding:6px 0 14px}
+.topo .marca{width:38px;height:38px;border-radius:10px;background:linear-gradient(155deg,#107e99,#0b2545);color:#fff;display:grid;place-items:center;font-weight:800;font-size:.85rem;flex:none}
+.topo small{display:block;color:var(--ink-soft);font-size:.82rem}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px}
+.card h2{font-size:17px;margin:0 0 10px}
+label{display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);margin-bottom:4px}
+input,select,textarea{font:inherit;padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink);width:100%;min-width:0}
+textarea{min-height:60px}
+.chk{display:flex;gap:8px;align-items:flex-start;text-transform:none;letter-spacing:0;font-weight:400;color:var(--ink);font-size:14px}
+.chk input{width:auto;margin-top:4px}
+.bt{font:inherit;font-weight:700;padding:11px 18px;border-radius:10px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer}
+.bt.sec{background:var(--surface);color:var(--accent)}
+.bt:disabled{opacity:.55;cursor:wait}
+.mut{color:var(--ink-soft);font-size:13px}
+.aviso{border-radius:10px;padding:11px 13px;font-size:14px;margin:10px 0;white-space:pre-line}
+.aviso.crit{background:var(--crit-bg);color:var(--crit)}.aviso.ok{background:var(--ok-bg);color:var(--ok)}.aviso.info{background:var(--info-bg);color:var(--info)}.aviso.warn{background:var(--warn-bg);color:var(--warn)}
+.centro{padding:60px 16px;text-align:center;color:var(--ink-soft)}
+.rodape{font-size:12px;color:var(--ink-faint);text-align:center;margin-top:20px}.rodape a{color:inherit}
+/* cada licença é uma linha: unidade · licença · quantidade · valor · total · remover (empilha no celular) */
+.itens{display:grid;gap:10px}
+.item{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,2fr) 100px 150px 110px 36px;gap:8px;align-items:end;padding-bottom:10px;border-bottom:1px dashed var(--border)}
+.item.sem-unidade{grid-template-columns:minmax(0,2fr) 100px 150px 110px 36px}
+.item .total{font-variant-numeric:tabular-nums;font-weight:700;padding:9px 0;text-align:right}
+.item .rem{border:0;background:none;color:var(--crit);font-size:20px;cursor:pointer;padding:6px;justify-self:end}
+.item .outro{margin-top:6px}
+.resumo{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;font-size:16px}
+.resumo b{font-variant-numeric:tabular-nums}
+@media (max-width:640px){
+  .item,.item.sem-unidade{grid-template-columns:1fr 1fr;background:var(--surface-2);border:0;border-radius:10px;padding:10px}
+  .item .uni,.item .lic{grid-column:1/-1}
+  .item .total{text-align:left}
+}
+</style>
+</head>
+<body>
+<div class="casca">
+  <div class="topo"><div class="marca">CL</div><div><b id="titulo">Licenças Microsoft 365 pagas</b><small id="sub">Contas e Licenças Microsoft 365 · Nervia</small></div></div>
+  <div id="aviso" class="centro">Carregando…</div>
+  <div id="pagina" class="oculto">
+    <div id="situacao"></div>
+    <form id="form" class="card" novalidate>
+      <h2>Licenças compradas no mês</h2>
+      <p class="mut" id="explica">Informe as licenças do Microsoft 365 que constam na fatura do mês: para cada unidade, a licença, a quantidade comprada e o valor unitário mensal.</p>
+      <div id="itens" class="itens"></div>
+      <p><button type="button" class="bt sec" id="mais">+ Adicionar licença</button></p>
+      <div class="resumo"><span><b id="qtdTotal">0</b> licenças</span><span>Total mensal <b id="valTotal">R$ 0,00</b></span></div>
+      <div style="margin-top:16px;display:grid;gap:12px">
+        <div><label for="obs">Observações (opcional)</label><textarea id="obs" maxlength="1000" placeholder="ex.: 2 licenças novas a partir do dia 15; número do pedido na revenda"></textarea></div>
+        <div><label for="declarante">Seu nome</label><input id="declarante" maxlength="120" autocomplete="name" required></div>
+        <label class="chk"><input type="checkbox" id="aceite"> <span>Declaro que as quantidades e os valores acima conferem com a fatura de licenças do mês.</span></label>
+      </div>
+      <div id="erro" class="aviso crit oculto"></div>
+      <p><button class="bt" id="enviar" type="submit">Enviar</button></p>
+      <p class="mut">Os dados vão para a Nervia, que confere antes de registrar. Até o prazo, você pode corrigir e enviar de novo por este mesmo link.</p>
+    </form>
+  </div>
+  <div class="rodape">Formulário do app Contas e Licenças Microsoft 365 da <a href="/" target="_blank" rel="noopener">Nervia</a>. <a href="/privacidade.html" target="_blank" rel="noopener">Privacidade</a></div>
+</div>
+
+<script>
+const CFG = window.NERVIA_CONFIG || {};
+// sem sessão: mesmo que alguém da equipe abra o link, a página age como quem recebeu o link
+const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const CODIGO = location.hash.replace(/^#/, "").trim().toLowerCase();
+const brl = v => Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const dataBR = v => v ? new Date(String(v).length === 10 ? v + "T12:00:00" : v).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "—";
+const dataHora = v => v ? new Date(v).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+const mesExtenso = m => new Date(m + "T12:00:00").toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+const OUTRA = "__outra__";
+let D = null;
+
+// "70,50" / "70.50" / "R$ 1.070,50" → 70.5 (vazio = NaN)
+function valor(txt) {
+  let s = String(txt || "").replace(/R\$/g, "").replace(/\s/g, "");
+  if (!s) return NaN;
+  if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
+  return /^\d+(\.\d{1,2})?$/.test(s) ? Number(s) : NaN;
+}
+const fmtValor = v => v == null || v === "" ? "" : Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function linha(it) {
+  it = it || {};
+  const varias = D.unidades.length > 1, naLista = !it.produto || D.produtos.includes(it.produto);
+  const div = document.createElement("div");
+  div.className = "item" + (varias ? "" : " sem-unidade");
+  div.innerHTML = `${varias ? `<div class="uni"><label>Unidade</label><select class="fU"><option value="">Escolha…</option>${D.unidades.map(u => `<option value="${u.id}" ${u.id === it.unidade_id ? "selected" : ""}>${esc(u.nome)}</option>`).join("")}</select></div>` : ""}
+    <div class="lic"><label>Licença</label><select class="fP"><option value="">Escolha…</option>${D.produtos.map(p => `<option ${p === it.produto ? "selected" : ""}>${esc(p)}</option>`).join("")}<option value="${OUTRA}" ${!naLista ? "selected" : ""}>Outra (escrever o nome)</option></select>
+      <input class="fOutro outro ${naLista ? "oculto" : ""}" maxlength="120" placeholder="nome da licença como está na fatura" value="${naLista ? "" : esc(it.produto)}"></div>
+    <div><label>Quantidade</label><input class="fQ" inputmode="numeric" value="${it.quantidade ?? ""}"></div>
+    <div><label>Valor unitário (R$)</label><input class="fV" inputmode="decimal" placeholder="0,00" value="${fmtValor(it.valor_unitario)}"></div>
+    <div class="total"></div>
+    <button type="button" class="rem" title="Remover esta licença" aria-label="Remover esta licença">×</button>`;
+  $("itens").appendChild(div);
+  return div;
+}
+function atualizarTotais() {
+  let q = 0, t = 0;
+  document.querySelectorAll(".item").forEach(d => {
+    const qq = parseInt(d.querySelector(".fQ").value, 10), v = valor(d.querySelector(".fV").value);
+    const tot = qq >= 0 && !isNaN(v) ? qq * v : null;
+    d.querySelector(".total").textContent = tot == null ? "" : brl(tot);
+    if (tot != null) { q += qq; t += tot; }
+  });
+  $("qtdTotal").textContent = q.toLocaleString("pt-BR"); $("valTotal").textContent = brl(t);
+}
+function situacao(d) {
+  const r = d.resposta, env = r ? `Recebido em ${dataHora(r.em)} (protocolo ${r.protocolo}), enviado por ${r.declarante}.` : "";
+  const t = {
+    aberto: [r ? "ok" : "info", r ? env + (r.status === "aprovada" ? "\nA Nervia já conferiu e registrou." : `\nSe precisar corrigir, altere abaixo e envie de novo até ${dataBR(d.prazo)}.`)
+      : `Preencha e envie até ${dataBR(d.prazo)}.${d.anterior.length ? " As linhas abaixo vieram da fatura anterior: confira e ajuste." : ""}`],
+    encerrado: ["warn", `O prazo para enviar terminou em ${dataBR(d.prazo)}.${r ? "\n" + env : " Se ainda precisar enviar, fale com a Nervia."}`],
+    cancelado: ["crit", "Este link foi cancelado pela Nervia. Se recebeu outro link, use o mais recente."],
+  }[d.situacao];
+  $("situacao").innerHTML = `<div class="aviso ${t[0]}"></div>`; $("situacao").firstChild.textContent = t[1];
+}
+function preencher(d) {
+  D = d;
+  document.title = `Licenças de ${mesExtenso(d.mes)} | Nervia`;
+  $("titulo").textContent = `Licenças Microsoft 365 pagas · ${mesExtenso(d.mes)}`;
+  $("sub").textContent = d.unidades.map(u => u.nome).join(", ") + (d.contato_nome ? ` · para ${d.contato_nome}` : "");
+  situacao(d);
+  $("itens").innerHTML = "";
+  const base = d.resposta ? d.resposta.itens : d.anterior.length ? d.anterior : d.unidades.map(u => ({ unidade_id: u.id }));
+  base.forEach(linha);
+  if (!document.querySelector(".item")) linha();
+  if (d.resposta) { $("declarante").value = d.resposta.declarante || ""; $("obs").value = d.resposta.obs || ""; $("enviar").textContent = "Enviar de novo"; }
+  atualizarTotais();
+  $("form").classList.toggle("oculto", d.situacao !== "aberto");
+  $("aviso").classList.add("oculto"); $("pagina").classList.remove("oculto");
+}
+async function carregar() {
+  if (!/^[0-9a-f]{64}$/.test(CODIGO)) { $("aviso").textContent = "Link incompleto. Abra de novo pelo link que a Nervia enviou (copie o endereço inteiro)."; return; }
+  const r = await sb.rpc("lic_formulario_ler", { p_codigo: CODIGO });
+  if (r.error) { $("aviso").textContent = r.error.message; return; }
+  preencher(r.data);
+}
+function erro(t, el) { const e = $("erro"); e.textContent = t; e.classList.remove("oculto"); (el || e).scrollIntoView({ block: "center" }); if (el && el.focus) el.focus(); }
+
+$("mais").onclick = () => { const d = linha(); d.querySelector(D.unidades.length > 1 ? ".fU" : ".fP").focus(); };
+$("itens").addEventListener("input", atualizarTotais);
+$("itens").addEventListener("change", e => {
+  if (e.target.classList.contains("fP")) { const o = e.target.parentElement.querySelector(".fOutro"); o.classList.toggle("oculto", e.target.value !== OUTRA); if (e.target.value === OUTRA) o.focus(); }
+  if (e.target.classList.contains("fV")) { const v = valor(e.target.value); if (!isNaN(v)) e.target.value = fmtValor(v); }
+});
+$("itens").addEventListener("click", e => { if (e.target.classList.contains("rem")) { e.target.closest(".item").remove(); atualizarTotais(); } });
+
+$("form").onsubmit = async ev => {
+  ev.preventDefault(); $("erro").classList.add("oculto");
+  const itens = [];
+  for (const d of document.querySelectorAll(".item")) {
+    const u = D.unidades.length > 1 ? d.querySelector(".fU").value : D.unidades[0].id;
+    const sel = d.querySelector(".fP").value, prod = sel === OUTRA ? d.querySelector(".fOutro").value.trim() : sel;
+    const qTxt = d.querySelector(".fQ").value.trim(), vTxt = d.querySelector(".fV").value.trim();
+    if (!u && !sel && !qTxt && !vTxt) continue;   // linha vazia: ignora
+    if (!u) return erro("Escolha a unidade em todas as linhas.", d.querySelector(".fU"));
+    if (!prod || prod.length < 3) return erro("Escolha (ou escreva) a licença em todas as linhas.", d.querySelector(sel === OUTRA ? ".fOutro" : ".fP"));
+    if (!/^\d+$/.test(qTxt)) return erro("Quantidade só com números inteiros.", d.querySelector(".fQ"));
+    const v = valor(vTxt); if (isNaN(v)) return erro("Valor unitário em reais, ex.: 70,50.", d.querySelector(".fV"));
+    itens.push({ unidade_id: u, produto: prod, quantidade: Number(qTxt), valor_unitario: v });
+  }
+  if (!itens.length) return erro("Informe pelo menos uma licença.");
+  if (!$("declarante").value.trim()) return erro("Informe o seu nome.", $("declarante"));
+  if (!$("aceite").checked) return erro("Marque a declaração para enviar.", $("aceite"));
+  $("enviar").disabled = true; $("enviar").textContent = "Enviando…";
+  const r = await sb.rpc("lic_formulario_enviar", { p_codigo: CODIGO, p_dados: { itens, declarante: $("declarante").value.trim(), obs: $("obs").value, aceite: true } });
+  $("enviar").disabled = false;
+  if (r.error) { $("enviar").textContent = D.resposta ? "Enviar de novo" : "Enviar"; return erro(r.error.message); }
+  $("aceite").checked = false;
+  const novo = await sb.rpc("lic_formulario_ler", { p_codigo: CODIGO });
+  if (!novo.error) preencher(novo.data);
+  window.scrollTo(0, 0);
+};
+window.addEventListener("hashchange", () => location.reload());
+carregar();
+</script>
+</body>
+</html>

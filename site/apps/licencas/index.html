@@ -117,6 +117,7 @@ const tag = (t, c) => `<span class="tag ${c}">${esc(t)}</span>`;
 function msg(tipo, texto) { const m = $("msg"); m.className = "msg " + tipo; m.textContent = texto; m.scrollIntoView({ block: "nearest" }); if (tipo === "ok") setTimeout(() => m.classList.add("oculto"), 6000); }
 function limparMsg() { $("msg").className = "msg oculto"; }
 
+let PEDIDOS = [], RESPOSTAS = [];
 let ADMIN = false, UNIDADES = [], CARGAS = [], FATURAS = [], CARGA = null, CONTAS = [], ANT = [], VISTA = "painel", SEL = null, FILTRO = { u: "", st: "", q: "" };
 
 // ---------------------------------------------------------------- carga
@@ -143,6 +144,10 @@ async function carregar() {
   UNIDADES = checar(await sb.from("lic_unidades").select("*").order("ordem").order("nome"));
   CARGAS = checar(await sb.from("lic_cargas").select("*").order("exportado_em", { ascending: false }));
   FATURAS = await todas(() => sb.from("lic_faturas").select("*").order("mes"));
+  if (ADMIN) {   // formulário da fatura pelo link (só a equipe Nervia)
+    PEDIDOS = checar(await sb.from("lic_pedidos").select("*").order("id", { ascending: false }).limit(50));
+    RESPOSTAS = checar(await sb.from("lic_respostas").select("*").order("id", { ascending: false }).limit(200));
+  }
   if (!CARGAS.some(c => c.id === CARGA)) CARGA = CARGAS.length ? CARGAS[0].id : null;
   await carregarContas();
   $("selCarga").innerHTML = CARGAS.length ? CARGAS.map(c => `<option value="${c.id}" ${c.id === CARGA ? "selected" : ""}>${dataBR(c.exportado_em)}</option>`).join("") : "<option>nenhuma</option>";
@@ -318,7 +323,8 @@ function vAdmin() {
   <div class="card"><h2>Exportações carregadas</h2>${CARGAS.length ? `<div class="tw"><table><tr><th>Exportação de</th><th>Arquivo</th><th class="num">Contas das unidades</th><th class="num">Linhas no arquivo</th><th>Carregado por</th><th></th></tr>
     ${CARGAS.map(c => `<tr><td><b>${dataBR(c.exportado_em)}</b></td><td class="mut">${esc(c.arquivo)}</td><td class="num">${n(c.contas)}</td><td class="num">${n(c.linhas_arquivo)}</td><td>${esc(c.carregado_nome)}<div class="mut">${dataHora(c.carregado_em)}</div></td>
       <td><button class="lnk" data-acao="excluirCarga" data-id="${c.id}">excluir</button></td></tr>`).join("")}</table></div>` : '<p class="mut">Nenhuma ainda. Para montar o histórico, carregue as exportações antigas da mais antiga para a mais nova.</p>'}</div>
-  <div class="card"><h2>Fatura de licenças do mês</h2>
+  ${vFormularios()}
+  <div class="card"><h2>Fatura de licenças do mês <span class="mut">digitar ou colar</span></h2>
     <p class="mut">Uma linha por item: <code>local,quantidade,licença,valor unitário</code> (o mesmo formato do arquivo Licencas/licencas.txt; valor com vírgula, ex.: <code>rio2,12,microsoft 365 business basic, 30,78</code>). Cole o texto ou escolha o arquivo. A fatura de um mês substitui a anterior do mesmo mês.</p>
     <div class="grade"><div><label>Mês da fatura</label><input type="month" id="fatMes" value="${new Date().toISOString().slice(0, 7)}"></div><div><label>Arquivo .txt (opcional)</label><input type="file" id="arqFat" accept=".txt,.csv,text/plain"></div>
       <div class="tudo"><label>Itens</label><textarea id="fatTxt" placeholder="local,quantidade,licença,valor unitario"></textarea></div></div>
@@ -333,6 +339,66 @@ function vAdmin() {
       <td class="mut">${esc((u.apelidos || []).join(", "))}</td><td id="acc-${u.id}" class="mut">…</td><td><button class="lnk" data-acao="editUnidade" data-id="${u.id}">editar</button> · <button class="lnk" data-acao="acessos" data-id="${u.id}">quem vê</button></td></tr>`).join("")}</table></div>
     <p class="mut">O login também precisa ter o app "Contas e Licenças Microsoft 365" liberado em <a href="/cliente/#admin" target="_top">Administração → Logins</a>.</p></div>`;
 }
+// ---- formulário da fatura pelo link (sem login): gerar, enviar, conferir e aprovar
+const linkForm = p => `${location.origin}/licencas/fatura/#${p.codigo}`;
+const hojeISO = () => new Date().toLocaleDateString("sv-SE", { timeZone: TZ });
+function sitPedido(p) {
+  if (p.revogado_em) return tag("cancelado", "t-mut");
+  if (p.prazo < hojeISO()) return tag("prazo vencido", "t-warn");
+  if (p.respondido_em) return tag("respondeu " + dataHora(p.respondido_em), "t-ok");
+  if (p.aberto_em) return tag("abriu " + dataHora(p.aberto_em), "t-info");
+  return tag("ainda não abriu", "t-mut");
+}
+function vFormularios() {
+  const prox = new Date(); prox.setDate(1);
+  const prazo = new Date(Date.now() + 7 * 864e5).toLocaleDateString("sv-SE", { timeZone: TZ });
+  const pend = RESPOSTAS.filter(r => r.status === "pendente");
+  return `<div class="card"><h2>Formulário para o cliente preencher</h2>
+    <p class="mut">Gera um link (sem login) para quem cuida da fatura no cliente informar as licenças pagas do mês: unidade, licença, quantidade e valor unitário. A resposta chega aqui pendente e só vira fatura quando você confere e aprova.</p>
+    ${pend.length ? `<div class="aviso warn"><b>${pend.length} resposta(s) para conferir.</b> Veja abaixo, em cada link.</div>` : ""}
+    <div class="grade"><div><label>Mês da fatura</label><input type="month" id="pMes" value="${prox.toISOString().slice(0, 7)}"></div><div><label>Responder até</label><input type="date" id="pPrazo" value="${prazo}" min="${hojeISO()}"></div>
+      <div><label>Nome de quem vai preencher</label><input id="pContato" maxlength="120"></div><div><label>WhatsApp</label><input id="pTel" maxlength="40" placeholder="(21) 99999-9999"></div><div><label>E-mail</label><input id="pEmail" type="email" maxlength="160"></div>
+      <div class="tudo"><label>Unidades do formulário</label>${UNIDADES.filter(u => u.ativo).map(u => `<label class="chk"><input type="checkbox" class="pUn" value="${u.id}" checked> ${esc(u.nome)}</label>`).join("")}</div></div>
+    <div class="acoes"><button class="bt pri" data-acao="criarLink">Gerar link</button></div>
+    ${PEDIDOS.length ? `<div class="tw" style="margin-top:12px"><table><tr><th>Mês</th><th>Para</th><th>Prazo</th><th>Situação</th><th>Respostas</th><th>Enviar</th></tr>${PEDIDOS.map(p => {
+      const rs = RESPOSTAS.filter(r => r.pedido_id === p.id && r.status !== "substituida"), ativo = !p.revogado_em;
+      return `<tr><td><b>${mesBR(p.mes)}</b><div class="mut">${esc(p.unidades.map(id => unidade(id).nome).join(", "))}</div></td>
+        <td>${esc(p.contato_nome || "—")}<div class="mut">${esc([p.telefone, p.email].filter(Boolean).join(" · "))}</div></td>
+        <td>${dataBR(p.prazo)}${ativo ? `<div><button class="lnk" data-acao="prazoLink" data-id="${p.id}">mudar</button></div>` : ""}</td><td>${sitPedido(p)}</td>
+        <td>${rs.map(r => `<div>${r.status === "pendente" ? `<button class="bt pri" data-acao="conferir" data-id="${r.id}">Conferir F-${r.id}</button>` : `${tag({ aprovada: "aprovada", descartada: "descartada" }[r.status] || r.status, r.status === "aprovada" ? "t-ok" : "t-mut")} <button class="lnk" data-acao="conferir" data-id="${r.id}">F-${r.id}</button>`}</div>`).join("") || '<span class="mut">—</span>'}</td>
+        <td>${ativo ? `<button class="bt" data-acao="whatsLink" data-id="${p.id}">WhatsApp</button> <button class="bt" data-acao="emailLink" data-id="${p.id}">E-mail</button>
+          <div style="margin-top:6px"><button class="lnk" data-acao="copiarLink" data-id="${p.id}">copiar link</button> · <button class="lnk" data-acao="cancelarLink" data-id="${p.id}">cancelar</button></div>` : '<span class="mut">—</span>'}</td></tr>`; }).join("")}</table></div>` : ""}</div>`;
+}
+function textoLink(p) {
+  return `Olá${p.contato_nome ? ", " + p.contato_nome : ""}! Para registrarmos as licenças do Microsoft 365 de ${mesBR(p.mes)} (${p.unidades.map(id => unidade(id).nome).join(", ")}), `
+    + `por favor informe neste link a licença, a quantidade e o valor unitário que constam na fatura, até ${dataBR(p.prazo)} (não precisa de login):\n${linkForm(p)}\n\nObrigado! Nervia`;
+}
+function dConferir(r) {
+  const p = PEDIDOS.find(x => x.id === r.pedido_id), mes = p.mes, ant = {};
+  FATURAS.filter(f => f.mes < mes).forEach(f => { const k = f.unidade_id + "|" + f.produto; if (!ant[k] || f.mes > ant[k].mes) ant[k] = f; });
+  const jaTem = FATURAS.some(f => f.mes === mes), tot = r.itens.reduce((t, i) => t + i.quantidade * i.valor_unitario, 0);
+  const comp = i => { const a = ant[i.unidade_id + "|" + i.produto]; if (!a) return tag("novo", "t-info");
+    const d = []; if (a.quantidade !== i.quantidade) d.push(`qtd ${a.quantidade} → ${i.quantidade}`); if (Number(a.valor_unitario) !== Number(i.valor_unitario)) d.push(`valor ${brl(a.valor_unitario)} → ${brl(i.valor_unitario)}`);
+    return d.length ? tag(d.join(" · "), i.quantidade < a.quantidade ? "t-crit" : "t-warn") : tag("igual a " + mesBR(a.mes), "t-ok"); };
+  const pend = r.status === "pendente";
+  abrir(`<h3>Fatura de ${mesBR(mes)} · F-${r.id}</h3><p class="mut">Enviada por <b>${esc(r.declarante)}</b> em ${dataHora(r.enviada_em)}${r.ip ? " · IP " + esc(r.ip) : ""}.${r.status !== "pendente" ? ` ${r.status === "aprovada" ? "Aprovada" : "Descartada"} por ${esc(r.decidido_nome || "")} em ${dataHora(r.decidido_em)}${r.motivo ? ": " + esc(r.motivo) : ""}.` : ""}</p>
+    ${r.obs ? `<div class="aviso info"><b>Observação:</b> ${esc(r.obs)}</div>` : ""}
+    ${r.itens.some(i => i.fora_da_lista) ? '<div class="aviso warn">Há licença escrita à mão (fora da lista). Confira o nome: ele precisa ser igual ao da exportação do Microsoft 365 para contar como "em uso".</div>' : ""}
+    <div class="tw"><table><tr><th>Unidade</th><th>Licença</th><th class="num">Qtd.</th><th class="num">Valor unit.</th><th class="num">Total</th><th>Comparado à anterior</th></tr>
+    ${r.itens.map(i => `<tr><td>${esc(unidade(i.unidade_id).nome)}</td><td>${esc(i.produto)}${i.fora_da_lista ? " " + tag("fora da lista", "t-warn") : ""}</td><td class="num">${i.quantidade}</td><td class="num">${brl(i.valor_unitario)}</td><td class="num">${brl(i.quantidade * i.valor_unitario)}</td><td>${comp(i)}</td></tr>`).join("")}
+    <tr class="total"><td colspan="2">Total</td><td class="num">${r.itens.reduce((t, i) => t + i.quantidade, 0)}</td><td></td><td class="num">${brl(tot)}</td><td></td></tr></table></div>
+    ${pend ? `${jaTem ? `<label class="chk" style="margin-top:8px"><input type="checkbox" name="subst"> substituir a fatura de ${mesBR(mes)} já carregada (senão a aprovação é recusada)</label>` : ""}
+      <label style="margin-top:10px">Para descartar, escreva o motivo</label><input name="motivo" placeholder="ex.: valores errados, pedi para reenviar">
+      <div class="acoes"><button class="bt perigo" value="descartar">Descartar</button></div>` : ""}`,
+    pend ? async f => gravar(sb.rpc("lic_resposta_aprovar", { p_id: r.id, p_substituir: !!f.get("subst") }), `Fatura de ${mesBR(mes)} registrada a partir do formulário.`) : null, "Aprovar e registrar a fatura");
+  if (pend) dlg.onclose = async () => {
+    const f = new FormData(dlgf);
+    if (dlg.returnValue === "ok") await gravar(sb.rpc("lic_resposta_aprovar", { p_id: r.id, p_substituir: !!f.get("subst") }), `Fatura de ${mesBR(mes)} registrada a partir do formulário.`);
+    if (dlg.returnValue === "descartar") await gravar(sb.rpc("lic_resposta_descartar", { p_id: r.id, p_motivo: f.get("motivo") }), "Resposta descartada.");
+  };
+}
+function telWhats(t) { let d = String(t || "").replace(/\D/g, ""); if (d.length === 10 || d.length === 11) d = "55" + d; return d; }
+
 async function carregarAcessos() {
   if (!ADMIN) return;
   [ACESSOS, PERFIS] = await Promise.all([sb.from("lic_acessos").select("*").then(checar), sb.from("perfis").select("user_id, email, nome").order("email").then(checar)]);
@@ -521,6 +587,24 @@ document.addEventListener("click", async ev => {
   else if (a === "verFatura") { const fs = FATURAS.filter(f => f.mes === id);
     abrir(`<h3>Fatura de ${mesBR(id)}</h3><div class="tw"><table><tr><th>Unidade</th><th>Licença</th><th class="num">Qtd.</th><th class="num">Valor unit.</th></tr>${fs.map(f => `<tr><td>${esc(unidade(f.unidade_id).nome)}</td><td>${esc(f.produto)}</td><td class="num">${f.quantidade}</td><td class="num">${brl(f.valor_unitario)}</td></tr>`).join("")}</table></div>`, null); }
   else if (a === "excluirFatura") abrir(`<h3>Excluir a fatura de ${mesBR(id)}?</h3><p class="mut">Fica registrado na auditoria.</p>`, () => gravar(sb.rpc("lic_excluir_fatura", { p_mes: id }), "Fatura excluída."), "Excluir");
+  else if (a === "criarLink") {
+    const un = [...document.querySelectorAll(".pUn:checked")].map(x => x.value);
+    const r = await sb.rpc("lic_pedido_criar", { p_mes: $("pMes").value + "-01", p_prazo: $("pPrazo").value, p_unidades: un, p_contato: $("pContato").value, p_telefone: $("pTel").value, p_email: $("pEmail").value });
+    if (r.error) return msg("err", r.error.message);
+    await carregar(); render(); msg("ok", "Link gerado. Agora mande pelo WhatsApp ou e-mail.");
+  }
+  else if (["whatsLink", "emailLink", "copiarLink"].includes(a)) {
+    const p = PEDIDOS.find(x => String(x.id) === id), txt = textoLink(p);
+    if (a === "whatsLink") window.open(`https://wa.me/${telWhats(p.telefone)}?text=${encodeURIComponent(txt)}`, "_blank", "noopener");
+    else if (a === "emailLink") window.open(`mailto:${encodeURIComponent(p.email)}?subject=${encodeURIComponent("Licenças Microsoft 365 de " + mesBR(p.mes))}&body=${encodeURIComponent(txt)}`, "_blank");
+    else { try { await navigator.clipboard.writeText(linkForm(p)); msg("ok", "Link copiado."); } catch { abrir(`<h3>Link do formulário</h3><input readonly value="${esc(linkForm(p))}" onfocus="this.select()">`, null); } }
+  }
+  else if (a === "prazoLink") { const p = PEDIDOS.find(x => String(x.id) === id);
+    abrir(`<h3>Mudar o prazo</h3><label>Responder até</label><input name="prazo" type="date" required value="${p.prazo}" min="${hojeISO()}"><p class="mut">O link é o mesmo; avise a pessoa do novo prazo.</p>`,
+      f => gravar(sb.rpc("lic_pedido_prazo", { p_id: p.id, p_prazo: f.get("prazo") }), "Prazo alterado.")); }
+  else if (a === "cancelarLink") abrir(`<h3>Cancelar o link?</h3><p class="mut">O link para de funcionar na hora. Respostas já recebidas continuam aqui.</p>`,
+    () => gravar(sb.rpc("lic_pedido_cancelar", { p_id: Number(id) }), "Link cancelado."), "Cancelar link");
+  else if (a === "conferir") dConferir(RESPOSTAS.find(x => String(x.id) === id));
   else if (a === "novaUnidade") dUnidade();
   else if (a === "editUnidade") dUnidade(UNIDADES.find(u => u.id === id));
   else if (a === "acessos") { await carregarAcessos(); dAcessos(UNIDADES.find(u => u.id === id)); }

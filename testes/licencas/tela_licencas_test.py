@@ -5,7 +5,7 @@ Precisa de: Postgres (PGHOST/PGPORT/PGUSER), o binário do PostgREST (variável 
 Sem internet para o CDN: SUPABASE_JS=caminho do supabase.js (umd) da mesma versão.
 Uso: PGHOST=/tmp/pgd PGPORT=5433 PGUSER=postgres POSTGREST=/caminho/postgrest python3 testes/licencas/tela_licencas_test.py [pasta_prints]
 """
-import os, sys, json, time, glob, subprocess, threading, http.server, functools, urllib.request, re
+import os, sys, json, time, glob, subprocess, threading, http.server, functools, urllib.request, urllib.parse, re
 import jwt
 from playwright.sync_api import sync_playwright
 
@@ -68,6 +68,21 @@ def entrar(b, papel, largura=1300):
     def api(rota):
         url = rota.request.url.replace(f"http://127.0.0.1:{PORTA_SITE}/rest/v1", f"http://localhost:{PORTA_API}")
         rota.fulfill(response=rota.fetch(url=url))
+    ctx.route(f"http://127.0.0.1:{PORTA_SITE}/rest/v1/**", api)
+    pg = ctx.new_page(); erros = []
+    pg.on("pageerror", lambda e: erros.append(str(e)))
+    return pg, erros
+
+def anonimo(b, largura=1100):
+    """Quem recebe o link: sem login (a chave anon não é um JWT; o PostgREST usa o papel anon sem o cabeçalho)."""
+    ctx = b.new_context(viewport={"width": largura, "height": 900})
+    ctx.route("**/config.js", lambda r: r.fulfill(body=CONFIG, content_type="text/javascript"))
+    if os.environ.get("SUPABASE_JS"):
+        ctx.route("**/supabase-js@*/**", lambda r: r.fulfill(path=os.environ["SUPABASE_JS"], content_type="text/javascript"))
+    def api(rota):
+        url = rota.request.url.replace(f"http://127.0.0.1:{PORTA_SITE}/rest/v1", f"http://localhost:{PORTA_API}")
+        cab = {k: v for k, v in rota.request.headers.items() if k.lower() != "authorization" or v != "Bearer anon"}
+        rota.fulfill(response=rota.fetch(url=url, headers=cab))
     ctx.route(f"http://127.0.0.1:{PORTA_SITE}/rest/v1/**", api)
     pg = ctx.new_page(); erros = []
     pg.on("pageerror", lambda e: erros.append(str(e)))
@@ -153,6 +168,51 @@ try:
         ok("Fatura de out/2026 gravada: 3" in mensagem(pg), "fatura gravada")
         ok(not er, "sem erros de script (admin, cargas) " + str(er))
 
+        # ---- formulário da fatura pelo link (sem login)
+        pg.evaluate("window.__abertos = []; window.open = (u) => { window.__abertos.push(u); return null; }")
+        pg.fill("#pMes", "2026-11"); pg.fill("#pContato", "Fulana Financeiro"); pg.fill("#pTel", "(21) 98888-7777")
+        for c in pg.locator(".pUn").all():
+            if c.get_attribute("value") != psql("select id from lic_unidades where dominio = 'vogue'", saida=True): c.uncheck()
+        pg.click("[data-acao=criarLink]"); pg.wait_for_timeout(600)
+        ok("Link gerado" in mensagem(pg) and "ainda não abriu" in pg.text_content("#tela"), "Nervia gera o link da fatura de nov/2026 só para a Vogue")
+        pg.evaluate("window.__abertos = []; window.open = (u) => { window.__abertos.push(u); return null; }")
+        pg.click("[data-acao=whatsLink]"); pg.wait_for_timeout(300); wa = pg.evaluate("window.__abertos.filter(Boolean).pop()")
+        codigo = psql("select codigo from lic_pedidos", saida=True)
+        ok(wa.startswith("https://wa.me/5521988887777?text=") and codigo in urllib.parse.unquote(wa) and "/licencas/fatura/#" in urllib.parse.unquote(wa), "WhatsApp com a mensagem e o link")
+        fa, erf = anonimo(b)
+        fa.goto(f"http://127.0.0.1:{PORTA_SITE}/licencas/fatura/#{codigo}"); fa.wait_for_selector("#pagina:not(.oculto), #aviso:not(.oculto)"); fa.wait_for_timeout(400)
+        t = fa.inner_text("body").replace("\xa0", " ")
+        ok("novembro de 2026" in t and "Vogue" in t and "vieram da fatura anterior" in t and fa.locator(".item").count() == 2 and fa.locator(".fU").count() == 0,
+           "link sem login: mês, unidade e as linhas da fatura anterior para conferir")
+        ok("R$ 403,05" not in t and "Eva Prado" not in t and "Park Sul" not in t, "link não mostra nada de outra unidade nem das contas")
+        linha = fa.locator(".item", has=fa.locator(".fP option:checked", has_text="Microsoft 365 Business Standard"))
+        linha.locator(".fQ").fill("5")
+        fa.click("#mais"); nova = fa.locator(".item").last
+        nova.locator(".fP").select_option("__outra__"); nova.locator(".fOutro").fill("Microsoft 365 Copilot"); nova.locator(".fQ").fill("1"); nova.locator(".fV").fill("150")
+        fa.click("#enviar"); fa.wait_for_timeout(300)
+        ok("Informe o seu nome" in fa.text_content("#erro"), "exige o nome de quem envia")
+        fa.fill("#declarante", "Fulana Financeiro"); fa.click("#enviar"); fa.wait_for_timeout(300)
+        ok("Marque a declaração" in fa.text_content("#erro"), "exige a declaração")
+        ok("R$ 527,15" in fa.text_content("#valTotal").replace("\xa0", " "), "total mensal calculado na hora (5 × 70,50 + 1 × 24,65 + 1 × 150,00)")
+        fa.check("#aceite"); fa.click("#enviar"); fa.wait_for_timeout(800)
+        ok("Recebido em" in fa.text_content("#situacao") and "protocolo F-1" in fa.text_content("#situacao") and fa.locator(".item").count() == 3, "enviado; a página mostra o protocolo e permite corrigir")
+        fa.screenshot(path=os.path.join(SAIDA, "licencas-formulario.png"), full_page=True)
+        ok(not erf, "sem erros de script (formulário) " + str(erf))
+        fm, erm2 = anonimo(b, 390); fm.goto(f"http://127.0.0.1:{PORTA_SITE}/licencas/fatura/#{codigo}"); fm.wait_for_selector("#pagina:not(.oculto)"); fm.wait_for_timeout(300)
+        ok(fm.evaluate("document.documentElement.scrollWidth") <= 392, "formulário cabe no celular")
+        fm.screenshot(path=os.path.join(SAIDA, "licencas-formulario-celular.png"), full_page=True)
+        ok(psql("select count(*) from lic_faturas where mes = '2026-11-01'", saida=True) == "0", "resposta ainda não é fatura")
+        abrir(pg); pg.click("[data-v=admin]"); pg.wait_for_timeout(500)
+        ok("1 resposta(s) para conferir" in pg.text_content("#tela"), "Nervia vê a resposta pendente")
+        pg.click("[data-acao=conferir]"); pg.wait_for_timeout(300)
+        d = pg.inner_text("dialog").replace("\xa0", " ")
+        ok("Fulana Financeiro" in d and "qtd 4 → 5" in d and "fora da lista" in d and "igual a out/2026" in d, "conferência compara com a fatura anterior e marca licença fora da lista")
+        confirmar(pg)
+        ok("Fatura de nov/2026 registrada" in mensagem(pg) and psql("select sum(quantidade) from lic_faturas where mes = '2026-11-01'", saida=True) == "7",
+           "Nervia aprova e vira a fatura de nov/2026")
+        ok("aprovada" in pg.text_content("#tela"), "resposta aparece como aprovada")
+        ok(not er, "sem erros de script (admin, formulário) " + str(er))
+
         # painel
         pg.click("[data-v=painel]"); pg.wait_for_timeout(400)
         t = re.sub(r"\s+", " ", pg.inner_text("#tela").replace("\xa0", " "))
@@ -192,7 +252,7 @@ try:
         t = pc.text_content("#tela")
         ok("Vogue" in t and "Eva Prado" not in pc.text_content("body") and pc.locator("#abaAdmin.oculto").count() == 1 and "Compradas" in t,
            "cliente vê só a unidade liberada (com a fatura) e não vê Cargas e fatura")
-        ok(psql("select count(*) from auditoria where acao in ('licencas_carga', 'licencas_fatura', 'licencas_acesso_liberado')", saida=True) == "4", "cargas, fatura e acesso na auditoria")
+        ok(psql("select count(*) from auditoria where acao in ('licencas_carga', 'licencas_fatura', 'licencas_acesso_liberado')", saida=True) == "5", "cargas, as 2 faturas e o acesso na auditoria")
         pc.click("[data-v=contas]"); pc.wait_for_timeout(300)
         ok(pc.locator("#fU").count() == 0 and pc.locator("#listaContas tr").count() == 5, "aba Contas do cliente: 4 contas da Vogue")
         ok(not erc, "sem erros de script (cliente) " + str(erc))
