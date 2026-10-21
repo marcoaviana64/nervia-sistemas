@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Demonstração · Buscador de NF</title>
 <script src="/config.js"></script>
+<script src="/versoes.js"></script>
 <script src="/auditoria.js"></script>
 <script src="/demo/supabase-demo.js"></script>
 <style>
@@ -102,7 +103,7 @@ details summary{cursor:pointer;color:var(--teal);font-weight:600;margin-top:6px}
 <!-- ============ APP ============ -->
 <div id="telaApp" class="oculto">
 <header>
-  <b>Buscador de NF</b><span class="sub">NF-e (SEFAZ) e NFS-e Nacional</span>
+  <b>Buscador de NF</b><span class="sub">NF-e (SEFAZ) e NFS-e Nacional</span><span class="sub" data-versao="notas"></span>
   <div class="user"><span id="quem"></span>
     <button onclick="trocarMinhaSenha()">Trocar senha</button><button onclick="sair()">Sair</button></div>
 </header>

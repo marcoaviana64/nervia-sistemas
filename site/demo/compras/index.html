@@ -6,6 +6,7 @@
 <meta name="robots" content="noindex,nofollow">
 <title>Demonstração · Orçamentos de Compras | Nervia</title>
 <script src="/config.js"></script>
+<script src="/versoes.js"></script>
 <script src="/demo/compras-demo.js"></script>
 <style>
 /* Orçamentos de Compras (app "compras", tabelas cmp_). Regras de negócio ficam no servidor (funções cmp_*);
@@ -128,7 +129,7 @@ window.open=function(u,a,c){var t=String(u||"");if(!/^https:\/\/wa\.me\//.test(t
   w.querySelector("[data-f]").onclick=function(){w.remove();};w.onclick=function(e){if(e.target===w)w.remove();};document.body.appendChild(w);return null;};
 })();</script>
 <div class="casca">
-  <div class="topo"><div class="marca">OC</div><div><b>Orçamentos de Compras</b><br><span>Requisição, 3 orçamentos, aprovação e avaliação de fornecedores</span></div></div>
+  <div class="topo"><div class="marca">OC</div><div><b>Orçamentos de Compras</b><br><span>Requisição, 3 orçamentos, aprovação e avaliação de fornecedores</span><br><span data-versao="compras"></span></div></div>
   <div id="aviso" class="centro">Carregando…</div>
   <div id="app" class="oculto">
     <div class="barra">

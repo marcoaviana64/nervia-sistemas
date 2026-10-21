@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Novidades | Nervia</title>
+<link rel="stylesheet" href="/ajuda/ajuda.css">
+<script src="/versoes.js"></script>
+<style>.atual td:first-child{font-weight:800;color:var(--accent,#107e99)}</style>
+</head>
+<body>
+<div class="pagina">
+  <div class="cab">
+    <img src="/img/nervia-logo.png" alt="Nervia">
+    <div><div class="t" id="titulo">Novidades</div><div class="s">Versões do aplicativo, da mais nova para a mais antiga</div></div>
+    <div class="acoes"><button onclick="print()">Imprimir</button></div>
+  </div>
+  <div id="lista"></div>
+  <div class="rodape">Nervia Tecnologia · Novidades dos aplicativos</div>
+</div>
+<script>
+// /ajuda/novidades.html?app=<id>&nome=<nome do app>  (lê /versoes.js)
+const p = new URLSearchParams(location.search), app = p.get("app") || "", nome = p.get("nome") || "";
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const l = (window.NERVIA_VERSOES || {})[app] || [];
+if (nome) { document.getElementById("titulo").textContent = nome + " · Novidades"; document.title = nome + " · Novidades | Nervia"; }
+document.getElementById("lista").innerHTML = l.length
+  ? `<table>${l.map((v, i) => `<tr class="${i ? "" : "atual"}"><td>Versão ${esc(v[0])}<br><span style="font-weight:400">${esc(v[1].split("-").reverse().join("/"))}</span></td><td>${i ? "" : "<b>Versão atual.</b> "}${esc(v[2])}</td></tr>`).join("")}</table>`
+  : '<p class="lead">Ainda não há novidades registradas para este aplicativo.</p>';
+</script>
+<script src="/marca-dagua.js" data-tipo="doc"></script>
+</body>
+</html>
