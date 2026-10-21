@@ -185,8 +185,8 @@ try:
         ok("novembro de 2026" in t and "Vogue" in t and "vieram da fatura anterior" in t and fa.locator(".item").count() == 2 and fa.locator(".fU").count() == 0,
            "link sem login: mês, unidade e as linhas da fatura anterior para conferir")
         ok("R$ 403,05" not in t and "Eva Prado" not in t and "Park Sul" not in t, "link não mostra nada de outra unidade nem das contas")
-        linha = fa.locator(".item", has=fa.locator(".fP option:checked", has_text="Microsoft 365 Business Standard"))
-        linha.locator(".fQ").fill("5")
+        item_std = fa.locator(".item", has=fa.locator(".fP option:checked", has_text="Microsoft 365 Business Standard"))
+        item_std.locator(".fQ").fill("5")
         fa.click("#mais"); nova = fa.locator(".item").last
         nova.locator(".fP").select_option("__outra__"); nova.locator(".fOutro").fill("Microsoft 365 Copilot"); nova.locator(".fQ").fill("1"); nova.locator(".fV").fill("150")
         fa.click("#enviar"); fa.wait_for_timeout(300)
@@ -258,6 +258,34 @@ try:
         ok(not erc, "sem erros de script (cliente) " + str(erc))
         pb, erb = entrar(b, "clienteB"); abrir(pb)
         ok("Nenhuma unidade liberada" in pb.text_content("#aviso"), "login sem unidade recebe aviso claro")
+        # ---- outro tenant (outra empresa, outro painel do Microsoft 365): respeita os domínios, não zera as outras unidades
+        abrir(pg); pg.click("[data-v=admin]"); pg.wait_for_timeout(500)
+        pg.click("[data-acao=novaUnidade]"); pg.fill("dialog [name=nome]", "Outra Empresa"); pg.fill("dialog [name=dom]", "outraempresa"); confirmar(pg)
+        ok("Unidade salva" in mensagem(pg), "admin cadastra a unidade do outro tenant")
+        OUTRO = [("Gil Outra", "gil@outraempresa.exemplo", "Microsoft 365 Business Standard", False), ("Ivo Outra", "ivo@outraempresa.exemplo", "Unlicensed", False),
+                 ("Zé Terceiro", "ze@terceiro.exemplo", "Unlicensed", False)]
+        carregar_csv(pg, "users_15_10_2026.csv", export(OUTRO))
+        ok("2 das unidades" in pg.text_content("#previa") and "Já existe" not in pg.text_content("#previa"), "prévia do outro tenant: só as contas do domínio dele")
+        pg.click("[data-acao=gravarCarga]"); pg.wait_for_timeout(800)
+        ok("15/10/2026 carregada: 2 contas" in mensagem(pg), "carga do outro tenant gravada")
+        pg.click("[data-v=painel]"); pg.wait_for_timeout(500)
+        t = re.sub(r"\s+", " ", pg.inner_text("#tela").replace("\xa0", " "))
+        vogue = re.sub(r"\s+", " ", pg.locator(".un", has_text="Vogue").inner_text())
+        ok(pg.locator(".un").count() == 3 and "Cada unidade mostra a exportação mais recente do seu domínio" in t and "Contas 4" in vogue
+           and "+1 −1" in vogue and "Exportação 01/10/2026" in vogue, "carga mais nova de outro tenant NÃO zera as unidades do primeiro (cada uma usa a sua exportação)")
+        pg.click("[data-v=admin]"); pg.wait_for_timeout(500)
+        carregar_csv(pg, "users_01_10_2026.csv", export(OUTRO))
+        ok("Já existe" not in pg.text_content("#previa"), "outro tenant na mesma data de outra carga: não acusa \"já existe\"")
+        pg.click("[data-acao=gravarCarga]"); pg.wait_for_timeout(800)
+        ok("01/10/2026 carregada: 2 contas" in mensagem(pg) and psql("select count(*) from lic_contas c join lic_cargas k on k.id = c.carga_id where k.exportado_em = '2026-10-01'", saida=True) == "8",
+           "grava sem apagar as contas da Vogue e do Park Sul daquela data")
+        carregar_csv(pg, "users_01_10_2026.csv", export([c for c in OUT if "outraempresa" not in c[1]]))
+        t = pg.text_content("#previa")
+        ok("Já existe uma carga de 01/10/2026 para: Shopping Park Sul, Vogue." in t and "Outra Empresa" not in t.split("Já existe")[1], "\"já existe\" cita só as unidades do arquivo")
+        pg.click("[data-acao=cancelarPrevia]")
+        ok(not er, "sem erros de script (outro tenant) " + str(er))
+        abrir(pc); pc.wait_for_timeout(300)
+        ok(pc.locator("#selCarga option").count() == 2 and "Outra Empresa" not in pc.text_content("body"), "cliente da Vogue não vê as datas nem os dados do outro tenant")
         pm, erm = entrar(b, "clienteA", 390); abrir(pm)
         ok(pm.evaluate("document.documentElement.scrollWidth") <= 392, "celular sem rolagem lateral")
         pm.screenshot(path=os.path.join(SAIDA, "licencas-celular.png"), full_page=True)

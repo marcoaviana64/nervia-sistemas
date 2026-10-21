@@ -118,7 +118,7 @@ function msg(tipo, texto) { const m = $("msg"); m.className = "msg " + tipo; m.t
 function limparMsg() { $("msg").className = "msg oculto"; }
 
 let PEDIDOS = [], RESPOSTAS = [];
-let ADMIN = false, UNIDADES = [], CARGAS = [], FATURAS = [], CARGA = null, CONTAS = [], ANT = [], VISTA = "painel", SEL = null, FILTRO = { u: "", st: "", q: "" };
+let ADMIN = false, UNIDADES = [], CARGAS = [], FATURAS = [], DATA = null, CUR = {}, PRV = {}, CONTAS = [], ANT = [], VISTA = "painel", SEL = null, FILTRO = { u: "", st: "", q: "" };
 
 // ---------------------------------------------------------------- carga
 async function iniciar() {
@@ -142,28 +142,40 @@ async function todas(q) {   // o Supabase devolve no máximo 1000 linhas por con
 }
 async function carregar() {
   UNIDADES = checar(await sb.from("lic_unidades").select("*").order("ordem").order("nome"));
-  CARGAS = checar(await sb.from("lic_cargas").select("*").order("exportado_em", { ascending: false }));
+  CARGAS = checar(await sb.from("lic_cargas").select("*").order("exportado_em", { ascending: false }).order("carregado_em", { ascending: false }));
   FATURAS = await todas(() => sb.from("lic_faturas").select("*").order("mes"));
   if (ADMIN) {   // formulário da fatura pelo link (só a equipe Nervia)
     PEDIDOS = checar(await sb.from("lic_pedidos").select("*").order("id", { ascending: false }).limit(50));
     RESPOSTAS = checar(await sb.from("lic_respostas").select("*").order("id", { ascending: false }).limit(200));
   }
-  if (!CARGAS.some(c => c.id === CARGA)) CARGA = CARGAS.length ? CARGAS[0].id : null;
+  const datas = DATAS();
+  if (!datas.includes(DATA)) DATA = datas[0] || null;
   await carregarContas();
-  $("selCarga").innerHTML = CARGAS.length ? CARGAS.map(c => `<option value="${c.id}" ${c.id === CARGA ? "selected" : ""}>${dataBR(c.exportado_em)}</option>`).join("") : "<option>nenhuma</option>";
+  $("selCarga").innerHTML = datas.length ? datas.map(d => `<option value="${d}" ${d === DATA ? "selected" : ""}>${dataBR(d)}</option>`).join("") : "<option>nenhuma</option>";
 }
+// cada carga vale só para as unidades (domínios) do arquivo: cada unidade usa a carga mais recente que a tem (até a data
+// escolhida no topo) e compara com a anterior que também a tem. Outro tenant carregado depois não "zera" as unidades deste.
+const DATAS = () => [...new Set(CARGAS.filter(c => UNIDADES.some(u => temU(c, u.id))).map(c => c.exportado_em))];
+const temU = (c, uid) => (c.unidades || []).includes(uid);
 async function carregarContas() {
-  const i = CARGAS.findIndex(c => c.id === CARGA), ant = i >= 0 ? CARGAS[i + 1] : null;
+  CUR = {}; PRV = {};
+  UNIDADES.forEach(u => {
+    const i = CARGAS.findIndex(c => c.exportado_em <= DATA && temU(c, u.id)); if (i < 0) return;
+    CUR[u.id] = CARGAS[i];
+    const a = CARGAS.find(c => c.exportado_em < CARGAS[i].exportado_em && temU(c, u.id)); if (a) PRV[u.id] = a;
+  });
+  const ids = [...new Set([...Object.values(CUR), ...Object.values(PRV)].map(c => c.id))];
   const cols = "carga_id, unidade_id, login, nome, cargo, departamento, bloqueada, compartilhada, licencas, gratuitas, criada_em";
-  CONTAS = CARGA ? await todas(() => sb.from("lic_contas").select(cols).eq("carga_id", CARGA).order("nome")) : [];
-  ANT = ant ? await todas(() => sb.from("lic_contas").select(cols).eq("carga_id", ant.id).order("nome")) : [];
+  const rs = ids.length ? await todas(() => sb.from("lic_contas").select(cols).in("carga_id", ids).order("nome").order("login")) : [];
+  CONTAS = rs.filter(a => CUR[a.unidade_id] && CUR[a.unidade_id].id === a.carga_id);
+  ANT = rs.filter(a => PRV[a.unidade_id] && PRV[a.unidade_id].id === a.carga_id);
 }
-$("selCarga").onchange = async () => { CARGA = Number($("selCarga").value); limparMsg(); await carregarContas(); render(); };
+$("selCarga").onchange = async () => { DATA = $("selCarga").value; limparMsg(); await carregarContas(); render(); };
 document.querySelectorAll(".barra .aba").forEach(b => b.onclick = () => { VISTA = b.dataset.v; SEL = null; limparMsg(); render(); });
 
 // ---------------------------------------------------------------- cálculos
-const cargaAtual = () => CARGAS.find(c => c.id === CARGA);
-const cargaAnterior = () => { const i = CARGAS.findIndex(c => c.id === CARGA); return i >= 0 ? CARGAS[i + 1] : null; };
+const dataU = uid => CUR[uid] ? CUR[uid].exportado_em : null;   // exportação usada pela unidade
+const antU = uid => PRV[uid] ? PRV[uid].exportado_em : null;     // exportação anterior da mesma unidade
 const unidade = id => UNIDADES.find(u => u.id === id) || { nome: "?" };
 const pagas = a => (a.licencas || []).length > 0;
 const alerta = a => a.bloqueada && pagas(a);   // conta bloqueada que continua ocupando licença paga
@@ -175,7 +187,7 @@ function resumo(uid) {
 }
 // fatura: por produto vale o mês mais recente até o mês da exportação (ou o mais recente, se a fatura for de depois)
 function compradas(uid) {
-  const c = cargaAtual(), lim = c ? c.exportado_em.slice(0, 7) + "-01" : "9999-12-01";
+  const d = dataU(uid) || DATA, lim = d ? d.slice(0, 7) + "-01" : "9999-12-01";
   const fs = FATURAS.filter(f => f.unidade_id === uid), ate = fs.filter(f => f.mes <= lim), base = ate.length ? ate : fs;
   const por = {};
   base.forEach(f => { if (!por[f.produto] || f.mes > por[f.produto].mes) por[f.produto] = f; });
@@ -221,7 +233,14 @@ function render() {
   $("tela").innerHTML = SEL ? vUnidade(SEL) : ({ painel: vPainel, contas: vContas, mudancas: vMudancas, admin: vAdmin }[VISTA] || vPainel)();
   if (VISTA === "admin" && !SEL) carregarAcessos();
 }
-const origem = () => { const c = cargaAtual(), a = cargaAnterior(); return `<p class="mut">Exportação do Microsoft 365 de <b>${dataBR(c.exportado_em)}</b>${a ? `, comparada com a de ${dataBR(a.exportado_em)}` : ""}. Licenças gratuitas e de avaliação (Free, Trial) não entram na conta.</p>`; };
+function origem(uid) {
+  const fim = " Licenças gratuitas e de avaliação (Free, Trial) não entram na conta.</p>";
+  if (uid) { const d = dataU(uid), a = antU(uid);
+    return d ? `<p class="mut">Exportação do Microsoft 365 de <b>${dataBR(d)}</b>${a ? `, comparada com a de ${dataBR(a)}` : ""}.` + fim : `<p class="mut">Nenhuma exportação desta unidade até ${dataBR(DATA)}.` + fim; }
+  const us = UNIDADES.filter(u => CUR[u.id]), ds = [...new Set(us.map(u => dataU(u.id)))], as = [...new Set(us.map(u => antU(u.id)))];
+  if (ds.length <= 1 && as.length <= 1) return `<p class="mut">Exportação do Microsoft 365 de <b>${dataBR(ds[0] || DATA)}</b>${as[0] ? `, comparada com a de ${dataBR(as[0])}` : ""}.` + fim;
+  return `<p class="mut">Cada unidade mostra a exportação mais recente do seu domínio até <b>${dataBR(DATA)}</b> (arquivos de tenants diferentes podem ter datas diferentes): ${us.map(u => `${esc(u.nome)} ${dataBR(dataU(u.id))}`).join(" · ")}.` + fim;
+}
 function kpis(rs) {
   const s = k => rs.reduce((t, r) => t + (typeof r[k] === "number" ? r[k] : r[k].length), 0);
   const comp = rs.map(r => r.comp).filter(Boolean), val = comp.reduce((t, c) => t + c.t.valor, 0), oc = comp.reduce((t, c) => t + c.t.ocioso, 0), ociosas = comp.reduce((t, c) => t + c.t.ociosas, 0);
@@ -245,7 +264,8 @@ function vPainel() {
       <div class="lin"><span>Contas</span><b>${n(r.total)} <span class="mut">(${n(r.bloqueadas)} bloq.)</span></b></div>
       <div class="lin"><span>Licenças pagas em uso</span><b>${n(r.emUso)}</b></div>
       ${r.comp ? `<div class="lin"><span>Compradas sem uso</span><b>${n(r.comp.t.ociosas)} · ${brl(r.comp.t.ocioso)}/mês</b></div>` : `<div class="lin"><span class="mut">Fatura não carregada</span></div>`}
-      ${cargaAnterior() ? `<div class="lin"><span>Mudanças desde ${dataBR(cargaAnterior().exportado_em)}</span><b>${r.m.total ? `+${r.m.add.length} −${r.m.rem.length}${r.m.st.length + r.m.lic.length ? ` · ${r.m.st.length + r.m.lic.length} alterada(s)` : ""}` : "nenhuma"}</b></div>` : ""}</div>`; }).join("")}</div>
+      ${dataU(r.u.id) && dataU(r.u.id) !== DATA ? `<div class="lin"><span>Exportação</span><b>${dataBR(dataU(r.u.id))}</b></div>` : ""}
+      ${antU(r.u.id) ? `<div class="lin"><span>Mudanças desde ${dataBR(antU(r.u.id))}</span><b>${r.m.total ? `+${r.m.add.length} −${r.m.rem.length}${r.m.st.length + r.m.lic.length ? ` · ${r.m.st.length + r.m.lic.length} alterada(s)` : ""}` : "nenhuma"}</b></div>` : ""}</div>`; }).join("")}</div>
   <div class="card"><h2>Licenças em uso por produto</h2>${skus.length ? `<div class="tw"><table><tr><th>Produto</th>${rs.map(r => `<th class="num">${esc(r.u.nome)}</th>`).join("")}<th class="num">Total</th></tr>
     ${skus.map(s => `<tr><td>${esc(s)}</td>${rs.map(r => `<td class="num">${r.uso[s] || "–"}</td>`).join("")}<td class="num"><b>${rs.reduce((t, r) => t + (r.uso[s] || 0), 0)}</b></td></tr>`).join("")}
     <tr class="total"><td>Total</td>${rs.map(r => `<td class="num">${r.emUso}</td>`).join("")}<td class="num">${rs.reduce((t, r) => t + r.emUso, 0)}</td></tr></table></div>` : '<p class="mut">Nenhuma licença paga.</p>'}</div>`;
@@ -283,11 +303,11 @@ const barraFiltros = (comUnidade) => `<div class="filtros noprint">${comUnidade 
 function vUnidade(uid, unica) {
   const u = unidade(uid), r = resumo(uid), m = mudancas(uid), av = alertasFatura(uid);
   return `${unica ? "" : '<p class="noprint"><button class="bt" data-acao="voltar">← Todas as unidades</button></p>'}
-    <div class="card"><h2>${esc(u.nome)}</h2>${origem()}</div>${kpis([r])}
+    <div class="card"><h2>${esc(u.nome)}</h2>${origem(uid)}</div>${kpis([r])}
     ${r.alertas.length ? `<div class="aviso crit"><b>${r.alertas.length} conta(s) bloqueada(s) com licença paga.</b> A licença continua sendo cobrada: retire a licença da conta (ou reative a conta, se ela ainda é usada).<br>${r.alertas.map(a => `${esc(a.nome || a.login)} — ${esc(a.licencas.join(", "))}`).join("<br>")}</div>` : ""}
     ${av.length ? `<div class="aviso warn"><b>Fatura:</b><br>${av.map(esc).join("<br>")}</div>` : ""}
     ${tabCompras(r.comp)}
-    ${cargaAnterior() ? `<div class="card"><h2>Mudanças desde ${dataBR(cargaAnterior().exportado_em)}<span class="dir"><button class="lnk" data-acao="verMud" data-id="${uid}">ver detalhes</button></span></h2>
+    ${antU(uid) ? `<div class="card"><h2>Mudanças desde ${dataBR(antU(uid))}<span class="dir"><button class="lnk" data-acao="verMud" data-id="${uid}">ver detalhes</button></span></h2>
       <p class="mut">${m.total ? `${m.add.length} conta(s) nova(s), ${m.rem.length} removida(s), ${m.st.length} mudaram de situação, ${m.lic.length} trocaram de licença.` : "Nenhuma mudança."}</p></div>` : ""}
     <div class="card"><h2>Contas <span class="mut">${r.total}</span></h2>${barraFiltros(false)}<div id="listaContas">${tabContas(filtrar(r.contas), false)}</div></div>`;
 }
@@ -297,14 +317,14 @@ function vContas() {
 }
 let MUD_U = "";
 function vMudancas() {
-  const a = cargaAnterior(), c = cargaAtual();
-  if (!a) return `<div class="card"><p class="mut">A exportação de ${dataBR(c.exportado_em)} é a primeira: as mudanças aparecem a partir da próxima.</p></div>`;
-  const us = UNIDADES.filter(u => (!MUD_U || u.id === MUD_U) && (CONTAS.some(a => a.unidade_id === u.id) || ANT.some(a => a.unidade_id === u.id)));
+  if (!UNIDADES.some(u => PRV[u.id])) return `<div class="card"><p class="mut">A exportação de ${dataBR(DATA)} é a primeira: as mudanças aparecem a partir da próxima.</p></div>`;
+  const us = UNIDADES.filter(u => (!MUD_U || u.id === MUD_U) && PRV[u.id]);
+  const ds = [...new Set(UNIDADES.filter(u => PRV[u.id]).map(u => antU(u.id) + ">" + dataU(u.id)))], um = ds.length === 1 ? ds[0].split(">") : null;
   const lista = (t, l, f) => l.length ? `<h3>${t} (${l.length})</h3><div class="tw"><table>${l.map(f).join("")}</table></div>` : "";
-  return `<div class="card"><h2>Mudanças de ${dataBR(a.exportado_em)} para ${dataBR(c.exportado_em)}<span class="dir"><select id="fMudU" style="width:auto"><option value="">Todas as unidades</option>${UNIDADES.map(u => `<option value="${u.id}" ${u.id === MUD_U ? "selected" : ""}>${esc(u.nome)}</option>`).join("")}</select></span></h2>
-    <p class="mut">Para ver outro período, escolha outra exportação no topo: a comparação é sempre com a exportação anterior a ela.</p></div>` +
+  return `<div class="card"><h2>${um ? `Mudanças de ${dataBR(um[0])} para ${dataBR(um[1])}` : `Mudanças até ${dataBR(DATA)}`}<span class="dir"><select id="fMudU" style="width:auto"><option value="">Todas as unidades</option>${UNIDADES.map(u => `<option value="${u.id}" ${u.id === MUD_U ? "selected" : ""}>${esc(u.nome)}</option>`).join("")}</select></span></h2>
+    <p class="mut">Para ver outro período, escolha outra exportação no topo: cada unidade é comparada com a exportação anterior do seu próprio domínio.</p></div>` +
   us.map(u => { const m = mudancas(u.id);
-    return `<div class="card mud"><h2>${esc(u.nome)} <span class="mut">${m.antes} → ${m.depois} contas</span>${m.total ? "" : tag("sem mudanças", "t-ok")}</h2>
+    return `<div class="card mud"><h2>${esc(u.nome)} <span class="mut">${m.antes} → ${m.depois} contas${um ? "" : ` · ${dataBR(antU(u.id))} → ${dataBR(dataU(u.id))}`}</span>${m.total ? "" : tag("sem mudanças", "t-ok")}</h2>
       ${lista("Contas novas", m.add, x => `<tr><td><b>${esc(x.nome || x.login)}</b><div class="mut">${esc(x.login)}</div></td><td>${pagas(x) ? x.licencas.map(s => tag(s, "t-acc")).join("") : '<span class="mut">sem licença paga</span>'}</td><td>${x.bloqueada ? tag("Bloqueada", "t-mut") : tag("Ativa", "t-ok")}</td></tr>`)}
       ${lista("Contas removidas", m.rem, x => `<tr><td><b>${esc(x.nome || x.login)}</b><div class="mut">${esc(x.login)}</div></td><td>${pagas(x) ? x.licencas.map(s => tag(s, "t-mut")).join("") : '<span class="mut">sem licença paga</span>'}</td></tr>`)}
       ${lista("Mudaram de situação", m.st, x => `<tr><td><b>${esc(x.a.nome || x.a.login)}</b><div class="mut">${esc(x.a.login)}</div></td><td>${x.de} → <b>${x.para}</b>${alerta(x.a) ? " " + tag("continua com licença paga", "t-crit") : ""}</td></tr>`)}
@@ -320,8 +340,8 @@ function vAdmin() {
     <p class="mut">No Microsoft 365 Admin Center: Usuários → Usuários ativos → Exportar usuários (CSV de todas as contas do tenant). Escolha o arquivo aqui: as contas são separadas pelas unidades <b>neste computador</b>, e só as contas das unidades (nome, login, cargo, departamento, situação, licenças e data de criação) vão para o servidor. Contas de outras empresas, telefones e endereços não saem do computador.</p>
     <div class="grade"><div class="tudo"><label>Arquivo CSV</label><input type="file" id="arqCsv" accept=".csv,text/csv"></div></div>
     <div id="previa"></div></div>
-  <div class="card"><h2>Exportações carregadas</h2>${CARGAS.length ? `<div class="tw"><table><tr><th>Exportação de</th><th>Arquivo</th><th class="num">Contas das unidades</th><th class="num">Linhas no arquivo</th><th>Carregado por</th><th></th></tr>
-    ${CARGAS.map(c => `<tr><td><b>${dataBR(c.exportado_em)}</b></td><td class="mut">${esc(c.arquivo)}</td><td class="num">${n(c.contas)}</td><td class="num">${n(c.linhas_arquivo)}</td><td>${esc(c.carregado_nome)}<div class="mut">${dataHora(c.carregado_em)}</div></td>
+  <div class="card"><h2>Exportações carregadas</h2>${CARGAS.length ? `<div class="tw"><table><tr><th>Exportação de</th><th>Arquivo</th><th>Unidades</th><th class="num">Contas das unidades</th><th class="num">Linhas no arquivo</th><th>Carregado por</th><th></th></tr>
+    ${CARGAS.map(c => `<tr><td><b>${dataBR(c.exportado_em)}</b></td><td class="mut">${esc(c.arquivo)}</td><td>${esc(UNIDADES.filter(u => temU(c, u.id)).map(u => u.nome).join(", "))}</td><td class="num">${n(c.contas)}</td><td class="num">${n(c.linhas_arquivo)}</td><td>${esc(c.carregado_nome)}<div class="mut">${dataHora(c.carregado_em)}</div></td>
       <td><button class="lnk" data-acao="excluirCarga" data-id="${c.id}">excluir</button></td></tr>`).join("")}</table></div>` : '<p class="mut">Nenhuma ainda. Para montar o histórico, carregue as exportações antigas da mais antiga para a mais nova.</p>'}</div>
   ${vFormularios()}
   <div class="card"><h2>Fatura de licenças do mês <span class="mut">digitar ou colar</span></h2>
@@ -447,13 +467,15 @@ function separarContas(txt) {
 function dataDoNome(nome) { const m = /(\d{2})_(\d{2})_(\d{4})/.exec(nome); return m ? `${m[3]}-${m[2]}-${m[1]}` : ""; }
 function vPrevia() {
   const p = PREVIA; if (!p) return "";
-  const existe = CARGAS.find(c => c.exportado_em === $("cDataCsv")?.value || c.exportado_em === p.data);
+  const noArq = new Set(p.r.contas.map(a => a.unidade_id)), data = $("cDataCsv")?.value || p.data;
+  const choque = UNIDADES.filter(u => noArq.has(u.id) && CARGAS.some(c => c.exportado_em === data && temU(c, u.id)));
+  const existe = choque.length ? { exportado_em: data } : null;
   return `<div class="aviso info"><b>${esc(p.arquivo)}</b>: ${n(p.r.linhas)} contas no arquivo · <b>${n(p.r.contas.length)} das unidades</b> · ${n(p.r.fora)} de outras empresas (ficam neste computador) · ${n(p.r.convidados)} convidados ignorados.</div>
     <div class="tw"><table><tr><th>Unidade</th><th class="num">Contas</th><th class="num">Bloqueadas</th><th class="num">Licenças pagas</th></tr>${UNIDADES.filter(u => p.r.contas.some(a => a.unidade_id === u.id)).map(u => { const cs = p.r.contas.filter(a => a.unidade_id === u.id);
       return `<tr><td>${esc(u.nome)}</td><td class="num">${cs.length}</td><td class="num">${cs.filter(a => a.bloqueada).length}</td><td class="num">${cs.reduce((t, a) => t + a.licencas.length, 0)}</td></tr>`; }).join("")}</table></div>
     <div class="grade" style="margin-top:10px"><div><label>Data da exportação</label><input type="date" id="cDataCsv" value="${p.data}" required></div>
-      <div style="align-self:end"><label class="chk"><input type="checkbox" id="cSubst" ${existe ? "" : "disabled"}> substituir a carga desta data</label></div></div>
-    ${existe ? `<div class="aviso warn">Já existe uma carga de ${dataBR(existe.exportado_em)}. Marque "substituir" para trocar.</div>` : ""}
+      <div style="align-self:end"><label class="chk"><input type="checkbox" id="cSubst" ${existe ? "" : "disabled"}> substituir estas unidades nesta data</label></div></div>
+    ${existe ? `<div class="aviso warn">Já existe uma carga de ${dataBR(existe.exportado_em)} para: ${esc(choque.map(u => u.nome).join(", "))}. Marque "substituir" para trocar só estas unidades; as outras unidades (de outros arquivos) ficam como estão.</div>` : ""}
     <div class="acoes"><button class="bt pri" data-acao="gravarCarga" ${p.r.contas.length ? "" : "disabled"}>Gravar carga</button><button class="bt" data-acao="cancelarPrevia">Cancelar</button></div>`;
 }
 
@@ -489,12 +511,12 @@ function lerFatura(txt) {
 }
 function vPreviaFat() {
   const p = PREVIA_FAT; if (!p) return "";
-  const existe = FATURAS.some(f => f.mes === p.mes + "-01");
+  const noTxt = new Set(p.itens.map(i => i.unidade_id)), choque = UNIDADES.filter(u => noTxt.has(u.id) && FATURAS.some(f => f.mes === p.mes + "-01" && f.unidade_id === u.id)), existe = choque.length > 0;
   return `${p.avisos.length ? `<div class="aviso warn"><b>Linhas não aproveitadas:</b><br>${p.avisos.map(esc).join("<br>")}</div>` : ""}
     <div class="tw"><table><tr><th>Unidade</th><th>Licença</th><th class="num">Quantidade</th><th class="num">Valor unit.</th><th class="num">Total/mês</th></tr>
     ${p.itens.map(i => `<tr><td>${esc(unidade(i.unidade_id).nome)}</td><td>${esc(i.produto)}</td><td class="num">${i.quantidade}</td><td class="num">${brl(i.valor_unitario)}</td><td class="num">${brl(i.quantidade * i.valor_unitario)}</td></tr>`).join("")}
     <tr class="total"><td colspan="2">Total de ${mesBR(p.mes + "-01")}</td><td class="num">${p.itens.reduce((t, i) => t + i.quantidade, 0)}</td><td></td><td class="num">${brl(p.itens.reduce((t, i) => t + i.quantidade * i.valor_unitario, 0))}</td></tr></table></div>
-    ${existe ? `<label class="chk" style="margin-top:8px"><input type="checkbox" id="fSubst"> substituir a fatura de ${mesBR(p.mes + "-01")} já carregada</label>` : ""}
+    ${existe ? `<label class="chk" style="margin-top:8px"><input type="checkbox" id="fSubst"> substituir a fatura de ${mesBR(p.mes + "-01")} já carregada de ${esc(choque.map(u => u.nome).join(", "))} (as outras unidades do mês ficam como estão)</label>` : ""}
     <div class="acoes"><button class="bt pri" data-acao="gravarFatura" ${p.itens.length ? "" : "disabled"}>Gravar fatura</button></div>`;
 }
 
@@ -534,7 +556,7 @@ function csvContas() {
   const txt = ["Unidade;Nome;Login;Cargo;Departamento;Situação;Licenças pagas;Gratuitas;Criada em"].concat(cs.map(a =>
     [unidade(a.unidade_id).nome, a.nome, a.login, a.cargo, a.departamento, a.bloqueada ? "Bloqueada" : "Ativa", (a.licencas || []).join(" + "), (a.gratuitas || []).join(" + "), dataBR(a.criada_em)].map(q).join(";"))).join("\r\n");
   const el = document.createElement("a"); el.href = URL.createObjectURL(new Blob(["﻿" + txt], { type: "text/csv" }));
-  el.download = `contas-${(cargaAtual() || {}).exportado_em || ""}.csv`; el.click(); URL.revokeObjectURL(el.href);
+  el.download = `contas-${DATA || ""}.csv`; el.click(); URL.revokeObjectURL(el.href);
 }
 
 // ---------------------------------------------------------------- eventos
@@ -569,10 +591,10 @@ document.addEventListener("click", async ev => {
     b.disabled = true; b.textContent = "Gravando…";
     const r = await sb.rpc("lic_carregar", { p_exportado_em: data, p_arquivo: PREVIA.arquivo, p_linhas: PREVIA.r.linhas, p_contas: PREVIA.r.contas, p_substituir: !!($("cSubst") && $("cSubst").checked) });
     if (r.error) { b.disabled = false; b.textContent = "Gravar carga"; return msg("err", r.error.message); }
-    const qtd = PREVIA.r.contas.length; PREVIA = null; CARGA = r.data; await carregar(); render(); msg("ok", `Exportação de ${dataBR(data)} carregada: ${qtd} contas das unidades.`);
+    const qtd = PREVIA.r.contas.length; PREVIA = null; DATA = data; await carregar(); render(); msg("ok", `Exportação de ${dataBR(data)} carregada: ${qtd} contas das unidades.`);
   }
   else if (a === "excluirCarga") { const c = CARGAS.find(x => String(x.id) === id);
-    abrir(`<h3>Excluir a exportação de ${dataBR(c.exportado_em)}?</h3><p class="mut">Apaga as ${c.contas} contas desta carga. As mudanças passam a ser comparadas com a exportação anterior a ela. Fica registrado na auditoria.</p>`,
+    abrir(`<h3>Excluir a exportação de ${dataBR(c.exportado_em)}?</h3><p class="mut">Apaga as ${c.contas} contas desta carga (${esc(UNIDADES.filter(u => temU(c, u.id)).map(u => u.nome).join(", "))}). As mudanças dessas unidades passam a ser comparadas com a exportação anterior a ela. Fica registrado na auditoria.</p>`,
       () => gravar(sb.rpc("lic_excluir_carga", { p_id: c.id }), "Exportação excluída."), "Excluir"); }
   else if (a === "conferirFatura") {
     const mes = $("fatMes").value; if (!mes) return msg("err", "Informe o mês da fatura.");

@@ -729,12 +729,35 @@ select pg_temp.erro2($$select lic_carregar('2026-09-01', 'x.csv', 1, '[{"unidade
 select pg_temp.erro2($$select lic_carregar('2026-09-02', 'x.csv', 1, '[{"unidade_id":"$$ || (select v from lic_ids where k = 'vogue') || $$","login":"x#EXT#@vogue.com.br"}]')$$,
   'convidado', 'conta de convidado recusada');
 select pg_temp.erro2($$select lic_carregar('2026-09-02', 'x.csv', 1, '[]')$$, 'Nenhuma conta', 'arquivo sem contas das unidades recusado');
+-- outro tenant (outros domínios) na mesma data: não conflita nem apaga as unidades do primeiro arquivo
+insert into lic_unidades (nome, dominio, ordem) values ('Outra Empresa', 'outraempresa', 90);
+insert into lic_ids select 'outra', id::text from lic_unidades where dominio = 'outraempresa';
+select lic_carregar('2026-09-01', 'outro_tenant.csv', 9, jsonb_build_array(
+  jsonb_build_object('unidade_id', (select v from lic_ids where k = 'outra'), 'login', 'gil@outraempresa.com.br', 'nome', 'Gil', 'licencas', '{"Power BI Pro"}')));
+select pg_temp.ok((select count(*) = 2 from lic_cargas where exportado_em = '2026-09-01') and (select count(*) = 4 from lic_contas)
+  and (select unidades = array[(select v from lic_ids where k = 'outra')::uuid] from lic_cargas where arquivo = 'outro_tenant.csv'),
+  'arquivo de outro tenant na mesma data entra sem "já existe" e sem apagar as outras unidades');
+select pg_temp.erro2($$select lic_carregar('2026-09-01', 'x.csv', 1, '[{"unidade_id":"$$ || (select v from lic_ids where k = 'parksul') || $$","login":"z@parksul.com.br"}]')$$,
+  'Já existe uma carga de 01/09/2026 para: Shopping Park Sul.', '"já existe" cita só a unidade repetida');
+select lic_carregar('2026-09-01', 'so_parksul.csv', 1, jsonb_build_array(
+  jsonb_build_object('unidade_id', (select v from lic_ids where k = 'parksul'), 'login', 'davi@parksul.com.br', 'nome', 'Davi')), true);
+select pg_temp.ok((select count(*) = 2 from lic_contas c join lic_cargas k on k.id = c.carga_id where k.arquivo = 'users_01_09_2026.csv')
+  and (select contas = 2 and unidades = array[(select v from lic_ids where k = 'vogue')::uuid] from lic_cargas where arquivo = 'users_01_09_2026.csv')
+  and (select count(*) = 0 from lic_contas where login = 'caio@parksul.com.br') and (select count(*) = 1 from lic_contas where login = 'davi@parksul.com.br')
+  and (select count(*) = 1 from lic_contas where login = 'gil@outraempresa.com.br'),
+  'substituir troca só a unidade do arquivo novo (Vogue e a outra empresa ficam)');
+select lic_carregar('2026-09-01', 'so_outra.csv', 1, jsonb_build_array(
+  jsonb_build_object('unidade_id', (select v from lic_ids where k = 'outra'), 'login', 'gil@outraempresa.com.br', 'nome', 'Gil')), true);
+select pg_temp.ok((select count(*) = 0 from lic_cargas where arquivo = 'outro_tenant.csv') and (select count(*) = 3 from lic_cargas),
+  'carga que fica sem nenhuma unidade é apagada');
+select lic_salvar_fatura('2026-09-01', jsonb_build_array(
+  jsonb_build_object('unidade_id', (select v from lic_ids where k = 'outra'), 'produto', 'Power BI Pro', 'quantidade', 1, 'valor_unitario', 96.4)));
 select lic_salvar_fatura('2026-09-15', jsonb_build_array(
   jsonb_build_object('unidade_id', (select v from lic_ids where k = 'vogue'), 'produto', 'Microsoft 365 Business Standard', 'quantidade', 3, 'valor_unitario', 70.5),
   jsonb_build_object('unidade_id', (select v from lic_ids where k = 'vogue'), 'produto', 'Microsoft 365 Business Standard', 'quantidade', 1, 'valor_unitario', 70.5)));
-select pg_temp.ok((select quantidade = 4 and mes = '2026-09-01' from lic_faturas), 'fatura do mês: linhas do mesmo produto somadas, mês normalizado');
+select pg_temp.ok((select quantidade = 4 and mes = '2026-09-01' from lic_faturas where unidade_id = (select v from lic_ids where k = 'vogue')::uuid) and (select count(*) = 2 from lic_faturas), 'fatura do mês: linhas do mesmo produto somadas, mês normalizado');
 select pg_temp.erro2($$select lic_salvar_fatura('2026-09-01', '[{"unidade_id":"$$ || (select v from lic_ids where k = 'vogue') || $$","produto":"x","quantidade":1}]')$$,
-  'Já existe fatura', 'fatura do mesmo mês não substitui sem marcar');
+  'Já existe fatura de 09/2026 para: Vogue (1 itens)', 'fatura do mesmo mês não substitui sem marcar (cita só a unidade repetida)');
 select pg_temp.ok((select count(*) >= 3 from auditoria where acao in ('licencas_carga', 'licencas_fatura', 'licencas_acesso_liberado')), 'carga, fatura e acesso auditados');
 -- cliente vê só a unidade liberada
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
@@ -746,8 +769,10 @@ select pg_temp.erro2('select lic_excluir_carga((select id from lic_cargas))', 'S
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
 select pg_temp.ok((select count(*) = 0 from lic_contas) and (select count(*) = 0 from lic_cargas), 'login sem acesso não vê nada');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
-select lic_excluir_carga((select id from lic_cargas));
-select pg_temp.ok((select count(*) = 0 from lic_contas), 'excluir a carga apaga as contas dela');
+select lic_excluir_carga((select id from lic_cargas where arquivo = 'so_parksul.csv'));
+select pg_temp.ok((select count(*) = 0 from lic_contas where unidade_id = (select v from lic_ids where k = 'parksul')::uuid) and (select count(*) = 3 from lic_contas), 'excluir a carga apaga só as contas dela');
+select lic_excluir_carga(id) from lic_cargas;
+select pg_temp.ok((select count(*) = 0 from lic_contas), 'excluir as cargas apaga as contas');
 reset role;
 reset request.jwt.claim.sub;
 -- formulário da fatura pelo link
