@@ -41,7 +41,7 @@ label{display:block;font-size:.82rem;font-weight:600;color:var(--muted);margin:1
 header{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
 .topo{max-width:1240px;margin:auto;padding:0 20px;height:64px;display:flex;align-items:center;gap:14px}
 .topo .logo img{height:34px;display:block}
-.topo .area{font-weight:700;color:var(--accent);font-size:.82rem;letter-spacing:.12em;text-transform:uppercase;border-left:1px solid var(--border);padding-left:14px}
+.topo .area{text-decoration:none;font-weight:700;color:var(--accent);font-size:.82rem;letter-spacing:.12em;text-transform:uppercase;border-left:1px solid var(--border);padding-left:14px}
 .topo .user{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:.9rem;color:var(--muted)}
 .topo .user button{padding:8px 12px;font-size:.85rem}
 @media(max-width:640px){.topo .area,.topo .quem{display:none}}
@@ -216,7 +216,7 @@ addEventListener("resize",m);document.addEventListener("DOMContentLoaded",m);m()
   <header>
     <div class="topo">
       <a class="logo" href="/" title="Site da Nervia"><img src="/img/nervia-logo.png" alt="Nervia Tecnologia"></a>
-      <span class="area">Área do Cliente</span>
+      <a class="area" href="#" title="Voltar para os seus aplicativos">Área do Cliente</a>
       <div class="user">
         <span class="quem" id="quem"></span>
         <button class="sec" id="bAdmin" onclick="location.hash='#admin'">Administração</button>
@@ -257,6 +257,7 @@ addEventListener("resize",m);document.addEventListener("DOMContentLoaded",m);m()
   </div>
 
   <main id="vAdmin" class="pagina oculto">
+    <button class="lnk" id="bVoltarAdm" style="margin-bottom:10px" onclick="location.hash=''">← Meus aplicativos</button>
     <h1>Administração</h1>
     <div class="sub">Logins e aplicativos da Área do Cliente</div>
     <div class="abas"><button id="abaUsu" onclick="aba('usu')">Logins</button><button id="abaApps" onclick="aba('apps')">Aplicativos</button><button id="abaInt" onclick="aba('int')">Interesse nos apps</button><button id="abaAud" onclick="aba('aud')">Auditoria</button><button id="abaAcs" onclick="aba('acs')">Acessos do site</button><button id="abaEml" onclick="aba('eml')">E-mails</button></div>

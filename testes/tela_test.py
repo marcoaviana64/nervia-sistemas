@@ -345,6 +345,11 @@ with sync_playwright() as p:
     # Administração → E-mails
     pg, erros = nova(b)
     pg.goto("http://127.0.0.1:8811/cliente/?papel=admin#admin"); pg.wait_for_selector("#abaEml")
+    # volta da Administração para os aplicativos (botão na página e o "Área do Cliente" do topo)
+    pg.click("#bVoltarAdm"); pg.wait_for_selector("#vApps:not(.oculto)"); assert pg.is_hidden("#vAdmin")
+    pg.click("#bAdmin"); pg.wait_for_selector("#vAdmin:not(.oculto)")
+    pg.click(".topo .area"); pg.wait_for_selector("#vApps:not(.oculto)")
+    pg.click("#bAdmin"); pg.wait_for_selector("#vAdmin:not(.oculto)")
     pg.click("#abaEml"); pg.wait_for_selector("#tEmail")
     t = pg.inner_text("#admConteudo")
     assert "nao-responda@nervia.com.br" in t and "Senha nova" in t and "falhou" in t and "Caixa não encontrada" in t and "desligado" in t, t
