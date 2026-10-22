@@ -6,7 +6,7 @@
 // "Recomeçar" apaga e volta ao início. Usado por /demo/compras/ e /demo/cotacao/ (gerados por divulgacao/demo/gerar.py).
 (function () {
   "use strict";
-  const CHAVE = "nervia_demo_compras_v5", CHAVE_PAPEL = "nervia_demo_compras_papel";
+  const CHAVE = "nervia_demo_compras_v6", CHAVE_PAPEL = "nervia_demo_compras_papel";
   // localStorage quando houver; sem ele (janela anônima restrita), memória da própria página
   const MEM = {};
   const ls = {
@@ -17,7 +17,7 @@
   const PESSOAS = {
     solicitante: { id: "u-sol", nome: "Carla Menezes", email: "carla.menezes@valeverde.exemplo", cargo: "Supervisora de manutenção" },
     comprador: { id: "u-com", nome: "Rafael Duarte", email: "rafael.duarte@valeverde.exemplo", cargo: "Comprador" },
-    gerente: { id: "u-ger", nome: "Sônia Albuquerque", email: "sonia.albuquerque@valeverde.exemplo", cargo: "Gerente de operações" },
+    gerente: { id: "u-ger", nome: "Sônia Albuquerque", email: "sonia.albuquerque@valeverde.exemplo", cargo: "Gerente geral (todos os setores)" },
     diretor: { id: "u-dir", nome: "Augusto Prado", email: "augusto.prado@valeverde.exemplo", cargo: "Diretor administrativo" },
   };
   const papelAtual = () => { const p = ls.get(CHAVE_PAPEL); return PESSOAS[p] ? p : "comprador"; };
@@ -47,7 +47,10 @@
       perfis: Object.values(PESSOAS).map((p) => ({ user_id: p.id, email: p.email, nome: p.nome, admin: false })),
       unidades: [{ id: UNID, nome: "Vale Verde Distribuidora", cnpj: null, cidade: "Campinas", uf: "SP", minimo_propostas: 3, alcada_automatica: 5000, alcada_gerente: 50000,
         pesos: { preco: 40, prazo: 30, pagamento: 20, qualidade: 10 }, ativo: true, criado_em: "2026-01-05T12:00:00Z" }],
-      membros: Object.entries(PESSOAS).map(([papel, p]) => ({ user_id: p.id, unidade_id: UNID, papel })),
+      // setores: o Gerente do setor aprova as compras do setor (a gerente da demo é de todos os setores)
+      setores: [["s-adm", "Administrativo", null], ["s-com", "Comercial", null], ["s-fin", "Financeiro", 20000], ["s-mkt", "Marketing", null], ["s-ope", "Operações", null]]
+        .map(([id, nome, alcada_gerente]) => ({ id, unidade_id: UNID, nome, alcada_gerente, ativo: true, criado_em: "2026-01-05T12:00:00Z" })),
+      membros: Object.entries(PESSOAS).map(([papel, p], i) => ({ id: i + 1, user_id: p.id, unidade_id: UNID, papel, setor_id: null })),
       grupos: [
         { nome: "Informática e tecnologia", ordem: 10, descricao: "Computadores, periféricos, redes, softwares e acessórios." },
         { nome: "Papelaria e material de escritório", ordem: 20, descricao: "Papel, canetas, pastas, etiquetas e itens de arquivo." },
@@ -79,6 +82,10 @@
   // ---------------------------------------------------------------- regras (espelho das funções do banco)
   const unidade = () => S.unidades[0];
   const temPapel = (papeis) => !!EU && S.membros.some((m) => m.user_id === EU.id && papeis.includes(m.papel));
+  // igual a cmp_tem_papel_req: o Gerente de um setor só vale para as requisições daquele setor
+  const temPapelReq = (r, papeis) => !!EU && S.membros.some((m) => m.user_id === EU.id && papeis.includes(m.papel)
+    && (m.papel !== "gerente" || !m.setor_id || !r.setor_id || m.setor_id === r.setor_id));
+  const setorDe = (id) => (S.setores || []).find((x) => x.id === id);
   const forn = (id) => S.fornecedores.find((f) => f.id === id);
   const req = (id) => S.requisicoes.find((r) => r.id === Number(id));
   const totalP = (p, r) => r2(p.preco_unitario * r.quantidade + p.frete);
@@ -94,7 +101,10 @@
   }
   function reqPara(id, papeis, status) {
     const r = req(id); if (!r) falha("Requisição não encontrada.");
-    if (!temPapel(papeis)) falha(`Seu papel nesta unidade não permite esta ação (precisa ser: ${papeis.join(" ou ")}).`);
+    if (!temPapelReq(r, papeis)) {
+      if (papeis.includes("gerente") && r.setor_id && temPapel(["gerente"])) falha(`Esta requisição é do setor ${setorDe(r.setor_id).nome}: só o Gerente desse setor (ou um Gerente de todos os setores) faz esta ação.`);
+      falha(`Seu papel nesta unidade não permite esta ação (precisa ser: ${papeis.join(" ou ")}).`);
+    }
     if (!status.includes(r.status)) falha(`A requisição #${r.id} está "${r.status}" e não permite esta ação agora.`);
     return r;
   }
@@ -217,7 +227,9 @@
       r.excecao = t; registrar(r.id, null, "excecao_registrada", "Exceção de exclusividade: " + t); return null;
     },
     cmp_enviar_aprovacao(a) {
-      const r = reqPara(a.p_req, ["comprador"], ["cotacao"]), u = unidade();
+      const r = reqPara(a.p_req, ["comprador"], ["cotacao"]), u = unidade(), st = setorDe(r.setor_id);
+      if (!st && S.setores.some((x) => x.ativo)) falha("Informe o setor da requisição antes de enviar: é o Gerente do setor que aprova.");
+      const lim = st && st.alcada_gerente != null ? st.alcada_gerente : u.alcada_gerente;
       if (!r.proposta_escolhida) falha("Escolha o fornecedor antes de enviar.");
       const props = S.propostas.filter((x) => x.requisicao_id === r.id);
       if (props.length < u.minimo_propostas && !r.excecao) falha(`Só ${props.length} proposta(s): o mínimo é ${u.minimo_propostas}. Registre mais propostas ou a exceção de exclusividade.`);
@@ -227,11 +239,11 @@
       const novo = f ? !comprasDe(f.id).some((x) => x.id !== r.id) : false, comp = f ? f.cadastrado_por === EU.id : false;
       const disp = !!(f && f.certidoes_validade && f.certidoes_validade < hoje());
       // compra pela internet: nunca automática; o Gerente dá o aval
-      const alcada = !inter && tot <= u.alcada_automatica && menor && !novo ? "automatica" : tot <= u.alcada_gerente ? "gerente" : "diretor";
+      const alcada = !inter && tot <= u.alcada_automatica && menor && !novo ? "automatica" : tot <= lim ? "gerente" : "diretor";
       Object.assign(r, { alcada, valor_aprovacao: tot, fornecedor_novo: novo, compra_internet: inter, cadastrado_pelo_comprador: comp, enviado_por: EU.id, enviado_em: agoraISO(),
         status: alcada === "automatica" ? "aprovada" : "aprovacao", atualizado_em: agoraISO() });
       registrar(r.id, p.fornecedor_id, "enviada_aprovacao", `Enviada para aprovação: ${nomeP(p)}, ${brl(tot)}. Alçada: ${{ automatica: "automática", gerente: "Gerente", diretor: "Gerente e Diretor" }[alcada]}`
-        + (inter ? ". Compra pela internet: precisa do aval do Gerente" : "") + (novo ? ". Primeira compra com este fornecedor" : "") + (comp ? ". Fornecedor cadastrado por quem está comprando" : "")
+        + (alcada !== "automatica" && st ? ` (Gerente do setor ${st.nome})` : "") + (inter ? ". Compra pela internet: precisa do aval do Gerente" : "") + (novo ? ". Primeira compra com este fornecedor" : "") + (comp ? ". Fornecedor cadastrado por quem está comprando" : "")
         + (disp ? ". Certidões vencidas, dispensadas pelo Gerente nesta compra" : ""));
       if (alcada === "automatica") {
         S.aprovacoes.push({ id: novoId("aprov"), requisicao_id: r.id, etapa: "sistema", decisao: "aprovado", comentario: `Até ${brl(u.alcada_automatica)}, menor preço e fornecedor com compras anteriores.`, por: null, por_nome: "Sistema", em: agoraISO() });
@@ -244,17 +256,18 @@
       if (r.status !== "aprovacao") falha(`A requisição #${r.id} não está aguardando aprovação.`);
       const gerOk = S.aprovacoes.some((x) => x.requisicao_id === r.id && x.etapa === "gerente" && x.decisao === "aprovado");
       const etapa = gerOk ? "diretor" : "gerente";
-      if (!temPapel([etapa])) falha(`Esta etapa é do ${etapa === "gerente" ? "Gerente" : "Diretor"}.`);
+      const st = setorDe(r.setor_id), quem = etapa === "gerente" ? "Gerente" + (st ? ` (${st.nome})` : "") : "Diretor";
+      if (!temPapelReq(r, [etapa])) falha(etapa === "gerente" && st ? `Esta etapa é do Gerente do setor ${st.nome}.` : `Esta etapa é do ${etapa === "gerente" ? "Gerente" : "Diretor"}.`);
       if (r.enviado_por === EU.id) falha("Quem enviou a compra para aprovação não pode aprová-la.");
       const com = String(a.p_comentario || "").trim();
       if (!a.p_aprovar && com.length < 5) falha("Para reprovar, escreva o motivo.");
       S.aprovacoes.push({ id: novoId("aprov"), requisicao_id: r.id, etapa, decisao: a.p_aprovar ? "aprovado" : "reprovado", comentario: com, por: EU.id, por_nome: EU.nome, em: agoraISO() });
       const fid = S.propostas.find((x) => x.id === r.proposta_escolhida).fornecedor_id;
-      if (!a.p_aprovar) { r.status = "reprovada"; registrar(r.id, fid, "reprovada", `Reprovada pelo ${etapa === "gerente" ? "Gerente" : "Diretor"}: ${com}`); return "reprovada"; }
+      if (!a.p_aprovar) { r.status = "reprovada"; registrar(r.id, fid, "reprovada", `Reprovada pelo ${quem}: ${com}`); return "reprovada"; }
       if (a.p_dar_aval && etapa === "gerente" && fid) RPC.cmp_aval({ p_fornecedor: fid, p_unidade: UNID, p_dar: true });
       const novo = etapa === "gerente" && r.alcada === "diretor" ? "aprovacao" : "aprovada";
       r.status = novo; r.atualizado_em = agoraISO();
-      registrar(r.id, fid, "aprovada_" + etapa, `Aprovada pelo ${etapa === "gerente" ? "Gerente" : "Diretor"}${etapa === "gerente" && r.compra_internet ? " (aval à compra pela internet)" : ""}${com ? ": " + com : ""}${novo === "aprovacao" ? ". Segue para o Diretor." : ""}`);
+      registrar(r.id, fid, "aprovada_" + etapa, `Aprovada pelo ${quem}${etapa === "gerente" && r.compra_internet ? " (aval à compra pela internet)" : ""}${com ? ": " + com : ""}${novo === "aprovacao" ? ". Segue para o Diretor." : ""}`);
       return novo;
     },
     cmp_emitir_pedido(a) {
@@ -277,9 +290,17 @@
     cmp_cancelar(a) {
       const r = req(a.p_req); if (!r) falha("Requisição não encontrada.");
       if (!["nova", "cotacao", "reprovada"].includes(r.status)) falha("Só dá para cancelar antes da aprovação (ou depois de reprovada).");
-      if (!(r.solicitante === EU.id || temPapel(["comprador", "gerente", "diretor"]))) falha("Só quem pediu, o comprador ou o gerente cancela.");
+      if (!(r.solicitante === EU.id || temPapelReq(r, ["comprador", "gerente", "diretor"]))) falha(`Só quem pediu, o comprador ou o gerente${r.setor_id ? " do setor " + setorDe(r.setor_id).nome : ""} cancela.`);
       const m = String(a.p_motivo || "").trim(); if (m.length < 5) falha("Escreva o motivo do cancelamento.");
       r.status = "cancelada"; registrar(r.id, null, "cancelada", "Cancelada: " + m); return null;
+    },
+    cmp_req_setor(a) {
+      const r = reqPara(a.p_req, ["comprador", "gerente"], ["nova", "cotacao", "reprovada"]), novo = setorDe(a.p_setor);
+      if (!a.p_setor) falha("Escolha o setor.");
+      if (!novo || !novo.ativo) falha("Setor inativo ou de outra unidade.");
+      if (r.setor_id === novo.id) return null;
+      const antes = setorDe(r.setor_id); r.setor_id = novo.id; r.atualizado_em = agoraISO();
+      registrar(r.id, null, "setor_alterado", `Setor mudou de ${antes ? antes.nome : "(sem setor)"} para ${novo.nome}`); return null;
     },
     cmp_reabrir(a) {
       const r = reqPara(a.p_req, ["comprador"], ["reprovada"]);
@@ -503,7 +524,7 @@
     const eventos = [], R = {};
     const passo = (dias, hora, papel, fn) => eventos.push({ t: Date.now() - dias * 864e5 + (hora - 12) * 36e5, papel, fn });
     const criar = (k, dias, papel, dados) => passo(dias, 9, papel, () => {
-      ins({ unidade_id: UNID, centro_custo: "", unidade_medida: "un", precisa_ate: null, valor_estimado: null, descricao: "", ...dados }); R[k] = S.seq.req; });
+      ins({ unidade_id: UNID, setor_id: "s-ope", centro_custo: "", unidade_medida: "un", precisa_ate: null, valor_estimado: null, descricao: "", ...dados }); R[k] = S.seq.req; });
     const prop = (k, dias, f, preco, frete, prazo, pag, pagdias, obs) => passo(dias, 11, "comprador", () =>
       RPC.cmp_salvar_proposta({ p_req: R[k], p_fornecedor: f, p_preco: preco, p_frete: frete, p_extras: 0, p_prazo: prazo, p_pagamento: pag, p_pagamento_dias: pagdias, p_validade: null, p_obs: obs || "" }));
     const escolher = (k, dias, f, just) => passo(dias, 14, "comprador", () =>
@@ -550,7 +571,7 @@
     prop("poda", 18, "f-aurora", 3800, 0, 7, "30 dias", 30); prop("poda", 18, "f-folha", 4200, 0, 5, "À vista", 0); prop("poda", 17, "f-raiz", 4650, 0, 10, "30 dias", 30);
     escolher("poda", 17, "f-aurora"); enviar("poda", 17); decidir("poda", 16, "gerente", "", true); pedido("poda", 15);
 
-    criar("cadeira", 14, "solicitante", { titulo: "Cadeiras para a sala de reunião", grupo: "Outros", quantidade: 10, valor_estimado: 6000 });
+    criar("cadeira", 14, "solicitante", { setor_id: "s-adm", titulo: "Cadeiras para a sala de reunião", grupo: "Outros", quantidade: 10, valor_estimado: 6000 });
     passo(13, 10, "comprador", () => RPC.cmp_cancelar({ p_req: R.cadeira, p_motivo: "Vamos reaproveitar as cadeiras do antigo escritório da administração." }));
 
     criar("cameras", 12, "solicitante", { titulo: "Câmeras IP 4 MP com gravador de 16 canais", grupo: "Segurança e prevenção de incêndio", centro_custo: "Segurança e prevenção de incêndio", quantidade: 8,
@@ -583,7 +604,7 @@
     prop("refletor", 2, "f-lumen", 219, 30, 4, "À vista", 0, "Garantia de 2 anos.");
 
     // compra pela internet ao lado de fornecedores da base (um deles cadastrado por outra empresa)
-    criar("webcam", 2, "solicitante", { titulo: "Webcams Full HD para as salas de reunião", grupo: "Informática e tecnologia", centro_custo: "Administração", quantidade: 4,
+    criar("webcam", 2, "solicitante", { setor_id: "s-adm", titulo: "Webcams Full HD para as salas de reunião", grupo: "Informática e tecnologia", centro_custo: "Administração", quantidade: 4,
       valor_estimado: 1800, precisa_ate: diaMaisDe(10), descricao: "Webcam 1080p com microfone embutido, conexão USB, compatível com Teams e Zoom." });
     prop("webcam", 2, "f-nodo", 429, 0, 6, "30 dias", 30); prop("webcam", 1, "f-pixel", 398, 25, 4, "28 dias", 28);
     passo(1, 12, "comprador", () => RPC.cmp_salvar_proposta_internet({ p_req: R.webcam, p_proposta: null, p_site: "Mercado Livre", p_link: "https://lista.mercadolivre.com.br/webcam-full-hd-1080p",
@@ -624,17 +645,19 @@
     if (!EU || !temPapel(["solicitante", "comprador", "gerente", "diretor"])) falha("new row violates row-level security policy");
     if (!String(d.titulo || "").trim()) falha("Informe o que precisa comprar.");
     if (!(Number(d.quantidade) > 0)) falha("A quantidade precisa ser maior que zero.");
-    const r = { id: novoId("req"), unidade_id: UNID, centro_custo: d.centro_custo || "", grupo: d.grupo, titulo: String(d.titulo).trim(), descricao: d.descricao || "",
+    if (!d.setor_id && S.setores.some((x) => x.ativo)) falha("Escolha o setor da compra: é o Gerente do setor que aprova.");
+    if (d.setor_id && !(setorDe(d.setor_id) || {}).ativo) falha("Setor inativo ou de outra unidade.");
+    const r = { id: novoId("req"), unidade_id: UNID, setor_id: d.setor_id || null, centro_custo: d.centro_custo || "", grupo: d.grupo, titulo: String(d.titulo).trim(), descricao: d.descricao || "",
       quantidade: Number(d.quantidade), unidade_medida: d.unidade_medida || "un", precisa_ate: d.precisa_ate || null, valor_estimado: d.valor_estimado ?? null,
       solicitante: EU.id, solicitante_nome: EU.nome, status: "nova", proposta_escolhida: null, justificativa: "", excecao: "", alcada: null, valor_aprovacao: null,
       fornecedor_novo: null, cadastrado_pelo_comprador: null, aberta_fornecedores: false, aberta_ate: null, aberta_nome: "", aberta_em: null, enviado_por: null, enviado_em: null, pedido_em: null, entregue_em: null, criado_em: agoraISO(), atualizado_em: agoraISO() };
     S.requisicoes.push(r);
-    registrar(r.id, null, "requisicao_criada", "Requisição criada: " + r.titulo);
+    registrar(r.id, null, "requisicao_criada", "Requisição criada: " + r.titulo + (r.setor_id ? ` (setor ${setorDe(r.setor_id).nome})` : ""));
   }
 
   // ---------------------------------------------------------------- consultas (subconjunto do supabase-js usado pelo app)
   const TABELAS = {
-    perfis: () => S.perfis, cmp_membros: () => S.membros, cmp_unidades: () => S.unidades, cmp_grupos: () => S.grupos,
+    perfis: () => S.perfis, cmp_membros: () => S.membros, cmp_setores: () => S.setores || [], cmp_unidades: () => S.unidades, cmp_grupos: () => S.grupos,
     cmp_requisicoes: () => S.requisicoes, cmp_propostas: () => S.propostas, cmp_aprovacoes: () => S.aprovacoes,
     cmp_avaliacoes: () => S.avaliacoes.filter((a) => a.unidade_id === UNID), cmp_historico: () => S.historico, cmp_convites: () => S.convites,
     cmp_dispensas: () => S.dispensas || [],

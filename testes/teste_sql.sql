@@ -1195,4 +1195,94 @@ set role anon;
 select pg_temp.erro2('select * from apps_vitrine()', 'permission', 'anônimo não vê a vitrine');
 reset role;
 reset request.jwt.claim.sub;
+-- ---------------------------------------------------------------- Compras: aprovação por setor
+reset role;
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('00000000-0000-0000-0000-0000000000e1', 'sol@setores.com', '{"nome":"Sol Setores"}'),
+  ('00000000-0000-0000-0000-0000000000e2', 'comp@setores.com', '{"nome":"Comp Setores"}'),
+  ('00000000-0000-0000-0000-0000000000e3', 'gfin@setores.com', '{"nome":"Gerente Fin"}'),
+  ('00000000-0000-0000-0000-0000000000e4', 'gmkt@setores.com', '{"nome":"Gerente Mkt"}'),
+  ('00000000-0000-0000-0000-0000000000e5', 'dir@setores.com', '{"nome":"Diretor Setores"}'),
+  ('00000000-0000-0000-0000-0000000000e6', 'ggeral@setores.com', '{"nome":"Gerente Geral"}');
+insert into cmp_unidades (id, nome) values ('30000000-0000-0000-0000-000000000003', 'Unidade com setores');
+insert into cmp_setores (id, unidade_id, nome, alcada_gerente) values
+  ('31000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000003', 'Financeiro', 20000),
+  ('31000000-0000-0000-0000-000000000002', '30000000-0000-0000-0000-000000000003', 'Marketing', null),
+  ('31000000-0000-0000-0000-000000000003', '30000000-0000-0000-0000-000000000003', 'Comercial', null);
+insert into cmp_membros (user_id, unidade_id, papel, setor_id) values
+  ('00000000-0000-0000-0000-0000000000e1', '30000000-0000-0000-0000-000000000003', 'solicitante', null),
+  ('00000000-0000-0000-0000-0000000000e2', '30000000-0000-0000-0000-000000000003', 'comprador', null),
+  ('00000000-0000-0000-0000-0000000000e3', '30000000-0000-0000-0000-000000000003', 'gerente', '31000000-0000-0000-0000-000000000001'),
+  ('00000000-0000-0000-0000-0000000000e4', '30000000-0000-0000-0000-000000000003', 'gerente', '31000000-0000-0000-0000-000000000002'),
+  ('00000000-0000-0000-0000-0000000000e4', '30000000-0000-0000-0000-000000000003', 'gerente', '31000000-0000-0000-0000-000000000003'),
+  ('00000000-0000-0000-0000-0000000000e5', '30000000-0000-0000-0000-000000000003', 'diretor', null),
+  ('00000000-0000-0000-0000-0000000000e6', '30000000-0000-0000-0000-000000000003', 'gerente', null);
+select pg_temp.ok((select count(*) = 2 from cmp_membros where user_id = '00000000-0000-0000-0000-0000000000e4'), 'setores: o mesmo login pode ser Gerente de dois setores');
+select pg_temp.erro($$insert into cmp_membros (user_id, unidade_id, papel, setor_id) values ('00000000-0000-0000-0000-0000000000e2', '30000000-0000-0000-0000-000000000003', 'comprador', '31000000-0000-0000-0000-000000000001')$$,
+  'cmp_membros_setor_so_gerente', 'setores: só o papel Gerente tem setor');
+select pg_temp.erro($$insert into cmp_membros (user_id, unidade_id, papel, setor_id) values ('00000000-0000-0000-0000-0000000000e3', '30000000-0000-0000-0000-000000000003', 'gerente', '31000000-0000-0000-0000-000000000001')$$,
+  'duplicate', 'setores: o mesmo papel no mesmo setor não repete');
+select pg_temp.erro($$insert into cmp_membros (user_id, unidade_id, papel, setor_id) values ('00000000-0000-0000-0000-0000000000e3', pg_temp.id('itaipu')::uuid, 'gerente', '31000000-0000-0000-0000-000000000001')$$,
+  'cmp_membros_setor_fk', 'setores: Gerente não recebe setor de outra unidade');
+select pg_temp.ok((select count(*) = 3 from auditoria where acao = 'compras_setor_criado')
+  and exists (select 1 from auditoria where acao = 'compras_papel_concedido' and detalhes->>'setor' = 'Marketing'), 'setores: criação e papel do setor na auditoria');
+
+set role authenticated;
+select pg_temp.como('00000000-0000-0000-0000-0000000000e1');
+select pg_temp.ok((select count(*) = 3 from cmp_setores), 'setores: membro da unidade lê os setores dela');
+select pg_temp.erro($$insert into cmp_requisicoes (unidade_id, grupo, titulo) values ('30000000-0000-0000-0000-000000000003', 'Outros', 'Sem setor')$$, 'Escolha o setor', 'setores: requisição sem setor é recusada quando a unidade tem setores');
+select pg_temp.erro($$insert into cmp_requisicoes (unidade_id, grupo, titulo, setor_id) values ('30000000-0000-0000-0000-000000000003', 'Outros', 'x', gen_random_uuid())$$, 'Setor inativo ou de outra unidade', 'setores: setor desconhecido é recusado');
+insert into cmp_requisicoes (unidade_id, grupo, titulo, setor_id) values ('30000000-0000-0000-0000-000000000003', 'Informática e tecnologia', 'Notebook do Financeiro', '31000000-0000-0000-0000-000000000001');
+insert into ids select 's1', max(id)::text from cmp_requisicoes;
+insert into cmp_requisicoes (unidade_id, grupo, titulo, setor_id) values ('30000000-0000-0000-0000-000000000003', 'Informática e tecnologia', 'Telão do Marketing', '31000000-0000-0000-0000-000000000002');
+insert into ids select 's2', max(id)::text from cmp_requisicoes;
+insert into cmp_requisicoes (unidade_id, grupo, titulo, setor_id) values ('30000000-0000-0000-0000-000000000003', 'Informática e tecnologia', 'Pedido no setor errado', '31000000-0000-0000-0000-000000000002');
+insert into ids select 's3', max(id)::text from cmp_requisicoes;
+select pg_temp.ok((select texto like '%(setor Financeiro)%' from cmp_historico where requisicao_id = pg_temp.id('s1')::bigint and acao = 'requisicao_criada'), 'setores: histórico da requisição mostra o setor');
+
+-- três propostas em cada (30 mil)
+select pg_temp.como('00000000-0000-0000-0000-0000000000e2');
+select cmp_salvar_proposta(pg_temp.id(k)::bigint, pg_temp.id(f)::uuid, v, 0, 0, 5, 'À vista', 0, null, '')
+  from (values ('s1', 'fa', 30000), ('s1', 'fb', 31000), ('s1', 'fc', 32000), ('s2', 'fa', 30000), ('s2', 'fb', 31000), ('s2', 'fc', 32000),
+               ('s3', 'fa', 30000), ('s3', 'fb', 31000), ('s3', 'fc', 32000)) x(k, f, v);
+select cmp_escolher(pg_temp.id(k)::bigint, (select id from cmp_propostas where requisicao_id = pg_temp.id(k)::bigint and fornecedor_id = pg_temp.id('fa')::uuid), '')
+  from (values ('s1'), ('s2'), ('s3')) x(k);
+select pg_temp.ok(cmp_enviar_aprovacao(pg_temp.id('s1')::bigint) = 'diretor', 'setores: Financeiro com limite próprio de 20 mil: 30 mil vai ao Gerente do setor e ao Diretor');
+select pg_temp.ok(cmp_enviar_aprovacao(pg_temp.id('s2')::bigint) = 'gerente', 'setores: Marketing sem limite próprio usa o da unidade (50 mil): só o Gerente');
+select pg_temp.ok((select texto like '%Gerente do setor Financeiro%' from cmp_historico where requisicao_id = pg_temp.id('s1')::bigint and acao = 'enviada_aprovacao'), 'setores: envio registra o Gerente do setor');
+
+-- só o Gerente do setor (ou o geral) aprova
+select pg_temp.como('00000000-0000-0000-0000-0000000000e4');
+select pg_temp.erro('select cmp_decidir(' || pg_temp.id('s1') || ', true, '''', false)', 'Gerente do setor Financeiro', 'setores: Gerente do Marketing não aprova compra do Financeiro');
+select pg_temp.como('00000000-0000-0000-0000-0000000000e5');
+select pg_temp.erro('select cmp_decidir(' || pg_temp.id('s1') || ', true, '''', false)', 'Gerente do setor Financeiro', 'setores: Diretor não pula o Gerente do setor');
+select pg_temp.como('00000000-0000-0000-0000-0000000000e3');
+select pg_temp.erro('select cmp_decidir(' || pg_temp.id('s2') || ', true, '''', false)', 'Gerente do setor Marketing', 'setores: Gerente do Financeiro não aprova compra do Marketing');
+select pg_temp.ok(cmp_decidir(pg_temp.id('s1')::bigint, true, 'ok', false) = 'aprovacao', 'setores: Gerente do Financeiro aprova e segue para o Diretor');
+select pg_temp.ok((select texto like 'Aprovada pelo Gerente (Financeiro)%' from cmp_historico where requisicao_id = pg_temp.id('s1')::bigint and acao = 'aprovada_gerente'), 'setores: aprovação registra o setor do Gerente');
+select pg_temp.como('00000000-0000-0000-0000-0000000000e5');
+select pg_temp.ok(cmp_decidir(pg_temp.id('s1')::bigint, true, '', false) = 'aprovada', 'setores: Diretor aprova a segunda etapa');
+select pg_temp.como('00000000-0000-0000-0000-0000000000e6');
+select pg_temp.ok(cmp_decidir(pg_temp.id('s2')::bigint, true, '', false) = 'aprovada', 'setores: Gerente de todos os setores aprova qualquer setor (até a alçada, termina nele)');
+
+-- setor errado: o comprador corrige antes da aprovação
+select pg_temp.como('00000000-0000-0000-0000-0000000000e1');
+select pg_temp.erro('select cmp_req_setor(' || pg_temp.id('s3') || ', ''31000000-0000-0000-0000-000000000001'')', 'precisa ser: comprador ou gerente', 'setores: solicitante não troca o setor');
+select pg_temp.como('00000000-0000-0000-0000-0000000000e2');
+select cmp_req_setor(pg_temp.id('s3')::bigint, '31000000-0000-0000-0000-000000000001');
+select pg_temp.ok((select setor_id = '31000000-0000-0000-0000-000000000001' from cmp_requisicoes where id = pg_temp.id('s3')::bigint)
+  and exists (select 1 from cmp_historico where requisicao_id = pg_temp.id('s3')::bigint and texto = 'Setor mudou de Marketing para Financeiro'), 'setores: comprador troca o setor e fica no histórico');
+select pg_temp.como('00000000-0000-0000-0000-0000000000e4');
+select pg_temp.erro('select cmp_cancelar(' || pg_temp.id('s3') || ', ''não precisa'')', 'gerente do setor Financeiro', 'setores: Gerente de outro setor não cancela');
+select pg_temp.erro('select cmp_req_setor(' || pg_temp.id('s3') || ', ''31000000-0000-0000-0000-000000000002'')', 'só o Gerente desse setor', 'setores: Gerente de outro setor não puxa a requisição');
+
+-- sem Gerente para o setor, não envia (a compra ficaria parada)
+reset role;
+delete from cmp_membros where user_id = '00000000-0000-0000-0000-0000000000e6';
+update cmp_membros set setor_id = '31000000-0000-0000-0000-000000000002' where user_id = '00000000-0000-0000-0000-0000000000e3';
+set role authenticated;
+select pg_temp.como('00000000-0000-0000-0000-0000000000e2');
+select pg_temp.erro('select cmp_enviar_aprovacao(' || pg_temp.id('s3') || ')', 'Ninguém tem o papel de Gerente do setor Financeiro', 'setores: sem Gerente do setor (nem geral) não envia');
+reset role;
+reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'

@@ -37,16 +37,18 @@
     <tr><th>Papel</th><th>Faz</th></tr>
     <tr><td>Solicitante</td><td>Cria a requisição (o que precisa, quanto, até quando) e acompanha.</td></tr>
     <tr><td>Comprador</td><td>Cadastra fornecedores, registra as propostas, escolhe o vencedor, envia para aprovação, emite o pedido e marca a entrega.</td></tr>
-    <tr><td>Gerente</td><td>Aprova ou reprova, dá o aval aos fornecedores da unidade e avalia o fornecedor depois da entrega.</td></tr>
+    <tr><td>Gerente</td><td>Aprova ou reprova, dá o aval aos fornecedores da unidade e avalia o fornecedor depois da entrega. Pode ser Gerente de um setor (ex.: Financeiro): aí aprova e cuida só das compras daquele setor.</td></tr>
     <tr><td>Diretor</td><td>Aprova as compras acima da alçada do Gerente (depois do Gerente).</td></tr>
   </table>
   <p>Os papéis são por unidade (filial, loja ou sede da empresa). Uma pessoa pode ter mais de um papel. Quem envia uma compra para aprovação não pode aprovar essa mesma compra.</p>
+  <p><b>Setores.</b> Quando a unidade tem setores (Financeiro, Marketing, Operações, Comercial…), cada requisição diz de qual setor é e quem aprova é o <b>Gerente daquele setor</b> (o Gerente do Financeiro aprova as compras do Financeiro). Até o limite do Gerente, a aprovação dele basta; acima, segue para o Diretor, que aprova as compras de todos os setores. Um Gerente de "todos os setores" aprova qualquer setor. Dispensa de certidões, avaliação do fornecedor e cancelamento também ficam com o Gerente do setor da compra; o aval ao fornecedor continua valendo para a unidade toda.</p>
 
   <h2 id="pedir">2. Pedir uma compra (Solicitante)</h2>
   <ol>
     <li>Entre na Área do Cliente e abra <b>Orçamentos de Compras</b>. Confira a <b>Unidade</b> no alto.</li>
     <li>Clique em <b>+ Nova requisição</b>.</li>
     <li>Preencha o que precisa, o grupo (ao escolher, aparece embaixo o que entra nele — ex.: <i>Manutenção predial</i> = materiais elétricos, hidráulicos, pintura, alvenaria e ferramentas), a quantidade, até quando precisa, o valor estimado e a especificação técnica.</li>
+    <li>Se a unidade tem setores, escolha o <b>Setor</b> da compra: é o Gerente desse setor que vai aprovar.</li>
     <li>Clique em <b>Criar requisição</b>. Ela recebe um número (#1001, #1002…) e fica <b>Nova</b> até o comprador começar a cotar.</li>
   </ol>
 
@@ -84,12 +86,13 @@
     <li>Clique em <b>Enviar para aprovação</b>. Só funciona com o mínimo de propostas da unidade (3) ou com a <b>Exceção: fornecedor exclusivo</b> justificada.</li>
   </ol>
   <p>Quando a compra é de até R$ 5.000, é o menor preço e o fornecedor já forneceu antes, ela é aprovada na hora. Nos outros casos, vai para o Gerente; acima de R$ 50.000, vai para o Gerente e depois para o Diretor. A primeira compra com um fornecedor na sua empresa sempre passa pelo Gerente (mesmo que ele já tenha vendido para outra empresa). A compra pela internet nunca é aprovada na hora: vai sempre ao Gerente, que dá o aval à compra (e, acima de R$ 50.000, segue para o Diretor).</p>
+  <p>Com setores, "Gerente" é o <b>Gerente do setor</b> da requisição, e o setor pode ter o próprio limite (ex.: Financeiro aprova sozinho até R$ 20.000). Se o setor estiver errado, clique em <b>trocar</b> ao lado do setor antes de enviar (fica no histórico).</p>
 
   <h2 id="aprovar">6. Aprovar ou reprovar (Gerente e Diretor)</h2>
   <ol>
     <li>No <b>Painel</b>, em <b>Esperando você</b>, clique na requisição.</li>
     <li>Confira o mapa, a justificativa e os avisos (fornecedor novo, cadastrado pelo próprio comprador, sem aval, certidões dispensadas, compra pela internet). Na compra pela internet, abra o link do produto antes de aprovar: aprovar é o seu aval à compra naquele site.</li>
-    <li>Clique em <b>Aprovar como Gerente</b> (ou Diretor). Se o fornecedor ainda não tem o seu aval, a caixa <b>Dar também o aval</b> vem marcada; desmarque se não quiser dar.</li>
+    <li>Clique em <b>Aprovar como Gerente</b> (com setores: <b>Aprovar como Gerente do setor …</b>; ou Diretor). O Gerente de outro setor vê "Aguardando o Gerente do setor …" e não aprova. Se o fornecedor ainda não tem o seu aval, a caixa <b>Dar também o aval</b> vem marcada; desmarque se não quiser dar.</li>
     <li>Para reprovar, clique em <b>Reprovar</b> e escreva o motivo. O comprador pode <b>reabrir para nova cotação</b>.</li>
   </ol>
 
@@ -126,6 +129,7 @@
     <li>Libere o app "Orçamentos de Compras" para o login em <b>Administração → Logins</b>.</li>
     <li>No app, em <b>Configuração</b>, escolha a unidade e dê o papel ao login em <b>Papéis nesta unidade</b>.</li>
     <li>Ajuste as regras da unidade (mínimo de propostas, alçadas, pesos que somam 100) e salve. A mudança fica no histórico.</li>
+    <li>Para aprovação por setor: em <b>Setores</b>, clique em <b>+ Novo setor</b> (nome e, se quiser, quanto o Gerente do setor aprova sozinho). Depois, em <b>Papéis</b>, dê o papel <b>Gerente</b> escolhendo o setor (ou "Todos os setores"). Com setores ativos, toda requisição nova precisa do setor. Setor que não se usa mais: <b>alterar → Inativo</b> (as requisições antigas continuam com ele).</li>
     <li>Para uma unidade nova (filial, loja ou sede), use <b>+ Nova unidade</b>.</li>
     <li>Em <b>Empresa (agrupa unidades)</b>, escreva o mesmo nome de empresa nas unidades da mesma empresa: elas passam a ver quem cadastrou os fornecedores e os avais umas das outras, e a "primeira compra com o fornecedor" conta para a empresa toda. Vazio = a unidade é uma empresa sozinha.</li>
   </ol>
@@ -145,6 +149,9 @@
     <tr><td>Só N proposta(s): o mínimo é 3</td><td>Registre mais propostas ou a exceção de fornecedor exclusivo.</td></tr>
     <tr><td>Escolha o fornecedor antes de enviar</td><td>Clique em Escolher no vencedor.</td></tr>
     <tr><td>Esta etapa é do Gerente / do Diretor</td><td>Aguarde quem tem a alçada.</td></tr>
+    <tr><td>Esta etapa é do Gerente do setor … / Esta requisição é do setor …</td><td>Só o Gerente daquele setor (ou um Gerente de todos os setores) aprova ou faz esta ação. Se o setor estiver errado, o comprador troca antes de enviar.</td></tr>
+    <tr><td>Escolha o setor da compra / Informe o setor da requisição antes de enviar</td><td>A unidade tem setores: escolha o setor na requisição (ou clique em <b>trocar</b> ao lado do setor).</td></tr>
+    <tr><td>Ninguém tem o papel de Gerente do setor …</td><td>Peça à Nervia para dar o papel de Gerente desse setor (ou de todos os setores) antes de enviar.</td></tr>
     <tr><td>Quem enviou a compra para aprovação não pode aprová-la</td><td>Outra pessoa com o papel de Gerente ou Diretor precisa aprovar.</td></tr>
     <tr><td>Para reprovar, escreva o motivo</td><td>Preencha o comentário.</td></tr>
     <tr><td>Seu papel nesta unidade não permite esta ação</td><td>Peça à Nervia o papel necessário, ou peça a quem tem.</td></tr>

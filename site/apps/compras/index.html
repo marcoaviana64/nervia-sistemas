@@ -10,7 +10,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <style>
 /* Orçamentos de Compras (app "compras", tabelas cmp_). Regras de negócio ficam no servidor (funções cmp_*);
-   esta tela só mostra e chama as funções. Papéis por unidade: solicitante, comprador, gerente, diretor. */
+   esta tela só mostra e chama as funções. Papéis por unidade: solicitante, comprador, gerente, diretor.
+   O Gerente pode ser de um setor (Financeiro, Marketing...): só ele (ou um Gerente de todos os setores) aprova e cuida
+   das requisições daquele setor. */
 :root{
   --bg:#f3f6f8;--surface:#fff;--surface-2:#eaf1f4;--border:#dde6ec;--ink:#0f1b2d;--ink-soft:#4f5f73;--ink-faint:#8796a8;
   --accent:#107e99;--accent-soft:#e3f3f7;--primary:#0b2545;
@@ -132,11 +134,16 @@ const legendaCriterios = () => `<p class="mut">${CRITERIOS.map(([, t, d]) => `<b
 const UFS = ["AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"];
 const PAPEL_NOME = { solicitante: "Solicitante", comprador: "Comprador", gerente: "Gerente", diretor: "Diretor" };
 
-let EU = null, ADMIN = false, MEMBROS = [], UNIDADES = [], GRUPOS = [], FORN = [], REQS = [], UNID = null, VISTA = "painel", SEL = null, DET = null, FILTRO = { st: "abertas", g: "", q: "" };
+let EU = null, ADMIN = false, MEMBROS = [], UNIDADES = [], SETORES = [], GRUPOS = [], FORN = [], REQS = [], UNID = null, VISTA = "painel", SEL = null, DET = null, FILTRO = { st: "abertas", g: "", q: "" };
 
 // ---------------------------------------------------------------- papéis
 const papeis = () => ADMIN ? new Set(["solicitante", "comprador", "gerente", "diretor"]) : new Set(MEMBROS.filter(m => m.unidade_id === UNID).map(m => m.papel));
 const tem = p => papeis().has(p);
+// setores da unidade: o Gerente de um setor só vale para as requisições daquele setor (sem setor = todos)
+const setoresAtivos = () => SETORES.filter(x => x.ativo);
+const setorNome = id => (SETORES.find(x => x.id === id) || {}).nome || "";
+const gerenteDe = r => ADMIN || MEMBROS.some(m => m.unidade_id === UNID && m.papel === "gerente" && (!m.setor_id || !r.setor_id || m.setor_id === r.setor_id));
+const gerenteNome = r => r.setor_id ? `Gerente do setor ${setorNome(r.setor_id)}` : "Gerente";
 const unidade = () => UNIDADES.find(u => u.id === UNID) || {};
 const fornecedor = id => FORN.find(f => f.id === id) || { nome: "?", avais: [] };
 const temAval = (f, uid) => (f.avais || []).some(a => a.unidade_id === uid);
@@ -155,7 +162,7 @@ async function iniciar() {
   try {
     const p = checar(await sb.from("perfis").select("admin, nome, email").eq("user_id", EU.id).maybeSingle());
     ADMIN = !!(p && p.admin);
-    MEMBROS = checar(await sb.from("cmp_membros").select("unidade_id, papel").eq("user_id", EU.id));
+    MEMBROS = checar(await sb.from("cmp_membros").select("unidade_id, papel, setor_id").eq("user_id", EU.id));
     UNIDADES = checar(await sb.from("cmp_unidades").select("*").order("nome"));
     if (!ADMIN) UNIDADES = UNIDADES.filter(u => u.ativo);
     if (!UNIDADES.length) { $("aviso").textContent = "Seu login ainda não tem papel em nenhuma unidade de Compras. Peça à Nervia para liberar (solicitante, comprador, gerente ou diretor)."; return; }
@@ -179,6 +186,7 @@ const dicaGrupo = g => GRUPO_DESC[g] ? esc(GRUPO_DESC[g]) : "";
 async function carregar() {
   FORN = checar(await sb.rpc("cmp_fornecedores_lista"));
   REQS = checar(await sb.from("cmp_requisicoes").select("*").eq("unidade_id", UNID).order("id", { ascending: false }));
+  SETORES = checar(await sb.from("cmp_setores").select("*").eq("unidade_id", UNID).order("nome"));
   if (SEL) DET = await carregarDetalhe(SEL);
   render();
 }
@@ -209,7 +217,9 @@ async function acao(fn, args, ok) {
 // ---------------------------------------------------------------- render
 function render() {
   document.querySelectorAll(".barra .aba").forEach(b => b.classList.toggle("on", b.dataset.v === VISTA));
-  const ps = [...papeis()].map(p => PAPEL_NOME[p]);
+  const meus = MEMBROS.filter(m => m.unidade_id === UNID && m.papel === "gerente" && m.setor_id).map(m => setorNome(m.setor_id)).filter(Boolean);
+  const geral = MEMBROS.some(m => m.unidade_id === UNID && m.papel === "gerente" && !m.setor_id);
+  const ps = [...papeis()].map(p => p === "gerente" && !geral && meus.length ? `Gerente (${meus.join(", ")})` : PAPEL_NOME[p]);
   $("papeis").textContent = ADMIN ? "Equipe Nervia: todos os papéis em todas as unidades." : `Seu papel em ${unidade().nome}: ${ps.join(", ") || "nenhum"}.`;
   $("tela").innerHTML = SEL && DET ? vDetalhe() : ({ painel: vPainel, reqs: vReqs, forn: vForn, hist: vHist, config: vConfig }[VISTA] || vPainel)();
   if (VISTA === "hist" && !SEL) carregarHist();
@@ -221,16 +231,16 @@ const tcoProp = (p, r) => totalProp(p, r) + num(p.custos_extras);
 function esperandoMim(r) {
   if (r.status === "aprovacao") {
     // a etapa do Diretor só começa depois do Gerente; a tela não sabe sem o detalhe, então mostra para os dois
-    return (tem("gerente") || tem("diretor")) && r.enviado_por !== EU.id;
+    return (gerenteDe(r) || tem("diretor")) && r.enviado_por !== EU.id;
   }
   if (["nova", "cotacao", "aprovada", "pedido"].includes(r.status)) return tem("comprador");
-  if (r.status === "entregue") return tem("gerente");
+  if (r.status === "entregue") return gerenteDe(r);
   return false;
 }
 function tabelaReqs(lista) {
   if (!lista.length) return '<p class="mut">Nada aqui.</p>';
   return `<div class="tw"><table><tr><th>Nº</th><th>O que</th><th>Pedida em</th><th>Precisa até</th><th class="num">Valor</th><th>Situação</th></tr>${lista.map(r => `
-    <tr class="clica" data-req="${r.id}"><td><b>#${r.id}</b></td><td>${esc(r.titulo)}<div class="mut">${esc(r.grupo)} · ${esc(r.solicitante_nome)}${r.centro_custo ? " · " + esc(r.centro_custo) : ""}</div></td>
+    <tr class="clica" data-req="${r.id}"><td><b>#${r.id}</b></td><td>${esc(r.titulo)}<div class="mut">${r.setor_id ? esc(setorNome(r.setor_id)) + " · " : ""}${esc(r.grupo)} · ${esc(r.solicitante_nome)}${r.centro_custo ? " · " + esc(r.centro_custo) : ""}</div></td>
     <td>${dataBR(r.criado_em)}</td><td>${dataBR(r.precisa_ate)}</td>
     <td class="num">${r.valor_aprovacao != null ? brl(r.valor_aprovacao) : `<span class="mut">est. ${brl(r.valor_estimado)}</span>`}</td>
     <td>${tag(...STATUS[r.status])}</td></tr>`).join("")}</table></div>`;
@@ -248,7 +258,8 @@ function vPainel() {
   </div>
   <div class="card"><h2>Esperando você<span class="dir"><button class="bt pri" data-acao="novaReq">+ Nova requisição</button></span></h2>${tabelaReqs(minhas)}</div>
   <div class="card"><h2>Regras desta unidade</h2><div class="mut">Mínimo de ${u.minimo_propostas} propostas · automática até ${brl(u.alcada_automatica)} (só menor preço e fornecedor já usado) ·
-    Gerente até ${brl(u.alcada_gerente)} · acima: Gerente e Diretor · matriz: preço ${u.pesos?.preco}%, prazo ${u.pesos?.prazo}%, pagamento ${u.pesos?.pagamento}%, qualidade ${u.pesos?.qualidade}%.</div></div>`;
+    Gerente até ${brl(u.alcada_gerente)} · acima: Gerente e Diretor · matriz: preço ${u.pesos?.preco}%, prazo ${u.pesos?.prazo}%, pagamento ${u.pesos?.pagamento}%, qualidade ${u.pesos?.qualidade}%.</div>
+    ${setoresAtivos().length ? `<div class="mut" style="margin-top:6px"><b>Setores:</b> cada compra é aprovada pelo Gerente do setor dela. ${setoresAtivos().map(x => `${esc(x.nome)}${x.alcada_gerente != null ? ` (Gerente até ${brl(x.alcada_gerente)})` : ""}`).join(" · ")}.</div>` : ""}</div>`;
 }
 function vReqs() {
   const fs = { abertas: r => !["concluida", "cancelada", "reprovada"].includes(r.status), todas: () => true };
@@ -363,7 +374,8 @@ function vDetalhe() {
   const r = REQS.find(x => x.id === SEL); if (!r) { SEL = null; return vPainel(); }
   const { props, aprovs, hist, aval, convs } = DET, u = unidade(), comp = tem("comprador");
   const edita = comp && ["nova", "cotacao"].includes(r.status);
-  const dispPode = tem("gerente") && ["nova", "cotacao"].includes(r.status);
+  const ger = gerenteDe(r), dispPode = ger && ["nova", "cotacao"].includes(r.status);
+  const setorPode = (comp || ger) && ["nova", "cotacao", "reprovada"].includes(r.status) && setoresAtivos().length;
   const sc = pontuar(r, props), best = sc.length ? sc.indexOf(sc.reduce((a, b) => b.total > a.total ? b : a)) : -1;
   const minT = props.length ? Math.min(...props.map(p => totalProp(p, r))) : 0, minC = props.length ? Math.min(...props.map(p => tcoProp(p, r))) : 0;
   const minZ = props.length ? Math.min(...props.map(p => p.prazo_dias)) : 0;
@@ -375,6 +387,7 @@ function vDetalhe() {
     <div class="passos">${PASSOS.map(([k, t], i) => `<span class="${i < iP ? "feito" : i === iP ? "agora" : ""}">${t}</span>`).join("")}</div>
     <div class="grade" style="margin-top:8px">
       <div><label>Unidade · centro de custo</label>${esc(u.nome)}${r.centro_custo ? " · " + esc(r.centro_custo) : ""}</div>
+      ${r.setor_id || setoresAtivos().length ? `<div><label>Setor (quem aprova)</label>${r.setor_id ? esc(setorNome(r.setor_id)) : '<span class="mut">sem setor</span>'}${setorPode ? ` <button class="lnk" data-acao="setor">trocar</button>` : ""}</div>` : ""}
       <div><label>Grupo</label>${esc(r.grupo)}</div>
       <div><label>Quantidade · precisa até</label>${Number(r.quantidade).toLocaleString("pt-BR")} ${esc(r.unidade_medida)} · ${dataBR(r.precisa_ate)}</div>
       <div><label>Estimado · pedido por</label>${brl(r.valor_estimado)} · ${esc(r.solicitante_nome)}</div>
@@ -410,7 +423,7 @@ function vDetalhe() {
     const f = ehInternet(esc_) ? null : fornecedor(esc_.fornecedor_id), menor = totalProp(esc_, r) <= minT;
     h += `<div class="aviso ${menor ? "ok" : "info"}"><b>Escolhido: ${esc(nomeProp(esc_))} — ${brl(totalProp(esc_, r))}.</b> ${menor ? "É o menor preço." : `Não é o menor preço (menor: ${brl(minT)}).`}
       ${r.justificativa ? `<br><b>Justificativa:</b> ${esc(r.justificativa)}` : ""}
-      ${r.alcada ? `<br><b>Alçada:</b> ${{ automatica: "aprovação automática", gerente: "Gerente", diretor: "Gerente e depois Diretor" }[r.alcada]}` : ""}
+      ${r.alcada ? `<br><b>Alçada:</b> ${{ automatica: "aprovação automática", gerente: gerenteNome(r), diretor: gerenteNome(r) + " e depois Diretor" }[r.alcada]}` : ""}
       ${r.fornecedor_novo ? "<br><b>Primeira compra com este fornecedor</b> — vai sempre ao Gerente." : ""}
       ${r.cadastrado_pelo_comprador ? "<br><b>Fornecedor cadastrado por quem está comprando.</b>" : ""}
       ${f ? (temAval(f, UNID) ? "" : "<br>O Gerente ainda não deu o aval a este fornecedor nesta unidade.") : "<br><b>Compra pela internet:</b> vai sempre ao Gerente, que dá o aval na aprovação (nunca é automática)."}
@@ -427,18 +440,19 @@ function vDetalhe() {
   }
   if (r.status === "aprovacao") {
     const gerOk = aprovs.some(a => a.etapa === "gerente" && a.decisao === "aprovado"), etapa = gerOk ? "diretor" : "gerente";
-    if (tem(etapa) && (r.enviado_por !== EU.id || ADMIN)) bts.push(`<button class="bt pri" data-acao="aprovar" data-etapa="${etapa}">Aprovar como ${PAPEL_NOME[etapa]}</button><button class="bt perigo" data-acao="reprovar" data-etapa="${etapa}">Reprovar</button>`);
-    else h += `<p class="mut">Aguardando o ${PAPEL_NOME[etapa]}.${r.enviado_por === EU.id && !ADMIN ? " Quem enviou não pode aprovar." : ""}</p>`;
+    const nomeEtapa = etapa === "gerente" ? gerenteNome(r) : PAPEL_NOME[etapa];
+    if ((etapa === "gerente" ? ger : tem(etapa)) && (r.enviado_por !== EU.id || ADMIN)) bts.push(`<button class="bt pri" data-acao="aprovar" data-etapa="${etapa}">Aprovar como ${nomeEtapa}</button><button class="bt perigo" data-acao="reprovar" data-etapa="${etapa}">Reprovar</button>`);
+    else h += `<p class="mut">Aguardando o ${nomeEtapa}.${r.enviado_por === EU.id && !ADMIN ? " Quem enviou não pode aprovar." : ""}</p>`;
   }
   if (r.status === "aprovada" && comp) bts.push(`<button class="bt pri" data-acao="pedido">Emitir pedido de compra</button>`);
   if (r.status === "pedido" && (comp || tem("solicitante"))) bts.push(`<button class="bt pri" data-acao="entregue">Marcar como entregue</button>`);
-  if (r.status === "entregue") { if (tem("gerente")) bts.push(`<button class="bt pri" data-acao="avaliar">Avaliar fornecedor</button>`); else h += '<p class="mut">Aguardando a avaliação do fornecedor pelo Gerente.</p>'; }
+  if (r.status === "entregue") { if (ger) bts.push(`<button class="bt pri" data-acao="avaliar">Avaliar fornecedor</button>`); else h += '<p class="mut">Aguardando a avaliação do fornecedor pelo Gerente.</p>'; }
   if (r.status === "reprovada" && comp) bts.push(`<button class="bt" data-acao="reabrir">Reabrir para nova cotação</button>`);
-  if (["nova", "cotacao", "reprovada"].includes(r.status) && (comp || tem("gerente") || r.solicitante === EU.id)) bts.push(`<button class="bt perigo" data-acao="cancelar">Cancelar requisição</button>`);
+  if (["nova", "cotacao", "reprovada"].includes(r.status) && (comp || ger || r.solicitante === EU.id)) bts.push(`<button class="bt perigo" data-acao="cancelar">Cancelar requisição</button>`);
   if (["aprovada", "pedido", "entregue", "concluida"].includes(r.status)) bts.push(`<button class="bt" data-acao="imprimir">Imprimir</button>`);
   if (bts.length) h += `<div class="acoes">${bts.join("")}</div>`;
   h += `</div>`;
-  const podeOp = (comp || tem("gerente")) && ["nova", "cotacao"].includes(r.status);
+  const podeOp = (comp || ger) && ["nova", "cotacao"].includes(r.status);
   if (podeOp || r.aberta_fornecedores) h += vOportunidade(r, convs, podeOp);
   if (edita || convs.length) h += vConvites(r, convs, edita);
   if (aprovs.length) h += `<div class="card"><h2>Aprovações</h2><div class="hist">${aprovs.map(a => `<div>${dataHora(a.em)} · <b>${esc(a.por_nome)}</b> (${a.etapa === "sistema" ? "automática" : PAPEL_NOME[a.etapa]}) — ${a.decisao === "aprovado" ? tag("aprovado", "t-ok") : tag("reprovado", "t-crit")} ${esc(a.comentario)}</div>`).join("")}</div></div>`;
@@ -503,9 +517,13 @@ function vConfig() {
       <div><label>Peso pagamento (%)</label><input id="pPag" type="number" value="${u.pesos.pagamento}"></div>
       <div><label>Peso qualidade (%)</label><input id="pQual" type="number" value="${u.pesos.qualidade}"></div>
     </div><div class="acoes"><button class="bt pri" data-acao="salvarUnidade">Salvar regras</button><span class="mut">Os quatro pesos precisam somar 100.</span></div></div>
+  <div class="card"><h2>Setores<span class="dir"><button class="bt" data-acao="novoSetor">+ Novo setor</button></span></h2>
+    <p class="mut">Com setores, cada requisição diz de qual setor é (Financeiro, Marketing, Operações, Comercial…) e é aprovada pelo Gerente daquele setor; acima do limite dele segue para o Diretor. Sem limite próprio, vale o “Gerente até” da unidade. Sem nenhum setor ativo, a unidade funciona como antes (qualquer Gerente).</p>
+    ${SETORES.length ? `<div class="tw"><table><tr><th>Setor</th><th>Gerente aprova até</th><th>Situação</th><th></th></tr>${SETORES.map(x => `<tr><td><b>${esc(x.nome)}</b></td><td>${x.alcada_gerente != null ? brl(x.alcada_gerente) : `<span class="mut">o da unidade (${brl(u.alcada_gerente)})</span>`}</td><td>${x.ativo ? tag("ativo", "t-ok") : tag("inativo", "t-mut")}</td><td><button class="lnk" data-acao="editSetor" data-id="${x.id}">alterar</button></td></tr>`).join("")}</table></div>` : '<p class="mut">Nenhum setor nesta unidade.</p>'}</div>
   <div class="card"><h2>Papéis nesta unidade</h2>
-    <p class="mut">O login também precisa ter o app “Orçamentos de Compras” liberado em <a href="/cliente/#admin" target="_top">Administração → Logins</a>.</p>
-    <div class="grade"><div><label>Login</label><select id="mUser"></select></div><div><label>Papel</label><select id="mPapel">${Object.entries(PAPEL_NOME).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></div>
+    <p class="mut">O login também precisa ter o app “Orçamentos de Compras” liberado em <a href="/cliente/#admin" target="_top">Administração → Logins</a>. O Gerente pode ser de um setor ou de todos; para ser Gerente de dois setores, dê o papel duas vezes.</p>
+    <div class="grade"><div><label>Login</label><select id="mUser"></select></div><div><label>Papel</label><select id="mPapel" onchange="document.getElementById('mSetorC').classList.toggle('oculto', this.value !== 'gerente' || !SETORES.length)">${Object.entries(PAPEL_NOME).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></div>
+    <div id="mSetorC" class="oculto"><label>Setor do Gerente</label><select id="mSetor"><option value="">Todos os setores</option>${SETORES.filter(x => x.ativo).map(x => `<option value="${x.id}">${esc(x.nome)}</option>`).join("")}</select></div>
     <div style="align-self:end"><button class="bt pri" data-acao="addMembro">Dar papel</button></div></div>
     <div class="tw" style="margin-top:10px"><table id="tMembros"><tr><td class="mut">Carregando…</td></tr></table></div></div>
   <div class="card"><h2>Grupos de compra</h2><div class="tw"><table><tr><th>Grupo</th><th>O que entra</th></tr>${GRUPOS.map(g => `<tr><td>${esc(g)}</td><td class="mut">${dicaGrupo(g)}</td></tr>`).join("")}</table></div>
@@ -564,11 +582,11 @@ async function carregarConfig() {
   if (!ADMIN) return;
   carregarOpAdmin();
   PERFIS = checar(await sb.from("perfis").select("user_id, email, nome").order("email"));
-  MEMBROS_U = checar(await sb.from("cmp_membros").select("user_id, papel").eq("unidade_id", UNID));
+  MEMBROS_U = checar(await sb.from("cmp_membros").select("id, user_id, papel, setor_id").eq("unidade_id", UNID));
   if (!$("mUser")) return;
   $("mUser").innerHTML = PERFIS.map(p => `<option value="${p.user_id}">${esc(p.email)}${p.nome ? " — " + esc(p.nome) : ""}</option>`).join("");
   const nome = id => { const p = PERFIS.find(x => x.user_id === id); return p ? p.email + (p.nome ? " — " + p.nome : "") : id; };
-  $("tMembros").innerHTML = `<tr><th>Login</th><th>Papel</th><th></th></tr>` + (MEMBROS_U.map(m => `<tr><td>${esc(nome(m.user_id))}</td><td>${PAPEL_NOME[m.papel]}</td><td><button class="lnk" data-acao="delMembro" data-user="${m.user_id}" data-papel="${m.papel}">retirar</button></td></tr>`).join("") || '<tr><td colspan="3" class="mut">Ninguém ainda.</td></tr>');
+  $("tMembros").innerHTML = `<tr><th>Login</th><th>Papel</th><th></th></tr>` + (MEMBROS_U.map(m => `<tr><td>${esc(nome(m.user_id))}</td><td>${PAPEL_NOME[m.papel]}${m.papel === "gerente" && SETORES.length ? ` <span class="mut">· ${m.setor_id ? esc(setorNome(m.setor_id)) : "todos os setores"}</span>` : ""}</td><td><button class="lnk" data-acao="delMembro" data-id="${m.id}">retirar</button></td></tr>`).join("") || '<tr><td colspan="3" class="mut">Ninguém ainda.</td></tr>');
 }
 
 // ---------------------------------------------------------------- diálogos
@@ -582,6 +600,7 @@ function dNovaReq() {
   abrir(`<h3>Nova requisição — ${esc(unidade().nome)}</h3><div class="grade">
     <div class="tudo"><label>O que precisa comprar</label><input name="titulo" required maxlength="160" placeholder="ex.: Ar-condicionado split 24.000 BTUs"></div>
     <div class="tudo"><label>Grupo</label><select name="grupo" onchange="this.nextElementSibling.textContent = GRUPO_DESC[this.value] || ''">${GRUPOS.map(g => `<option title="${dicaGrupo(g)}">${esc(g)}</option>`).join("")}</select><div class="mut" style="margin-top:3px">${dicaGrupo(GRUPOS[0])}</div></div>
+    ${setoresAtivos().length ? `<div><label>Setor (o Gerente dele aprova)</label><select name="setor" required><option value="">Escolha…</option>${setoresAtivos().map(x => `<option value="${x.id}">${esc(x.nome)}</option>`).join("")}</select></div>` : ""}
     <div><label>Centro de custo</label><input name="cc" placeholder="ex.: Manutenção"></div>
     <div><label>Quantidade</label><input name="qtd" type="number" min="0.001" step="0.001" value="1" required></div>
     <div><label>Unidade de medida</label><input name="um" value="un"></div>
@@ -590,7 +609,7 @@ function dNovaReq() {
     <div class="tudo"><label>Especificação técnica</label><textarea name="desc" placeholder="Modelo, medidas, potência, marca de referência, local de entrega…"></textarea></div></div>`,
   async f => {
     limparMsg();
-    const r = await sb.from("cmp_requisicoes").insert({ unidade_id: UNID, titulo: f.get("titulo").trim(), grupo: f.get("grupo"), centro_custo: f.get("cc").trim(),
+    const r = await sb.from("cmp_requisicoes").insert({ unidade_id: UNID, titulo: f.get("titulo").trim(), grupo: f.get("grupo"), centro_custo: f.get("cc").trim(), setor_id: f.get("setor") || null,
       quantidade: Number(f.get("qtd")), unidade_medida: f.get("um").trim() || "un", precisa_ate: f.get("ate") || null,
       valor_estimado: f.get("est") === "" ? null : Number(f.get("est")), descricao: f.get("desc").trim() });
     if (r.error) return msg("err", r.error.message);
@@ -756,11 +775,14 @@ document.addEventListener("click", async e => {
   else if (a === "excecao") abrir(`<h3>Exceção: fornecedor exclusivo</h3><p class="mut">Permite seguir com menos de ${unidade().minimo_propostas} propostas. Fica no histórico e o aprovador vê. Guarde a carta de exclusividade do fabricante.</p>
       <textarea name="t" required minlength="15" placeholder="ex.: peça original só vendida pelo fabricante (carta de exclusividade recebida em …)"></textarea>`,
       f => acao("cmp_excecao", { p_req: r.id, p_texto: f.get("t") }, "Exceção registrada."), "Registrar exceção");
-  else if (a === "enviar") acao("cmp_enviar_aprovacao", { p_req: r.id }, al => al === "automatica" ? "Aprovada automaticamente (até a alçada, menor preço, fornecedor já usado)." : `Enviada para aprovação do ${al === "gerente" ? "Gerente" : "Gerente e depois do Diretor"}.`);
+  else if (a === "enviar") acao("cmp_enviar_aprovacao", { p_req: r.id }, al => al === "automatica" ? "Aprovada automaticamente (até a alçada, menor preço, fornecedor já usado)." : `Enviada para aprovação do ${al === "gerente" ? gerenteNome(r) : gerenteNome(r) + " e depois do Diretor"}.`);
+  else if (a === "setor") abrir(`<h3>Setor da requisição #${r.id}</h3><p class="mut">É o Gerente do setor que aprova a compra. A troca fica no histórico.</p>
+      <select name="s" required>${setoresAtivos().map(x => `<option value="${x.id}" ${x.id === r.setor_id ? "selected" : ""}>${esc(x.nome)}</option>`).join("")}</select>`,
+      f => acao("cmp_req_setor", { p_req: r.id, p_setor: f.get("s") }, "Setor alterado."), "Salvar setor");
   else if (a === "aprovar" || a === "reprovar") {
     const ok = a === "aprovar", etapa = b.dataset.etapa, p = DET.props.find(x => x.id === r.proposta_escolhida), f = p && !ehInternet(p) ? fornecedor(p.fornecedor_id) : null;
     const semAval = ok && etapa === "gerente" && f && !temAval(f, UNID), lk = p && ehInternet(p) ? linkSeguro(p.link) : "";
-    abrir(`<h3>${ok ? "Aprovar" : "Reprovar"} como ${PAPEL_NOME[etapa]}</h3>
+    abrir(`<h3>${ok ? "Aprovar" : "Reprovar"} como ${etapa === "gerente" ? gerenteNome(r) : PAPEL_NOME[etapa]}</h3>
       ${p && ehInternet(p) && etapa === "gerente" ? `<div class="aviso warn">Compra pela internet: <b>${esc(nomeProp(p))}</b>${lk ? ` · <a href="${esc(lk)}" target="_blank" rel="noopener noreferrer">ver o produto ↗</a>` : ""}.<br>${ok ? "Ao aprovar, você dá o aval do Gerente a esta compra." : ""}</div>` : ""}
       ${semAval ? `<label class="chk"><input type="checkbox" name="aval" checked> Dar também o aval do Gerente a ${esc(f.nome)} para ${esc(unidade().nome)}</label>` : ""}
       <label style="margin-top:8px">Comentário ${ok ? "(opcional)" : "(obrigatório)"}</label><textarea name="c" ${ok ? "" : 'required minlength="5"'}></textarea>
@@ -814,8 +836,20 @@ document.addEventListener("click", async e => {
     UNIDADES = checar(await sb.from("cmp_unidades").select("*").order("nome")); UNID = res.data.id;
     $("unidade").innerHTML = UNIDADES.map(u => `<option value="${u.id}">${esc(u.nome)}</option>`).join(""); $("unidade").value = UNID; await carregar(); msg("ok", "Unidade criada.");
   }, "Criar");
-  else if (a === "addMembro") { const res = await sb.from("cmp_membros").insert({ user_id: $("mUser").value, unidade_id: UNID, papel: $("mPapel").value }); if (res.error) return msg("err", res.error.message.includes("duplicate") ? "Esse login já tem esse papel." : res.error.message); carregarConfig(); msg("ok", "Papel concedido."); }
-  else if (a === "delMembro") { const res = await sb.from("cmp_membros").delete().match({ user_id: b.dataset.user, unidade_id: UNID, papel: b.dataset.papel }); if (res.error) return msg("err", res.error.message); carregarConfig(); msg("ok", "Papel retirado."); }
+  else if (a === "novoSetor" || a === "editSetor") { const x = a === "editSetor" ? SETORES.find(y => y.id === id) : null;
+    abrir(`<h3>${x ? "Alterar o setor" : "Novo setor"} — ${esc(unidade().nome)}</h3><div class="grade">
+      <div class="tudo"><label>Nome</label><input name="n" required value="${esc(x ? x.nome : "")}" placeholder="ex.: Financeiro"></div>
+      <div><label>Gerente aprova até (R$)</label><input name="lim" type="number" min="0" step="0.01" value="${x && x.alcada_gerente != null ? x.alcada_gerente : ""}" placeholder="vazio = ${brl(unidade().alcada_gerente)} (unidade)"></div>
+      ${x ? `<div><label>Situação</label><select name="ativo"><option value="1">Ativo</option><option value="0" ${x.ativo ? "" : "selected"}>Inativo (não aparece nas novas requisições)</option></select></div>` : ""}</div>
+      <p class="mut">Acima do limite, a compra segue do Gerente do setor para o Diretor. Fica registrado no histórico e na auditoria.</p>`,
+    async f => { const v = { nome: f.get("n").trim(), alcada_gerente: f.get("lim") === "" ? null : Number(f.get("lim")) };
+      if (x) v.ativo = f.get("ativo") === "1";
+      const res = x ? await sb.from("cmp_setores").update(v).eq("id", x.id) : await sb.from("cmp_setores").insert({ ...v, unidade_id: UNID });
+      if (res.error) return msg("err", res.error.message.includes("duplicate") ? "Já existe um setor com esse nome nesta unidade." : res.error.message);
+      await carregar(); msg("ok", x ? "Setor alterado." : "Setor criado. Agora dê o papel de Gerente desse setor em Papéis."); }, x ? "Salvar" : "Criar setor"); }
+  else if (a === "addMembro") { const papel = $("mPapel").value, setor = papel === "gerente" && $("mSetor") ? $("mSetor").value || null : null;
+    const res = await sb.from("cmp_membros").insert({ user_id: $("mUser").value, unidade_id: UNID, papel, setor_id: setor }); if (res.error) return msg("err", res.error.message.includes("duplicate") ? "Esse login já tem esse papel." : res.error.message); carregarConfig(); msg("ok", "Papel concedido."); }
+  else if (a === "delMembro") { const res = await sb.from("cmp_membros").delete().eq("id", Number(id)); if (res.error) return msg("err", res.error.message); carregarConfig(); msg("ok", "Papel retirado."); }
   else if (a === "addGrupo") { const n = $("gNovo").value.trim(); if (!n) return; const res = await sb.from("cmp_grupos").insert({ nome: n, ordem: 900, descricao: ($("gDesc") || {}).value?.trim() || "" }); if (res.error) return msg("err", res.error.message); await carregarGrupos(); render(); msg("ok", "Grupo incluído."); }
 });
 

@@ -35,6 +35,7 @@
   <table>
     <tr><td>O que precisa comprar</td><td>Título curto (ex.: "Ar-condicionado split 24.000 BTUs").</td></tr>
     <tr><td>Grupo</td><td>Informática, papelaria, limpeza, manutenção predial, ar-condicionado… (20 grupos). Embaixo aparece o que entra no grupo escolhido. Filtra os fornecedores sugeridos.</td></tr>
+    <tr><td>Setor</td><td>Financeiro, Marketing, Operações, Comercial… (quando a unidade tem setores; obrigatório). É o Gerente do setor que aprova. O comprador ou o Gerente troca em “trocar”, antes da aprovação.</td></tr>
     <tr><td>Centro de custo</td><td>Área que paga a compra.</td></tr>
     <tr><td>Quantidade · Unidade de medida</td><td>Quanto e em quê (un, m, m², serviço, mês).</td></tr>
     <tr><td>Precisa até</td><td>Data limite para receber.</td></tr>
@@ -86,6 +87,7 @@
   <table>
     <tr><td>Alçada automática</td><td>Até R$ 5.000, menor preço e fornecedor que já forneceu antes para a sua empresa: aprovada na hora. Compra pela internet nunca é automática.</td></tr>
     <tr><td>Gerente · Diretor</td><td>Até R$ 50.000: Gerente. Acima: Gerente e depois Diretor. Primeira compra com o fornecedor: sempre Gerente.</td></tr>
+    <tr><td>Gerente do setor</td><td>Com setores, só o Gerente do setor da compra (ou um Gerente de todos os setores) aprova. O setor pode ter limite próprio (“Gerente aprova até”); acima dele, segue para o Diretor.</td></tr>
     <tr><td>Aprovar · Reprovar</td><td>Reprovar exige o motivo. Quem enviou a compra não pode aprová-la.</td></tr>
     <tr><td>Dar também o aval</td><td>Na aprovação, o Gerente pode dar o aval ao fornecedor para a unidade. Na compra pela internet, aprovar já é o aval do Gerente.</td></tr>
     <tr><td>Reabrir para nova cotação</td><td>Depois de reprovada, o comprador ajusta e reenvia.</td></tr>
@@ -112,7 +114,8 @@
   <table>
     <tr><td>Regras</td><td>Mínimo de propostas, alçada automática, alçada do Gerente e pesos da matriz (somam 100).</td></tr>
     <tr><td>Empresa (agrupa unidades)</td><td>Unidades com o mesmo nome de empresa são da mesma empresa (veem quem cadastrou e os avais umas das outras). Vazio = empresa só desta unidade.</td></tr>
-    <tr><td>Papéis nesta unidade</td><td>Dá ou retira solicitante, comprador, gerente, diretor de cada login.</td></tr>
+    <tr><td>Setores</td><td>+ Novo setor: nome e, se quiser, quanto o Gerente do setor aprova sozinho (vazio = o da unidade). “alterar” muda o limite ou deixa inativo.</td></tr>
+    <tr><td>Papéis nesta unidade</td><td>Dá ou retira solicitante, comprador, gerente, diretor de cada login. No Gerente, escolha o setor (ou “Todos os setores”); para dois setores, dê o papel duas vezes.</td></tr>
     <tr><td>Grupos de compra</td><td>Lista dos grupos com o que entra em cada um; inclui um grupo novo (nome e descrição) para todas as unidades.</td></tr>
     <tr><td>+ Nova unidade</td><td>Cadastra outra unidade (filial, loja ou sede).</td></tr>
     <tr><td>Cidade · Estado (UF)</td><td>O que o fornecedor das Oportunidades vê da unidade. Sem o estado, a unidade não abre requisições para as Oportunidades.</td></tr>
