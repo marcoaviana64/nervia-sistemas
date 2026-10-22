@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mapa mental · Sistema Linum | Nervia</title>
+<link rel="stylesheet" href="/ajuda/ajuda.css">
+<style>
+/* Mapa mental do Sistema Linum (mesmo modelo do Orçamentos de Compras): o app no centro e seis ramos, do acesso à consulta.
+   Largo: ramos 1-3 à esquerda e 4-6 à direita, ligados ao centro. Estreito (painel de ajuda, celular): árvore vertical. */
+.pagina{max-width:1180px}
+.papeis{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:.8rem;color:var(--sub);margin:4px 0 14px}
+.p{display:inline-flex;align-items:center;gap:4px;font-size:.72rem;font-weight:700;padding:1px 7px;border-radius:9px;white-space:nowrap}
+.p.don{background:#e3f3f7;color:#0d6a81}.p.ven{background:#e6f4ec;color:#1d7f46}.p.ner{background:#0f1b2d;color:#fff}
+
+.mapa{display:grid;grid-template-columns:1fr 210px 1fr;gap:0 44px;align-items:center;position:relative}
+.lado{display:flex;flex-direction:column;gap:14px;position:relative}
+.centro{position:relative;z-index:1;background:linear-gradient(155deg,#107e99,#0b2545);color:#fff;border-radius:18px;padding:18px 14px;text-align:center;box-shadow:0 6px 18px #0b254533}
+.centro b{display:block;font-size:1.15rem;line-height:1.25}
+.centro span{display:block;font-size:.78rem;opacity:.85;margin-top:6px}
+.ramo{position:relative;border:1px solid var(--linha);border-left:5px solid var(--cor);border-radius:12px;padding:10px 12px 8px;background:#fff}
+.ramo h3{margin:0 0 4px;font-size:.95rem;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.ramo h3 i{font-style:normal;width:22px;height:22px;border-radius:50%;background:var(--cor);color:#fff;display:grid;place-items:center;font-size:.78rem;flex:none}
+.ramo ul{margin:4px 0 0;padding-left:16px;font-size:.84rem}
+.ramo li{margin:2px 0}
+.ramo li::marker{color:var(--cor)}
+.ramo .q{color:var(--sub)}
+/* ligações (só no layout largo) */
+.lado.esq .ramo::after,.lado.dir .ramo::before{content:"";position:absolute;top:21px;width:22px;border-top:2px solid var(--cor)}
+.lado.esq .ramo::after{right:-24px}.lado.dir .ramo::before{left:-27px}
+.lado.esq::after,.lado.dir::before{content:"";position:absolute;top:22px;bottom:22px;border-left:2px solid #c9d3de}
+.lado.esq::after{right:-24px}.lado.dir::before{left:-27px}
+.centro::before,.centro::after{content:"";position:absolute;top:50%;width:22px;border-top:2px solid #c9d3de}
+.centro::before{left:-22px}.centro::after{right:-22px}
+.r1{--cor:#5b6b80}.r2{--cor:#107e99}.r3{--cor:#2568a8}.r4{--cor:#a86400}.r5{--cor:#1d7f46}.r6{--cor:#0f1b2d}
+
+.fluxo{display:flex;flex-wrap:wrap;align-items:stretch;gap:6px;margin:22px 0 6px;font-size:.8rem}
+.fluxo div{flex:1 1 110px;border-radius:10px;background:#f3f6f8;padding:7px 9px;position:relative}
+.fluxo div b{display:block;font-size:.85rem}
+.fluxo div span{color:var(--sub)}
+.fluxo .seta{flex:0 0 auto;background:none;padding:0;align-self:center;color:#9aa8b8;font-size:1rem}
+
+@media (max-width:900px){
+  .mapa{grid-template-columns:1fr;gap:12px}
+  .centro{order:-1}
+  .lado::before,.lado::after,.ramo::before,.ramo::after,.centro::before,.centro::after{display:none!important}
+  .lado{gap:12px;padding-left:16px;border-left:2px solid #c9d3de;margin-left:10px}
+  .ramo::before{content:"";display:block!important;position:absolute;left:-19px;top:21px;width:14px;border-top:2px solid var(--cor)}
+  .lado.esq .ramo::before,.lado.dir .ramo::before{left:-19px;width:14px}
+  .fluxo .seta{display:none}
+}
+@media print{
+  @page{size:A4 landscape;margin:9mm}
+  .pagina{max-width:none}
+  .mapa{grid-template-columns:1fr 170px 1fr;gap:0 40px}
+  body{font-size:10px}
+  .cab{margin-bottom:6px;padding-bottom:6px}
+  .lado{gap:7px}
+  .ramo{break-inside:avoid;padding:5px 8px 4px}
+  .ramo ul{font-size:11px;margin-top:2px}.ramo li{margin:0}.ramo h3{font-size:11.5px;margin-bottom:2px}.ramo h3 i{width:17px;height:17px;font-size:9.5px}
+  .p{font-size:8.5px}.papeis{font-size:9.5px}.centro b{font-size:14px}.centro span{font-size:9.5px}
+  .fluxo{margin-top:8px;font-size:9px}.fluxo div b{font-size:10px}.fluxo div{padding:4px 7px}
+  .lead,.papeis{margin:2px 0 6px}.rodape{margin-top:8px;padding-top:4px}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+</style>
+</head>
+<body>
+<div class="pagina">
+  <div class="cab">
+    <img src="/img/nervia-logo.png" alt="Nervia">
+    <div><div class="t">Sistema Linum · Mapa mental</div><div class="s">O sistema inteiro numa página</div></div>
+    <div class="acoes"><a href="cartao.html">Cartão rápido</a><a href="manual.html">Manual</a><button onclick="print()">Imprimir</button></div>
+  </div>
+
+  <p class="lead">A Nervia libera o acesso, o Dono cadastra as peças com cores e tamanhos e lança as quantidades de cada loja; a partir daí toda mudança no estoque fica no histórico e todos consultam o que há em Gávea e Ipanema. Os números mostram a ordem.</p>
+  <div class="papeis">Quem faz:
+    <span class="p ner">Equipe Nervia</span><span class="p don">Dono</span><span class="p ven">Vendedora</span></div>
+
+  <div class="mapa">
+    <div class="lado esq">
+      <section class="ramo r1">
+        <h3><i>1</i>Liberar o acesso <span class="p ner">Equipe Nervia</span></h3>
+        <ul>
+          <li>Login na <b>Área do Cliente</b> → Administração → Logins, com o app <b>Sistema Linum</b></li>
+          <li>Aba <b>Equipe</b>: papel <b>Dono</b> ou <b>Vendedora</b> (vendedora com a loja)</li>
+          <li>Sem papel ou sem o app: não entra</li>
+          <li>Troca de papel fica na <b>auditoria</b></li>
+        </ul>
+      </section>
+      <section class="ramo r2">
+        <h3><i>2</i>Cadastrar a peça <span class="p don">Dono</span></h3>
+        <ul>
+          <li>Aba <b>Produtos</b> → <b>+ Novo produto</b> ou <b>Editar peça</b></li>
+          <li><b>Referência</b> (não repete) e <b>descrição</b> obrigatórias</li>
+          <li>Categoria, coleção, fornecedor, tecido, consumo de tecido</li>
+          <li>Preço de venda e de custo <span class="q">(custo só o Dono vê)</span></li>
+          <li><b>Código de barras</b> automático: ano + 7 dígitos, não muda</li>
+        </ul>
+      </section>
+      <section class="ramo r3">
+        <h3><i>3</i>Cores, tamanhos e peças especiais <span class="p don">Dono</span></h3>
+        <ul>
+          <li><b>Cores × tamanhos</b> separados por vírgula → uma variação cada</li>
+          <li>As que já existem não se repetem</li>
+          <li><b>Peça especial</b> (bordada, pintada…): edição, preço e código próprios</li>
+          <li><b>Desativar</b>: some do estoque, o histórico fica</li>
+          <li><b>Excluir</b> só sem movimentação e sem estoque</li>
+        </ul>
+      </section>
+    </div>
+
+    <div class="centro"><b>Sistema Linum</b><span>produtos e estoque das lojas Gávea e Ipanema</span></div>
+
+    <div class="lado dir">
+      <section class="ramo r4">
+        <h3><i>4</i>Lançar o estoque <span class="p don">Dono</span></h3>
+        <ul>
+          <li>Aba <b>Estoque</b> → desligar <b>Ocultar zerados</b></li>
+          <li>Clicar no quadrado <b>vermelho</b> da variação na loja</li>
+          <li><b>Entrada</b> com a quantidade, data e observação</li>
+          <li>Ou <b>Ajuste</b> para a quantidade contada</li>
+        </ul>
+      </section>
+      <section class="ramo r5">
+        <h3><i>5</i>Movimentar <span class="p don">Dono</span></h3>
+        <ul>
+          <li><b>Entrada</b>: peças chegando · <b>Saída</b>: uso, perda, beneficiamento</li>
+          <li><b>Transferência</b>: de uma loja para a outra</li>
+          <li><b>Ajuste</b>: troca pela contagem, guarda antes → depois</li>
+          <li>Nunca fica negativo</li>
+          <li><b>Histórico</b> com data, quem fez e motivo: ninguém altera</li>
+        </ul>
+      </section>
+      <section class="ramo r6">
+        <h3><i>6</i>Consultar <span class="p don">Dono</span><span class="p ven">Vendedora</span></h3>
+        <ul>
+          <li>Um cartão por produto e loja, quadrados por cor e tamanho</li>
+          <li><b>Verde</b> = tem peça · <b>vermelho</b> = zerado</li>
+          <li>Busca por nome ou referência; filtros de loja, categoria, cor, tamanho</li>
+          <li>Total de produtos e peças na tela</li>
+          <li>Vendedora só consulta, sem preço de custo</li>
+        </ul>
+      </section>
+    </div>
+  </div>
+
+  <div class="fluxo" aria-label="Do acesso à consulta, em ordem">
+    <div><b>Login liberado</b><span>Área do Cliente</span></div><span class="seta">→</span>
+    <div><b>Papel definido</b><span>Dono ou Vendedora</span></div><span class="seta">→</span>
+    <div><b>Peça cadastrada</b><span>código de barras</span></div><span class="seta">→</span>
+    <div><b>Cores e tamanhos</b><span>variações</span></div><span class="seta">→</span>
+    <div><b>Entrada no estoque</b><span>por loja</span></div><span class="seta">→</span>
+    <div><b>Movimentações</b><span>com histórico</span></div><span class="seta">→</span>
+    <div><b>Consulta</b><span>equipe toda</span></div>
+  </div>
+  <p class="mut" style="color:var(--sub);font-size:.8rem">Próximas etapas do sistema: <b>Vendas</b> (baixa automática), <b>Reservas</b> e <b>Transferências</b> com confirmação da outra loja.</p>
+
+  <div class="rodape">Nervia Tecnologia · Mapa mental do app Sistema Linum · atualizado em 22/10/2026 · Dúvidas: WhatsApp (21) 96686-9374 · atendimento@nervia.com.br</div>
+</div>
+<script src="/marca-dagua.js" data-tipo="doc"></script>
+</body>
+</html>
