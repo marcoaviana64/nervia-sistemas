@@ -23,6 +23,7 @@ window.NERVIA_VERSOES = {
     ["1.0", "Lançamento: relatório das linhas móveis a partir das exportações do portal da operadora."],
   ],
   "compras": [
+    ["1.6", "Aprovação por setor: cada compra diz de qual setor é (Financeiro, Marketing, Operações, Comercial…) e é aprovada pelo Gerente daquele setor; acima do limite dele, segue para o Diretor. O setor pode ter limite próprio."],
     ["1.5", "Oportunidades: abra a requisição para os fornecedores cadastrados na Plataforma Nervia, que veem só a cidade e o estado (nunca o nome da empresa) e mandam a proposta pelo mesmo link de cotação."],
     ["1.4", "Avaliação do fornecedor com os critérios escritos por extenso e legenda das notas."],
     ["1.3", "Dispensa de certidões pelo Gerente (por compra), base de fornecedores única com avaliações anônimas e compra pela internet (site e link, sempre com aval do Gerente)."],

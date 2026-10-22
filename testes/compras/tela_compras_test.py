@@ -36,7 +36,9 @@ def preparar_banco():
         ('00000000-0000-0000-0000-0000000000d1', 'carla@itaipu.com', '{"nome":"Carla Solicitante"}'),
         ('00000000-0000-0000-0000-0000000000d2', 'rafael@itaipu.com', '{"nome":"Rafael Comprador"}'),
         ('00000000-0000-0000-0000-0000000000d3', 'sonia@itaipu.com', '{"nome":"Sonia Gerente"}'),
-        ('00000000-0000-0000-0000-0000000000d4', 'sem@x.com', '{"nome":"Sem Papel"}');
+        ('00000000-0000-0000-0000-0000000000d4', 'sem@x.com', '{"nome":"Sem Papel"}'),
+        ('00000000-0000-0000-0000-0000000000d5', 'fabio@itaipu.com', '{"nome":"Fábio Financeiro"}'),
+        ('00000000-0000-0000-0000-0000000000d6', 'marta@itaipu.com', '{"nome":"Marta Marketing"}');
       update perfis set admin = true where email = 'marco@nervia.com.br';
       insert into cmp_membros select '00000000-0000-0000-0000-0000000000d1', id, 'solicitante' from cmp_unidades;
       insert into cmp_membros select '00000000-0000-0000-0000-0000000000d2', id, 'comprador' from cmp_unidades;
@@ -62,7 +64,8 @@ def token(uid, email):
 
 USU = {"admin": ("00000000-0000-0000-0000-0000000000a1", "marco@nervia.com.br"), "solicitante": ("00000000-0000-0000-0000-0000000000d1", "carla@itaipu.com"),
        "comprador": ("00000000-0000-0000-0000-0000000000d2", "rafael@itaipu.com"), "gerente": ("00000000-0000-0000-0000-0000000000d3", "sonia@itaipu.com"),
-       "sem": ("00000000-0000-0000-0000-0000000000d4", "sem@x.com")}
+       "sem": ("00000000-0000-0000-0000-0000000000d4", "sem@x.com"), "gfin": ("00000000-0000-0000-0000-0000000000d5", "fabio@itaipu.com"),
+       "gmkt": ("00000000-0000-0000-0000-0000000000d6", "marta@itaipu.com")}
 CONFIG = f'window.NERVIA_CONFIG={{SUPABASE_URL:"http://127.0.0.1:{PORTA_SITE}",SUPABASE_ANON_KEY:"anon"}};'
 
 def entrar(b, papel, largura=1300):
@@ -221,6 +224,46 @@ try:
         ok("Entregou certo." in d and "Sonia" not in d and "Itaipu" not in d, "avaliações aparecem anônimas")
         pg.click("dialog [value=ok]"); pg.wait_for_timeout(200)
         ok(not er, "sem erros de script (outra empresa) " + str(er))
+        # ---- aprovação por setor (22/10/2026): o Gerente do setor aprova as compras do setor
+        pg, er = entrar(b, "admin"); abrir(pg); pg.select_option("#unidade", label="Multicenter Itaipu"); pg.wait_for_timeout(400)
+        pg.click("[data-v=config]"); pg.wait_for_timeout(600)
+        for nome, lim in (("Financeiro", "8000"), ("Marketing", "")):
+            pg.click("[data-acao=novoSetor]"); pg.fill("dialog [name=n]", nome); pg.fill("dialog [name=lim]", lim); confirmar(pg)
+            ok("Setor criado" in mensagem(pg), f"admin cria o setor {nome}")
+        pg.click("[data-v=config]"); pg.wait_for_timeout(600)
+        ok("Financeiro" in pg.text_content("#tela") and "8.000,00" in pg.text_content("#tela"), "setores aparecem com o limite do Gerente")
+        for papel, setor in (("gfin", "Financeiro"), ("gmkt", "Marketing")):
+            pg.select_option("#mUser", label=next(o for o in pg.eval_on_selector_all("#mUser option", "l => l.map(e => e.textContent)") if USU[papel][1] in o))
+            pg.select_option("#mPapel", "gerente"); ok(pg.is_visible("#mSetor"), "papel Gerente pede o setor")
+            pg.select_option("#mSetor", label=setor); pg.click("[data-acao=addMembro]"); pg.wait_for_timeout(500)
+            ok("Papel concedido" in mensagem(pg), f"Gerente do setor {setor} concedido")
+        ok("Financeiro" in pg.text_content("#tMembros") and "todos os setores" in pg.text_content("#tMembros"), "lista de papéis mostra o setor de cada Gerente")
+        ok(not er, "sem erros de script (admin, setores) " + str(er))
+        pg, er = entrar(b, "solicitante"); abrir(pg)
+        pg.click("[data-acao=novaReq]"); pg.fill("[name=titulo]", "Calculadora financeira"); pg.fill("[name=qtd]", "1"); confirmar(pg)
+        ok(pg.is_visible("dialog[open]"), "sem setor, a nova requisição não é criada (campo obrigatório)")
+        pg.select_option("dialog [name=setor]", label="Financeiro"); confirmar(pg)
+        ok("#1003" in pg.text_content("#tela") and "Financeiro" in pg.text_content("#tela"), "requisição #1003 criada no setor Financeiro")
+        pg, er = entrar(b, "comprador"); abrir(pg); pg.click("[data-v=reqs]"); pg.wait_for_timeout(200)
+        ok("Financeiro ·" in pg.locator("tr[data-req='1003']").text_content(), "lista mostra o setor da requisição")
+        pg.click("tr[data-req='1003']"); pg.wait_for_timeout(400)
+        pg.click("[data-acao=novaProp]"); pg.select_option("[name=f]", label="InfoMais Distribuidora"); pg.fill("[name=preco]", "900"); pg.fill("[name=prazo]", "3"); confirmar(pg)
+        pg.click("[data-acao=excecao]"); pg.fill("dialog [name=t]", "Modelo exigido pela contabilidade, só um revendedor."); confirmar(pg)
+        pg.click("[data-acao=escolher] >> nth=0"); pg.wait_for_timeout(400); pg.click("[data-acao=enviar]"); pg.wait_for_timeout(500)
+        ok("Gerente do setor Financeiro" in mensagem(pg), "enviada ao Gerente do setor Financeiro")
+        pg, er = entrar(b, "gmkt"); abrir(pg)
+        ok("Gerente (Marketing)" in pg.text_content("#papeis") and "#1003" not in pg.text_content("#tela"), "Gerente do Marketing não recebe a compra do Financeiro")
+        pg.click("[data-v=reqs]"); pg.wait_for_timeout(200); pg.click("tr[data-req='1003']"); pg.wait_for_timeout(400)
+        ok(pg.locator("[data-acao=aprovar]").count() == 0 and "Aguardando o Gerente do setor Financeiro" in pg.text_content("#tela"), "Gerente de outro setor não vê o botão de aprovar")
+        pg, er = entrar(b, "gfin"); abrir(pg)
+        ok("#1003" in pg.text_content("#tela"), "compra aparece em 'Esperando você' do Gerente do Financeiro")
+        pg.click("tr[data-req='1003']"); pg.wait_for_timeout(400)
+        ok("Aprovar como Gerente do setor Financeiro" in pg.text_content("#tela"), "botão de aprovar como Gerente do setor")
+        pg.click("[data-acao=aprovar]"); confirmar(pg)
+        ok("Aprovada" in mensagem(pg) and "Aprovada" in pg.text_content("#tela"), "Gerente do Financeiro aprova (até o limite do setor, termina nele)")
+        ok(not er, "sem erros de script (Gerente do setor) " + str(er))
+        pg.click("[data-v=hist]"); pg.wait_for_timeout(500)
+        ok("Aprovada pelo Gerente (Financeiro)" in pg.text_content("#histLista"), "histórico registra o setor de quem aprovou")
         # celular
         pg, er = entrar(b, "comprador", largura=390); abrir(pg); pg.click("[data-v=reqs]"); pg.select_option("#fSt", "todas"); pg.click("tr[data-req='1001']"); pg.wait_for_timeout(400)
         larg = pg.evaluate("document.documentElement.scrollWidth")
