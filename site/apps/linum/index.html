@@ -493,6 +493,13 @@ let VENDAS = [], ITENS = [], CLIENTES = [], VENDEDORAS = [];
 const FV = { de: "", ate: "", loja: "", vend: "" };
 const FC = { q: "", niver: false };
 const soDig = t => String(t || "").replace(/\D/g, "");
+// clientes: nome sem acento/maiúsculas; nome e telefone digitados juntos ("Maria 21 99999-0000") são separados
+const semAc = t => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+const separar = t => ({ nome: String(t || "").replace(/[\d()+\-./]/g, " ").replace(/\s+/g, " ").trim(), dig: soDig(t) });
+const pontoCliente = (x, t) => { const s = separar(t), nm = semAc(s.nome);
+  return (s.dig.length >= 4 && ((x.telefone || "").includes(s.dig) || (x.cpf || "").includes(s.dig)) ? 2 : 0) + (nm.length >= 2 && semAc(x.nome).includes(nm) ? 1 : 0); };
+const buscarClientes = (t, max) => CLIENTES.map(x => [x, pontoCliente(x, t)]).filter(([, p]) => p).sort((a, b) => b[1] - a[1] || a[0].nome.localeCompare(b[0].nome, "pt-BR")).slice(0, max).map(([x]) => x);
+const clienteDigitado = t => { const s = separar(t); return { nome: s.nome, telefone: s.dig.length >= 8 ? s.dig : "" }; };
 const fone = t => { const d = soDig(t); return d.length === 11 ? `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}` : d.length === 10 ? `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}` : d; };
 const niver = c => c.aniversario_dia ? `${String(c.aniversario_dia).padStart(2, "0")}/${MESES[c.aniversario_mes - 1]}` : "";
 const numV = t => { const x = numBR(t); return x === "" ? 0 : Number(x); };
@@ -647,19 +654,19 @@ async function novaVenda() {
     const c = NV.cliente;
     $("nvcli").innerHTML = c ? `<div class="vlin"><span><b>${esc(c.nome)}</b>${c.telefone ? " · " + esc(fone(c.telefone)) : ""}${niver(c) ? " · aniversário " + niver(c) : ""}</span>
         <span class="acs"><button type="button" class="lnk" id="nvcedit">Editar</button><button type="button" class="lnk" id="nvctroca">Trocar</button></span></div>`
-      : `<input id="nvcq" type="search" placeholder="Nome, telefone ou CPF (deixe vazio se não quiser identificar)" autocomplete="off"><div id="nvcres"></div>`;
+      : `<input id="nvcq" type="search" placeholder="Nome e/ou telefone (pode digitar junto) ou CPF; vazio = sem identificar" autocomplete="off"><div id="nvcres"></div>`;
     if (c) {
       $("nvctroca").onclick = () => { NV.cliente = null; desenharCliente(); $("nvcq").focus(); };
       $("nvcedit").onclick = () => editarCliente(c, novo => { NV.cliente = novo; desenharCliente(); });
       return;
     }
     const busca = () => {
-      const t = $("nvcq").value.trim(), d = soDig(t), tl = t.toLowerCase();
-      const l = t.length < 2 ? [] : CLIENTES.filter(x => x.nome.toLowerCase().includes(tl) || (d.length >= 4 && (x.telefone.includes(d) || (x.cpf || "").includes(d)))).slice(0, 6);
+      const t = $("nvcq").value.trim();
+      const l = t.length < 2 ? [] : buscarClientes(t, 6);
       $("nvcres").innerHTML = (l.map(x => `<div class="vlin"><span><b>${esc(x.nome)}</b>${x.telefone ? " · " + esc(fone(x.telefone)) : ""}</span><button type="button" class="lnk" data-cli="${x.id}">Escolher</button></div>`).join("")
         + (t.length >= 2 ? `<div class="vlin"><span class="mut">${l.length ? "Não é nenhum desses?" : "Cliente não encontrado."}</span><button type="button" class="lnk" id="nvcnovo">+ Novo cliente</button></div>` : ""));
       $("nvcres").querySelectorAll("[data-cli]").forEach(b => b.onclick = () => { NV.cliente = cliente(b.dataset.cli); desenharCliente(); });
-      if ($("nvcnovo")) $("nvcnovo").onclick = () => editarCliente({ nome: d.length >= 8 ? "" : t, telefone: d.length >= 8 ? d : "" }, novo => { NV.cliente = novo; desenharCliente(); });
+      if ($("nvcnovo")) $("nvcnovo").onclick = () => editarCliente(clienteDigitado(t), novo => { NV.cliente = novo; desenharCliente(); });
     };
     $("nvcq").oninput = busca;
   };
@@ -907,15 +914,15 @@ async function novaTroca() {
   const desenharCliente = () => {
     const c = TR.cliente;
     $("trcli").innerHTML = c ? `<div class="vlin"><span><b>${esc(c.nome)}</b>${c.telefone ? " · " + esc(fone(c.telefone)) : ""}</span><button type="button" class="lnk" id="trctroca">Trocar</button></div>`
-      : `<input id="trcq" type="search" placeholder="Nome, telefone ou CPF (opcional)" autocomplete="off"><div id="trcres"></div>`;
+      : `<input id="trcq" type="search" placeholder="Nome e/ou telefone (pode digitar junto) ou CPF (opcional)" autocomplete="off"><div id="trcres"></div>`;
     if (c) { $("trctroca").onclick = () => { TR.cliente = null; desenharCliente(); }; return; }
     $("trcq").oninput = () => {
-      const t = $("trcq").value.trim(), d = soDig(t), tl = t.toLowerCase();
-      const l = t.length < 2 ? [] : CLIENTES.filter(x => x.nome.toLowerCase().includes(tl) || (d.length >= 4 && (x.telefone.includes(d) || (x.cpf || "").includes(d)))).slice(0, 6);
+      const t = $("trcq").value.trim();
+      const l = t.length < 2 ? [] : buscarClientes(t, 6);
       $("trcres").innerHTML = l.map(x => `<div class="vlin"><span><b>${esc(x.nome)}</b>${x.telefone ? " · " + esc(fone(x.telefone)) : ""}</span><button type="button" class="lnk" data-cli="${x.id}">Escolher</button></div>`).join("")
         + (t.length >= 2 ? `<div class="vlin"><span class="mut">${l.length ? "Não é nenhum desses?" : "Cliente não encontrado."}</span><button type="button" class="lnk" id="trcnovo">+ Novo cliente</button></div>` : "");
       $("trcres").querySelectorAll("[data-cli]").forEach(b => b.onclick = () => { TR.cliente = cliente(b.dataset.cli); desenharCliente(); });
-      if ($("trcnovo")) $("trcnovo").onclick = () => editarCliente({ nome: d.length >= 8 ? "" : t, telefone: d.length >= 8 ? d : "" }, novo => { TR.cliente = novo; desenharCliente(); });
+      if ($("trcnovo")) $("trcnovo").onclick = () => editarCliente(clienteDigitado(t), novo => { TR.cliente = novo; desenharCliente(); });
     };
   };
   const desenhar = () => { desenharDevBox(); linhas(TR.dev, "trdev", "dev"); linhas(TR.novas, "trnovas", "nova"); desenharCliente(); totais(); };
@@ -968,7 +975,20 @@ function editarCliente(c, depois) {
     <div id="clerr"></div>
     <div class="acoes"><button type="button" class="bt" id="clx">Cancelar</button><button type="button" class="bt pri" id="clok">Salvar cliente</button></div>`;
   $("clx").onclick = () => $("dlg2").close();
+  let mesmoAssim = false;
   $("clok").onclick = async () => {
+    // cliente novo com o mesmo nome ou telefone de alguém já cadastrado: pergunta antes de criar outro
+    const tel = soDig($("cl_tel").value), nm = semAc($("cl_nome").value);
+    const parecidos = C.id || mesmoAssim ? [] : CLIENTES.filter(x => (nm.length >= 2 && semAc(x.nome) === nm) || (tel.length >= 8 && x.telefone === tel));
+    if (parecidos.length) {
+      $("clerr").innerHTML = `<div class="msg info" id="clparecido"><b>Já existe cliente com esse ${parecidos.some(x => tel.length >= 8 && x.telefone === tel) ? "telefone" : "nome"}. É ela?</b>
+        ${parecidos.slice(0, 5).map(x => `<div class="vlin"><span><b>${esc(x.nome)}</b>${x.telefone ? " · " + esc(fone(x.telefone)) : ""}${niver(x) ? " · aniversário " + niver(x) : ""}${x.observacoes ? ` · <span class="mut">${esc(x.observacoes)}</span>` : ""}</span>
+          <button type="button" class="lnk" data-mesma="${x.id}">É ela: usar este cadastro</button></div>`).join("")}
+        <div class="vlin"><span class="mut">Se for outra pessoa, o cadastro novo é criado.</span><button type="button" class="lnk" id="cloutra">É outra pessoa: salvar</button></div></div>`;
+      $("clerr").querySelectorAll("[data-mesma]").forEach(b => b.onclick = () => { $("dlg2").close(); if (depois) depois(cliente(b.dataset.mesma)); });
+      $("cloutra").onclick = () => { mesmoAssim = true; $("clok").click(); };
+      return;
+    }
     try {
       const id = checar(await sb.rpc("lin_cliente_salvar", { p: { id: C.id || null, nome: $("cl_nome").value, telefone: $("cl_tel").value, cpf: $("cl_cpf").value,
         email: $("cl_email").value, endereco: $("cl_end").value, aniversario_dia: $("cl_dia").value, aniversario_mes: $("cl_mes").value, observacoes: $("cl_obs").value } }));
@@ -997,8 +1017,8 @@ async function telaClientes() {
   listaClientes();
 }
 function listaClientes() {
-  const t = FC.q.trim().toLowerCase(), d = soDig(t), mes = new Date().getMonth() + 1;
-  const l = CLIENTES.filter(c => (!t || c.nome.toLowerCase().includes(t) || (d.length >= 4 && (c.telefone.includes(d) || (c.cpf || "").includes(d))))
+  const t = FC.q.trim(), mes = new Date().getMonth() + 1;
+  const l = CLIENTES.filter(c => (!t || pontoCliente(c, t))
     && (!FC.niver || c.aniversario_mes === mes)).sort((a, b) => FC.niver ? a.aniversario_dia - b.aniversario_dia : a.nome.localeCompare(b.nome, "pt-BR"));
   $("clista").innerHTML = l.length ? l.slice(0, 500).map(c => {
     const vs = VENDAS.filter(v => v.cliente_id === c.id), tot = vs.reduce((s, v) => s + Number(v.valor_total), 0), ult = vs.map(v => v.data).sort().pop();
