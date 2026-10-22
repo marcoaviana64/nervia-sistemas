@@ -108,6 +108,14 @@ with sync_playwright() as p:
     pg.click("[data-v=reqs]"); pg.click("tr[data-req='1011']"); pg.wait_for_timeout(300)
     t = pg.inner_text("#tela").upper()
     assert "INTERNET — MERCADO LIVRE" in t and "PIXEL PRIME" in t and pg.locator("a:text('ver o produto no site ↗')").count() == 1
+    # Oportunidades (22/10/2026): a 1011 foi aberta para os fornecedores cadastrados e a Byte Norte entrou sozinha
+    t = pg.inner_text("#tela")
+    assert "1 fornecedor(es) entraram, 1 enviaram proposta" in t and "BYTE NORTE" in t.upper() and pg.locator("[data-acao=fecharOp]").count() == 1, "oportunidades"
+    pg.click("[data-acao=voltar]"); pg.click("[data-v=reqs]"); pg.click("tr[data-req='1012']"); pg.wait_for_timeout(300)
+    pg.click("[data-acao=abrirOp]"); pg.wait_for_timeout(200)
+    assert "Campinas/SP" in pg.inner_text("dialog"); pg.click("dialog [value=ok]"); pg.wait_for_timeout(300)
+    assert "aberta para os fornecedores" in pg.inner_text("#msg"), pg.inner_text("#msg")
+    pg.screenshot(path=f"{SAIDA}/demo_compras_oportunidades.png", full_page=True)
     pg.click("[data-acao=voltar]"); pg.click("[data-v=reqs]"); pg.click("tr[data-req='1010']"); pg.wait_for_timeout(300)
     assert "dispensadas pelo Gerente" in pg.inner_text("#tela")
     pg.click("[data-v=forn]"); pg.wait_for_timeout(300)

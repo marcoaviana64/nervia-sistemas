@@ -707,6 +707,109 @@ reset role;
 select pg_temp.erro('insert into cmp_propostas (requisicao_id, origem, site, link, preco_unitario, prazo_dias) values (' || pg_temp.id('r6') || ', ''internet'', ''ML'', ''javascript:alert(1)'', 1, 1)',
   'cmp_propostas_internet', 'banco recusa link que não é http(s)');
 reset request.jwt.claim.sub;
+-- ---------------------------------------------------------------- Compras: Oportunidades para fornecedores (22/10/2026)
+grant all on ids to anon;
+set role anon;
+set request.headers = '{"x-forwarded-for":"200.50.60.70","user-agent":"NavegadorForn/2.0"}';
+select pg_temp.ok((select jsonb_array_length(x -> 'grupos') = 22 and x -> 'empresas' = 'null'::jsonb and jsonb_array_length(x -> 'lista_ufs') = 27
+  from cmp_vitrine_fornecedores() x), 'página pública: grupos e estados; número de empresas só a partir de 3 (não identifica)');
+select pg_temp.erro($$select cmp_solicitar_cadastro('{"tipo":"PJ","documento":"77888999000182","nome":"Tec Sul","email":"a@b.com","telefone":"21999990000","grupos":["Informática e tecnologia"],"aceite":true}')$$,
+  'CNPJ inválido', 'cadastro: CNPJ com dígito errado recusado');
+select pg_temp.erro($$select cmp_solicitar_cadastro('{"tipo":"PJ","documento":"77888999000181","nome":"Tec Sul","email":"a@b.com","telefone":"21999990000","grupos":["Informática e tecnologia"]}')$$,
+  'aceita as condições', 'cadastro: exige o aceite das condições');
+select pg_temp.erro($$select cmp_solicitar_cadastro('{"tipo":"PJ","documento":"77888999000181","nome":"Tec Sul","email":"a@b.com","telefone":"21999990000","grupos":[],"aceite":true}')$$,
+  'pelo menos um grupo', 'cadastro: exige um grupo');
+select pg_temp.erro($$select cmp_solicitar_cadastro('{"tipo":"PJ","documento":"77888999000181","nome":"Tec Sul","email":"a@b.com","telefone":"21999990000","grupos":["Informática e tecnologia"],"regioes":["XX"],"aceite":true}')$$,
+  'Estado desconhecido', 'cadastro: estado fora da lista recusado');
+insert into ids select 'sol', cmp_solicitar_cadastro('{"tipo":"PJ","documento":"77.888.999/0001-81","nome":"Tec Sul Informática","contato":"Bruna","email":"Bruna@TecSul.com","telefone":"(21) 99999-0000","grupos":["Informática e tecnologia"],"regioes":["RJ","ES"],"aceite":true}') ->> 'protocolo';
+select pg_temp.erro($$select cmp_solicitar_cadastro('{"tipo":"PJ","documento":"77888999000181","nome":"Tec Sul","email":"a@b.com","telefone":"21999990000","grupos":["Informática e tecnologia"],"aceite":true}')$$,
+  'Já recebemos um pedido', 'cadastro: o mesmo CNPJ com pedido pendente não repete');
+select cmp_solicitar_cadastro('{"tipo":"PF","documento":"52998224725","nome":"João Reparos","email":"joao@x.com","telefone":"21988887777","grupos":["Informática e tecnologia"],"aceite":true}');
+select pg_temp.erro('select * from cmp_solicitacoes', 'permission', 'anônimo não lê os pedidos de cadastro');
+select pg_temp.erro('select * from cmp_assinaturas', 'permission', 'anônimo não lê os acessos');
+reset request.headers;
+-- comprador abre a requisição para as Oportunidades
+set role authenticated;
+select pg_temp.como('00000000-0000-0000-0000-0000000000d1');
+insert into cmp_requisicoes (unidade_id, grupo, titulo, quantidade, valor_estimado, descricao) values (pg_temp.id('itaipu')::uuid, 'Informática e tecnologia', 'Monitor 24 polegadas', 4, 3600, 'Full HD, HDMI');
+insert into ids select 'r8', max(id)::text from cmp_requisicoes;
+select pg_temp.erro('select cmp_abrir_oportunidade(' || pg_temp.id('r8') || ', current_date + 7)', 'precisa ser: comprador ou gerente', 'solicitante não abre para os fornecedores');
+select pg_temp.como('00000000-0000-0000-0000-0000000000d2');
+select pg_temp.erro('select cmp_abrir_oportunidade(' || pg_temp.id('r8') || ', current_date + 7)', 'cidade e o estado', 'só abre com cidade e estado da unidade cadastrados');
+reset role;
+update cmp_unidades set cidade = 'Niterói', uf = 'RJ' where id = pg_temp.id('itaipu')::uuid;
+set role authenticated;
+select pg_temp.erro('select cmp_abrir_oportunidade(' || pg_temp.id('r8') || ', current_date + 70)', 'no máximo 60', 'prazo de no máximo 60 dias');
+select cmp_abrir_oportunidade(pg_temp.id('r8')::bigint, cmp_hoje() + 7);
+select pg_temp.ok((select aberta_fornecedores and status = 'cotacao' and aberta_nome = 'Rafael' from cmp_requisicoes where id = pg_temp.id('r8')::bigint), 'comprador abre a requisição (vai para Em cotação)');
+select pg_temp.erro('select cmp_oportunidades_admin()', 'Só a equipe Nervia', 'comprador não vê os pedidos de cadastro');
+select pg_temp.ok((select count(*) = 0 from cmp_assinaturas) and (select count(*) = 0 from cmp_solicitacoes), 'comprador não lê acessos nem pedidos');
+-- equipe Nervia libera o acesso (pedido da página e fornecedor que já estava na base)
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+select pg_temp.ok((select jsonb_array_length(cmp_oportunidades_admin() -> 'solicitacoes') = 2), 'Nervia vê os pedidos de cadastro');
+select pg_temp.erro('select cmp_acesso_liberar(' || substr(pg_temp.id('sol'), 3) || ', null, cmp_hoje() - 1, null, null, null, null)', 'hoje ou depois', 'validade no passado recusada');
+insert into ids select 'ac', cmp_acesso_liberar(substr(pg_temp.id('sol'), 3)::bigint, null, cmp_hoje() + 30, null, null, 150, 'Pix 22/10') ->> 'codigo';
+select pg_temp.ok((select grupos = '{"Informática e tecnologia"}' and email = 'bruna@tecsul.com' and cadastrado_nome <> ''
+  from cmp_fornecedores_lista() where documento = '77888999000181'), 'pedido aprovado: fornecedor entra na base com os grupos do pedido');
+select pg_temp.erro('select cmp_acesso_liberar(' || substr(pg_temp.id('sol'), 3) || ', null, cmp_hoje() + 30, null, null, null, null)', 'já foi aprovada', 'pedido não é aprovado duas vezes');
+insert into ids select 'ac2', cmp_acesso_liberar(null, (select id from cmp_fornecedores_lista() where documento = '77888999000181'), cmp_hoje() + 60, null, '{RJ,ES}', 150, '') ->> 'codigo';
+select pg_temp.ok(pg_temp.id('ac2') = pg_temp.id('ac') and (select valido_ate = cmp_hoje() + 60 and renovado_em is not null from cmp_assinaturas where codigo = pg_temp.id('ac')),
+  'renovar mantém o mesmo link e muda a validade');
+insert into ids select 'acfa', cmp_acesso_liberar(null, pg_temp.id('fa')::uuid, cmp_hoje() + 30, null, '{SP}', null, 'cortesia') ->> 'codigo';
+select pg_temp.erro($$select cmp_solicitacao_recusar((select max(id) from cmp_solicitacoes), 'x')$$, 'motivo', 'recusar exige motivo');
+select cmp_solicitacao_recusar((select max(id) from cmp_solicitacoes), 'Fora dos grupos atendidos');
+-- fornecedor na área de Oportunidades (sem login)
+reset request.jwt.claim.sub;
+set role anon;
+set request.headers = '{"x-forwarded-for":"200.50.60.71","user-agent":"NavegadorForn/2.0"}';
+select pg_temp.erro('select cmp_portal_ler(''' || repeat('0', 64) || ''')', 'inválido', 'área de Oportunidades: código errado recusado');
+select pg_temp.ok((select x ->> 'situacao' = 'ativo' and jsonb_array_length(x -> 'oportunidades') = 1 and x -> 'oportunidades' -> 0 ->> 'cidade' = 'Niterói'
+  and x -> 'oportunidades' -> 0 ->> 'titulo' = 'Monitor 24 polegadas' and not (x -> 'oportunidades' -> 0) ? 'valor_estimado'
+  and x::text not like '%Multicenter%' and x::text not like '%Carla%' from cmp_portal_ler(pg_temp.id('ac')) x),
+  'fornecedor vê a oportunidade do seu grupo e estado, sem o nome da empresa, quem pediu ou valor estimado');
+select pg_temp.ok((select jsonb_array_length(cmp_portal_ler(pg_temp.id('acfa')) -> 'oportunidades') = 0), 'fornecedor que só entrega em SP não vê a oportunidade do RJ');
+insert into ids select 'cp', cmp_portal_participar(pg_temp.id('ac'), pg_temp.id('r8')::bigint) ->> 'codigo';
+select pg_temp.ok((cmp_portal_participar(pg_temp.id('ac'), pg_temp.id('r8')::bigint) ->> 'codigo') = pg_temp.id('cp'), 'participar de novo devolve o mesmo convite');
+select pg_temp.erro('select cmp_portal_participar(''' || pg_temp.id('acfa') || ''', ' || pg_temp.id('r8') || ')', 'não está mais aberta', 'não participa de oportunidade fora dos seus estados');
+select pg_temp.ok((select x ->> 'unidade' = 'Empresa compradora em Niterói/RJ' and x ->> 'origem' = 'portal' and x::text not like '%Multicenter%'
+  from cmp_cotacao_ler(pg_temp.id('cp')) x), 'página de cotação de quem veio pelas Oportunidades não mostra o nome da empresa');
+select pg_temp.ok((cmp_cotacao_enviar(pg_temp.id('cp'), '{"preco_unitario":"890","prazo_dias":"5","pagamento":"À vista","declarante":"Bruna","aceite":true}') ->> 'protocolo') like 'P-%',
+  'fornecedor das Oportunidades envia a proposta pela mesma página de cotação');
+reset request.headers;
+set role authenticated;
+select pg_temp.como('00000000-0000-0000-0000-0000000000d2');
+select pg_temp.ok((select c.origem = 'portal' and c.prazo = r.aberta_ate and c.respondido_em is not null from cmp_convites c join cmp_requisicoes r on r.id = c.requisicao_id where c.codigo = pg_temp.id('cp'))
+  and (select count(*) = 1 from cmp_propostas where requisicao_id = pg_temp.id('r8')::bigint and origem = 'fornecedor'),
+  'comprador vê o convite das Oportunidades e a proposta no mapa');
+select cmp_abrir_oportunidade(pg_temp.id('r8')::bigint, cmp_hoje() + 10);
+select pg_temp.ok((select prazo = cmp_hoje() + 10 from cmp_convites where codigo = pg_temp.id('cp')), 'mudar o prazo leva junto o convite de quem entrou pelas Oportunidades');
+select cmp_fechar_oportunidade(pg_temp.id('r8')::bigint);
+reset role;
+set role anon;
+select pg_temp.ok((select jsonb_array_length(cmp_portal_ler(pg_temp.id('ac')) -> 'oportunidades') = 0), 'requisição fechada some das Oportunidades');
+reset role;
+update cmp_requisicoes set aberta_fornecedores = true where id = pg_temp.id('r8')::bigint;
+update cmp_assinaturas set valido_ate = cmp_hoje() - 1 where codigo = pg_temp.id('ac');
+set role anon;
+select pg_temp.ok((select x ->> 'situacao' = 'vencido' and jsonb_array_length(x -> 'oportunidades') = 0 from cmp_portal_ler(pg_temp.id('ac')) x), 'acesso vencido não mostra oportunidades');
+select pg_temp.erro('select cmp_portal_participar(''' || pg_temp.id('ac') || ''', ' || pg_temp.id('r8') || ')', 'venceu', 'acesso vencido não participa');
+reset role;
+set role authenticated;
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+select cmp_acesso_revogar((select id from cmp_assinaturas where codigo = pg_temp.id('acfa')), 'Pediu para sair');
+reset role;
+set role anon;
+select pg_temp.ok((cmp_portal_ler(pg_temp.id('acfa')) ->> 'situacao') = 'cancelado', 'acesso cancelado pela Nervia');
+reset role;
+select pg_temp.ok((select regioes = '{ES,RJ}' from cmp_fornecedores where documento = '77888999000181') and (select regioes = '{SP}' from cmp_fornecedores where id = pg_temp.id('fa')::uuid),
+  'estados do fornecedor gravados (pedido e liberação)');
+select pg_temp.ok(exists (select 1 from auditoria where acao = 'compras_cadastro_solicitado' and ip = '200.50.60.70' and navegador = 'NavegadorForn/2.0')
+  and exists (select 1 from auditoria where acao = 'compras_acesso_liberado') and exists (select 1 from auditoria where acao = 'compras_acesso_renovado')
+  and exists (select 1 from auditoria where acao = 'compras_acesso_cancelado') and exists (select 1 from auditoria where acao = 'compras_cadastro_recusado')
+  and exists (select 1 from auditoria where acao = 'compras_oportunidade_aberta') and exists (select 1 from auditoria where acao = 'compras_oportunidade_fechada')
+  and exists (select 1 from auditoria where acao = 'compras_oportunidade_participacao' and ip = '200.50.60.71'),
+  'Oportunidades: pedido, liberação, renovação, cancelamento, recusa, abrir, fechar e participação na auditoria');
+reset request.jwt.claim.sub;
 -- ---------------------------------------------------------------- Contas e Licenças Microsoft 365 (lic_)
 select pg_temp.ok((select count(*) = 7 from lic_unidades) and (select count(*) = 1 from apps where id = 'licencas' and manual_url like '/apps/licencas/ajuda/%'),
   'licenças: 7 unidades iniciais e app cadastrado com cartão e manual');

@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Para fornecedores: venda para empresas compradoras | Nervia</title>
+<meta name="description" content="Cadastre sua empresa nas Oportunidades da Plataforma Nervia: veja as cotações abertas por empresas compradoras nos seus grupos de produtos e serviços e na sua região, e envie sua proposta pela internet.">
+<script src="/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<style>
+/* Página pública para fornecedores (Orçamentos de Compras → Oportunidades). Sem login: o pedido de cadastro vai pela
+   função cmp_solicitar_cadastro e a Nervia libera o acesso. Textos falam em "empresas compradoras" (decisão do Marco). */
+:root{
+  --bg:#f3f6f8;--surface:#fff;--surface-2:#eaf1f4;--border:#dde6ec;--ink:#0f1b2d;--ink-soft:#4f5f73;--ink-faint:#8796a8;
+  --accent:#107e99;--accent-2:#0b2545;--accent-soft:#e3f3f7;
+  --ok:#1d7f46;--ok-bg:#e6f4ec;--crit:#b3261e;--crit-bg:#fbeaea;--warn:#a86400;--warn-bg:#fff3e0;--info:#2568a8;--info-bg:#e7f1fa;
+  color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0c1620;--surface:#122130;--surface-2:#18293a;--border:#24394e;--ink:#eef4f8;--ink-soft:#b3c3d1;--ink-faint:#7f93a6;
+  --accent:#3fc1dd;--accent-2:#0b2545;--accent-soft:rgba(63,193,221,.15);
+  --ok:#43c07e;--ok-bg:rgba(67,192,126,.14);--crit:#f07a72;--crit-bg:rgba(240,122,114,.14);--warn:#e3ad57;--warn-bg:rgba(227,173,87,.14);--info:#5eabe8;--info-bg:rgba(94,171,232,.14);color-scheme:dark}
+  .logo-claro{display:none}.logo-escuro{display:inline}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--accent)}
+.oculto{display:none!important}
+.casca{max-width:980px;margin:0 auto;padding:0 16px}
+header.topo{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 0}
+header.topo img{height:34px;width:auto}
+.logo-escuro{display:none}
+header.topo a.vol{font-size:14px;color:var(--ink-soft);text-decoration:none}
+.hero{background:linear-gradient(150deg,#0b2545,#107e99);color:#fff;border-radius:18px;padding:34px 26px;margin:6px 0 22px}
+.hero small{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:rgba(255,255,255,.14);padding:4px 10px;border-radius:999px}
+.hero h1{font-size:clamp(26px,4.4vw,38px);line-height:1.15;margin:12px 0 10px}
+.hero p{margin:0 0 16px;max-width:640px;color:#d8ecf2}
+.hero .bt{background:#fff;color:#0b2545;border-color:#fff}
+.numeros{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+.numeros div{background:rgba(255,255,255,.12);border-radius:12px;padding:10px 14px;font-size:14px}
+.numeros b{display:block;font-size:22px}
+h2{font-size:22px;margin:28px 0 12px}
+.passos{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.passo{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px}
+.passo b.n{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;font-size:14px;margin-bottom:6px}
+.passo h3{font-size:16px;margin:4px 0 6px}
+.passo p{margin:0;color:var(--ink-soft);font-size:14.5px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:14px}
+.card ul{margin:0;padding-left:20px}.card li{margin:6px 0}
+.grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.grade .tudo{grid-column:1/-1}
+label{display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);margin-bottom:4px}
+input,select,textarea{font:inherit;padding:10px 11px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--ink);width:100%}
+textarea{min-height:80px}
+.lista{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:6px 14px;max-height:340px;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:10px}
+.lista.ufs{grid-template-columns:repeat(auto-fill,minmax(64px,1fr));max-height:none}
+.chk{display:flex;gap:8px;align-items:flex-start;text-transform:none;letter-spacing:0;font-weight:400;color:var(--ink);font-size:14.5px;margin:0}
+.chk input{width:auto;margin-top:5px;flex:none}
+.chk small{display:block;color:var(--ink-faint);font-size:12.5px}
+.bt{display:inline-block;font:inherit;font-weight:700;padding:12px 20px;border-radius:10px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;text-decoration:none}
+.bt.sec{background:transparent;color:var(--accent)}
+.bt:disabled{opacity:.55;cursor:wait}
+.mut{color:var(--ink-soft);font-size:14px}
+.aviso{border-radius:10px;padding:12px 14px;font-size:15px;margin:10px 0;white-space:pre-line}
+.aviso.crit{background:var(--crit-bg);color:var(--crit)}.aviso.ok{background:var(--ok-bg);color:var(--ok)}.aviso.info{background:var(--info-bg);color:var(--info)}
+.rodape{font-size:12.5px;color:var(--ink-faint);text-align:center;margin:30px 0 40px}
+.rodape a{color:inherit}
+</style>
+</head>
+<body>
+<div class="casca">
+  <header class="topo">
+    <a href="/"><img class="logo-claro" src="/img/nervia-logo.png" alt="Nervia Tecnologia"><img class="logo-escuro" src="/img/nervia-logo-branco.png" alt="Nervia Tecnologia"></a>
+    <a class="vol" href="/fornecedores/oportunidades/">Já tenho acesso →</a>
+  </header>
+
+  <section class="hero">
+    <small>Para fornecedores</small>
+    <h1>Venda para empresas que compram pela Plataforma Nervia</h1>
+    <p>Cadastre sua empresa, escolha os grupos de produtos e serviços que você atende e os estados onde entrega. Com o acesso liberado, você vê as cotações abertas pelas empresas compradoras e envia sua proposta pela internet, sem intermediários.</p>
+    <a class="bt" href="#cadastro">Quero me cadastrar</a>
+    <div class="numeros" id="numeros"></div>
+  </section>
+
+  <h2>Como funciona</h2>
+  <div class="passos">
+    <div class="passo"><b class="n">1</b><h3>Cadastro</h3><p>Preencha o formulário abaixo com o CNPJ (ou CPF), os grupos que você fornece e os estados onde entrega.</p></div>
+    <div class="passo"><b class="n">2</b><h3>Acesso liberado</h3><p>A Nervia confere o cadastro, combina com você o acesso e envia pelo WhatsApp ou e-mail o seu link pessoal das Oportunidades.</p></div>
+    <div class="passo"><b class="n">3</b><h3>Oportunidades</h3><p>Pelo link você vê as cotações abertas nos seus grupos e estados: o que a empresa precisa, quantidade, cidade e prazos.</p></div>
+    <div class="passo"><b class="n">4</b><h3>Sua proposta</h3><p>Envie preço, frete, prazo, pagamento e, se quiser, o PDF. Até o prazo, você pode mudar e reenviar.</p></div>
+  </div>
+
+  <h2>Condições, com clareza</h2>
+  <div class="card"><ul>
+    <li><b>O acesso às Oportunidades é pago à Nervia.</b> O valor e o período são combinados com a Nervia antes da liberação.</li>
+    <li><b>Não há garantia de cotações nem de vendas.</b> Você vê as cotações que as empresas compradoras decidem abrir para os fornecedores cadastrados, nos seus grupos e estados.</li>
+    <li><b>Pagar não dá vantagem na escolha.</b> Cada empresa compradora escolhe pelas regras dela: preço, prazo, condições de pagamento, certidões em dia e avaliação de entregas anteriores. As empresas compradoras também cadastram e convidam fornecedores por conta própria, sem custo.</li>
+    <li><b>O nome da empresa compradora não aparece</b> nas Oportunidades: só a cidade e o estado. Você não vê as propostas dos outros fornecedores, e eles não veem a sua.</li>
+    <li>Seus dados são usados para o cadastro de fornecedores da Plataforma Nervia e para as cotações em que você participar. <a href="/privacidade.html" target="_blank" rel="noopener">Política de privacidade</a>.</li>
+  </ul></div>
+
+  <h2 id="cadastro">Pedido de cadastro</h2>
+  <form id="form" class="card" novalidate>
+    <div class="grade">
+      <div><label for="tipo">Tipo</label><select id="tipo"><option value="PJ">Empresa (CNPJ)</option><option value="PF">Pessoa física (CPF)</option></select></div>
+      <div><label for="documento">CNPJ ou CPF</label><input id="documento" inputmode="text" autocomplete="off" placeholder="só números (aceita CNPJ com letras)"></div>
+      <div class="tudo"><label for="nome">Razão social ou nome</label><input id="nome" maxlength="160" autocomplete="organization"></div>
+      <div><label for="contato">Nome do contato</label><input id="contato" maxlength="120" autocomplete="name"></div>
+      <div><label for="telefone">WhatsApp ou telefone (com DDD)</label><input id="telefone" maxlength="40" autocomplete="tel" inputmode="tel"></div>
+      <div><label for="email">E-mail</label><input id="email" type="email" maxlength="160" autocomplete="email"></div>
+      <div class="tudo"><label>Grupos de produtos e serviços que você fornece</label><div class="lista" id="grupos"><span class="mut">Carregando…</span></div></div>
+      <div class="tudo"><label>Estados onde você entrega ou atende <span style="text-transform:none;font-weight:400">(nenhum marcado = todo o Brasil)</span></label><div class="lista ufs" id="ufs"></div></div>
+      <div class="tudo"><label for="mensagem">Algo mais que a Nervia deve saber? (opcional)</label><textarea id="mensagem" maxlength="1000" placeholder="marcas que representa, cidades que atende, certificações"></textarea></div>
+      <div class="tudo"><label class="chk"><input type="checkbox" id="aceite"> <span>Li e aceito as condições acima: o acesso às Oportunidades é pago à Nervia, não garante cotações nem vendas e a escolha é de cada empresa compradora. As informações deste formulário são verdadeiras.</span></label></div>
+    </div>
+    <div id="erro" class="aviso crit oculto"></div>
+    <p><button class="bt" id="enviar" type="submit">Enviar pedido de cadastro</button></p>
+  </form>
+  <div id="pronto" class="card oculto">
+    <div class="aviso ok" id="prontoTxt"></div>
+    <p class="mut">A Nervia vai entrar em contato pelo WhatsApp ou e-mail informado. Se quiser adiantar, mande uma mensagem agora:</p>
+    <p><a class="bt" id="prontoWa" href="#" target="_blank" rel="noopener">Avisar a Nervia pelo WhatsApp</a></p>
+  </div>
+
+  <div class="rodape">Oportunidades do app Orçamentos de Compras · <a href="/">Nervia Tecnologia da Informação</a> · <a href="/privacidade.html">Privacidade</a></div>
+</div>
+
+<script>
+const CFG = window.NERVIA_CONFIG || {};
+const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const WHATS = "5521966869374";
+const UFS_PADRAO = ["AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"];
+
+async function carregar() {
+  const r = await sb.rpc("cmp_vitrine_fornecedores");
+  const d = r.error ? { grupos: [], ufs: [], lista_ufs: UFS_PADRAO } : r.data;
+  $("grupos").innerHTML = d.grupos.length ? d.grupos.map(g => `<label class="chk"><input type="checkbox" class="g" value="${esc(g.nome)}"> <span>${esc(g.nome)}${g.descricao ? `<small>${esc(g.descricao)}</small>` : ""}</span></label>`).join("")
+    : '<span class="mut">Não foi possível carregar os grupos. Recarregue a página.</span>';
+  $("ufs").innerHTML = (d.lista_ufs || UFS_PADRAO).map(u => `<label class="chk"><input type="checkbox" class="u" value="${u}"> <span>${u}</span></label>`).join("");
+  const n = [];
+  if (d.empresas) n.push(`<div><b>${d.empresas}</b>empresas compradoras</div>`);
+  if (d.grupos.length) n.push(`<div><b>${d.grupos.length}</b>grupos de compra</div>`);
+  if (d.ufs && d.ufs.length) n.push(`<div><b>${d.ufs.join(", ")}</b>estados com empresas compradoras</div>`);
+  $("numeros").innerHTML = n.join("");
+}
+function erro(t) { const e = $("erro"); e.textContent = t; e.classList.remove("oculto"); e.scrollIntoView({ block: "nearest" }); }
+
+$("form").onsubmit = async ev => {
+  ev.preventDefault(); $("erro").classList.add("oculto");
+  const grupos = [...document.querySelectorAll(".g:checked")].map(x => x.value), regioes = [...document.querySelectorAll(".u:checked")].map(x => x.value);
+  if (!$("documento").value.trim()) return erro("Informe o CNPJ ou CPF.");
+  if (!$("nome").value.trim()) return erro("Informe a razão social ou o nome.");
+  if (!$("telefone").value.trim() || !$("email").value.trim()) return erro("Informe o WhatsApp (ou telefone) e o e-mail: é por eles que a Nervia entra em contato.");
+  if (!grupos.length) return erro("Marque pelo menos um grupo de produtos ou serviços.");
+  if (!$("aceite").checked) return erro("Marque que leu e aceita as condições.");
+  $("enviar").disabled = true; $("enviar").textContent = "Enviando…";
+  const r = await sb.rpc("cmp_solicitar_cadastro", { p_dados: { tipo: $("tipo").value, documento: $("documento").value, nome: $("nome").value.trim(), contato: $("contato").value.trim(),
+    telefone: $("telefone").value.trim(), email: $("email").value.trim(), grupos, regioes, mensagem: $("mensagem").value.trim(), aceite: true } });
+  $("enviar").disabled = false; $("enviar").textContent = "Enviar pedido de cadastro";
+  if (r.error) return erro(r.error.message);
+  const prot = r.data.protocolo;
+  $("prontoTxt").textContent = `Pedido recebido (protocolo ${prot}). Obrigado, ${$("nome").value.trim()}!`;
+  $("prontoWa").href = `https://wa.me/${WHATS}?text=` + encodeURIComponent(`Olá! Enviei o pedido de cadastro ${prot} de ${$("nome").value.trim()} para as Oportunidades de fornecedores da Plataforma Nervia.`);
+  $("form").classList.add("oculto"); $("pronto").classList.remove("oculto"); $("pronto").scrollIntoView({ block: "start" });
+};
+carregar();
+</script>
+<script src="/acesso.js" defer></script>
+</body>
+</html>

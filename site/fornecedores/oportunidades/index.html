@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Oportunidades | Nervia</title>
+<script src="/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<style>
+/* Área de Oportunidades do fornecedor com acesso (sem login): o código do acesso vem depois do "#" e só é usado nas
+   funções cmp_portal_ler / cmp_portal_participar. Ao participar, o fornecedor vai para a página de cotação (/cotacao/#código). */
+:root{
+  --bg:#f3f6f8;--surface:#fff;--surface-2:#eaf1f4;--border:#dde6ec;--ink:#0f1b2d;--ink-soft:#4f5f73;--ink-faint:#8796a8;
+  --accent:#107e99;--accent-soft:#e3f3f7;
+  --ok:#1d7f46;--ok-bg:#e6f4ec;--crit:#b3261e;--crit-bg:#fbeaea;--warn:#a86400;--warn-bg:#fff3e0;--info:#2568a8;--info-bg:#e7f1fa;
+  color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0c1620;--surface:#122130;--surface-2:#18293a;--border:#24394e;--ink:#eef4f8;--ink-soft:#b3c3d1;--ink-faint:#7f93a6;
+  --accent:#3fc1dd;--accent-soft:rgba(63,193,221,.15);
+  --ok:#43c07e;--ok-bg:rgba(67,192,126,.14);--crit:#f07a72;--crit-bg:rgba(240,122,114,.14);--warn:#e3ad57;--warn-bg:rgba(227,173,87,.14);--info:#5eabe8;--info-bg:rgba(94,171,232,.14);color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.oculto{display:none!important}
+.casca{max-width:860px;margin:0 auto;padding:16px 16px 48px}
+.topo{display:flex;align-items:center;gap:12px;padding:6px 0 14px}
+.topo .marca{width:38px;height:38px;border-radius:10px;background:linear-gradient(155deg,#107e99,#0b2545);color:#fff;display:grid;place-items:center;font-weight:800;font-size:.85rem;flex:none}
+.topo small{display:block;color:var(--ink-soft);font-size:.82rem}
+.topo .dir{margin-left:auto}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px}
+.card h2{font-size:17px;margin:0 0 8px;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.card h2 .dir{margin-left:auto}
+.grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+.grade .tudo{grid-column:1/-1}
+label{display:block;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);margin-bottom:2px}
+.tag{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;margin:2px 4px 2px 0;background:var(--accent-soft);color:var(--accent)}
+.tag.ok{background:var(--ok-bg);color:var(--ok)}.tag.warn{background:var(--warn-bg);color:var(--warn)}.tag.mut{background:var(--surface-2);color:var(--ink-soft)}
+.bt{font:inherit;font-weight:700;padding:10px 16px;border-radius:10px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;text-decoration:none;display:inline-block}
+.bt.sec{background:transparent;color:var(--accent)}
+.bt:disabled{opacity:.55;cursor:wait}
+.mut{color:var(--ink-soft);font-size:13.5px}
+.desc{white-space:pre-line;margin:8px 0 0}
+.aviso{border-radius:10px;padding:11px 13px;font-size:14px;margin:10px 0;white-space:pre-line}
+.aviso.crit{background:var(--crit-bg);color:var(--crit)}.aviso.ok{background:var(--ok-bg);color:var(--ok)}.aviso.info{background:var(--info-bg);color:var(--info)}.aviso.warn{background:var(--warn-bg);color:var(--warn)}
+.centro{padding:50px 16px;text-align:center;color:var(--ink-soft)}
+.rodape{font-size:12px;color:var(--ink-faint);text-align:center;margin-top:20px}
+.rodape a{color:inherit}
+</style>
+</head>
+<body>
+<div class="casca">
+  <div class="topo"><div class="marca">OP</div><div><b>Oportunidades</b><small id="sub">Fornecedores · Plataforma Nervia</small></div>
+    <div class="dir"><button class="bt sec oculto" id="atualizar">Atualizar</button></div></div>
+  <div id="aviso" class="centro">Carregando…</div>
+  <div id="pagina" class="oculto">
+    <div class="card" id="conta"></div>
+    <div id="situacao"></div>
+    <div id="lista"></div>
+  </div>
+  <div class="rodape">Oportunidades do app Orçamentos de Compras da <a href="/" target="_blank" rel="noopener">Nervia</a>. Este link é só seu: não compartilhe. <a href="/privacidade.html" target="_blank" rel="noopener">Privacidade</a></div>
+</div>
+
+<script>
+const CFG = window.NERVIA_CONFIG || {};
+// sem sessão: mesmo que alguém da equipe abra o link, a página age como o fornecedor
+const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const CODIGO = location.hash.replace(/^#/, "").trim().toLowerCase();
+const WHATS = "5521966869374";
+const dataBR = v => v ? new Date(String(v).length === 10 ? v + "T12:00:00" : v).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "—";
+const fmtDoc = f => f.tipo === "PF" ? f.documento.replace(/^\*\*\*(\d{3})(\d{3})\*\*$/, "***.$1.$2-**") : f.documento.replace(/^(\w{2})(\w{3})(\w{3})(\w{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+const waNervia = t => `https://wa.me/${WHATS}?text=` + encodeURIComponent(t);
+let DADOS = null;
+
+function render(d) {
+  DADOS = d; const f = d.fornecedor;
+  $("sub").textContent = `${f.nome} · Plataforma Nervia`;
+  $("conta").innerHTML = `<h2>${esc(f.nome)} <span class="mut">${f.tipo === "PF" ? "CPF" : "CNPJ"} ${esc(fmtDoc(f))}</span></h2>
+    <div class="grade">
+      <div><label>Acesso válido até</label>${d.situacao === "ativo" ? dataBR(d.valido_ate) : `<span class="tag warn">${{ vencido: "vencido em " + dataBR(d.valido_ate), cancelado: "cancelado", inativo: "cadastro inativo" }[d.situacao]}</span>`}</div>
+      <div><label>Estados</label>${f.regioes.length ? f.regioes.map(u => `<span class="tag mut">${esc(u)}</span>`).join("") : "Todo o Brasil"}</div>
+      <div class="tudo"><label>Seus grupos</label>${f.grupos.map(g => `<span class="tag">${esc(g)}</span>`).join("")}</div>
+    </div>
+    <p class="mut" style="margin:10px 0 0">Para mudar grupos ou estados, ou renovar o acesso, <a href="${waNervia(`Olá! Sou ${f.nome} e tenho acesso às Oportunidades da Plataforma Nervia. Quero falar sobre o meu acesso.`)}" target="_blank" rel="noopener">fale com a Nervia pelo WhatsApp</a>.</p>`;
+  const sit = $("situacao"); sit.innerHTML = "";
+  if (d.situacao !== "ativo") {
+    sit.innerHTML = `<div class="aviso warn"></div>`;
+    sit.firstChild.textContent = { vencido: `Seu acesso às Oportunidades venceu em ${dataBR(d.valido_ate)}. Fale com a Nervia para renovar. As propostas que você já enviou continuam valendo pelo link de cada cotação.`,
+      cancelado: "Este acesso foi cancelado. Fale com a Nervia.", inativo: "Seu cadastro está inativo. Fale com a Nervia." }[d.situacao];
+    $("lista").innerHTML = ""; return;
+  }
+  const ops = d.oportunidades;
+  if (!ops.length) {
+    $("lista").innerHTML = `<div class="card"><p style="margin:0"><b>Nenhuma oportunidade aberta agora nos seus grupos e estados.</b></p>
+      <p class="mut">As empresas compradoras abrem cotações ao longo do mês. Guarde este link nos favoritos e volte sempre.</p></div>`;
+    return;
+  }
+  $("lista").innerHTML = `<p class="mut">${ops.length} oportunidade(s) aberta(s) para você. O nome da empresa compradora não aparece; você não vê as propostas dos outros fornecedores.</p>` +
+    ops.map(o => {
+      const bt = o.convite === "respondido" ? ["Ver ou alterar minha proposta", "sec"] : o.convite === "aberto" ? ["Continuar minha proposta", ""] : o.convite === "encerrado" ? null : ["Enviar proposta", ""];
+      return `<div class="card"><h2>${esc(o.titulo)} <span class="mut">nº ${o.numero}</span>${o.convite === "respondido" ? '<span class="tag ok">proposta enviada</span>' : ""}</h2>
+        <div class="grade">
+          <div><label>Quantidade</label>${Number(o.quantidade).toLocaleString("pt-BR")} ${esc(o.unidade_medida)}</div>
+          <div><label>Onde</label>${esc(o.cidade ? o.cidade + "/" + o.uf : o.uf)}</div>
+          <div><label>Grupo</label>${esc(o.grupo)}</div>
+          <div><label>Precisa receber até</label>${dataBR(o.precisa_ate)}</div>
+          <div><label>Propostas até</label><b>${dataBR(o.ate)}</b></div>
+        </div>
+        ${o.descricao ? `<p class="desc">${esc(o.descricao)}</p>` : ""}
+        <p style="margin:12px 0 0">${bt ? `<button class="bt ${bt[1]}" data-req="${o.numero}">${bt[0]}</button>` : '<span class="tag mut">o comprador encerrou a sua participação</span>'}</p></div>`;
+    }).join("");
+}
+
+async function carregar() {
+  if (!/^[0-9a-f]{64}$/.test(CODIGO)) {
+    $("aviso").innerHTML = `Abra esta página pelo link que a Nervia enviou para você (copie o endereço inteiro).<br><br><a href="/fornecedores/">Ainda não tem acesso? Faça o pedido de cadastro</a>`; return;
+  }
+  const r = await sb.rpc("cmp_portal_ler", { p_codigo: CODIGO });
+  if (r.error) { $("aviso").textContent = r.error.message; return; }
+  render(r.data);
+  $("aviso").classList.add("oculto"); $("pagina").classList.remove("oculto"); $("atualizar").classList.remove("oculto");
+}
+
+document.addEventListener("click", async ev => {
+  const b = ev.target.closest("[data-req]"); if (!b) return;
+  b.disabled = true; b.textContent = "Abrindo…";
+  const r = await sb.rpc("cmp_portal_participar", { p_codigo: CODIGO, p_req: Number(b.dataset.req) });
+  if (r.error) { b.disabled = false; b.textContent = "Tentar de novo"; const s = $("situacao"); s.innerHTML = `<div class="aviso crit"></div>`; s.firstChild.textContent = r.error.message; s.scrollIntoView({ block: "nearest" }); return; }
+  try { sessionStorage.setItem("nervia-oportunidades", CODIGO); } catch {}
+  location.href = "/cotacao/#" + r.data.codigo;
+});
+$("atualizar").onclick = () => carregar();
+window.addEventListener("hashchange", () => location.reload());
+carregar();
+</script>
+</body>
+</html>

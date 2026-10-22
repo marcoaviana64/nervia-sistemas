@@ -34,6 +34,7 @@ Ao publicar mudança num app: linha nova no topo do app aqui (com a data) e em `
 
 | Versão | Data | O que mudou |
 |---|---|---|
+| 1.5 | 22/10/2026 | Oportunidades: abra a requisição para os fornecedores cadastrados na Plataforma Nervia, que veem só a cidade e o estado (nunca o nome da empresa) e mandam a proposta pelo mesmo link de cotação. |
 | 1.4 | 20/10/2026 | Avaliação do fornecedor com os critérios escritos por extenso e legenda das notas. |
 | 1.3 | 20/10/2026 | Dispensa de certidões pelo Gerente (por compra), base de fornecedores única com avaliações anônimas e compra pela internet (site e link, sempre com aval do Gerente). |
 | 1.2 | 17/10/2026 | Novos grupos de compra, cada um com a descrição do que entra nele. |

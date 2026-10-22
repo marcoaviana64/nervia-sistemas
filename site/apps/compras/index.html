@@ -129,6 +129,7 @@ const PAGAMENTOS = [["À vista", 0], ["15 dias", 15], ["28 dias", 28], ["30 dias
 const CRITERIOS = [["prazo", "Prazo", "entregou no prazo combinado"], ["qualidade", "Qualidade", "do produto ou serviço entregue"],
   ["conformidade", "Conforme a proposta", "entregou o que foi proposto: item, marca, quantidade e condições"], ["atendimento", "Atendimento", "contato, respostas e pós-venda"]];
 const legendaCriterios = () => `<p class="mut">${CRITERIOS.map(([, t, d]) => `<b>${t}</b>: ${d}`).join(" · ")}. Notas de 1 (péssimo) a 5 (ótimo).</p>`;
+const UFS = ["AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"];
 const PAPEL_NOME = { solicitante: "Solicitante", comprador: "Comprador", gerente: "Gerente", diretor: "Diretor" };
 
 let EU = null, ADMIN = false, MEMBROS = [], UNIDADES = [], GRUPOS = [], FORN = [], REQS = [], UNID = null, VISTA = "painel", SEL = null, DET = null, FILTRO = { st: "abertas", g: "", q: "" };
@@ -292,12 +293,42 @@ function vConvites(r, convs, edita) {
   return `<div class="card"><h2>Convites aos fornecedores <span class="mut">o fornecedor envia a proposta pelo link, sem login</span>${edita ? `<span class="dir"><button class="bt pri" data-acao="convidar">+ Convidar fornecedor</button></span>` : ""}</h2>
     ${convs.length ? `<div class="tw"><table><tr><th>Fornecedor</th><th>Prazo</th><th>Situação</th><th>Enviar o link</th></tr>${convs.map(c => {
       const ativo = !c.revogado_em && edita;
-      return `<tr><td><b>${esc(nome(c))}</b><div class="mut">${esc([c.telefone, c.email].filter(Boolean).join(" · "))}</div><div class="mut">por ${esc(c.criado_nome)} em ${dataHora(c.criado_em)}</div></td>
+      return `<tr><td><b>${esc(nome(c))}</b>${c.origem === "portal" ? " " + tag("Oportunidades", "t-acc") : ""}<div class="mut">${esc([c.telefone, c.email].filter(Boolean).join(" · "))}</div><div class="mut">por ${esc(c.criado_nome)} em ${dataHora(c.criado_em)}</div></td>
         <td>${dataBR(c.prazo)}${ativo ? `<div><button class="lnk" data-acao="prazoConvite" data-id="${c.id}">mudar prazo</button></div>` : ""}</td>
         <td>${situacaoConvite(c, r)}</td>
-        <td>${ativo ? `<button class="bt" data-acao="whats" data-id="${c.id}">WhatsApp</button> <button class="bt" data-acao="emailConvite" data-id="${c.id}">E-mail</button>
+        <td>${ativo && c.origem === "portal" ? `<span class="mut">entrou pelas Oportunidades (sem o nome da empresa)</span><div style="margin-top:6px"><button class="lnk" data-acao="cancelarConvite" data-id="${c.id}">encerrar a participação</button></div>` : ativo ? `<button class="bt" data-acao="whats" data-id="${c.id}">WhatsApp</button> <button class="bt" data-acao="emailConvite" data-id="${c.id}">E-mail</button>
           <div style="margin-top:6px"><button class="lnk" data-acao="copiarLink" data-id="${c.id}">copiar link</button> · <button class="lnk" data-acao="cancelarConvite" data-id="${c.id}">cancelar convite</button></div>` : '<span class="mut">—</span>'}</td></tr>`;
     }).join("")}</table></div>` : '<p class="mut">Nenhum convite ainda. Convide fornecedores da base ou um contato novo: ele mesmo informa o CNPJ e envia a proposta, com PDF se quiser. O link vale até o prazo e só mostra a requisição, nunca as outras propostas.</p>'}</div>`;
+}
+// ---- Oportunidades: a requisição aberta para os fornecedores que têm acesso (pago à Nervia); ninguém vê o nome da empresa
+function vOportunidade(r, convs, pode) {
+  const u = unidade(), vieram = convs.filter(c => c.origem === "portal"), resp = vieram.filter(c => c.respondido_em).length;
+  const aberta = r.aberta_fornecedores && ["nova", "cotacao"].includes(r.status);
+  let h = `<div class="card"><h2>Oportunidades <span class="mut">fornecedores cadastrados na Plataforma Nervia</span></h2>`;
+  if (aberta) {
+    const venc = r.aberta_ate < hojeISO();
+    h += `<div class="aviso ${venc ? "warn" : "ok"}">${venc ? `Prazo das Oportunidades terminou em ${dataBR(r.aberta_ate)}.` : `<b>Aberta</b> para os fornecedores de ${esc(r.grupo)} que atendem ${esc(u.uf)}, propostas até <b>${dataBR(r.aberta_ate)}</b>.`}
+      <span class="mut">Aberta por ${esc(r.aberta_nome)} em ${dataHora(r.aberta_em)}.</span><br>${vieram.length ? `${vieram.length} fornecedor(es) entraram, ${resp} enviaram proposta. Eles aparecem nos convites abaixo, com a etiqueta Oportunidades.` : "Nenhum fornecedor entrou ainda."}</div>
+      ${pode ? `<div class="acoes"><button class="bt" data-acao="abrirOp">Mudar o prazo</button><button class="bt" data-acao="fecharOp">Fechar para novos fornecedores</button></div>` : ""}`;
+  } else if (r.aberta_fornecedores) {
+    h += `<p class="mut">A cotação foi encerrada: a requisição não aparece mais nas Oportunidades.${vieram.length ? ` ${vieram.length} fornecedor(es) entraram por elas.` : ""}</p>`;
+  } else if (r.aberta_em) {
+    h += `<p class="mut">Fechada para novos fornecedores. Quem já entrou continua até o prazo do convite.</p>${pode ? '<div class="acoes"><button class="bt" data-acao="abrirOp">Abrir de novo</button></div>' : ""}`;
+  } else {
+    h += `<p class="mut">Abra esta requisição para os fornecedores que têm acesso às Oportunidades da Nervia no grupo ${esc(r.grupo)} e no seu estado. Eles veem o que você precisa, sem o nome da empresa, e mandam a proposta pelo mesmo link de cotação. A escolha continua sua, com as mesmas regras.</p>
+      ${u.uf ? `<div class="acoes"><button class="bt pri" data-acao="abrirOp">Abrir para fornecedores cadastrados</button></div>` : '<p class="mut"><b>Falta a cidade e o estado da unidade:</b> peça à Nervia para cadastrar (Configuração).</p>'}`;
+  }
+  return h + "</div>";
+}
+function dOportunidade(r) {
+  const u = unidade(), padrao = r.aberta_ate && r.aberta_ate >= hojeISO() ? r.aberta_ate : new Date(Date.now() + 5 * 864e5).toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+  const max = new Date(Date.now() + 60 * 864e5).toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+  abrir(`<h3>${r.aberta_fornecedores ? "Prazo das Oportunidades" : "Abrir para fornecedores cadastrados"}</h3>
+    <p class="mut">Os fornecedores com acesso às Oportunidades no grupo <b>${esc(r.grupo)}</b> que atendem <b>${esc(u.uf)}</b> passam a ver esta requisição e podem mandar proposta até o prazo.</p>
+    <div class="aviso info"><b>O que o fornecedor vê:</b> título, especificação, quantidade, grupo, ${esc(u.cidade ? u.cidade + "/" + u.uf : u.uf)}, "precisa receber até" e o prazo das propostas.<br><b>Não vê:</b> o nome da empresa e da unidade, quem pediu, o valor estimado e as outras propostas.<br>Se a especificação tiver o nome da empresa, edite antes de abrir.</div>
+    <label>Propostas até</label><input name="ate" type="date" required value="${padrao}" min="${hojeISO()}" max="${max}">`,
+    f => acao("cmp_abrir_oportunidade", { p_req: r.id, p_ate: f.get("ate") }, r.aberta_fornecedores ? "Prazo das Oportunidades alterado." : "Requisição aberta para os fornecedores cadastrados."),
+    r.aberta_fornecedores ? "Salvar prazo" : "Abrir");
 }
 // mensagem que vai pelo WhatsApp ou e-mail do próprio comprador
 function textoConvite(c, r) {
@@ -407,6 +438,8 @@ function vDetalhe() {
   if (["aprovada", "pedido", "entregue", "concluida"].includes(r.status)) bts.push(`<button class="bt" data-acao="imprimir">Imprimir</button>`);
   if (bts.length) h += `<div class="acoes">${bts.join("")}</div>`;
   h += `</div>`;
+  const podeOp = (comp || tem("gerente")) && ["nova", "cotacao"].includes(r.status);
+  if (podeOp || r.aberta_fornecedores) h += vOportunidade(r, convs, podeOp);
   if (edita || convs.length) h += vConvites(r, convs, edita);
   if (aprovs.length) h += `<div class="card"><h2>Aprovações</h2><div class="hist">${aprovs.map(a => `<div>${dataHora(a.em)} · <b>${esc(a.por_nome)}</b> (${a.etapa === "sistema" ? "automática" : PAPEL_NOME[a.etapa]}) — ${a.decisao === "aprovado" ? tag("aprovado", "t-ok") : tag("reprovado", "t-crit")} ${esc(a.comentario)}</div>`).join("")}</div></div>`;
   if (aval) h += `<div class="card"><h2>Avaliação do fornecedor</h2><div class="mut">${CRITERIOS.map(([k, t]) => `${t} <b>${aval[k]}</b>`).join(" · ")} — por ${esc(aval.avaliador_nome)} em ${dataHora(aval.em)}${aval.comentario ? "<br>" + esc(aval.comentario) : ""}</div></div>`;
@@ -459,6 +492,8 @@ function vConfig() {
       <div><label>Nome</label><input id="cNome" value="${esc(u.nome)}"></div>
       <div><label>CNPJ (liga à auditoria)</label><input id="cCnpj" value="${esc(u.cnpj || "")}"></div>
       <div><label title="Unidades com o mesmo nome de empresa veem quem cadastrou os fornecedores e os avais umas das outras">Empresa (agrupa unidades)</label><input id="cEmp" value="${esc(u.empresa || "")}" placeholder="vazio = empresa só desta unidade"></div>
+      <div><label title="O fornecedor das Oportunidades vê só a cidade e o estado, nunca o nome">Cidade</label><input id="cCidade" value="${esc(u.cidade || "")}" placeholder="ex.: Niterói"></div>
+      <div><label>Estado (UF)</label><select id="cUf"><option value="">—</option>${UFS.map(x => `<option ${x === u.uf ? "selected" : ""}>${x}</option>`).join("")}</select></div>
       <div><label>Mínimo de propostas</label><input id="cMin" type="number" min="1" max="10" value="${u.minimo_propostas}"></div>
       <div><label>Automática até (R$)</label><input id="cAuto" type="number" step="0.01" value="${u.alcada_automatica}"></div>
       <div><label>Gerente até (R$)</label><input id="cGer" type="number" step="0.01" value="${u.alcada_gerente}"></div>
@@ -474,10 +509,60 @@ function vConfig() {
     <div style="align-self:end"><button class="bt pri" data-acao="addMembro">Dar papel</button></div></div>
     <div class="tw" style="margin-top:10px"><table id="tMembros"><tr><td class="mut">Carregando…</td></tr></table></div></div>
   <div class="card"><h2>Grupos de compra</h2><div class="tw"><table><tr><th>Grupo</th><th>O que entra</th></tr>${GRUPOS.map(g => `<tr><td>${esc(g)}</td><td class="mut">${dicaGrupo(g)}</td></tr>`).join("")}</table></div>
-    <div class="grade" style="margin-top:8px"><div><input id="gNovo" placeholder="Novo grupo"></div><div><input id="gDesc" placeholder="O que entra nele (opcional)"></div><div><button class="bt" data-acao="addGrupo">Incluir grupo</button></div></div></div>`;
+    <div class="grade" style="margin-top:8px"><div><input id="gNovo" placeholder="Novo grupo"></div><div><input id="gDesc" placeholder="O que entra nele (opcional)"></div><div><button class="bt" data-acao="addGrupo">Incluir grupo</button></div></div></div>
+  <div class="card"><h2>Oportunidades para fornecedores <span class="mut">acesso pago à Nervia · vale para todas as empresas</span><span class="dir"><button class="bt" data-acao="liberarBase">+ Liberar para fornecedor da base</button></span></h2>
+    <p class="mut">Página pública de cadastro: <a href="/fornecedores/" target="_blank" rel="noopener">nervia.com.br/fornecedores</a>. Confira o pedido, combine o pagamento com o fornecedor e libere o acesso com a validade. Depois mande o link pessoal pelo WhatsApp ou e-mail.</p>
+    <div id="opAdmin" class="mut">Carregando…</div></div>`;
+}
+let OPADM = { solicitacoes: [], acessos: [] };
+const linkAcesso = a => `${location.origin}/fornecedores/oportunidades/#${a.codigo}`;
+const textoAcesso = a => `Olá, ${a.nome}! Seu acesso às Oportunidades da Plataforma Nervia está liberado até ${dataBR(a.valido_ate)}.\n`
+  + `Pelo link abaixo você vê as cotações abertas pelas empresas compradoras nos seus grupos e estados e envia a sua proposta (não precisa de login; o link é só seu, não compartilhe):\n${linkAcesso(a)}\n\nNervia Tecnologia`;
+const SIT_ACESSO = { ativo: ["ativo", "t-ok"], vencido: ["vencido", "t-warn"], cancelado: ["cancelado", "t-mut"] };
+function vOpAdmin() {
+  const pend = OPADM.solicitacoes.filter(s => s.status === "pendente"), outras = OPADM.solicitacoes.filter(s => s.status !== "pendente").slice(0, 20);
+  const ufs = l => l && l.length ? l.join(", ") : "todo o Brasil";
+  return `<h3 style="margin:6px 0">Pedidos de cadastro ${pend.length ? tag(pend.length + " para conferir", "t-warn") : ""}</h3>
+    ${pend.length ? `<div class="tw"><table><tr><th>Fornecedor</th><th>Grupos · estados</th><th>Contato</th><th></th></tr>${pend.map(s => `<tr><td><b>${esc(s.nome)}</b><div class="mut">${s.tipo === "PF" ? "CPF" : "CNPJ"} ${esc(fmtDoc(s))} · S-${s.id} · ${dataHora(s.criado_em)}</div>${s.mensagem ? `<div class="mut">“${esc(s.mensagem)}”</div>` : ""}</td>
+      <td>${s.grupos.map(g => tag(g, "t-acc")).join("")}<div class="mut">${esc(ufs(s.regioes))}</div></td><td>${esc(s.contato)}<div class="mut">${esc(s.telefone)} · ${esc(s.email)}</div></td>
+      <td><button class="bt pri" data-acao="aprovarSol" data-id="${s.id}">Liberar acesso</button><div style="margin-top:6px"><button class="lnk" data-acao="recusarSol" data-id="${s.id}">recusar</button></div></td></tr>`).join("")}</table></div>` : '<p class="mut">Nenhum pedido esperando.</p>'}
+    <h3 style="margin:14px 0 6px">Fornecedores com acesso</h3>
+    ${OPADM.acessos.length ? `<div class="tw"><table><tr><th>Fornecedor</th><th>Validade</th><th>Participação</th><th>Enviar o link</th></tr>${OPADM.acessos.map(a => `<tr><td><b>${esc(a.nome)}</b> ${tag(...SIT_ACESSO[a.situacao])}<div class="mut">${a.grupos.map(esc).join(", ")} · ${esc(ufs(a.regioes))}</div><div class="mut">${a.valor != null ? brl(a.valor) + " · " : ""}${esc(a.obs)}${a.revogado_motivo ? " · cancelado: " + esc(a.revogado_motivo) : ""}</div></td>
+      <td>${dataBR(a.valido_ate)}<div class="mut">liberado por ${esc(a.criado_nome)}${a.renovado_em ? " · renovado " + dataBR(a.renovado_em) : ""}</div>${a.situacao !== "cancelado" ? `<div><button class="lnk" data-acao="renovarAcesso" data-id="${a.id}">renovar / mudar</button> · <button class="lnk" data-acao="cancelarAcesso" data-id="${a.id}">cancelar</button></div>` : ""}</td>
+      <td>${a.participacoes} cotação(ões) · ${a.propostas} proposta(s)<div class="mut">${a.aberto_em ? "último acesso " + dataHora(a.aberto_em) : "ainda não abriu"}</div></td>
+      <td>${a.situacao === "ativo" ? `<button class="bt" data-acao="whatsAcesso" data-id="${a.id}">WhatsApp</button> <button class="bt" data-acao="emailAcesso" data-id="${a.id}">E-mail</button><div style="margin-top:6px"><button class="lnk" data-acao="copiarAcesso" data-id="${a.id}">copiar link</button></div>` : '<span class="mut">—</span>'}</td></tr>`).join("")}</table></div>` : '<p class="mut">Nenhum ainda.</p>'}
+    ${outras.length ? `<details style="margin-top:10px"><summary class="mut">Pedidos já decididos (${outras.length})</summary><div class="hist">${outras.map(s => `<div>S-${s.id} · <b>${esc(s.nome)}</b> — ${s.status === "aprovada" ? tag("aprovado", "t-ok") : tag("recusado", "t-mut") + " " + esc(s.motivo || "")} <span class="mut">${esc(s.decidido_nome || "")} ${dataHora(s.decidido_em)}</span></div>`).join("")}</div></details>` : ""}`;
+}
+async function carregarOpAdmin() {
+  const r = await sb.rpc("cmp_oportunidades_admin"); const el = $("opAdmin"); if (!el) return;
+  if (r.error) { el.textContent = r.error.message; return; }
+  OPADM = r.data; el.classList.remove("mut"); el.innerHTML = vOpAdmin();
+}
+// liberar (pedido da página ou fornecedor da base) e renovar: validade, estados e valor pago
+function dAcesso({ sol, acesso }) {
+  const nomeF = sol ? sol.nome : acesso ? acesso.nome : "", regioes = sol ? sol.regioes : acesso ? acesso.regioes : [];
+  const val = new Date(Date.now() + 30 * 864e5).toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+  const base = FORN.filter(f => f.ativo && !OPADM.acessos.some(a => a.fornecedor_id === f.id && a.situacao !== "cancelado"));
+  abrir(`<h3>${acesso ? "Renovar ou mudar o acesso" : "Liberar acesso às Oportunidades"}</h3>
+    ${sol || acesso ? `<p><b>${esc(nomeF)}</b></p>` : `<label>Fornecedor da base</label><select name="f" required>${base.map(f => `<option value="${f.id}">${esc(f.nome)} — ${esc(f.grupos.join(", "))}</option>`).join("")}</select>`}
+    <div class="grade" style="margin-top:8px"><div><label>Válido até</label><input name="ate" type="date" required min="${hojeISO()}" value="${acesso && acesso.valido_ate >= hojeISO() ? acesso.valido_ate : val}"></div>
+      <div><label>Valor pago (R$, opcional)</label><input name="valor" type="number" min="0" step="0.01" value="${acesso && acesso.valor != null ? acesso.valor : ""}"></div>
+      <div class="tudo"><label>Estados onde entrega (vazio = todo o Brasil)</label><input name="ufs" value="${esc(regioes.join(", "))}" placeholder="ex.: RJ, ES, MG"></div>
+      <div class="tudo"><label>Observação interna</label><input name="obs" value="${esc(acesso ? acesso.obs : "")}" placeholder="ex.: Pix em 22/10, 3 meses"></div></div>
+    <p class="mut">Os grupos ficam os do ${sol ? "pedido" : "cadastro"}${sol ? "" : " (para mudar, edite o fornecedor)"}. Fica registrado na auditoria.</p>`,
+  async f => {
+    const ufs = f.get("ufs").toUpperCase().split(/[^A-Z]+/).filter(Boolean);
+    if (ufs.some(x => !UFS.includes(x))) return msg("err", "Estado desconhecido: use as siglas, separadas por vírgula (ex.: RJ, ES).");
+    const res = await sb.rpc("cmp_acesso_liberar", { p_solicitacao: sol ? sol.id : null, p_fornecedor: sol ? null : acesso ? acesso.fornecedor_id : f.get("f"), p_valido_ate: f.get("ate"),
+      p_grupos: null, p_regioes: ufs, p_valor: f.get("valor") === "" ? null : Number(f.get("valor")), p_obs: f.get("obs") });
+    if (res.error) return msg("err", res.error.message);
+    FORN = checar(await sb.rpc("cmp_fornecedores_lista")); await carregarOpAdmin();
+    msg("ok", acesso ? "Acesso atualizado. O link continua o mesmo." : "Acesso liberado. Agora mande o link pelo WhatsApp ou e-mail.");
+  }, acesso ? "Salvar" : "Liberar acesso");
 }
 async function carregarConfig() {
   if (!ADMIN) return;
+  carregarOpAdmin();
   PERFIS = checar(await sb.from("perfis").select("user_id, email, nome").order("email"));
   MEMBROS_U = checar(await sb.from("cmp_membros").select("user_id, papel").eq("unidade_id", UNID));
   if (!$("mUser")) return;
@@ -634,6 +719,9 @@ document.addEventListener("click", async e => {
     if (jan) jan.location = res.data.signedUrl; else location.href = res.data.signedUrl;
   }
   else if (a === "convidar") dConvite(r);
+  else if (a === "abrirOp") dOportunidade(r);
+  else if (a === "fecharOp") abrir(`<h3>Fechar para novos fornecedores?</h3><p class="mut">A requisição sai das Oportunidades. Quem já entrou continua com o link da cotação até o prazo dele.</p>`,
+    () => acao("cmp_fechar_oportunidade", { p_req: r.id }, "Fechada para novos fornecedores."), "Fechar");
   else if (["whats", "emailConvite", "copiarLink"].includes(a)) {
     const c = DET.convs.find(x => x.id === Number(id)), texto = textoConvite(c, r);
     if (a === "whats") {
@@ -694,10 +782,25 @@ document.addEventListener("click", async e => {
   else if (a === "cancelar") abrir(`<h3>Cancelar a requisição #${r.id}?</h3><label>Motivo</label><textarea name="m" required minlength="5"></textarea>`, f => acao("cmp_cancelar", { p_req: r.id, p_motivo: f.get("m") }, "Requisição cancelada."), "Cancelar requisição");
   else if (a === "imprimir") window.print();
   else if (a === "novoForn") dFornecedor();
+  else if (a === "aprovarSol") dAcesso({ sol: OPADM.solicitacoes.find(s => s.id === Number(id)) });
+  else if (a === "liberarBase") dAcesso({});
+  else if (a === "renovarAcesso") dAcesso({ acesso: OPADM.acessos.find(x => x.id === Number(id)) });
+  else if (a === "recusarSol") { const s = OPADM.solicitacoes.find(x => x.id === Number(id));
+    abrir(`<h3>Recusar o pedido de ${esc(s.nome)}?</h3><label>Motivo</label><textarea name="m" required minlength="5"></textarea><p class="mut">Avise o fornecedor pelo contato informado. Fica registrado na auditoria.</p>`,
+      async f => { const res = await sb.rpc("cmp_solicitacao_recusar", { p_id: s.id, p_motivo: f.get("m") }); if (res.error) return msg("err", res.error.message); await carregarOpAdmin(); msg("ok", "Pedido recusado."); }, "Recusar"); }
+  else if (a === "cancelarAcesso") { const x = OPADM.acessos.find(y => y.id === Number(id));
+    abrir(`<h3>Cancelar o acesso de ${esc(x.nome)}?</h3><p class="mut">O link das Oportunidades para de funcionar na hora. As propostas já enviadas continuam nas cotações.</p><label>Motivo</label><textarea name="m" required minlength="5"></textarea>`,
+      async f => { const res = await sb.rpc("cmp_acesso_revogar", { p_id: x.id, p_motivo: f.get("m") }); if (res.error) return msg("err", res.error.message); await carregarOpAdmin(); msg("ok", "Acesso cancelado."); }, "Cancelar acesso"); }
+  else if (["whatsAcesso", "emailAcesso", "copiarAcesso"].includes(a)) {
+    const x = OPADM.acessos.find(y => y.id === Number(id)), texto = textoAcesso(x);
+    if (a === "whatsAcesso") window.open(`https://wa.me/${telWhats(x.telefone)}?text=${encodeURIComponent(texto)}`, "_blank", "noopener");
+    else if (a === "emailAcesso") window.open(`mailto:${encodeURIComponent(x.email)}?subject=${encodeURIComponent("Seu acesso às Oportunidades — Plataforma Nervia")}&body=${encodeURIComponent(texto)}`, "_blank");
+    else { try { await navigator.clipboard.writeText(linkAcesso(x)); msg("ok", "Link copiado."); } catch { abrir(`<h3>Link das Oportunidades</h3><input readonly value="${esc(linkAcesso(x))}" onfocus="this.select()">`, () => {}, "Fechar"); } }
+  }
   else if (a === "editForn") dFornecedor(FORN.find(f => f.id === id));
   else if (a === "aval") { const f = FORN.find(x => x.id === id), dar = b.dataset.dar === "1"; acao("cmp_aval", { p_fornecedor: id, p_unidade: UNID, p_dar: dar }, dar ? `Aval dado a ${f.nome}.` : `Aval retirado de ${f.nome}.`); }
   else if (a === "salvarUnidade") {
-    const u = { nome: $("cNome").value.trim(), cnpj: $("cCnpj").value.replace(/\D/g, "") || null, empresa: ($("cEmp")?.value || "").trim(), minimo_propostas: Number($("cMin").value), alcada_automatica: Number($("cAuto").value),
+    const u = { nome: $("cNome").value.trim(), cnpj: $("cCnpj").value.replace(/\D/g, "") || null, empresa: ($("cEmp")?.value || "").trim(), cidade: ($("cCidade")?.value || "").trim(), uf: $("cUf")?.value || "", minimo_propostas: Number($("cMin").value), alcada_automatica: Number($("cAuto").value),
       alcada_gerente: Number($("cGer").value), ativo: $("cAtivo").value === "1",
       pesos: { preco: Number($("pPreco").value), prazo: Number($("pPrazo").value), pagamento: Number($("pPag").value), qualidade: Number($("pQual").value) } };
     if (u.pesos.preco + u.pesos.prazo + u.pesos.pagamento + u.pesos.qualidade !== 100) return msg("err", "Os quatro pesos precisam somar 100.");

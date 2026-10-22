@@ -6,7 +6,7 @@
 // "Recomeçar" apaga e volta ao início. Usado por /demo/compras/ e /demo/cotacao/ (gerados por divulgacao/demo/gerar.py).
 (function () {
   "use strict";
-  const CHAVE = "nervia_demo_compras_v4", CHAVE_PAPEL = "nervia_demo_compras_papel";
+  const CHAVE = "nervia_demo_compras_v5", CHAVE_PAPEL = "nervia_demo_compras_papel";
   // localStorage quando houver; sem ele (janela anônima restrita), memória da própria página
   const MEM = {};
   const ls = {
@@ -45,7 +45,7 @@
     return {
       seq: { req: 1000, prop: 0, aprov: 0, aval: 0, hist: 0, conv: 0 },
       perfis: Object.values(PESSOAS).map((p) => ({ user_id: p.id, email: p.email, nome: p.nome, admin: false })),
-      unidades: [{ id: UNID, nome: "Vale Verde Distribuidora", cnpj: null, minimo_propostas: 3, alcada_automatica: 5000, alcada_gerente: 50000,
+      unidades: [{ id: UNID, nome: "Vale Verde Distribuidora", cnpj: null, cidade: "Campinas", uf: "SP", minimo_propostas: 3, alcada_automatica: 5000, alcada_gerente: 50000,
         pesos: { preco: 40, prazo: 30, pagamento: 20, qualidade: 10 }, ativo: true, criado_em: "2026-01-05T12:00:00Z" }],
       membros: Object.entries(PESSOAS).map(([papel, p]) => ({ user_id: p.id, unidade_id: UNID, papel })),
       grupos: [
@@ -364,12 +364,34 @@
       registrar(c.requisicao_id, c.fornecedor_id, "convite_cancelado", `Convite de ${c.fornecedor_id ? forn(c.fornecedor_id).nome : c.contato_nome} cancelado: o link deixa de funcionar`);
       return null;
     },
+    // Oportunidades: a requisição aberta para os fornecedores com acesso pago à Nervia (eles não veem o nome da empresa)
+    cmp_abrir_oportunidade(a) {
+      const r = reqPara(a.p_req, ["comprador", "gerente"], ["nova", "cotacao"]), u = unidade();
+      if (!u.uf) falha(`Antes, a Nervia precisa cadastrar a cidade e o estado de ${u.nome} (o fornecedor vê só a cidade e o estado, nunca o nome da empresa).`);
+      if (!a.p_ate || a.p_ate < hoje()) falha("O prazo para receber propostas precisa ser hoje ou depois.");
+      if (a.p_ate > diaMais(60)) falha("O prazo pode ser de no máximo 60 dias.");
+      const ja = r.aberta_fornecedores, ant = r.aberta_ate;
+      Object.assign(r, { aberta_fornecedores: true, aberta_ate: a.p_ate, aberta_nome: nomeAtual(), aberta_em: agoraISO() });
+      if (r.status === "nova") r.status = "cotacao";
+      S.convites.filter((c) => c.requisicao_id === r.id && c.origem === "portal" && !c.revogado_em).forEach((c) => (c.prazo = a.p_ate));
+      registrar(r.id, null, ja ? "oportunidade_prazo" : "oportunidade_aberta", ja ? `Prazo das Oportunidades mudou de ${dataBR(ant)} para ${dataBR(a.p_ate)}`
+        : `Aberta para os fornecedores cadastrados nas Oportunidades (grupo ${r.grupo}, ${u.cidade}/${u.uf}), propostas até ${dataBR(a.p_ate)}`);
+      return null;
+    },
+    cmp_fechar_oportunidade(a) {
+      const r = reqPara(a.p_req, ["comprador", "gerente"], ["nova", "cotacao", "aprovacao", "aprovada", "reprovada"]);
+      if (!r.aberta_fornecedores) return null;
+      r.aberta_fornecedores = false;
+      registrar(r.id, null, "oportunidade_fechada", "Fechada para novos fornecedores das Oportunidades (quem já entrou continua até o prazo do convite)");
+      return null;
+    },
     cmp_cotacao_ler(a) {
       const c = convitePorCodigo(a.p_codigo), r = req(c.requisicao_id), f = c.fornecedor_id ? forn(c.fornecedor_id) : null;
       const p = f ? S.propostas.find((x) => x.requisicao_id === r.id && x.fornecedor_id === f.id) : null;
-      if (!c.aberto_em) { c.aberto_em = agoraISO(); registrar(r.id, c.fornecedor_id, "convite_aberto", "Fornecedor abriu o link do convite", {}, (f ? f.nome : c.contato_nome || "Fornecedor") + " (pelo link)"); }
+      if (!c.aberto_em) { c.aberto_em = agoraISO(); registrar(r.id, c.fornecedor_id, "convite_aberto", "Fornecedor abriu o link do convite", {}, (f ? f.nome : c.contato_nome || "Fornecedor") + (c.origem === "portal" ? " (Oportunidades)" : " (pelo link)")); }
       return {
-        situacao: situacao(c, r), prazo: c.prazo, unidade: unidade().nome,
+        situacao: situacao(c, r), prazo: c.prazo, origem: c.origem || "comprador",
+        unidade: c.origem === "portal" ? `Empresa compradora em ${unidade().cidade}/${unidade().uf}` : unidade().nome,
         requisicao: { numero: r.id, titulo: r.titulo, descricao: r.descricao, grupo: r.grupo, quantidade: r.quantidade, unidade_medida: r.unidade_medida, precisa_ate: r.precisa_ate },
         contato_nome: c.contato_nome,
         fornecedor: f ? { nome: f.nome, tipo: f.tipo, documento: f.tipo === "PJ" ? f.documento : "***" + f.documento.slice(3, 9) + "**" } : null,
@@ -571,6 +593,21 @@
     criar("uniformes", 1, "solicitante", { titulo: "Uniformes para a equipe de limpeza", grupo: "Outros", centro_custo: "Material de limpeza e higiene", quantidade: 24, unidade_medida: "kit",
       valor_estimado: 3600, precisa_ate: diaMaisDe(21), descricao: "Kit com 2 camisas, 2 calças e 1 avental, tamanhos variados (lista com a supervisão)." });
 
+    // Oportunidades: o comprador abre a requisição e um fornecedor com acesso (cadastrado pela Nervia) entra sozinho e manda proposta
+    F("f-bytenorte", "PJ", "38529617000199", "Byte Norte Informática Ltda", ["Informática e tecnologia"], "Luana Prates", "(19) 99731-2121", "vendas@bytenorte.exemplo", em(150), "comprador", 30);
+    Object.assign(S.fornecedores[S.fornecedores.length - 1], { cadastrado_por: null, cadastrado_nome: "", cadastrado_unidade: null, regioes: ["SP", "MG"] });
+    passo(2, 13, "comprador", () => RPC.cmp_abrir_oportunidade({ p_req: R.webcam, p_ate: diaMaisDe(6) }));
+    passo(1, 9, null, () => {
+      const r = req(R.webcam), c = { id: novoId("conv"), requisicao_id: r.id, fornecedor_id: "f-bytenorte", codigo: Array.from({ length: 64 }, () => "0123456789abcdef"[Math.floor(Math.random() * 16)]).join(""),
+        contato_nome: "Luana Prates", telefone: "(19) 99731-2121", email: "vendas@bytenorte.exemplo", prazo: r.aberta_ate, criado_por: null, criado_nome: "Oportunidades (o fornecedor entrou sozinho)",
+        criado_em: agoraISO(), aberto_em: null, respondido_em: null, revogado_em: null, revogado_nome: null, origem: "portal" };
+      S.convites.push(c);
+      registrar(r.id, "f-bytenorte", "oportunidade_participacao", `Byte Norte Informática Ltda entrou pela área de Oportunidades (fornecedor com acesso; prazo até ${dataBR(r.aberta_ate)})`, {}, "Byte Norte Informática Ltda (Oportunidades)");
+      RPC.cmp_cotacao_ler({ p_codigo: c.codigo });
+      RPC.cmp_cotacao_enviar({ p_codigo: c.codigo, p_dados: { preco_unitario: "372", frete: "18", custos_extras: "0", prazo_dias: "5", pagamento: "28 dias", pagamento_dias: "28",
+        obs: "Webcam 1080p com microfone duplo, garantia de 12 meses.", declarante: "Luana Prates", aceite: true } });
+    });
+
     eventos.sort((a, b) => a.t - b.t);
     for (const ev of eventos) {
       RELOGIO = ev.t; EU = ev.papel ? PESSOAS[ev.papel] : null;
@@ -590,7 +627,7 @@
     const r = { id: novoId("req"), unidade_id: UNID, centro_custo: d.centro_custo || "", grupo: d.grupo, titulo: String(d.titulo).trim(), descricao: d.descricao || "",
       quantidade: Number(d.quantidade), unidade_medida: d.unidade_medida || "un", precisa_ate: d.precisa_ate || null, valor_estimado: d.valor_estimado ?? null,
       solicitante: EU.id, solicitante_nome: EU.nome, status: "nova", proposta_escolhida: null, justificativa: "", excecao: "", alcada: null, valor_aprovacao: null,
-      fornecedor_novo: null, cadastrado_pelo_comprador: null, enviado_por: null, enviado_em: null, pedido_em: null, entregue_em: null, criado_em: agoraISO(), atualizado_em: agoraISO() };
+      fornecedor_novo: null, cadastrado_pelo_comprador: null, aberta_fornecedores: false, aberta_ate: null, aberta_nome: "", aberta_em: null, enviado_por: null, enviado_em: null, pedido_em: null, entregue_em: null, criado_em: agoraISO(), atualizado_em: agoraISO() };
     S.requisicoes.push(r);
     registrar(r.id, null, "requisicao_criada", "Requisição criada: " + r.titulo);
   }

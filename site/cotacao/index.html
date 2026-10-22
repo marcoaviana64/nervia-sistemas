@@ -50,6 +50,7 @@ textarea{min-height:70px}
 <body>
 <div class="casca">
   <div class="topo"><div class="marca">OC</div><div><b id="titulo">Pedido de cotação</b><small id="sub">Orçamentos de Compras · Nervia</small></div></div>
+  <p id="voltarOp" class="oculto" style="margin:0 0 10px"><a id="voltarOpLink" href="/fornecedores/oportunidades/">← Voltar às Oportunidades</a></p>
   <div id="aviso" class="centro">Carregando…</div>
   <div id="pagina" class="oculto">
     <div class="card">
@@ -114,7 +115,7 @@ function avisoSituacao(d) {
   const enviada = p ? `Proposta ${p.protocolo} recebida em ${dataHora(p.em)}: ${brl(p.preco_unitario)} por unidade, prazo de ${p.prazo_dias} dias${p.tem_anexo ? ", com PDF" : ""}.` : "";
   const txt = {
     aberto: [p ? "ok" : "info", p ? enviada + "\nSe precisar mudar algo, altere abaixo e envie de novo até " + dataBR(d.prazo) + "." : "Preencha a proposta e envie até " + dataBR(d.prazo) + "."],
-    encerrado: ["warn", `O prazo para enviar terminou em ${dataBR(d.prazo)}.${p ? "\n" + enviada : " Se ainda quiser participar, fale com o comprador."}`],
+    encerrado: ["warn", `O prazo para enviar terminou em ${dataBR(d.prazo)}.${p ? "\n" + enviada : d.origem === "portal" ? "" : " Se ainda quiser participar, fale com o comprador."}`],
     fechado: ["warn", `Esta cotação foi encerrada pelo comprador.${p ? "\n" + enviada : ""}`],
     cancelado: ["crit", "Este convite foi cancelado pelo comprador. Se recebeu outro link, use o mais recente."],
   }[d.situacao];
@@ -135,6 +136,9 @@ function preencher(d) {
   $("prazo").textContent = dataBR(d.prazo);
   $("reqDesc").textContent = r.descricao || ""; $("reqDescCx").classList.toggle("oculto", !r.descricao);
   avisoSituacao(d);
+  // veio pela área de Oportunidades: volta para a lista (o código do acesso fica só nesta aba)
+  if (d.origem === "portal") { let op = ""; try { op = sessionStorage.getItem("nervia-oportunidades") || ""; } catch {}
+    $("voltarOpLink").href = "/fornecedores/oportunidades/" + (/^[0-9a-f]{64}$/.test(op) ? "#" + op : ""); $("voltarOp").classList.remove("oculto"); }
   // empresa: já identificada (convite para fornecedor da base) ou o fornecedor informa aqui
   $("cxEmpresa").classList.toggle("oculto", !!d.fornecedor);
   $("cxIdent").classList.toggle("oculto", !d.fornecedor);
