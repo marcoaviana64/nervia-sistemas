@@ -202,8 +202,44 @@ try:
         ok(int(psql("select count(*) from lin_movimentos", saida=True)) == 3, "só as movimentações válidas foram gravadas")
         ok(not erros, "sem erros de JavaScript (dono)")
 
+        # ---------------------------------------------------------------- dono: produtos
+        psql("insert into lin_codigos values (extract(year from now() at time zone 'America/Sao_Paulo')::int, 235) on conflict (ano) do update set ultimo = 235")
+        pg.on("dialog", lambda d: d.accept())
+        pg.click("#abaProdutos"); pg.wait_for_selector("#plista")
+        ok("3 peças cadastradas" in pg.text_content("#ptotal") and "custo R$" in pg.text_content("#plista").replace("\xa0", " "), "aba Produtos lista o catálogo com custo (Dono)")
+        pg.fill("#pq", "ves-mar"); pg.wait_for_timeout(150)
+        ok(pg.locator("#plista .prod").count() == 1, "busca de produtos por referência"); pg.fill("#pq", "")
+        pg.click("#pnovo"); pg.wait_for_selector("#dlg[open]")
+        for k, v in {"referencia": "SAI-DUN", "descricao": "Saia Duna", "categoria": "Saia", "fornecedor": "Ateliê Fictício", "preco_custo": "80,50", "preco_venda": "1.299,90"}.items():
+            pg.fill(f"#pf_{k}", v)
+        pg.fill("#nv_c", "Areia, Preto"); pg.fill("#nv_t", "P, M"); pg.click("#pfs"); pg.wait_for_timeout(900)
+        ok("Produto cadastrado; 4 variação(ões) nova(s)." in pg.text_content("#dlgf .msg.ok"), "novo produto com cores × tamanhos")
+        ok(psql("select preco_venda || ' ' || preco_custo || ' ' || codigo_barras from lin_produtos where referencia = 'SAI-DUN'", saida=True).endswith("0000236")
+           and psql("select preco_venda || ' ' || preco_custo from lin_produtos where referencia = 'SAI-DUN'", saida=True) == "1299.90 80.50",
+           "preços com vírgula gravados certo e código de barras automático")
+        pg.fill('#dlgf [data-e="cor"]', "Areia"); pg.fill('#dlgf [data-e="tamanho"]', "M"); pg.fill('#dlgf [data-e="edicao"]', "Bordada"); pg.fill('#dlgf [data-e="preco_venda"]', "1.590,00")
+        pg.click("#espadd"); pg.wait_for_timeout(800)
+        ok("Peça especial acrescentada" in pg.text_content("#dlgf") and psql("select preco_venda || ' ' || (codigo_barras like '%0000237') from lin_variantes where edicao = 'Bordada' and cor = 'Areia'", saida=True) == "1590.00 true",
+           "peça especial com preço e código próprios")
+        vid = psql("select id from lin_variantes v where cor = 'Preto' and tamanho = 'P' and produto_id = (select id from lin_produtos where referencia = 'SAI-DUN')", saida=True)
+        pg.click(f'[data-vativo="{vid}"]'); pg.wait_for_timeout(700)
+        ok(psql(f"select ativo from lin_variantes where id = '{vid}'", saida=True) == "f" and "inativa" in pg.text_content("#dlgf"), "desativar variação")
+        pg.click(f'[data-vexcluir="{vid}"]'); pg.wait_for_timeout(700)
+        ok(psql(f"select count(*) from lin_variantes where id = '{vid}'", saida=True) == "0", "excluir variação sem histórico")
+        pg.screenshot(path=os.path.join(SAIDA, "linum_produto.png"), full_page=True)
+        pg.fill("#pf_referencia", "ves-mar"); pg.click("#pfs"); pg.wait_for_timeout(600)
+        ok("Já existe um produto com a referência" in pg.text_content("#dlgf .msg.err"), "referência repetida: erro no formulário")
+        pg.click("#pfx"); pg.wait_for_timeout(300)
+        ok(pg.locator("#plista .prod").count() == 4 and "Saia Duna" in pg.text_content("#plista"), "lista atualizada ao fechar")
+        pg.click('[data-ex="10000000-0000-0000-0000-000000000001"]'); pg.wait_for_timeout(600)
+        ok("não pode ser excluída" in pg.text_content("#msg"), "peça com movimentação não se exclui")
+        pg.click('.barra [data-v="estoque"]'); pg.click("#fzero"); pg.fill("#fq", "duna"); pg.wait_for_timeout(300)
+        ok(any("Saia Duna @ Gávea" in x and "Areia M · Bordada=0 un." in x for x in chips(pg)), "produto novo aparece no estoque para lançar as quantidades")
+        ok(not erros, "sem erros de JavaScript (produtos)")
+
         # ---------------------------------------------------------------- vendedora: só consulta, sem custo
         pg, erros = entrar(b, "vendedora"); abrir(pg)
+        ok(not pg.is_visible("#abaProdutos"), "vendedora não vê a aba Produtos")
         ok("só consulta" in pg.text_content("#quem") and pg.locator("button.chip").count() == 0 and pg.locator("div.chip").count() > 0, "vendedora: quadrados sem clique")
         ok(not any("custo" in r or "151.23" in r for r in pg.respostas), "vendedora não recebe preço de custo")
         r = pg.evaluate("""async () => { const c = window.NERVIA_CONFIG; const s = supabase.createClient(c.SUPABASE_URL, c.SUPABASE_ANON_KEY);

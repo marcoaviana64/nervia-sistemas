@@ -1065,6 +1065,73 @@ set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
 select lin_membro_salvar('00000000-0000-0000-0000-00000000000b', '');
 select pg_temp.ok((select count(*) = 1 from auditoria where acao = 'linum_papel_retirado'), 'linum: papel retirado auditado');
+-- Sistema Linum: Produtos
+reset role;
+insert into lin_codigos values (extract(year from now() at time zone 'America/Sao_Paulo')::int, 235)
+  on conflict (ano) do update set ultimo = 235;   -- continua a numeração do sistema antigo
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select lin_membro_salvar('00000000-0000-0000-0000-00000000000b', 'dono');
+reset role; insert into app_acessos values ('00000000-0000-0000-0000-00000000000c', 'linum'); set role authenticated;
+select lin_membro_salvar('00000000-0000-0000-0000-00000000000c', 'vendedora', (select v from lin_ids where k = 'gav'));
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+create temp table lin_p (k text primary key, v uuid); reset role; grant all on lin_p to authenticated; set role authenticated;
+insert into lin_p values ('saia', lin_produto_salvar('{"referencia":"SAI01","descricao":"Saia Duna","categoria":"Saia","fornecedor":"Ateliê X","preco_custo":"80.5","preco_venda":"299.9"}'));
+select pg_temp.ok((select codigo_barras = extract(year from now() at time zone 'America/Sao_Paulo')::int || '0000236' and preco_venda = 299.9 and ativo
+  from lin_produtos where id = (select v from lin_p where k = 'saia')), 'linum produtos: código de barras automático continua a numeração (ano + 7 dígitos)');
+select pg_temp.erro2($$select lin_produto_salvar('{"referencia":"sai01","descricao":"Outra"}')$$, 'Já existe um produto com a referência', 'linum produtos: referência repetida recusada (maiúsculas/minúsculas)');
+select pg_temp.erro2($$select lin_produto_salvar('{"referencia":"X1","descricao":" "}')$$, 'Informe a descrição', 'linum produtos: descrição obrigatória');
+select pg_temp.erro2($$select lin_produto_salvar('{"referencia":"X1","descricao":"X","preco_venda":"-1"}')$$, 'não pode ser negativo', 'linum produtos: preço negativo recusado');
+select lin_produto_salvar(jsonb_build_object('id', (select v from lin_p where k = 'saia'), 'referencia', 'SAI01', 'descricao', 'Saia Duna Longa', 'preco_venda', '319', 'ativo', true));
+select pg_temp.ok((select descricao = 'Saia Duna Longa' and preco_venda = 319 and preco_custo is null and codigo_barras like '%0000236' from lin_produtos where id = (select v from lin_p where k = 'saia')),
+  'linum produtos: edição salva e o código de barras não muda');
+reset role;
+update lin_produtos set codigo_barras = 'X' where referencia = 'SAI01';
+select pg_temp.ok((select codigo_barras like '%0000236' from lin_produtos where referencia = 'SAI01'), 'linum produtos: código de barras não muda nem por fora da tela');
+set role authenticated;
+select pg_temp.ok(lin_variantes_criar((select v from lin_p where k = 'saia'), '{Areia, Preto,Areia}', '{P,M}') = 4
+  and lin_variantes_criar((select v from lin_p where k = 'saia'), '{Areia,Verde}', '{M}') = 1, 'linum produtos: cores × tamanhos criam só as variações que faltam');
+select pg_temp.ok((select count(*) = 5 and bool_and(codigo_barras is null) from lin_variantes where produto_id = (select v from lin_p where k = 'saia')),
+  'linum produtos: variação comum usa o código do produto');
+select pg_temp.erro2($$select lin_variantes_criar((select v from lin_p where k = 'saia'), '{}', '{P}')$$, 'ao menos uma cor', 'linum produtos: sem cor recusado');
+insert into lin_p values ('esp', lin_variante_salvar(jsonb_build_object('produto_id', (select v from lin_p where k = 'saia'), 'cor', 'Areia', 'tamanho', 'M', 'edicao', 'Bordada', 'preco_venda', '450')));
+select pg_temp.ok((select edicao = 'Bordada' and preco_venda = 450 and codigo_barras like '%0000237' from lin_variantes where id = (select v from lin_p where k = 'esp')),
+  'linum produtos: peça especial com preço e código de barras próprios');
+select pg_temp.erro2($$select lin_variante_salvar(jsonb_build_object('produto_id', (select v from lin_p where k = 'saia'), 'cor', 'Areia', 'tamanho', 'M', 'edicao', 'Bordada'))$$,
+  'Já existe Areia M Bordada', 'linum produtos: peça especial repetida recusada');
+select pg_temp.erro2($$select lin_variante_salvar(jsonb_build_object('produto_id', (select v from lin_p where k = 'saia'), 'cor', 'Areia', 'tamanho', 'M'))$$,
+  'Informe a edição', 'linum produtos: peça especial nova exige edição');
+select lin_variante_salvar(jsonb_build_object('id', (select id from lin_variantes where produto_id = (select v from lin_p where k = 'saia') and cor = 'Preto' and tamanho = 'P'),
+  'edicao', 'Pintada', 'preco_venda', '', 'preco_custo', '95'));
+select pg_temp.ok((select edicao = 'Pintada' and preco_venda is null and preco_custo = 95 and codigo_barras like '%0000238' from lin_variantes where cor = 'Preto' and tamanho = 'P'),
+  'linum produtos: variação que vira peça especial ganha código próprio');
+-- excluir / desativar
+select lin_movimentar((select v from lin_p where k = 'esp'), (select v from lin_ids where k = 'gav'), 'entrada', 1);
+select pg_temp.erro2($$select lin_variante_excluir((select v from lin_p where k = 'esp'))$$, 'Desative em vez de excluir', 'linum produtos: variação com movimentação não se exclui');
+select pg_temp.erro2($$select lin_produto_excluir((select v from lin_p where k = 'saia'))$$, 'não pode ser excluída', 'linum produtos: produto com movimentação não se exclui');
+select lin_variante_ativar((select v from lin_p where k = 'esp'), false);
+select pg_temp.ok((select count(*) = 0 from jsonb_array_elements(lin_estoque_ler()->'produtos') p, jsonb_array_elements(p->'variantes') x where x->>'id' = (select v::text from lin_p where k = 'esp')),
+  'linum produtos: variação desativada some do estoque');
+select lin_variante_excluir((select id from lin_variantes where cor = 'Verde'));
+reset role;   -- a auditoria só a equipe Nervia lê
+select pg_temp.ok((select count(*) = 0 from lin_variantes where cor = 'Verde') and (select count(*) = 1 from auditoria where acao = 'linum_variante_excluida'),
+  'linum produtos: variação sem histórico se exclui (com auditoria)');
+set role authenticated;
+insert into lin_p values ('vazio', lin_produto_salvar('{"referencia":"VAZ01","descricao":"Sem uso"}'));
+select lin_variantes_criar((select v from lin_p where k = 'vazio'), '{Cru}', '{U}');
+select lin_produto_excluir((select v from lin_p where k = 'vazio'));
+reset role;
+select pg_temp.ok((select count(*) = 0 from lin_produtos where referencia = 'VAZ01')
+  and (select count(*) = 1 from auditoria where acao = 'linum_produto_excluido') and (select count(*) >= 3 from auditoria where acao in ('linum_produto_criado', 'linum_produto_alterado')),
+  'linum produtos: produto sem histórico se exclui; criar, alterar e excluir auditados');
+set role authenticated;
+-- vendedora não cadastra
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.erro2($$select lin_produto_salvar('{"referencia":"V1","descricao":"V"}')$$, 'Somente o Dono', 'linum produtos: vendedora não cadastra produto');
+select pg_temp.erro2($$select lin_variantes_criar((select v from lin_p where k = 'saia'), '{Azul}', '{G}')$$, 'Somente o Dono', 'linum produtos: vendedora não cria variação');
+select pg_temp.erro2($$select lin_produto_excluir((select v from lin_p where k = 'saia'))$$, 'Somente o Dono', 'linum produtos: vendedora não exclui');
+select pg_temp.erro2($$select lin_proximo_codigo()$$, 'permission', 'linum produtos: numeração só pelas funções');
+reset role;
 reset role;
 set role anon;
 select pg_temp.erro2('select * from apps_vitrine()', 'permission', 'anônimo não vê a vitrine');

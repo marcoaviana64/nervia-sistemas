@@ -80,16 +80,34 @@ dialog h3{margin:0 0 4px;font-size:17px}
 .hist h4{margin:0 0 6px;font-size:13px}
 .hist li{font-size:12.5px;color:var(--ink-soft);margin:3px 0}
 .hist ul{margin:0;padding-left:18px}
+.cabtela{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-bottom:8px}
+.cabtela h2{margin:0;font-size:18px}
+.tag{display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;font-weight:600;background:var(--surface-2);color:var(--ink-soft);margin-left:6px;vertical-align:middle}
+.vtag{display:inline-block;font-size:12px;padding:2px 8px;border:1px solid var(--border);border-radius:7px;margin:2px 4px 2px 0}
+.vtag.off{opacity:.5;text-decoration:line-through}
+.prod .rodape{display:flex;gap:14px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+.lnk{background:none;border:0;padding:0;color:var(--accent);cursor:pointer;font:inherit;font-size:13px;font-weight:600}
+.lnk.perigo{color:var(--crit)}
+.chk{display:inline-flex;gap:6px;align-items:center}
+.grade2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.caixa{border:1px solid var(--border);border-radius:10px;padding:10px;margin-top:12px}
+.caixa h4{margin:0 0 4px;font-size:13px}
+.vlin{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:6px 0;border-top:1px dashed var(--border);font-size:13px}
+.vlin:first-of-type{border-top:0}
+.vlin .acs{display:flex;gap:12px}
+.vlin input{width:110px}
+@media (max-width:520px){.grade2{grid-template-columns:1fr}}
 @media (max-width:520px){.duas{grid-template-columns:1fr}.prod h2{white-space:normal}}
 @media print{.barra,.filtros,.topo,.noprint{display:none!important}body{background:#fff}.prod{break-inside:avoid}}
 </style>
 </head>
 <body>
 <div class="casca">
-  <div class="topo"><div class="marca">LI</div><div><b>Sistema Linum</b><br><span>Estoque das lojas por produto, cor e tamanho</span><br><span data-versao="linum"></span></div></div>
+  <div class="topo"><div class="marca">LI</div><div><b>Sistema Linum</b><br><span>Produtos e estoque das lojas por cor e tamanho</span><br><span data-versao="linum"></span></div></div>
   <div id="aviso" class="centro">Carregando…</div>
   <div id="app" class="oculto">
     <div class="barra">
+      <button class="aba oculto" data-v="produtos" id="abaProdutos">Produtos</button>
       <button class="aba on" data-v="estoque">Estoque</button>
       <button class="aba oculto" data-v="equipe" id="abaEquipe">Equipe</button>
       <div class="dir" id="quem"></div>
@@ -141,6 +159,7 @@ async function iniciar() {
     ADMIN = !!(p && p.admin);
     await carregar();
     $("abaEquipe").classList.toggle("oculto", !ADMIN);
+    $("abaProdutos").classList.toggle("oculto", !dono());
     $("quem").textContent = ADMIN ? "Equipe Nervia (Dono)" : dono() ? "Dono" : "Vendedora · só consulta";
     $("aviso").classList.add("oculto"); $("app").classList.remove("oculto");
     render();
@@ -155,6 +174,7 @@ document.querySelectorAll(".barra .aba").forEach(b => b.onclick = () => { VISTA 
 function render() {
   document.querySelectorAll(".barra .aba").forEach(b => b.classList.toggle("on", b.dataset.v === VISTA));
   if (VISTA === "equipe" && ADMIN) return telaEquipe();
+  if (VISTA === "produtos" && dono()) return telaProdutos();
   telaEstoque();
 }
 
@@ -203,7 +223,7 @@ function lista() {
   $("resumo").textContent = cartoes.length ? `${n(prods.size)} produto(s) · ${n(pecas)} peça(s)${F.loja ? " em " + loja(F.loja).nome : ""}` : "";
   $("lista").innerHTML = cartoes.length ? cartoes.join("") : `<div class="vazio">${PRODUTOS.length
     ? "Nenhum produto com esses filtros." + (F.zerados ? " Desligue “Ocultar zerados” para ver as variações sem peça." : "")
-    : "Nenhum produto cadastrado ainda. A Nervia faz a carga dos produtos do sistema atual."}</div>`;
+    : (dono() ? "Nenhum produto cadastrado ainda. Cadastre as peças na aba Produtos." : "Nenhum produto cadastrado ainda.")}</div>`;
   document.querySelectorAll("#lista button.chip").forEach(b => b.onclick = () => movimentar(b.dataset.p, b.dataset.v, b.dataset.l));
 }
 function cartao(p, l, vars) {
@@ -283,6 +303,166 @@ async function movimentar(pid, vid, lid) {
   if ($("dlg").open && $("mq")) { guardar(); desenhar(); }
 }
 
+// ---------------------------------------------------------------- produtos (Dono)
+let PRODS = [], VARS = [];
+const FP = { q: "", cat: "", cor: "", tam: "", forn: "" };
+async function todas(q) {   // o Supabase devolve no máximo 1000 linhas por consulta
+  const l = [];
+  for (let i = 0; ; i += 1000) { const parte = checar(await q().range(i, i + 999)) || []; l.push(...parte); if (parte.length < 1000) break; }
+  return l;
+}
+async function carregarProdutos() {
+  PRODS = await todas(() => sb.from("lin_produtos").select("*").order("descricao").order("referencia"));
+  VARS = await todas(() => sb.from("lin_variantes").select("*").order("criado_em"));
+}
+const varsDe = pid => VARS.filter(v => v.produto_id === pid).sort(ordemVar);
+// número digitado do jeito brasileiro: "1.234,50" ou "189,9" ou "189.90"
+const numBR = t => { t = String(t || "").trim(); if (!t) return ""; if (t.includes(",")) t = t.replace(/\./g, "").replace(",", "."); return t; };
+const moeda = v => v == null || v === "" ? "" : Number(v).toFixed(2).replace(".", ",");
+const decBR = v => v == null || v === "" ? "" : String(v).replace(".", ",");
+const listaV = t => [...new Set(String(t || "").split(",").map(x => x.trim()).filter(Boolean))];
+async function telaProdutos() {
+  $("tela").innerHTML = '<div class="card">Carregando…</div>';
+  try { await carregarProdutos(); } catch (e) { $("tela").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; return; }
+  const unicos = l => [...new Set(l.filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), "pt-BR"));
+  const opc = (l, sel, rot) => `<option value="">${rot}</option>` + l.map(x => `<option value="${esc(x)}" ${x === sel ? "selected" : ""}>${esc(x)}</option>`).join("");
+  $("tela").innerHTML = `
+    <div class="cabtela"><h2>Produtos <span class="mut" id="ptotal"></span></h2><button class="bt pri" id="pnovo">+ Novo produto</button></div>
+    <div class="filtros">
+      <input id="pq" type="search" placeholder="Buscar por nome, referência ou código de barras" value="${esc(FP.q)}">
+      <select id="pcat" aria-label="Categoria">${opc(unicos(PRODS.map(p => p.categoria)), FP.cat, "Categoria")}</select>
+      <select id="pcor" aria-label="Cor">${opc(unicos(VARS.map(v => v.cor)), FP.cor, "Cor")}</select>
+      <select id="ptam" aria-label="Tamanho">${[`<option value="">Tamanho</option>`, ...[...new Set(VARS.map(v => v.tamanho))].sort(ordemTam).map(x => `<option value="${esc(x)}" ${x === FP.tam ? "selected" : ""}>${esc(x)}</option>`)].join("")}</select>
+      <select id="pforn" aria-label="Fornecedor">${opc(unicos(PRODS.map(p => p.fornecedor)), FP.forn, "Fornecedor")}</select>
+    </div>
+    <div id="plista"></div>`;
+  $("pnovo").onclick = () => editarProduto(null);
+  $("pq").oninput = e => { FP.q = e.target.value; listaProdutos(); };
+  [["pcat", "cat"], ["pcor", "cor"], ["ptam", "tam"], ["pforn", "forn"]].forEach(([id, k]) => $(id).onchange = e => { FP[k] = e.target.value; listaProdutos(); });
+  listaProdutos();
+}
+function listaProdutos() {
+  const termo = FP.q.trim().toLowerCase();
+  const l = PRODS.filter(p => {
+    const vs = varsDe(p.id);
+    if (termo && ![p.descricao, p.referencia, p.codigo_barras, ...vs.map(v => v.codigo_barras)].some(x => String(x || "").toLowerCase().includes(termo))) return false;
+    if (FP.cat && p.categoria !== FP.cat) return false;
+    if (FP.forn && p.fornecedor !== FP.forn) return false;
+    if (FP.cor && !vs.some(v => v.cor === FP.cor)) return false;
+    if (FP.tam && !vs.some(v => v.tamanho === FP.tam)) return false;
+    return true;
+  });
+  $("ptotal").textContent = `· ${n(PRODS.length)} ${PRODS.length === 1 ? "peça cadastrada" : "peças cadastradas"}`;
+  $("plista").innerHTML = l.length ? l.slice(0, 300).map(p => {
+    const vs = varsDe(p.id);
+    return `<div class="prod">
+      <div class="cab"><h2 title="${esc(p.descricao)}">${esc(p.descricao)}${p.ativo ? "" : '<span class="tag">inativo</span>'}</h2>
+        <span class="preco">${brl(p.preco_venda)}</span></div>
+      <div class="info"><span>${esc([p.referencia, p.categoria, p.fornecedor].filter(Boolean).join(" · "))}</span>
+        ${p.codigo_barras ? `<span>· cód. ${esc(p.codigo_barras)}</span>` : ""}${p.preco_custo != null ? `<span>· custo ${brl(p.preco_custo)}</span>` : ""}</div>
+      <div style="margin-top:8px">${vs.length ? vs.map(v => `<span class="vtag ${v.ativo ? "" : "off"}" title="${v.ativo ? "" : "inativa"}">${esc(nomeVar(v))}${v.preco_venda != null ? " · " + brl(v.preco_venda) : ""}</span>`).join("") : '<span class="mut">Sem cores e tamanhos ainda.</span>'}</div>
+      <div class="rodape"><button class="lnk" data-ed="${p.id}">Editar peça</button><button class="lnk perigo" data-ex="${p.id}">Excluir peça</button></div></div>`;
+  }).join("") + (l.length > 300 ? `<div class="mut">Mostrando 300 de ${n(l.length)}. Use a busca para achar os outros.</div>` : "")
+    : `<div class="vazio">${PRODS.length ? "Nenhum produto com esses filtros." : "Catálogo vazio. Cadastre a primeira peça em “+ Novo produto”."}</div>`;
+  document.querySelectorAll("[data-ed]").forEach(b => b.onclick = () => editarProduto(b.dataset.ed));
+  document.querySelectorAll("[data-ex]").forEach(b => b.onclick = async () => {
+    const p = PRODS.find(x => x.id === b.dataset.ex);
+    if (!confirm(`Excluir "${p.descricao}" definitivamente? Só é possível se a peça não tiver nenhuma movimentação nem estoque.`)) return;
+    try { checar(await sb.rpc("lin_produto_excluir", { p_produto: p.id })); msg("ok", "Peça excluída."); await atualizarTudo(); }
+    catch (e) { msg("err", e.message); }
+  });
+}
+async function atualizarTudo() { await carregar(); if (VISTA === "produtos") await telaProdutos(); }
+
+function editarProduto(pid) {
+  const f = $("dlgf");
+  let p = pid ? PRODS.find(x => x.id === pid) : null;
+  let F2 = p ? { referencia: p.referencia, descricao: p.descricao, categoria: p.categoria || "", colecao: p.colecao || "", fornecedor: p.fornecedor || "",
+                 tecido: p.tecido || "", preco_custo: moeda(p.preco_custo), preco_venda: p.preco_venda ? moeda(p.preco_venda) : "", consumo_metros: decBR(p.consumo_metros), ativo: p.ativo }
+             : { referencia: "", descricao: "", categoria: "", colecao: "", fornecedor: "", tecido: "", preco_custo: "", preco_venda: "", consumo_metros: "", ativo: true };
+  let novas = { cores: "", tamanhos: "" }, esp = { cor: "", tamanho: "", edicao: "", preco_venda: "", preco_custo: "" }, editando = null;
+  const campo = (k, rot, extra = "") => `<div><label for="pf_${k}">${rot}</label><input id="pf_${k}" data-k="${k}" value="${esc(F2[k])}" ${extra}></div>`;
+  const ler = () => {
+    f.querySelectorAll("[data-k]").forEach(i => F2[i.dataset.k] = i.type === "checkbox" ? i.checked : i.value);
+    f.querySelectorAll("[data-n]").forEach(i => novas[i.dataset.n] = i.value);
+    f.querySelectorAll("[data-e]").forEach(i => esp[i.dataset.e] = i.value);
+  };
+  const desenhar = (erro, ok) => {
+    const vs = p ? varsDe(p.id) : [];
+    f.innerHTML = `<h3>${p ? "Editar produto" : "Novo produto"}</h3>
+      <div class="campo grade2">${campo("referencia", "Código / Referência")}${campo("categoria", "Categoria")}</div>
+      <div class="campo">${campo("descricao", "Descrição (nome da peça)")}</div>
+      <div class="campo grade2">${campo("colecao", "Coleção")}${campo("fornecedor", "Fornecedor")}</div>
+      <div class="campo">${campo("tecido", "Tecido")}</div>
+      <div class="campo grade2">${campo("preco_custo", "Preço de custo (R$)", 'inputmode="decimal"')}${campo("preco_venda", "Preço de venda (R$)", 'inputmode="decimal"')}</div>
+      <div class="campo">${campo("consumo_metros", "Consumo previsto de tecido (metros por peça)", 'inputmode="decimal"')}</div>
+      <div class="campo"><label>Código de barras</label><input readonly value="${esc(p && p.codigo_barras ? p.codigo_barras : "Gerado automaticamente ao salvar")}"></div>
+      <div class="campo"><label class="chk" style="text-transform:none;font-size:13px;color:var(--ink)"><input type="checkbox" data-k="ativo" ${F2.ativo ? "checked" : ""} style="width:auto"> Ativo (aparece no estoque)</label></div>
+      <div class="caixa"><h4>Cores e tamanhos</h4><div class="mut">Separe por vírgula. Cada cor × tamanho vira uma variação com estoque próprio; as que já existem não se repetem.</div>
+        <div class="campo grade2"><div><label for="nv_c">Cores</label><input id="nv_c" data-n="cores" value="${esc(novas.cores)}" placeholder="Ex.: Areia, Preto"></div>
+          <div><label for="nv_t">Tamanhos</label><input id="nv_t" data-n="tamanhos" value="${esc(novas.tamanhos)}" placeholder="Ex.: P, M, G"></div></div>
+        ${vs.length ? `<div class="campo">${vs.map(v => editando === v.id
+          ? `<div class="vlin"><b>${esc(v.cor)} · ${esc(v.tamanho)}</b>
+              <span><label>Edição</label><input data-x="edicao" value="${esc(v.edicao)}" placeholder="peça comum"></span>
+              <span><label>Venda (R$)</label><input data-x="preco_venda" inputmode="decimal" value="${esc(moeda(v.preco_venda))}" placeholder="do produto"></span>
+              <span><label>Custo (R$)</label><input data-x="preco_custo" inputmode="decimal" value="${esc(moeda(v.preco_custo))}" placeholder="do produto"></span>
+              <span class="acs"><button type="button" class="lnk" data-vsalvar="${v.id}">Salvar</button><button type="button" class="lnk" data-vcancel="1">Cancelar</button></span></div>`
+          : `<div class="vlin"><span>${esc(nomeVar(v))}${v.preco_venda != null ? " · " + brl(v.preco_venda) : ""}${v.codigo_barras ? ` <span class="mut">cód. ${esc(v.codigo_barras)}</span>` : ""}${v.ativo ? "" : '<span class="tag">inativa</span>'}</span>
+              <span class="acs"><button type="button" class="lnk" data-veditar="${v.id}">Preço/edição</button><button type="button" class="lnk" data-vativo="${v.id}">${v.ativo ? "Desativar" : "Reativar"}</button><button type="button" class="lnk perigo" data-vexcluir="${v.id}">Excluir</button></span></div>`).join("")}</div>` : ""}
+      </div>
+      ${p ? `<div class="caixa"><h4>Nova peça especial</h4><div class="mut">Peça única (bordada, pintura artística…) com preço e código de barras próprios. Pode repetir cor e tamanho de outra variação. Preço vazio = preço do produto.</div>
+        <div class="campo grade2"><div><label>Cor</label><input data-e="cor" value="${esc(esp.cor)}"></div><div><label>Tamanho</label><input data-e="tamanho" value="${esc(esp.tamanho)}"></div></div>
+        <div class="campo"><label>Edição</label><input data-e="edicao" value="${esc(esp.edicao)}" placeholder="Ex.: Bordada à mão"></div>
+        <div class="campo grade2"><div><label>Preço de venda (R$)</label><input data-e="preco_venda" inputmode="decimal" value="${esc(esp.preco_venda)}"></div><div><label>Preço de custo (R$)</label><input data-e="preco_custo" inputmode="decimal" value="${esc(esp.preco_custo)}"></div></div>
+        <div class="acoes" style="margin-top:8px"><button type="button" class="bt" id="espadd">Acrescentar peça especial</button></div></div>` : ""}
+      ${erro ? `<div class="msg err">${esc(erro)}</div>` : ""}${ok ? `<div class="msg ok">${esc(ok)}</div>` : ""}
+      <div class="acoes"><button type="button" class="bt" id="pfx">Fechar</button><button type="button" class="bt pri" id="pfs">Salvar produto</button></div>
+      ${p ? '<div class="mut" style="margin-top:8px">Para lançar as quantidades: aba Estoque, desligue “Ocultar zerados” e clique no quadrado vermelho da variação (Entrada).</div>' : ""}`;
+    $("pfx").onclick = () => $("dlg").close();
+    $("pfs").onclick = salvar;
+    const acao = async (fn, okmsg) => { ler(); try { await fn(); await recarregar(); desenhar(null, okmsg); } catch (e) { desenhar(e.message); } };
+    f.querySelectorAll("[data-veditar]").forEach(b => b.onclick = () => { ler(); editando = b.dataset.veditar; desenhar(); });
+    f.querySelectorAll("[data-vcancel]").forEach(b => b.onclick = () => { ler(); editando = null; desenhar(); });
+    f.querySelectorAll("[data-vsalvar]").forEach(b => b.onclick = () => {
+      const x = k => f.querySelector(`[data-x="${k}"]`).value;
+      acao(async () => { checar(await sb.rpc("lin_variante_salvar", { p: { id: b.dataset.vsalvar, edicao: x("edicao"), preco_venda: numBR(x("preco_venda")), preco_custo: numBR(x("preco_custo")) } })); editando = null; }, "Variação atualizada.");
+    });
+    f.querySelectorAll("[data-vativo]").forEach(b => b.onclick = () => {
+      const v = VARS.find(x => x.id === b.dataset.vativo);
+      acao(async () => checar(await sb.rpc("lin_variante_ativar", { p_variante: v.id, p_ativo: !v.ativo })), v.ativo ? "Variação desativada: não aparece mais no estoque." : "Variação reativada.");
+    });
+    f.querySelectorAll("[data-vexcluir]").forEach(b => b.onclick = () => {
+      const v = VARS.find(x => x.id === b.dataset.vexcluir);
+      if (!confirm(`Excluir ${nomeVar(v)} definitivamente?`)) return;
+      acao(async () => checar(await sb.rpc("lin_variante_excluir", { p_variante: v.id })), "Cor/tamanho excluída.");
+    });
+    if ($("espadd")) $("espadd").onclick = () => acao(async () => {
+      checar(await sb.rpc("lin_variante_salvar", { p: { produto_id: p.id, cor: esp.cor, tamanho: esp.tamanho, edicao: esp.edicao, preco_venda: numBR(esp.preco_venda), preco_custo: numBR(esp.preco_custo) } }));
+      esp = { cor: "", tamanho: "", edicao: "", preco_venda: "", preco_custo: "" };
+    }, "Peça especial acrescentada.");
+  };
+  const recarregar = async () => { await carregarProdutos(); if (p) p = PRODS.find(x => x.id === p.id); carregar().catch(() => {}); };
+  const salvar = async () => {
+    ler();
+    const cores = listaV(novas.cores), tams = listaV(novas.tamanhos);
+    if ((cores.length > 0) !== (tams.length > 0)) return desenhar("Para criar variações, informe as cores e os tamanhos.");
+    $("pfs").disabled = true; $("pfs").textContent = "Salvando…";
+    try {
+      const novo = !p;
+      const id = checar(await sb.rpc("lin_produto_salvar", { p: { id: p ? p.id : null, referencia: F2.referencia, descricao: F2.descricao, categoria: F2.categoria,
+        colecao: F2.colecao, fornecedor: F2.fornecedor, tecido: F2.tecido, preco_custo: numBR(F2.preco_custo), preco_venda: numBR(F2.preco_venda),
+        consumo_metros: numBR(F2.consumo_metros), ativo: !!F2.ativo } }));
+      let criadas = 0;
+      if (cores.length) criadas = checar(await sb.rpc("lin_variantes_criar", { p_produto: id, p_cores: cores, p_tamanhos: tams }));
+      novas = { cores: "", tamanhos: "" };
+      await carregarProdutos(); p = PRODS.find(x => x.id === id); carregar().catch(() => {});
+      desenhar(null, (novo ? "Produto cadastrado" : "Produto atualizado") + (cores.length ? `; ${criadas} variação(ões) nova(s)` : "") + ".");
+    } catch (e) { desenhar(e.message); }
+  };
+  desenhar();
+  $("dlg").showModal();
+}
+
 // ---------------------------------------------------------------- equipe (só a equipe Nervia)
 async function telaEquipe() {
   $("tela").innerHTML = '<div class="card">Carregando…</div>';
@@ -305,6 +485,7 @@ async function telaEquipe() {
   });
 }
 
+$("dlg").addEventListener("close", () => { if (VISTA === "produtos" && $("plista")) listaProdutos(); });
 iniciar();
 </script>
 </body>

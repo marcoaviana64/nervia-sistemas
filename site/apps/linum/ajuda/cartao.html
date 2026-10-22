@@ -14,10 +14,11 @@
     <div class="acoes"><a href="manual.html">Manual completo</a><button onclick="print()">Imprimir</button></div>
   </div>
 
-  <p class="lead">Estoque das lojas Gávea e Ipanema por produto, cor e tamanho. O Dono consulta e movimenta; a Vendedora só consulta.</p>
+  <p class="lead">Produtos e estoque das lojas Gávea e Ipanema por cor e tamanho. O Dono cadastra, consulta e movimenta; a Vendedora só consulta o estoque.</p>
 
   <h2>Topo</h2>
   <table>
+    <tr><td>Produtos <span class="eq">DONO</span></td><td>Cadastro das peças, cores, tamanhos e peças especiais.</td></tr>
     <tr><td>Estoque</td><td>A lista de produtos com as peças de cada loja.</td></tr>
     <tr><td>Dono · Vendedora · só consulta</td><td>O seu papel no app (à direita da barra).</td></tr>
   </table>
@@ -52,6 +53,25 @@
     <tr><td>Data · Observação</td><td>Quando aconteceu e o motivo. Vão para o histórico.</td></tr>
     <tr><td>Salvar movimentação</td><td>Grava e atualiza a tela.</td></tr>
     <tr><td>Últimas movimentações</td><td>As 8 mais recentes da variação: data, tipo, quantidade, loja, observação e quem fez.</td></tr>
+  </table>
+
+  <h2>Produtos <span class="eq">DONO</span></h2>
+  <table>
+    <tr><td>Buscar · Categoria · Cor · Tamanho · Fornecedor</td><td>Filtra a lista; a busca acha nome, referência ou código de barras.</td></tr>
+    <tr><td>+ Novo produto</td><td>Abre o cadastro de uma peça nova.</td></tr>
+    <tr><td>Código / Referência · Descrição</td><td>Obrigatórios. A referência não pode repetir.</td></tr>
+    <tr><td>Categoria · Coleção · Fornecedor · Tecido</td><td>Opcionais; viram filtros.</td></tr>
+    <tr><td>Preço de custo · Preço de venda</td><td>Em reais, com vírgula (ex.: 1.299,90). O custo só o Dono vê.</td></tr>
+    <tr><td>Consumo previsto de tecido</td><td>Metros por peça (ex.: 1,5).</td></tr>
+    <tr><td>Código de barras</td><td>Gerado ao salvar (ano + 7 dígitos). Não muda depois.</td></tr>
+    <tr><td>Ativo</td><td>Desmarcado: a peça some do estoque.</td></tr>
+    <tr><td>Cores · Tamanhos</td><td>Separados por vírgula. Cada cor × tamanho vira uma variação; as que já existem não se repetem.</td></tr>
+    <tr><td>Preço/edição</td><td>Preço próprio de uma variação ou a edição que a torna peça especial.</td></tr>
+    <tr><td>Desativar · Reativar</td><td>Esconde a variação do estoque sem apagar o histórico.</td></tr>
+    <tr><td>Excluir</td><td>Só sem movimentação e sem estoque; senão, desative.</td></tr>
+    <tr><td>Nova peça especial</td><td>Cor, tamanho, edição (ex.: Bordada) e preços. Ganha código de barras próprio.</td></tr>
+    <tr><td>Salvar produto · Fechar</td><td>Grava os dados e cria as variações digitadas · fecha o cadastro.</td></tr>
+    <tr><td>Editar peça · Excluir peça</td><td>No cartão do produto. Excluir só sem movimentação e sem estoque.</td></tr>
   </table>
 
   <h2>Equipe <span class="eq">EQUIPE NERVIA</span></h2>

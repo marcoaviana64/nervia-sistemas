@@ -286,6 +286,6 @@ create trigger lin_membros_auditoria after insert or update or delete on public.
 
 -- ---------------------------------------------------------------- cadastro do app (fica fora da vitrine: só da Linum)
 insert into public.apps (id, nome, descricao, url, icone, ordem, cartao_url, manual_url, situacao)
-values ('linum', 'Sistema Linum', 'Estoque das lojas Gávea e Ipanema por produto, cor e tamanho.',
+values ('linum', 'Sistema Linum', 'Produtos e estoque das lojas Gávea e Ipanema por produto, cor e tamanho.',
         '/apps/linum/', 'LI', 80, '/apps/linum/ajuda/cartao.html', '/apps/linum/ajuda/manual.html', 'oculto')
 on conflict (id) do nothing;
