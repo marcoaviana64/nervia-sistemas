@@ -25,7 +25,7 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;",
 const l = (window.NERVIA_VERSOES || {})[app] || [];
 if (nome) { document.getElementById("titulo").textContent = nome + " · Novidades"; document.title = nome + " · Novidades | Nervia"; }
 document.getElementById("lista").innerHTML = l.length
-  ? `<table>${l.map((v, i) => `<tr class="${i ? "" : "atual"}"><td>Versão ${esc(v[0])}<br><span style="font-weight:400">${esc(v[1].split("-").reverse().join("/"))}</span></td><td>${i ? "" : "<b>Versão atual.</b> "}${esc(v[2])}</td></tr>`).join("")}</table>`
+  ? `<table>${l.map((v, i) => `<tr class="${i ? "" : "atual"}"><td>Versão ${esc(v[0])}</td><td>${i ? "" : "<b>Versão atual.</b> "}${esc(v[1])}</td></tr>`).join("")}</table>`
   : '<p class="lead">Ainda não há novidades registradas para este aplicativo.</p>';
 </script>
 <script src="/marca-dagua.js" data-tipo="doc"></script>
