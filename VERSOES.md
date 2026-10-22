@@ -62,4 +62,5 @@ Ao publicar mudança num app: linha nova no topo do app aqui (com a data) e em `
 
 | Versão | Data | O que mudou |
 |---|---|---|
+| 1.1 | 22/10/2026 | Mapa mental do sistema: do acesso ao cadastro, ao estoque e à consulta, numa página para imprimir. |
 | 1.0 | 22/10/2026 | Lançamento: cadastro de produtos (cores, tamanhos, peças especiais e código de barras) e estoque das lojas por produto, cor e tamanho; o Dono registra entrada, saída, transferência e ajuste, com histórico. |
