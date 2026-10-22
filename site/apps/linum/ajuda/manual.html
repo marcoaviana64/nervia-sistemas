@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manual de utilização · Sistema Linum | Nervia</title>
+<link rel="stylesheet" href="/ajuda/ajuda.css">
+</head>
+<body>
+<div class="pagina">
+  <div class="cab">
+    <img src="/img/nervia-logo.png" alt="Nervia">
+    <div><div class="t">Sistema Linum · Manual de utilização</div><div class="s">Produtos e estoque das lojas por cor e tamanho</div></div>
+    <div class="acoes"><a href="cartao.html">Cartão rápido</a><button onclick="print()">Imprimir</button></div>
+  </div>
+
+  <h1>Como usar o Sistema Linum</h1>
+  <p class="lead">O Dono cadastra as peças (cores, tamanhos e peças especiais) e o Sistema Linum mostra quantas peças de cada produto, cor e tamanho há em cada loja (Gávea e Ipanema). O Dono também registra o que entra, sai, muda de loja ou é corrigido na contagem; tudo fica num histórico. A Vendedora só consulta e não vê preço de custo.</p>
+
+  <ul class="indice">
+    <li><a href="#produtos">0. Cadastrar produtos, cores e tamanhos (Dono)</a></li>
+    <li><a href="#consultar">1. Consultar o estoque</a></li>
+    <li><a href="#movimentar">2. Registrar entrada, saída, transferência ou ajuste (Dono)</a></li>
+    <li><a href="#historico">3. Ver o histórico de uma variação (Dono)</a></li>
+    <li><a href="#equipe">4. Definir quem é Dono e quem é Vendedora (equipe Nervia)</a></li>
+    <li><a href="#problemas">5. Mensagens e o que fazer</a></li>
+  </ul>
+
+  <h2 id="produtos">0. Cadastrar produtos, cores e tamanhos (Dono)</h2>
+  <ol>
+    <li>Abra a aba <b>Produtos</b> e clique em <b>+ Novo produto</b> (ou em <b>Editar peça</b> num produto da lista).</li>
+    <li>Preencha <b>Código / Referência</b> e <b>Descrição</b> (obrigatórios) e o que tiver: categoria, coleção, fornecedor, tecido, preços (com vírgula, ex.: 1.299,90) e consumo de tecido.</li>
+    <li>Em <b>Cores</b> e <b>Tamanhos</b>, digite separado por vírgula (ex.: Areia, Preto e P, M, G). Ao salvar, cada cor × tamanho vira uma variação. Para acrescentar outra cor depois, digite só a nova cor e os tamanhos: as que já existem não se repetem.</li>
+    <li>Clique em <b>Salvar produto</b>. O código de barras é gerado sozinho (ano + 7 dígitos) e não muda depois.</li>
+    <li><b>Peça especial</b> (bordada, pintura artística…): no mesmo cadastro, em <b>Nova peça especial</b>, informe cor, tamanho, a edição e, se for diferente, o preço. Ela ganha código de barras próprio e aparece no estoque com a edição ao lado do tamanho.</li>
+    <li>Variação que não se vende mais: <b>Desativar</b> (some do estoque, o histórico fica). <b>Excluir</b> só quando nunca teve movimentação nem estoque.</li>
+    <li>Para lançar as quantidades da peça nova: aba <b>Estoque</b>, desligue <b>Ocultar zerados</b>, procure a peça e clique no quadrado vermelho da variação → <b>Entrada</b>.</li>
+  </ol>
+
+  <h2 id="consultar">1. Consultar o estoque</h2>
+  <ol>
+    <li>Entre na Área do Cliente e abra <b>Sistema Linum</b>.</li>
+    <li>Cada cartão é um produto numa loja: nome, preço de venda, referência, categoria e o selo da loja.</li>
+    <li>Os quadrados mostram cor, tamanho e quantidade. Verde = tem peça; vermelho = zerado. Um traço separa os tamanhos. Peça especial (bordada, pintada…) mostra a edição ao lado do tamanho e, se tiver preço próprio, o preço.</li>
+    <li>Para achar uma peça, digite parte do nome ou da referência em <b>Buscar</b>. Para ver só uma loja, uma categoria, uma cor ou um tamanho, use as listas ao lado.</li>
+    <li>Com <b>Ocultar zerados: ativo</b> (padrão), aparecem só as variações com peça. Clique para deixar <b>inativo</b> e ver também as zeradas.</li>
+    <li>Embaixo dos filtros, o total de produtos e de peças do que está na tela.</li>
+  </ol>
+
+  <h2 id="movimentar">2. Registrar entrada, saída, transferência ou ajuste (Dono)</h2>
+  <ol>
+    <li>Clique no quadrado da variação (cor e tamanho) na loja.</li>
+    <li>Escolha o tipo:
+      <ul>
+        <li><b>Entrada</b>: peças novas chegando. Soma na loja.</li>
+        <li><b>Saída</b>: uso interno, perda, beneficiamento. Tira da loja; não aceita mais do que a loja tem.</li>
+        <li><b>Transferência</b>: escolha a loja de origem e a de destino. Tira de uma e põe na outra.</li>
+        <li><b>Ajuste</b>: digite a quantidade certa (por exemplo, depois de contar a arara). O app guarda quanto era e quanto ficou.</li>
+      </ul>
+    </li>
+    <li>Confira a loja (entre parênteses, quanto ela tem hoje), a quantidade, a data e escreva a observação (o motivo).</li>
+    <li>Clique em <b>Salvar movimentação</b>. A tela se atualiza e mostra "Estoque atualizado".</li>
+  </ol>
+  <p>Vendas, reservas e transferências com confirmação da outra loja chegam ao Sistema Linum nas próximas etapas.</p>
+
+  <h2 id="historico">3. Ver o histórico de uma variação (Dono)</h2>
+  <ol>
+    <li>Clique no quadrado da variação.</li>
+    <li>Embaixo do formulário, <b>Últimas movimentações desta variação</b> mostra as 8 mais recentes: data, tipo, quantidade (no ajuste, "antes → depois"), loja, observação e quem fez.</li>
+    <li>O histórico não pode ser alterado nem apagado. Um lançamento errado se corrige com outro (por exemplo, um ajuste para a quantidade certa).</li>
+  </ol>
+
+  <h2 id="equipe">4. Definir quem é Dono e quem é Vendedora (equipe Nervia)</h2>
+  <ol>
+    <li>Crie o login na Área do Cliente → Administração → Logins e marque o app <b>Sistema Linum</b>.</li>
+    <li>No app, abra <b>Equipe</b>. Aparecem os logins com o app liberado.</li>
+    <li>Escolha o <b>Papel</b> (Dono ou Vendedora) e, para a vendedora, a <b>Loja</b>. Clique em <b>Salvar</b>. A troca fica na auditoria.</li>
+    <li>Para tirar alguém do app, escolha <b>Sem papel</b> ou retire o app do login na Área do Cliente.</li>
+  </ol>
+
+  <h2 id="problemas">5. Mensagens e o que fazer</h2>
+  <table>
+    <tr><th>Mensagem</th><th>O que fazer</th></tr>
+    <tr><td>Entre na Área do Cliente para ver o estoque</td><td>A sessão expirou: entre de novo em nervia.com.br/cliente.</td></tr>
+    <tr><td>Seu login não tem acesso ao Sistema Linum</td><td>O login ainda não tem papel (Dono ou Vendedora). Fale com a Nervia.</td></tr>
+    <tr><td>Nenhum produto cadastrado ainda</td><td>Cadastre na aba Produtos (Dono).</td></tr>
+    <tr><td>Já existe um produto com a referência …</td><td>A referência já é de outra peça: use outra ou edite a peça que já existe.</td></tr>
+    <tr><td>Esta cor/tamanho tem movimentações de estoque. Desative em vez de excluir.</td><td>Use <b>Desativar</b>: a variação some do estoque e o histórico fica.</td></tr>
+    <tr><td>Esta peça tem movimentações registradas e não pode ser excluída</td><td>Desmarque <b>Ativo</b> no cadastro da peça.</td></tr>
+    <tr><td>… ainda tem estoque. Zere o estoque antes de excluir.</td><td>Faça um Ajuste para 0 na aba Estoque e exclua de novo.</td></tr>
+    <tr><td>Informe a edição da peça especial</td><td>Peça especial precisa da edição (ex.: Bordada).</td></tr>
+    <tr><td>Nenhum produto com esses filtros</td><td>Limpe a busca e os filtros ou desligue "Ocultar zerados".</td></tr>
+    <tr><td>Estoque insuficiente: a loja tem N peça(s)</td><td>A saída é maior que o estoque da loja. Confira a quantidade ou faça um ajuste se a contagem estiver errada.</td></tr>
+    <tr><td>Estoque insuficiente na loja de origem</td><td>A transferência é maior que o que a loja de origem tem.</td></tr>
+    <tr><td>Escolha lojas de origem e destino diferentes</td><td>Na transferência, a loja de destino precisa ser outra.</td></tr>
+    <tr><td>A loja já tem N peça(s): nada a ajustar</td><td>No ajuste, a nova quantidade é igual à atual.</td></tr>
+    <tr><td>Informe uma quantidade inteira maior que zero</td><td>Digite um número inteiro (1 ou mais; no ajuste, 0 ou mais).</td></tr>
+    <tr><td>Somente o Dono pode …</td><td>Vendedora só consulta. Se precisar movimentar, peça ao Dono.</td></tr>
+    <tr><td>Libere o app Sistema Linum para este login … <span class="eq">EQUIPE NERVIA</span></td><td>Marque o app no login (Área do Cliente → Administração → Logins) e tente de novo.</td></tr>
+    <tr><td>Escolha a loja da vendedora <span class="eq">EQUIPE NERVIA</span></td><td>Vendedora precisa de loja.</td></tr>
+  </table>
+  <div class="rodape">Dúvidas: WhatsApp (21) 96686-9374 · atendimento@nervia.com.br<br>Nervia Tecnologia · Manual do app Sistema Linum · atualizado em 22/10/2026</div>
+</div>
+<script src="/marca-dagua.js" data-tipo="doc"></script>
+</body>
+</html>

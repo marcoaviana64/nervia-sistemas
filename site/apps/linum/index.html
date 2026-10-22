@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Sistema Linum | Nervia</title>
+<script src="/config.js"></script>
+<script src="/versoes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<style>
+/* Sistema Linum (app "linum", tabelas lin_): o sistema da LINUM Roupas de Linho trazido do Lovable para a Plataforma.
+   Primeira parte: Estoque das lojas por produto, cor e tamanho. Dono consulta e movimenta; Vendedora só consulta. */
+:root{
+  --bg:#f3f6f8;--surface:#fff;--surface-2:#eaf1f4;--border:#dde6ec;--ink:#0f1b2d;--ink-soft:#4f5f73;--ink-faint:#8796a8;
+  --accent:#107e99;--accent-soft:#e3f3f7;--primary:#0b2545;
+  --ok:#1d7f46;--ok-bg:#e6f4ec;--ok-bd:#bfe3cc;--crit:#b3261e;--crit-bg:#fbeaea;--crit-bd:#f1c9c6;--info:#2568a8;--info-bg:#e7f1fa;
+  color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0c1620;--surface:#122130;--surface-2:#18293a;--border:#24394e;--ink:#eef4f8;--ink-soft:#b3c3d1;--ink-faint:#7f93a6;
+  --accent:#3fc1dd;--accent-soft:rgba(63,193,221,.15);--primary:#cfe3f0;
+  --ok:#43c07e;--ok-bg:rgba(67,192,126,.14);--ok-bd:rgba(67,192,126,.35);--crit:#f07a72;--crit-bg:rgba(240,122,114,.14);--crit-bd:rgba(240,122,114,.35);
+  --info:#5eabe8;--info-bg:rgba(94,171,232,.14);color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.oculto{display:none!important}
+.casca{max-width:1200px;margin:0 auto;padding:12px 16px 40px}
+.topo{display:flex;align-items:center;gap:12px;padding:6px 0 10px}
+.topo .marca{width:34px;height:34px;border-radius:10px;background:linear-gradient(155deg,#107e99,#0b2545);color:#fff;display:grid;place-items:center;font-weight:800;font-size:.82rem}
+.topo span{color:var(--ink-soft);font-size:.8rem}
+.embutido .topo{display:none}
+.barra{display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:6px 8px;margin-bottom:12px}
+.barra .aba{border:0;background:none;padding:8px 12px;border-radius:8px;cursor:pointer;font:inherit;color:var(--ink-soft)}
+.barra .aba.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.barra .dir{margin-left:auto;font-size:12px;color:var(--ink-soft);padding-right:4px}
+select,input{font:inherit;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink);width:100%}
+label{display:block;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);margin-bottom:3px}
+.bt{font:inherit;font-size:13px;font-weight:600;padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--ink);cursor:pointer;white-space:nowrap}
+.bt:hover{border-color:var(--ink-soft)}.bt.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.bt:disabled{opacity:.5;cursor:not-allowed}
+.msg{margin:8px 0;padding:9px 12px;border-radius:8px;font-size:13px;white-space:pre-line}
+.msg.ok{background:var(--ok-bg);color:var(--ok)}.msg.err{background:var(--crit-bg);color:var(--crit)}.msg.info{background:var(--info-bg);color:var(--info)}
+.filtros{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+.filtros input{flex:1 1 240px}.filtros select{width:auto;flex:0 1 auto;max-width:100%}
+.pilula{font:inherit;font-size:12.5px;padding:7px 12px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--ink-soft);cursor:pointer}
+.pilula.on{background:var(--primary);border-color:var(--primary);color:var(--bg);font-weight:600}
+.resumo{font-size:12.5px;color:var(--ink-soft);margin:4px 2px 12px}
+.prod{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px}
+.prod .cab{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.prod h2{margin:0;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prod .preco{color:var(--accent);font-weight:700;white-space:nowrap}
+.prod .info{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px;color:var(--ink-soft);margin-top:2px}
+.selo{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--primary);color:var(--bg)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center}
+.sep{width:1px;align-self:stretch;background:var(--border);margin:0 2px}
+.chip{min-width:86px;border-radius:9px;border:1px solid var(--ok-bd);background:var(--ok-bg);color:var(--ok);padding:7px 10px;text-align:center;font:inherit;line-height:1.25}
+.chip.zero{border-color:var(--crit-bd);background:var(--crit-bg);color:var(--crit)}
+button.chip{cursor:pointer}button.chip:hover{filter:brightness(.96)}
+.chip b{display:block;font-size:12.5px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip small{display:block;font-size:11.5px;opacity:.85}
+.chip strong{display:block;font-size:12.5px;margin-top:1px}
+.vazio{padding:50px 16px;text-align:center;color:var(--ink-soft)}
+.centro{padding:60px 16px;text-align:center;color:var(--ink-soft)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px}
+.card h2{font-size:16px;margin:0 0 6px}
+.mut{color:var(--ink-soft);font-size:12.5px}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--border);vertical-align:middle}
+th{color:var(--ink-soft);font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
+td select{min-width:130px}
+dialog{border:0;border-radius:14px;padding:18px;max-width:520px;width:calc(100% - 24px);max-height:92vh;overflow-y:auto;background:var(--surface);color:var(--ink)}
+dialog::backdrop{background:#0008}
+dialog h3{margin:0 0 4px;font-size:17px}
+.campo{margin-top:12px}
+.opcoes{display:flex;flex-wrap:wrap;gap:6px}
+.duas{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.acoes{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;justify-content:flex-end}
+.hist{margin-top:16px;border-top:1px solid var(--border);padding-top:10px}
+.hist h4{margin:0 0 6px;font-size:13px}
+.hist li{font-size:12.5px;color:var(--ink-soft);margin:3px 0}
+.hist ul{margin:0;padding-left:18px}
+.cabtela{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-bottom:8px}
+.cabtela h2{margin:0;font-size:18px}
+.tag{display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;font-weight:600;background:var(--surface-2);color:var(--ink-soft);margin-left:6px;vertical-align:middle}
+.vtag{display:inline-block;font-size:12px;padding:2px 8px;border:1px solid var(--border);border-radius:7px;margin:2px 4px 2px 0}
+.vtag.off{opacity:.5;text-decoration:line-through}
+.prod .rodape{display:flex;gap:14px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+.lnk{background:none;border:0;padding:0;color:var(--accent);cursor:pointer;font:inherit;font-size:13px;font-weight:600}
+.lnk.perigo{color:var(--crit)}
+.chk{display:inline-flex;gap:6px;align-items:center}
+.grade2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.caixa{border:1px solid var(--border);border-radius:10px;padding:10px;margin-top:12px}
+.caixa h4{margin:0 0 4px;font-size:13px}
+.vlin{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:6px 0;border-top:1px dashed var(--border);font-size:13px}
+.vlin:first-of-type{border-top:0}
+.vlin .acs{display:flex;gap:12px}
+.vlin input{width:110px}
+@media (max-width:520px){.grade2{grid-template-columns:1fr}}
+@media (max-width:520px){.duas{grid-template-columns:1fr}.prod h2{white-space:normal}}
+@media print{.barra,.filtros,.topo,.noprint{display:none!important}body{background:#fff}.prod{break-inside:avoid}}
+</style>
+</head>
+<body>
+<div class="casca">
+  <div class="topo"><div class="marca">LI</div><div><b>Sistema Linum</b><br><span>Produtos e estoque das lojas por cor e tamanho</span><br><span data-versao="linum"></span></div></div>
+  <div id="aviso" class="centro">Carregando…</div>
+  <div id="app" class="oculto">
+    <div class="barra">
+      <button class="aba oculto" data-v="produtos" id="abaProdutos">Produtos</button>
+      <button class="aba on" data-v="estoque">Estoque</button>
+      <button class="aba oculto" data-v="equipe" id="abaEquipe">Equipe</button>
+      <div class="dir" id="quem"></div>
+    </div>
+    <div id="msg" class="msg oculto"></div>
+    <div id="tela"></div>
+  </div>
+</div>
+<dialog id="dlg"><form method="dialog" id="dlgf"></form></dialog>
+<script>
+const CFG = window.NERVIA_CONFIG || {};
+const EMBUTIDO = window.self !== window.top;
+if (EMBUTIDO) document.documentElement.classList.add("embutido");
+const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const checar = r => { if (r.error) throw new Error(r.error.message); return r.data; };
+const TZ = "America/Sao_Paulo";
+const hoje = () => new Date().toLocaleDateString("en-CA", { timeZone: TZ });
+const dataBR = v => v ? String(v).slice(0, 10).split("-").reverse().join("/") : "—";
+const brl = v => Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const n = v => Number(v || 0).toLocaleString("pt-BR");
+function msg(tipo, texto) { const m = $("msg"); m.className = "msg " + tipo; m.textContent = texto; m.scrollIntoView({ block: "nearest" }); if (tipo === "ok") setTimeout(() => m.classList.add("oculto"), 5000); }
+function limparMsg() { $("msg").className = "msg oculto"; }
+
+let ADMIN = false, PAPEL = null, LOJAS = [], PRODUTOS = [], QTD = new Map(), VISTA = "estoque", EQUIPE = [];
+const F = { q: "", loja: "", cat: "", cor: "", tam: "", zerados: true };
+const dono = () => PAPEL === "dono";
+const chave = (v, l) => v + ":" + l;
+const qtd = (v, l) => QTD.get(chave(v, l)) || 0;
+const loja = id => LOJAS.find(l => l.id === id) || { nome: "?" };
+
+// tamanhos na ordem das araras; o resto em ordem alfabética/numérica (como no sistema antigo)
+const ORDEM_TAM = ["PP", "P", "M", "G", "GG", "XG", "XGG", "U", "UNICO", "ÚNICO"];
+function ordemTam(a, b) {
+  const ia = ORDEM_TAM.indexOf(String(a).trim().toUpperCase()), ib = ORDEM_TAM.indexOf(String(b).trim().toUpperCase());
+  if (ia !== -1 || ib !== -1) return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+  return String(a).localeCompare(String(b), "pt-BR", { numeric: true });
+}
+const ordemVar = (a, b) => ordemTam(a.tamanho || "", b.tamanho || "") || (a.cor || "").localeCompare(b.cor || "", "pt-BR") || (a.edicao || "").localeCompare(b.edicao || "", "pt-BR");
+const nomeVar = v => [v.cor || "—", v.tamanho, v.edicao].filter(Boolean).join(" ");
+
+// ---------------------------------------------------------------- carga
+async function iniciar() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { $("aviso").innerHTML = 'Entre na <a href="/cliente/" target="_top">Área do Cliente</a> para ver o estoque.'; return; }
+  try {
+    const p = checar(await sb.from("perfis").select("admin").eq("user_id", session.user.id).maybeSingle());
+    ADMIN = !!(p && p.admin);
+    await carregar();
+    $("abaEquipe").classList.toggle("oculto", !ADMIN);
+    $("abaProdutos").classList.toggle("oculto", !dono());
+    $("quem").textContent = ADMIN ? "Equipe Nervia (Dono)" : dono() ? "Dono" : "Vendedora · só consulta";
+    $("aviso").classList.add("oculto"); $("app").classList.remove("oculto");
+    render();
+  } catch (e) { $("aviso").textContent = e.message.includes("não tem acesso") ? e.message : "Não foi possível carregar: " + e.message; }
+}
+async function carregar() {
+  const d = checar(await sb.rpc("lin_estoque_ler"));
+  PAPEL = d.papel; LOJAS = d.lojas || []; PRODUTOS = d.produtos || [];
+  QTD = new Map((d.estoque || []).map(([v, l, q]) => [chave(v, l), q]));
+}
+document.querySelectorAll(".barra .aba").forEach(b => b.onclick = () => { VISTA = b.dataset.v; limparMsg(); render(); });
+function render() {
+  document.querySelectorAll(".barra .aba").forEach(b => b.classList.toggle("on", b.dataset.v === VISTA));
+  if (VISTA === "equipe" && ADMIN) return telaEquipe();
+  if (VISTA === "produtos" && dono()) return telaProdutos();
+  telaEstoque();
+}
+
+// ---------------------------------------------------------------- estoque
+function telaEstoque() {
+  const unicos = l => [...new Set(l.filter(Boolean))];
+  const cats = unicos(PRODUTOS.map(p => p.categoria)).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const vs = PRODUTOS.flatMap(p => p.variantes);
+  const cores = unicos(vs.map(v => v.cor)).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const tams = unicos(vs.map(v => v.tamanho)).sort(ordemTam);
+  const opc = (l, sel, rot) => `<option value="">${rot}</option>` + l.map(x => `<option value="${esc(x)}" ${x === sel ? "selected" : ""}>${esc(x)}</option>`).join("");
+  $("tela").innerHTML = `
+    <div class="filtros">
+      <input id="fq" type="search" placeholder="Buscar por nome ou referência" value="${esc(F.q)}">
+      <select id="floja" aria-label="Loja"><option value="">Todas as lojas</option>${LOJAS.map(l => `<option value="${l.id}" ${l.id === F.loja ? "selected" : ""}>${esc(l.nome)}</option>`).join("")}</select>
+      <select id="fcat" aria-label="Categoria">${opc(cats, F.cat, "Categoria")}</select>
+      <select id="fcor" aria-label="Cor">${opc(cores, F.cor, "Cor")}</select>
+      <select id="ftam" aria-label="Tamanho">${opc(tams, F.tam, "Tamanho")}</select>
+      <button class="pilula ${F.zerados ? "on" : ""}" id="fzero" type="button" title="Esconde as variações sem peça na loja">${F.zerados ? "Ocultar zerados: ativo" : "Ocultar zerados: inativo"}</button>
+    </div>
+    <div class="resumo" id="resumo"></div>
+    <div id="lista"></div>`;
+  $("fq").oninput = e => { F.q = e.target.value; lista(); };
+  [["floja", "loja"], ["fcat", "cat"], ["fcor", "cor"], ["ftam", "tam"]].forEach(([id, k]) => $(id).onchange = e => { F[k] = e.target.value; lista(); });
+  $("fzero").onclick = () => { F.zerados = !F.zerados; telaEstoque(); };
+  lista();
+}
+function lista() {
+  const termo = F.q.trim().toLowerCase();
+  const lojas = F.loja ? LOJAS.filter(l => l.id === F.loja) : LOJAS;
+  const cartoes = []; let pecas = 0;
+  const prods = new Set();
+  for (const p of PRODUTOS) {
+    if (termo && !p.descricao.toLowerCase().includes(termo) && !p.referencia.toLowerCase().includes(termo)) continue;
+    if (F.cat && p.categoria !== F.cat) continue;
+    const vars = p.variantes.filter(v => (!F.cor || v.cor === F.cor) && (!F.tam || v.tamanho === F.tam)).sort(ordemVar);
+    if (!vars.length) continue;
+    for (const l of lojas) {
+      const vis = F.zerados ? vars.filter(v => qtd(v.id, l.id) > 0) : vars;
+      if (!vis.length) continue;
+      vis.forEach(v => pecas += qtd(v.id, l.id));
+      prods.add(p.id);
+      cartoes.push(cartao(p, l, vis));
+    }
+  }
+  $("resumo").textContent = cartoes.length ? `${n(prods.size)} produto(s) · ${n(pecas)} peça(s)${F.loja ? " em " + loja(F.loja).nome : ""}` : "";
+  $("lista").innerHTML = cartoes.length ? cartoes.join("") : `<div class="vazio">${PRODUTOS.length
+    ? "Nenhum produto com esses filtros." + (F.zerados ? " Desligue “Ocultar zerados” para ver as variações sem peça." : "")
+    : (dono() ? "Nenhum produto cadastrado ainda. Cadastre as peças na aba Produtos." : "Nenhum produto cadastrado ainda.")}</div>`;
+  document.querySelectorAll("#lista button.chip").forEach(b => b.onclick = () => movimentar(b.dataset.p, b.dataset.v, b.dataset.l));
+}
+function cartao(p, l, vars) {
+  let ant = null;
+  const chips = vars.map(v => {
+    const q = qtd(v.id, l.id), sep = ant !== null && ant !== (v.tamanho || "").trim() ? '<span class="sep"></span>' : "";
+    ant = (v.tamanho || "").trim();
+    // peça especial (edição: pintura, bordado...) pode ter preço próprio; mostra só quando difere do preço da peça
+    const preco = v.preco_venda != null && Number(v.preco_venda) !== Number(p.preco_venda) ? `<small>${brl(v.preco_venda)}</small>` : "";
+    const corpo = `<b title="${esc(v.cor)}">${esc(v.cor || "—")}</b><small>${esc([v.tamanho, v.edicao].filter(Boolean).join(" · "))}</small>${preco}<strong>${n(q)} un.</strong>`;
+    return sep + (dono()
+      ? `<button type="button" class="chip ${q > 0 ? "" : "zero"}" data-p="${p.id}" data-v="${v.id}" data-l="${l.id}" title="Movimentar">${corpo}</button>`
+      : `<div class="chip ${q > 0 ? "" : "zero"}">${corpo}</div>`);
+  }).join("");
+  return `<div class="prod">
+    <div class="cab"><h2 title="${esc(p.descricao)}">${esc(p.descricao)}</h2><span class="preco">${p.preco_venda != null ? brl(p.preco_venda) : "Preço não cadastrado"}</span></div>
+    <div class="info"><span>Ref: ${esc(p.referencia || "—")}</span><span>·</span><span>Peça: ${esc(p.categoria || "—")}</span><span class="selo">${esc(l.nome)}</span></div>
+    <div class="chips">${chips}</div></div>`;
+}
+
+// ---------------------------------------------------------------- movimentar (Dono)
+const TIPOS = { entrada: "Entrada", saida: "Saída", transferencia: "Transferência", ajuste: "Ajuste" };
+async function movimentar(pid, vid, lid) {
+  const p = PRODUTOS.find(x => x.id === pid), v = p.variantes.find(x => x.id === vid);
+  const M = { tipo: "entrada", origem: lid, destino: (LOJAS.find(l => l.id !== lid) || {}).id || "", quantidade: "1", data: hoje(), obs: "" };
+  let hist = null;
+  const f = $("dlgf");
+  const desenhar = erro => {
+    const ehT = M.tipo === "transferencia", ehA = M.tipo === "ajuste";
+    const bot = (grupo, val, rot, on) => `<button type="button" class="pilula ${on ? "on" : ""}" data-g="${grupo}" data-x="${esc(val)}">${esc(rot)}</button>`;
+    f.innerHTML = `<h3>${esc(p.descricao)} — ${esc(nomeVar(v))}</h3><div class="mut">Ref: ${esc(p.referencia)}</div>
+      <div class="campo"><div class="opcoes">${Object.entries(TIPOS).map(([k, r]) => bot("tipo", k, r, M.tipo === k)).join("")}</div></div>
+      <div class="campo"><label>${ehT ? "Loja de origem" : "Loja"}</label><div class="opcoes">${LOJAS.map(l => bot("origem", l.id, `${l.nome} (${qtd(vid, l.id)})`, M.origem === l.id)).join("")}</div></div>
+      ${ehT ? `<div class="campo"><label>Loja de destino</label><div class="opcoes">${LOJAS.filter(l => l.id !== M.origem).map(l => bot("destino", l.id, l.nome, M.destino === l.id)).join("")}</div></div>` : ""}
+      <div class="campo duas">
+        <div><label for="mq">${ehA ? "Nova quantidade" : "Quantidade"}</label><input id="mq" type="number" inputmode="numeric" min="${ehA ? 0 : 1}" step="1" value="${esc(M.quantidade)}"></div>
+        <div><label for="md">Data</label><input id="md" type="date" value="${esc(M.data)}"></div>
+      </div>
+      <div class="campo"><label for="mo">Observação</label><input id="mo" maxlength="300" value="${esc(M.obs)}" placeholder="${ehA ? "Ex.: contagem do estoque" : "Ex.: chegada de peças, beneficiamento, perda"}"></div>
+      ${erro ? `<div class="msg err">${esc(erro)}</div>` : ""}
+      <div class="acoes"><button type="button" class="bt" id="mx">Cancelar</button><button type="button" class="bt pri" id="ms">Salvar movimentação</button></div>
+      <div class="hist"><h4>Últimas movimentações desta variação</h4>${hist === null ? '<div class="mut">Carregando…</div>' : hist}</div>`;
+    f.querySelectorAll("[data-g]").forEach(b => b.onclick = () => {
+      guardar(); M[b.dataset.g] = b.dataset.x;
+      if (M.tipo === "transferencia" && (M.destino === M.origem || !M.destino)) M.destino = (LOJAS.find(l => l.id !== M.origem) || {}).id || "";
+      if (b.dataset.g === "tipo" || b.dataset.g === "origem") M.quantidade = M.tipo === "ajuste" ? String(qtd(vid, M.origem)) : (M.quantidade === "0" ? "1" : M.quantidade);
+      desenhar();
+    });
+    $("mx").onclick = () => $("dlg").close();
+    $("ms").onclick = salvar;
+  };
+  const guardar = () => { M.quantidade = $("mq").value; M.data = $("md").value; M.obs = $("mo").value; };
+  const salvar = async () => {
+    guardar();
+    const q = Number(M.quantidade);
+    if (!Number.isInteger(q) || q < (M.tipo === "ajuste" ? 0 : 1)) return desenhar(M.tipo === "ajuste" ? "Informe a nova quantidade (0 ou mais)." : "Informe uma quantidade inteira maior que zero.");
+    if (!M.data) return desenhar("Informe a data.");
+    $("ms").disabled = true; $("ms").textContent = "Salvando…";
+    try {
+      const base = { p_variante: vid, p_quantidade: q, p_data: M.data, p_observacao: M.obs.trim() };
+      if (M.tipo === "transferencia") checar(await sb.rpc("lin_transferir", { ...base, p_origem: M.origem, p_destino: M.destino }));
+      else if (M.tipo === "ajuste") checar(await sb.rpc("lin_ajustar", { ...base, p_loja: M.origem }));
+      else checar(await sb.rpc("lin_movimentar", { ...base, p_loja: M.origem, p_tipo: M.tipo }));
+      $("dlg").close();
+      await carregar(); lista();
+      msg("ok", `Estoque atualizado: ${TIPOS[M.tipo].toLowerCase()} de ${p.descricao} ${nomeVar(v)}.`);
+    } catch (e) { desenhar(e.message); }
+  };
+  desenhar();
+  $("dlg").showModal();
+  try {
+    const ms = checar(await sb.from("lin_movimentos").select("tipo, quantidade, antes, depois, loja_id, loja_destino_id, data, observacao, criado_nome")
+      .eq("variante_id", vid).order("criado_em", { ascending: false }).limit(8));
+    hist = ms.length ? "<ul>" + ms.map(m => `<li><b>${dataBR(m.data)}</b> · ${esc(m.tipo === "venda" ? "Venda" : TIPOS[m.tipo] || m.tipo)} ${m.tipo === "ajuste" ? `${m.antes} → ${m.depois}` : n(m.quantidade)} · ${esc(loja(m.loja_id).nome)}${m.loja_destino_id ? " → " + esc(loja(m.loja_destino_id).nome) : ""}${m.observacao ? " · " + esc(m.observacao) : ""}${m.criado_nome ? " · " + esc(m.criado_nome) : ""}</li>`).join("") + "</ul>"
+      : '<div class="mut">Nenhuma movimentação ainda.</div>';
+  } catch (e) { hist = `<div class="mut">Não foi possível ler o histórico: ${esc(e.message)}</div>`; }
+  if ($("dlg").open && $("mq")) { guardar(); desenhar(); }
+}
+
+// ---------------------------------------------------------------- produtos (Dono)
+let PRODS = [], VARS = [];
+const FP = { q: "", cat: "", cor: "", tam: "", forn: "" };
+async function todas(q) {   // o Supabase devolve no máximo 1000 linhas por consulta
+  const l = [];
+  for (let i = 0; ; i += 1000) { const parte = checar(await q().range(i, i + 999)) || []; l.push(...parte); if (parte.length < 1000) break; }
+  return l;
+}
+async function carregarProdutos() {
+  PRODS = await todas(() => sb.from("lin_produtos").select("*").order("descricao").order("referencia"));
+  VARS = await todas(() => sb.from("lin_variantes").select("*").order("criado_em"));
+}
+const varsDe = pid => VARS.filter(v => v.produto_id === pid).sort(ordemVar);
+// número digitado do jeito brasileiro: "1.234,50" ou "189,9" ou "189.90"
+const numBR = t => { t = String(t || "").trim(); if (!t) return ""; if (t.includes(",")) t = t.replace(/\./g, "").replace(",", "."); return t; };
+const moeda = v => v == null || v === "" ? "" : Number(v).toFixed(2).replace(".", ",");
+const decBR = v => v == null || v === "" ? "" : String(v).replace(".", ",");
+const listaV = t => [...new Set(String(t || "").split(",").map(x => x.trim()).filter(Boolean))];
+async function telaProdutos() {
+  $("tela").innerHTML = '<div class="card">Carregando…</div>';
+  try { await carregarProdutos(); } catch (e) { $("tela").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; return; }
+  const unicos = l => [...new Set(l.filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), "pt-BR"));
+  const opc = (l, sel, rot) => `<option value="">${rot}</option>` + l.map(x => `<option value="${esc(x)}" ${x === sel ? "selected" : ""}>${esc(x)}</option>`).join("");
+  $("tela").innerHTML = `
+    <div class="cabtela"><h2>Produtos <span class="mut" id="ptotal"></span></h2><button class="bt pri" id="pnovo">+ Novo produto</button></div>
+    <div class="filtros">
+      <input id="pq" type="search" placeholder="Buscar por nome, referência ou código de barras" value="${esc(FP.q)}">
+      <select id="pcat" aria-label="Categoria">${opc(unicos(PRODS.map(p => p.categoria)), FP.cat, "Categoria")}</select>
+      <select id="pcor" aria-label="Cor">${opc(unicos(VARS.map(v => v.cor)), FP.cor, "Cor")}</select>
+      <select id="ptam" aria-label="Tamanho">${[`<option value="">Tamanho</option>`, ...[...new Set(VARS.map(v => v.tamanho))].sort(ordemTam).map(x => `<option value="${esc(x)}" ${x === FP.tam ? "selected" : ""}>${esc(x)}</option>`)].join("")}</select>
+      <select id="pforn" aria-label="Fornecedor">${opc(unicos(PRODS.map(p => p.fornecedor)), FP.forn, "Fornecedor")}</select>
+    </div>
+    <div id="plista"></div>`;
+  $("pnovo").onclick = () => editarProduto(null);
+  $("pq").oninput = e => { FP.q = e.target.value; listaProdutos(); };
+  [["pcat", "cat"], ["pcor", "cor"], ["ptam", "tam"], ["pforn", "forn"]].forEach(([id, k]) => $(id).onchange = e => { FP[k] = e.target.value; listaProdutos(); });
+  listaProdutos();
+}
+function listaProdutos() {
+  const termo = FP.q.trim().toLowerCase();
+  const l = PRODS.filter(p => {
+    const vs = varsDe(p.id);
+    if (termo && ![p.descricao, p.referencia, p.codigo_barras, ...vs.map(v => v.codigo_barras)].some(x => String(x || "").toLowerCase().includes(termo))) return false;
+    if (FP.cat && p.categoria !== FP.cat) return false;
+    if (FP.forn && p.fornecedor !== FP.forn) return false;
+    if (FP.cor && !vs.some(v => v.cor === FP.cor)) return false;
+    if (FP.tam && !vs.some(v => v.tamanho === FP.tam)) return false;
+    return true;
+  });
+  $("ptotal").textContent = `· ${n(PRODS.length)} ${PRODS.length === 1 ? "peça cadastrada" : "peças cadastradas"}`;
+  $("plista").innerHTML = l.length ? l.slice(0, 300).map(p => {
+    const vs = varsDe(p.id);
+    return `<div class="prod">
+      <div class="cab"><h2 title="${esc(p.descricao)}">${esc(p.descricao)}${p.ativo ? "" : '<span class="tag">inativo</span>'}</h2>
+        <span class="preco">${brl(p.preco_venda)}</span></div>
+      <div class="info"><span>${esc([p.referencia, p.categoria, p.fornecedor].filter(Boolean).join(" · "))}</span>
+        ${p.codigo_barras ? `<span>· cód. ${esc(p.codigo_barras)}</span>` : ""}${p.preco_custo != null ? `<span>· custo ${brl(p.preco_custo)}</span>` : ""}</div>
+      <div style="margin-top:8px">${vs.length ? vs.map(v => `<span class="vtag ${v.ativo ? "" : "off"}" title="${v.ativo ? "" : "inativa"}">${esc(nomeVar(v))}${v.preco_venda != null ? " · " + brl(v.preco_venda) : ""}</span>`).join("") : '<span class="mut">Sem cores e tamanhos ainda.</span>'}</div>
+      <div class="rodape"><button class="lnk" data-ed="${p.id}">Editar peça</button><button class="lnk perigo" data-ex="${p.id}">Excluir peça</button></div></div>`;
+  }).join("") + (l.length > 300 ? `<div class="mut">Mostrando 300 de ${n(l.length)}. Use a busca para achar os outros.</div>` : "")
+    : `<div class="vazio">${PRODS.length ? "Nenhum produto com esses filtros." : "Catálogo vazio. Cadastre a primeira peça em “+ Novo produto”."}</div>`;
+  document.querySelectorAll("[data-ed]").forEach(b => b.onclick = () => editarProduto(b.dataset.ed));
+  document.querySelectorAll("[data-ex]").forEach(b => b.onclick = async () => {
+    const p = PRODS.find(x => x.id === b.dataset.ex);
+    if (!confirm(`Excluir "${p.descricao}" definitivamente? Só é possível se a peça não tiver nenhuma movimentação nem estoque.`)) return;
+    try { checar(await sb.rpc("lin_produto_excluir", { p_produto: p.id })); msg("ok", "Peça excluída."); await atualizarTudo(); }
+    catch (e) { msg("err", e.message); }
+  });
+}
+async function atualizarTudo() { await carregar(); if (VISTA === "produtos") await telaProdutos(); }
+
+function editarProduto(pid) {
+  const f = $("dlgf");
+  let p = pid ? PRODS.find(x => x.id === pid) : null;
+  let F2 = p ? { referencia: p.referencia, descricao: p.descricao, categoria: p.categoria || "", colecao: p.colecao || "", fornecedor: p.fornecedor || "",
+                 tecido: p.tecido || "", preco_custo: moeda(p.preco_custo), preco_venda: p.preco_venda ? moeda(p.preco_venda) : "", consumo_metros: decBR(p.consumo_metros), ativo: p.ativo }
+             : { referencia: "", descricao: "", categoria: "", colecao: "", fornecedor: "", tecido: "", preco_custo: "", preco_venda: "", consumo_metros: "", ativo: true };
+  let novas = { cores: "", tamanhos: "" }, esp = { cor: "", tamanho: "", edicao: "", preco_venda: "", preco_custo: "" }, editando = null;
+  const campo = (k, rot, extra = "") => `<div><label for="pf_${k}">${rot}</label><input id="pf_${k}" data-k="${k}" value="${esc(F2[k])}" ${extra}></div>`;
+  const ler = () => {
+    f.querySelectorAll("[data-k]").forEach(i => F2[i.dataset.k] = i.type === "checkbox" ? i.checked : i.value);
+    f.querySelectorAll("[data-n]").forEach(i => novas[i.dataset.n] = i.value);
+    f.querySelectorAll("[data-e]").forEach(i => esp[i.dataset.e] = i.value);
+  };
+  const desenhar = (erro, ok) => {
+    const vs = p ? varsDe(p.id) : [];
+    f.innerHTML = `<h3>${p ? "Editar produto" : "Novo produto"}</h3>
+      <div class="campo grade2">${campo("referencia", "Código / Referência")}${campo("categoria", "Categoria")}</div>
+      <div class="campo">${campo("descricao", "Descrição (nome da peça)")}</div>
+      <div class="campo grade2">${campo("colecao", "Coleção")}${campo("fornecedor", "Fornecedor")}</div>
+      <div class="campo">${campo("tecido", "Tecido")}</div>
+      <div class="campo grade2">${campo("preco_custo", "Preço de custo (R$)", 'inputmode="decimal"')}${campo("preco_venda", "Preço de venda (R$)", 'inputmode="decimal"')}</div>
+      <div class="campo">${campo("consumo_metros", "Consumo previsto de tecido (metros por peça)", 'inputmode="decimal"')}</div>
+      <div class="campo"><label>Código de barras</label><input readonly value="${esc(p && p.codigo_barras ? p.codigo_barras : "Gerado automaticamente ao salvar")}"></div>
+      <div class="campo"><label class="chk" style="text-transform:none;font-size:13px;color:var(--ink)"><input type="checkbox" data-k="ativo" ${F2.ativo ? "checked" : ""} style="width:auto"> Ativo (aparece no estoque)</label></div>
+      <div class="caixa"><h4>Cores e tamanhos</h4><div class="mut">Separe por vírgula. Cada cor × tamanho vira uma variação com estoque próprio; as que já existem não se repetem.</div>
+        <div class="campo grade2"><div><label for="nv_c">Cores</label><input id="nv_c" data-n="cores" value="${esc(novas.cores)}" placeholder="Ex.: Areia, Preto"></div>
+          <div><label for="nv_t">Tamanhos</label><input id="nv_t" data-n="tamanhos" value="${esc(novas.tamanhos)}" placeholder="Ex.: P, M, G"></div></div>
+        ${vs.length ? `<div class="campo">${vs.map(v => editando === v.id
+          ? `<div class="vlin"><b>${esc(v.cor)} · ${esc(v.tamanho)}</b>
+              <span><label>Edição</label><input data-x="edicao" value="${esc(v.edicao)}" placeholder="peça comum"></span>
+              <span><label>Venda (R$)</label><input data-x="preco_venda" inputmode="decimal" value="${esc(moeda(v.preco_venda))}" placeholder="do produto"></span>
+              <span><label>Custo (R$)</label><input data-x="preco_custo" inputmode="decimal" value="${esc(moeda(v.preco_custo))}" placeholder="do produto"></span>
+              <span class="acs"><button type="button" class="lnk" data-vsalvar="${v.id}">Salvar</button><button type="button" class="lnk" data-vcancel="1">Cancelar</button></span></div>`
+          : `<div class="vlin"><span>${esc(nomeVar(v))}${v.preco_venda != null ? " · " + brl(v.preco_venda) : ""}${v.codigo_barras ? ` <span class="mut">cód. ${esc(v.codigo_barras)}</span>` : ""}${v.ativo ? "" : '<span class="tag">inativa</span>'}</span>
+              <span class="acs"><button type="button" class="lnk" data-veditar="${v.id}">Preço/edição</button><button type="button" class="lnk" data-vativo="${v.id}">${v.ativo ? "Desativar" : "Reativar"}</button><button type="button" class="lnk perigo" data-vexcluir="${v.id}">Excluir</button></span></div>`).join("")}</div>` : ""}
+      </div>
+      ${p ? `<div class="caixa"><h4>Nova peça especial</h4><div class="mut">Peça única (bordada, pintura artística…) com preço e código de barras próprios. Pode repetir cor e tamanho de outra variação. Preço vazio = preço do produto.</div>
+        <div class="campo grade2"><div><label>Cor</label><input data-e="cor" value="${esc(esp.cor)}"></div><div><label>Tamanho</label><input data-e="tamanho" value="${esc(esp.tamanho)}"></div></div>
+        <div class="campo"><label>Edição</label><input data-e="edicao" value="${esc(esp.edicao)}" placeholder="Ex.: Bordada à mão"></div>
+        <div class="campo grade2"><div><label>Preço de venda (R$)</label><input data-e="preco_venda" inputmode="decimal" value="${esc(esp.preco_venda)}"></div><div><label>Preço de custo (R$)</label><input data-e="preco_custo" inputmode="decimal" value="${esc(esp.preco_custo)}"></div></div>
+        <div class="acoes" style="margin-top:8px"><button type="button" class="bt" id="espadd">Acrescentar peça especial</button></div></div>` : ""}
+      ${erro ? `<div class="msg err">${esc(erro)}</div>` : ""}${ok ? `<div class="msg ok">${esc(ok)}</div>` : ""}
+      <div class="acoes"><button type="button" class="bt" id="pfx">Fechar</button><button type="button" class="bt pri" id="pfs">Salvar produto</button></div>
+      ${p ? '<div class="mut" style="margin-top:8px">Para lançar as quantidades: aba Estoque, desligue “Ocultar zerados” e clique no quadrado vermelho da variação (Entrada).</div>' : ""}`;
+    $("pfx").onclick = () => $("dlg").close();
+    $("pfs").onclick = salvar;
+    const acao = async (fn, okmsg) => { ler(); try { await fn(); await recarregar(); desenhar(null, okmsg); } catch (e) { desenhar(e.message); } };
+    f.querySelectorAll("[data-veditar]").forEach(b => b.onclick = () => { ler(); editando = b.dataset.veditar; desenhar(); });
+    f.querySelectorAll("[data-vcancel]").forEach(b => b.onclick = () => { ler(); editando = null; desenhar(); });
+    f.querySelectorAll("[data-vsalvar]").forEach(b => b.onclick = () => {
+      const x = k => f.querySelector(`[data-x="${k}"]`).value;
+      acao(async () => { checar(await sb.rpc("lin_variante_salvar", { p: { id: b.dataset.vsalvar, edicao: x("edicao"), preco_venda: numBR(x("preco_venda")), preco_custo: numBR(x("preco_custo")) } })); editando = null; }, "Variação atualizada.");
+    });
+    f.querySelectorAll("[data-vativo]").forEach(b => b.onclick = () => {
+      const v = VARS.find(x => x.id === b.dataset.vativo);
+      acao(async () => checar(await sb.rpc("lin_variante_ativar", { p_variante: v.id, p_ativo: !v.ativo })), v.ativo ? "Variação desativada: não aparece mais no estoque." : "Variação reativada.");
+    });
+    f.querySelectorAll("[data-vexcluir]").forEach(b => b.onclick = () => {
+      const v = VARS.find(x => x.id === b.dataset.vexcluir);
+      if (!confirm(`Excluir ${nomeVar(v)} definitivamente?`)) return;
+      acao(async () => checar(await sb.rpc("lin_variante_excluir", { p_variante: v.id })), "Cor/tamanho excluída.");
+    });
+    if ($("espadd")) $("espadd").onclick = () => acao(async () => {
+      checar(await sb.rpc("lin_variante_salvar", { p: { produto_id: p.id, cor: esp.cor, tamanho: esp.tamanho, edicao: esp.edicao, preco_venda: numBR(esp.preco_venda), preco_custo: numBR(esp.preco_custo) } }));
+      esp = { cor: "", tamanho: "", edicao: "", preco_venda: "", preco_custo: "" };
+    }, "Peça especial acrescentada.");
+  };
+  const recarregar = async () => { await carregarProdutos(); if (p) p = PRODS.find(x => x.id === p.id); carregar().catch(() => {}); };
+  const salvar = async () => {
+    ler();
+    const cores = listaV(novas.cores), tams = listaV(novas.tamanhos);
+    if ((cores.length > 0) !== (tams.length > 0)) return desenhar("Para criar variações, informe as cores e os tamanhos.");
+    $("pfs").disabled = true; $("pfs").textContent = "Salvando…";
+    try {
+      const novo = !p;
+      const id = checar(await sb.rpc("lin_produto_salvar", { p: { id: p ? p.id : null, referencia: F2.referencia, descricao: F2.descricao, categoria: F2.categoria,
+        colecao: F2.colecao, fornecedor: F2.fornecedor, tecido: F2.tecido, preco_custo: numBR(F2.preco_custo), preco_venda: numBR(F2.preco_venda),
+        consumo_metros: numBR(F2.consumo_metros), ativo: !!F2.ativo } }));
+      let criadas = 0;
+      if (cores.length) criadas = checar(await sb.rpc("lin_variantes_criar", { p_produto: id, p_cores: cores, p_tamanhos: tams }));
+      novas = { cores: "", tamanhos: "" };
+      await carregarProdutos(); p = PRODS.find(x => x.id === id); carregar().catch(() => {});
+      desenhar(null, (novo ? "Produto cadastrado" : "Produto atualizado") + (cores.length ? `; ${criadas} variação(ões) nova(s)` : "") + ".");
+    } catch (e) { desenhar(e.message); }
+  };
+  desenhar();
+  $("dlg").showModal();
+}
+
+// ---------------------------------------------------------------- equipe (só a equipe Nervia)
+async function telaEquipe() {
+  $("tela").innerHTML = '<div class="card">Carregando…</div>';
+  try { EQUIPE = checar(await sb.rpc("lin_equipe")) || []; } catch (e) { $("tela").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; return; }
+  const opLoja = sel => `<option value="">—</option>` + LOJAS.map(l => `<option value="${l.id}" ${l.id === sel ? "selected" : ""}>${esc(l.nome)}</option>`).join("");
+  $("tela").innerHTML = `<div class="card"><h2>Equipe da Linum</h2>
+    <p class="mut">Aparecem aqui os logins com o app <b>Sistema Linum</b> liberado na Área do Cliente (Administração → Logins). Dono: consulta e movimenta o estoque. Vendedora: só consulta, sem preço de custo. Sem papel: o login não entra no app.</p>
+    ${EQUIPE.length ? `<div class="tw"><table><thead><tr><th>Login</th><th>Papel</th><th>Loja</th><th></th></tr></thead><tbody>
+      ${EQUIPE.map((u, i) => `<tr><td><b>${esc(u.nome || u.email)}</b><br><span class="mut">${esc(u.email)}</span></td>
+        <td><select data-i="${i}" class="eq-papel"><option value="">Sem papel</option><option value="dono" ${u.papel === "dono" ? "selected" : ""}>Dono</option><option value="vendedora" ${u.papel === "vendedora" ? "selected" : ""}>Vendedora</option></select></td>
+        <td><select data-i="${i}" class="eq-loja">${opLoja(u.loja_id)}</select></td>
+        <td><button class="bt pri eq-salvar" data-i="${i}">Salvar</button></td></tr>`).join("")}
+      </tbody></table></div>` : '<div class="vazio">Nenhum login com o app liberado ainda.</div>'}</div>`;
+  document.querySelectorAll(".eq-salvar").forEach(b => b.onclick = async () => {
+    const i = b.dataset.i, u = EQUIPE[i];
+    const papel = document.querySelector(`.eq-papel[data-i="${i}"]`).value, lj = document.querySelector(`.eq-loja[data-i="${i}"]`).value || null;
+    b.disabled = true;
+    try { checar(await sb.rpc("lin_membro_salvar", { p_user: u.user_id, p_papel: papel, p_loja: lj })); msg("ok", `Papel de ${u.nome || u.email} salvo.`); await telaEquipe(); }
+    catch (e) { msg("err", e.message); b.disabled = false; }
+  });
+}
+
+$("dlg").addEventListener("close", () => { if (VISTA === "produtos" && $("plista")) listaProdutos(); });
+iniciar();
+</script>
+</body>
+</html>
