@@ -120,6 +120,7 @@ td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-n
       <button class="aba on" data-v="estoque">Estoque</button>
       <button class="aba oculto" data-v="vendas" id="abaVendas">Vendas</button>
       <button class="aba oculto" data-v="clientes" id="abaClientes">Clientes</button>
+      <button class="aba oculto" data-v="comissoes" id="abaComissoes">Comissões</button>
       <button class="aba oculto" data-v="equipe" id="abaEquipe">Equipe</button>
       <div class="dir" id="quem"></div>
     </div>
@@ -176,6 +177,7 @@ async function iniciar() {
     $("abaEquipe").classList.toggle("oculto", !ADMIN);
     $("abaProdutos").classList.toggle("oculto", !controla());
     $("abaVendas").classList.toggle("oculto", !vende()); $("abaClientes").classList.toggle("oculto", !vende());
+    $("abaComissoes").classList.toggle("oculto", !dono());
     $("quem").textContent = ADMIN ? "Equipe Nervia (Dono)" : dono() ? "Dono" : controla() ? "Estoque · sem custos" : "Vendedora" + (MINHA_LOJA ? " · " + loja(MINHA_LOJA).nome : "");
     $("aviso").classList.add("oculto"); $("app").classList.remove("oculto");
     render();
@@ -193,6 +195,7 @@ function render() {
   if (VISTA === "produtos" && controla()) return telaProdutos();
   if (VISTA === "vendas" && vende()) return telaVendas();
   if (VISTA === "clientes" && vende()) return telaClientes();
+  if (VISTA === "comissoes" && dono()) return telaComissoes();
   telaEstoque();
 }
 
@@ -1027,6 +1030,72 @@ function listaClientes() {
       <td>${niver(c) || "—"}</td><td class="num">${n(vs.length)}</td><td class="num">${vs.length ? brl(tot) : "—"}</td><td>${ult ? dataBR(ult) : "—"}</td></tr>`;
   }).join("") : `<tr><td colspan="6" class="mut">${CLIENTES.length ? "Nenhum cliente com esse filtro." : "Nenhum cliente ainda. Eles entram aqui ao registrar a venda ou em “+ Novo cliente”."}</td></tr>`;
   document.querySelectorAll(".crow").forEach(r => r.onclick = () => editarCliente(cliente(r.dataset.c), () => telaClientes()));
+}
+
+// ---------------------------------------------------------------- comissões por mês (só o Dono; as vendedoras ainda não veem)
+const FCM = { mes: "", loja: "" };
+const mesTxt = m => `${MESES[Number(m.slice(5, 7)) - 1]}/${m.slice(0, 4)}`;
+const somaMes = (m, k) => { const d = new Date(Date.UTC(Number(m.slice(0, 4)), Number(m.slice(5, 7)) - 1 + k, 1)); return d.toISOString().slice(0, 7); };
+async function telaComissoes() {
+  FCM.mes = FCM.mes || hoje().slice(0, 7);
+  const de = somaMes(FCM.mes, -11) + "-01", ate = somaMes(FCM.mes, 1) + "-01", meses = Array.from({ length: 12 }, (_, i) => somaMes(FCM.mes, i - 11));
+  $("tela").innerHTML = '<div class="card">Carregando…</div>';
+  let vs;
+  try {
+    vs = await todas(() => { let x = sb.from("lin_vendas").select("id, data, loja_id, vendedora_id, vendedora_nome, valor_total, comissao_pct, comissao_valor")
+      .gte("data", de).lt("data", ate).is("cancelada_em", null).order("data").order("id"); if (FCM.loja) x = x.eq("loja_id", FCM.loja); return x; });
+  } catch (e) { $("tela").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; return; }
+  const doMes = vs.filter(v => v.data.slice(0, 7) === FCM.mes);
+  const pessoas = {};
+  vs.forEach(v => { const p = pessoas[v.vendedora_id] = pessoas[v.vendedora_id] || { nome: v.vendedora_nome, meses: {}, vendas: [] };
+    p.meses[v.data.slice(0, 7)] = (p.meses[v.data.slice(0, 7)] || 0) + Number(v.comissao_valor || 0);
+    if (v.data.slice(0, 7) === FCM.mes) p.vendas.push(v); });
+  const lista = Object.entries(pessoas).map(([id, p]) => ({ id, ...p, t: p.vendas.reduce((s, v) => s + Number(v.valor_total), 0), c: p.vendas.reduce((s, v) => s + Number(v.comissao_valor || 0), 0) }))
+    .sort((a, b) => b.c - a.c || b.t - a.t || a.nome.localeCompare(b.nome, "pt-BR"));
+  const doMesL = lista.filter(p => p.vendas.length);
+  const pct = p => { const ps = [...new Set(p.vendas.map(v => Number(v.comissao_pct || 0)))]; return ps.length === 1 ? (ps[0] ? decBR(ps[0]) + "%" : "sem comissão") : "varia (" + ps.map(x => decBR(x) + "%").join(", ") + ")"; };
+  const totT = doMes.reduce((s, v) => s + Number(v.valor_total), 0), totC = doMes.reduce((s, v) => s + Number(v.comissao_valor || 0), 0);
+  $("tela").innerHTML = `
+    <div class="cabtela"><h2>Comissões de ${mesTxt(FCM.mes)}${FCM.loja ? " · " + esc(loja(FCM.loja).nome) : ""}</h2><span class="noprint" style="display:flex;gap:8px"><button class="bt" id="cmcsv">Baixar CSV</button><button class="bt" id="cmimp">Imprimir</button></span></div>
+    <div class="filtros">
+      <button type="button" class="pilula" id="cmant" aria-label="Mês anterior">‹</button>
+      <input type="month" id="cmmes" value="${FCM.mes}" max="${hoje().slice(0, 7)}" style="width:auto" aria-label="Mês">
+      <button type="button" class="pilula" id="cmprox" aria-label="Próximo mês" ${FCM.mes >= hoje().slice(0, 7) ? "disabled" : ""}>›</button>
+      <select id="cmloja" aria-label="Loja"><option value="">Todas as lojas</option>${LOJAS.map(l => `<option value="${l.id}" ${l.id === FCM.loja ? "selected" : ""}>${esc(l.nome)}</option>`).join("")}</select>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><small>Comissões do mês</small><b>${brl(totC)}</b><span>${n(doMesL.filter(p => p.c > 0).length)} pessoa(s) com comissão</span></div>
+      <div class="kpi"><small>Vendido no mês</small><b>${brl(totT)}</b><span>${n(doMes.length)} venda(s)</span></div>
+    </div>
+    <div class="card"><h2>Por pessoa</h2><div class="tw"><table id="cmtab"><thead><tr><th>Quem vendeu</th><th class="num">Vendas</th><th class="num">Valor pago</th><th>Comissão (%)</th><th class="num">Comissão</th></tr></thead><tbody>
+      ${doMesL.length ? doMesL.map(p => `<tr class="cmrow" data-p="${p.id}" style="cursor:pointer"><td><b>${esc(p.nome)}</b></td><td class="num">${n(p.vendas.length)}</td><td class="num">${brl(p.t)}</td><td>${esc(pct(p))}</td><td class="num"><b>${brl(p.c)}</b></td></tr>
+        <tr class="cmdet oculto" data-d="${p.id}"><td colspan="5"><div class="tw"><table><thead><tr><th>Nº</th><th>Data</th><th>Loja</th><th class="num">Valor pago</th><th class="num">%</th><th class="num">Comissão</th></tr></thead><tbody>
+          ${p.vendas.map(v => `<tr><td>${v.id}</td><td>${dataBR(v.data)}</td><td>${esc(loja(v.loja_id).nome)}</td><td class="num">${brl(v.valor_total)}</td><td class="num">${decBR(Number(v.comissao_pct || 0))}%</td><td class="num">${brl(v.comissao_valor)}</td></tr>`).join("")}
+        </tbody></table></div></td></tr>`).join("")
+        + `<tr><td><b>Total</b></td><td class="num"><b>${n(doMes.length)}</b></td><td class="num"><b>${brl(totT)}</b></td><td></td><td class="num"><b>${brl(totC)}</b></td></tr>`
+      : '<tr><td colspan="5" class="mut">Nenhuma venda neste mês.</td></tr>'}
+    </tbody></table></div>
+    <div class="mut" style="margin-top:6px">Clique na pessoa para ver as vendas. Comissão = o % da pessoa no dia da venda sobre o valor pago. Vendas canceladas não entram; trocas não mudam a comissão.</div></div>
+    <div class="card"><h2>Últimos 12 meses</h2><div class="tw"><table id="cm12"><thead><tr><th>Quem vendeu</th>${meses.map(m => `<th class="num">${mesTxt(m)}</th>`).join("")}<th class="num">Total</th></tr></thead><tbody>
+      ${lista.length ? lista.map(p => `<tr><td>${esc(p.nome)}</td>${meses.map(m => `<td class="num">${p.meses[m] ? brl(p.meses[m]) : '<span class="mut">—</span>'}</td>`).join("")}<td class="num"><b>${brl(Object.values(p.meses).reduce((s, x) => s + x, 0))}</b></td></tr>`).join("")
+        + `<tr><td><b>Total</b></td>${meses.map(m => `<td class="num"><b>${brl(lista.reduce((s, p) => s + (p.meses[m] || 0), 0))}</b></td>`).join("")}<td class="num"><b>${brl(vs.reduce((s, v) => s + Number(v.comissao_valor || 0), 0))}</b></td></tr>`
+      : `<tr><td colspan="14" class="mut">Nenhuma venda nos 12 meses até ${mesTxt(FCM.mes)}.</td></tr>`}
+    </tbody></table></div></div>`;
+  const ir = m => { FCM.mes = m > hoje().slice(0, 7) ? hoje().slice(0, 7) : m; telaComissoes(); };
+  $("cmant").onclick = () => ir(somaMes(FCM.mes, -1));
+  $("cmprox").onclick = () => ir(somaMes(FCM.mes, 1));
+  $("cmmes").onchange = e => { if (e.target.value) ir(e.target.value); };
+  $("cmloja").onchange = e => { FCM.loja = e.target.value; telaComissoes(); };
+  $("cmimp").onclick = () => { document.querySelectorAll(".cmdet").forEach(r => r.classList.remove("oculto")); window.print(); };
+  document.querySelectorAll(".cmrow").forEach(r => r.onclick = () => document.querySelector(`.cmdet[data-d="${r.dataset.p}"]`).classList.toggle("oculto"));
+  $("cmcsv").onclick = () => {
+    const c = x => `"${String(x).replace(/"/g, '""')}"`, num = x => Number(x || 0).toFixed(2).replace(".", ",");
+    const linhas = [["Mês", "Quem vendeu", "Venda nº", "Data", "Loja", "Valor pago", "Comissão %", "Comissão"].map(c).join(";"),
+      ...doMesL.flatMap(p => p.vendas.map(v => [mesTxt(FCM.mes), p.nome, v.id, dataBR(v.data), loja(v.loja_id).nome, num(v.valor_total), num(v.comissao_pct), num(v.comissao_valor)].map(c).join(";")))];
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob(["\ufeff" + linhas.join("\r\n")], { type: "text/csv;charset=utf-8" }));
+    a.download = `comissoes-linum-${FCM.mes}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
 }
 
 // ---------------------------------------------------------------- equipe (só a equipe Nervia)
