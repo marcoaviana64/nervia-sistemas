@@ -23,6 +23,8 @@
         cartao_url: "/apps/telefonia/ajuda/cartao.html", manual_url: "/apps/telefonia/ajuda/manual.html" },
       { id: "chamados", nome: "Chamados", descricao: "Abertura e acompanhamento de chamados.", url: "/apps/chamados/", icone: "CH", ordem: 20, ativo: false },
     ],
+    email_envios: [{ id: 1, em: "2026-10-22T15:00:00-03:00", tipo: "auth_recovery", para: "financeiro@linum.com.br", assunto: "Criar uma senha nova — Área do Cliente Nervia", ok: true, erro: null },
+      { id: 2, em: "2026-10-22T14:00:00-03:00", tipo: "teste", para: "x@y.com", assunto: "Teste de e-mail — Plataforma Nervia", ok: false, erro: "Caixa não encontrada" }],
     app_acessos: [{ user_id: "u-cli", app_id: "notas" }, { user_id: "u-cli", app_id: "painel-nf" }, { user_id: "u-cli", app_id: "telefonia" }],
     // Auditoria de Telefonia Móvel: o teste pode semear um relatório publicado (window.__TEL_SEED = dados da demonstração)
     tel_relatorios: window.__TEL_SEED ? [{ ...window.__TEL_SEED, id: "r1", cnpj: null, publicado: true, dados_em: "2026-10-15T12:00:00-03:00" },
@@ -160,6 +162,8 @@
       if (nome === "ciencia") return { data: { ok: true, registradas: body.ids.length, falhas: [], mensagem: `Ciência registrada em ${body.ids.length} de ${body.ids.length} nota(s).` } };
       if (nome === "certificado") return { data: { ok: true, titular: "LINUM:22222222000122", validade: futuro } };
       if (nome === "usuarios") return { data: { ok: true, mensagem: "Login criado." } };
+      if (nome === "email" && body.acao === "situacao") return { data: { ok: true, configurado: true, remetente: "nao-responda@nervia.com.br", gancho: true } };
+      if (nome === "email" && body.acao === "teste") return { data: { ok: true, mensagem: `E-mail de teste enviado para ${body.para} por nao-responda@nervia.com.br.` } };
       return { data: null, error: { message: "?" } };
     } },
     storage: { from: () => ({

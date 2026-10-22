@@ -15,3 +15,11 @@ verify_jwt = false
 
 [functions.usuarios]
 verify_jwt = false
+
+# E-mail pelo Microsoft 365 (só admin: situação e teste)
+[functions.email]
+verify_jwt = false
+
+# Send Email Hook do Supabase Auth (quem chama é o Auth, com assinatura própria)
+[functions.email-auth]
+verify_jwt = false

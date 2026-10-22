@@ -96,9 +96,41 @@ O servidor de NF-e da SEFAZ pede o certificado por **renegociação TLS**, que a
 5. No Buscador, clique em **Buscar NF-e agora**. Erros com `Ponte SEFAZ:` vêm da ponte (ex.: segredo diferente nos dois lados).
 - Custo: com instância mínima 0, o uso de uma chamada por hora por empresa fica dentro da cota gratuita do Cloud Run.
 
-## 8. Senhas esquecidas
-Hoje não há envio automático de e-mail (decisão: sem contratar serviço de envio por enquanto). Na tela de entrada, "Esqueci minha senha" abre um e-mail pronto do próprio usuário para atendimento@nervia.com.br. A Nervia confere se veio do e-mail do login e define uma senha provisória em *Área do Cliente → Administração → Logins → Definir nova senha*.
-Se um dia quiser o link automático: o e-mail padrão do Supabase só envia para a equipe da organização (2 por hora). Seria preciso um SMTP próprio (ex.: Resend), Site URL/Redirect URLs de `nervia.com.br/cliente/` e voltar o fluxo `resetPasswordForEmail` na Área do Cliente.
+## 8. E-mail automático (Microsoft 365) e "Esqueci minha senha"
+Os e-mails saem pela caixa compartilhada **nao-responda@nervia.com.br** (sem licença) pelo Microsoft Graph, com permissão de **aplicativo** restrita a essa caixa. Funções: `email` (situação e teste, só admin) e `email-auth` (gancho "Send Email" do Supabase Auth). Registro em *Administração → E-mails* (tabela `email_envios`; o conteúdo não é guardado). Custo: zero.
+
+**A. App no Entra** (portal.azure.com → Microsoft Entra ID → *Registros de aplicativo* → *Novo registro*)
+1. Nome `Plataforma Nervia - e-mail`, *Contas somente deste diretório*, sem URI de redirecionamento → *Registrar*.
+2. Anote em *Visão geral*: **ID do aplicativo (cliente)** e **ID do diretório (locatário)**.
+3. *Certificados e segredos* → *Novo segredo do cliente* → validade 24 meses → copie o **Valor** na hora (depois não aparece). Anote a data de vencimento.
+4. **Não** acrescente a permissão Mail.Send em *Permissões de API*: dada ali, ela vale para TODAS as caixas do Microsoft 365. A permissão vai pelo Exchange (passo B), só para a caixa compartilhada.
+5. Em *Aplicativos empresariais* (não em Registros), abra o mesmo app e anote o **ID do objeto** (é o da entidade de serviço; o ID do objeto do "Registro" é outro e não serve no passo B).
+
+**B. Permissão só na caixa compartilhada** (PowerShell do Exchange Online, como administrador do Exchange/global)
+```
+Install-Module ExchangeOnlineManagement        # uma vez
+Connect-ExchangeOnline -UserPrincipalName marco.viana@nervia.com.br
+New-ServicePrincipal -AppId <ID do aplicativo> -ObjectId <ID do objeto do Aplicativo empresarial> -DisplayName "Plataforma Nervia - e-mail"
+New-ManagementScope -Name "Plataforma Nervia - nao-responda" -RecipientRestrictionFilter "PrimarySmtpAddress -eq 'nao-responda@nervia.com.br'"
+New-ManagementRoleAssignment -App <ID do aplicativo> -Role "Application Mail.Send" -CustomResourceScope "Plataforma Nervia - nao-responda"
+Test-ServicePrincipalAuthorization -Identity <ID do aplicativo> -Resource nao-responda@nervia.com.br   # InScope = True
+Test-ServicePrincipalAuthorization -Identity <ID do aplicativo> -Resource marco.viana@nervia.com.br    # InScope = False
+```
+A permissão pode levar algum tempo para valer (o Exchange guarda em cache). Se o teste do passo C der "não tem permissão", espere e tente de novo.
+
+**C. Segredos no Supabase** (*Edge Functions → Secrets*): `MS_TENANT_ID`, `MS_CLIENT_ID`, `MS_CLIENT_SECRET` (o Valor do passo A3) e `EMAIL_REMETENTE` = `nao-responda@nervia.com.br`. Depois, *Área do Cliente → Administração → E-mails → Enviar teste*. Confira se chegou na caixa de entrada (não no lixo) e se a cópia ficou em *Itens enviados* da caixa compartilhada.
+
+**D. "Esqueci minha senha" automático** (só depois do teste do passo C)
+1. Supabase → *Authentication → URL Configuration*: Site URL `https://nervia.com.br`; em *Redirect URLs* acrescente `https://nervia.com.br/cliente/` e `https://www.nervia.com.br/cliente/`.
+2. *Authentication → Hooks → Add hook → Send Email hook* → tipo **HTTPS**, URL `https://jgokdhqwtcjxcphlwtgk.supabase.co/functions/v1/email-auth` → *Generate secret* → copie (começa com `v1,whsec_`) → salve o gancho ligado.
+3. *Edge Functions → Secrets*: `SEND_EMAIL_HOOK_SECRET` = o segredo do passo 2.
+4. Com o gancho ligado, TODOS os e-mails de login (senha nova, convite, link de acesso, troca de e-mail) saem pela função, em português. Para desligar: desligue o gancho (volta ao e-mail padrão do Supabase).
+5. Na Área do Cliente, `ESQUECI_AUTOMATICO: true` em `site/config.js` (o botão passa a mandar o link; com `false` continua o pedido manual à Nervia). Testar: "Esqueci minha senha" com o próprio e-mail → link → criar senha nova.
+- Limite de pedidos: *Authentication → Rate Limits* (e-mails por hora). Pedido de e-mail inexistente responde igual (não revela quem tem login).
+
+**Cuidados**
+- A chave secreta do app **vence** (passo A3): os e-mails param com "A chave secreta do app no Entra venceu". Antes do vencimento, gere outra e troque `MS_CLIENT_SECRET`.
+- Limites do Exchange Online: 10.000 destinatários por dia por caixa (sobra para o uso previsto).
 
 ## 9. Acessos do site (contador próprio)
 O site avisa o worker a cada página aberta (`site/acesso.js`), e o worker grava no Supabase com IP, estado e cidade da Cloudflare (`worker/index.js`, tabela `site_acessos`). Tela: *Área do Cliente → Administração → Acessos do site*.
@@ -136,6 +168,7 @@ python3 testes/gerar_fixtures.py                 # certificados de teste
 pip install pyopenssl                            # para o servidor que imita a renegociação da SEFAZ
 deno test -A testes/funcoes_test.ts              # lógica SEFAZ/ADN, mTLS real local, ponte (OpenSSL) com renegociação
 deno test -A testes/worker_test.ts               # worker do site (contador de acessos)
+deno test -A testes/email_test.ts                # e-mail pelo Microsoft Graph (imitado) e gancho Send Email do Auth
 python3 testes/conferir_assinatura.py testes/saida_envEvento.xml testes/fixtures/a1_cert.pem
 PGHOST=... PGPORT=... PGUSER=postgres testes/rodar_sql.sh   # esquema + RLS num Postgres local
 python3 testes/tela_test.py                      # site, Área do Cliente e Buscador (Playwright) com Supabase simulado
