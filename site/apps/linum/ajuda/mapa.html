@@ -32,7 +32,9 @@
 .lado.esq::after{right:-24px}.lado.dir::before{left:-27px}
 .centro::before,.centro::after{content:"";position:absolute;top:50%;width:22px;border-top:2px solid #c9d3de}
 .centro::before{left:-22px}.centro::after{right:-22px}
-.r1{--cor:#5b6b80}.r2{--cor:#107e99}.r3{--cor:#2568a8}.r4{--cor:#a86400}.r5{--cor:#1d7f46}.r6{--cor:#0f1b2d}
+.r1{--cor:#5b6b80}.r2{--cor:#107e99}.r3{--cor:#2568a8}.r4{--cor:#a86400}.r5{--cor:#1d7f46}.r6{--cor:#0f1b2d}.r7{--cor:#b3261e}
+.ramo.faixa{margin-top:14px}.ramo.faixa ul{columns:3;column-gap:24px}
+@media (max-width:900px){.ramo.faixa ul{columns:1}}
 
 .fluxo{display:flex;flex-wrap:wrap;align-items:stretch;gap:6px;margin:22px 0 6px;font-size:.8rem}
 .fluxo div{flex:1 1 110px;border-radius:10px;background:#f3f6f8;padding:7px 9px;position:relative}
@@ -57,7 +59,7 @@
   .cab{margin-bottom:6px;padding-bottom:6px}
   .lado{gap:7px}
   .ramo{break-inside:avoid;padding:5px 8px 4px}
-  .ramo ul{font-size:11px;margin-top:2px}.ramo li{margin:0}.ramo h3{font-size:11.5px;margin-bottom:2px}.ramo h3 i{width:17px;height:17px;font-size:9.5px}
+  .ramo ul{font-size:10px;margin-top:1px}.ramo li{margin:0}.ramo h3{font-size:11.5px;margin-bottom:2px}.ramo h3 i{width:17px;height:17px;font-size:9.5px}
   .p{font-size:8.5px}.papeis{font-size:9.5px}.centro b{font-size:14px}.centro span{font-size:9.5px}
   .fluxo{margin-top:8px;font-size:9px}.fluxo div b{font-size:10px}.fluxo div{padding:4px 7px}
   .lead,.papeis{margin:2px 0 6px}.rodape{margin-top:8px;padding-top:4px}
@@ -73,7 +75,7 @@
     <div class="acoes"><a href="cartao.html">Cartão rápido</a><a href="manual.html">Manual</a><button onclick="print()">Imprimir</button></div>
   </div>
 
-  <p class="lead">A Nervia libera o acesso, o Dono ou o Estoque cadastra as peças com cores e tamanhos e lança as quantidades de cada loja; a partir daí toda mudança no estoque fica no histórico e todos consultam o que há em Gávea e Ipanema. Os números mostram a ordem.</p>
+  <p class="lead">A Nervia libera o acesso, o Dono ou o Estoque cadastra as peças com cores e tamanhos e lança as quantidades de cada loja, e a venda dá baixa sozinha; a partir daí toda mudança no estoque fica no histórico e todos consultam o que há em Gávea e Ipanema. Os números mostram a ordem.</p>
   <div class="papeis">Quem faz:
     <span class="p ner">Equipe Nervia</span><span class="p don">Dono</span><span class="p est">Estoque</span><span class="p ven">Vendedora</span></div>
 
@@ -83,7 +85,7 @@
         <h3><i>1</i>Liberar o acesso <span class="p ner">Equipe Nervia</span></h3>
         <ul>
           <li>Login na <b>Área do Cliente</b> → Administração → Logins, com o app <b>Sistema Linum</b></li>
-          <li>Aba <b>Equipe</b>: <b>Dono</b> (tudo), <b>Estoque</b> (cadastra e movimenta, sem custo) ou <b>Vendedora</b> (só consulta, com a loja)</li>
+          <li>Aba <b>Equipe</b>: <b>Dono</b> (tudo), <b>Estoque</b> (cadastra e movimenta, sem custo) ou <b>Vendedora</b> (consulta e vende na loja dela)</li>
           <li>Sem papel ou sem o app: não entra</li>
           <li>Troca de papel fica na <b>auditoria</b></li>
         </ul>
@@ -110,7 +112,7 @@
       </section>
     </div>
 
-    <div class="centro"><b>Sistema Linum</b><span>produtos e estoque das lojas Gávea e Ipanema</span></div>
+    <div class="centro"><b>Sistema Linum</b><span>produtos, estoque e vendas das lojas Gávea e Ipanema</span></div>
 
     <div class="lado dir">
       <section class="ramo r4">
@@ -145,6 +147,14 @@
     </div>
   </div>
 
+      <section class="ramo r7 faixa">
+        <h3><i>7</i>Vender e clientes <span class="p don">Dono</span><span class="p ven">Vendedora</span></h3>
+        <ul>
+          <li><b>+ Nova venda</b> = a boleta; peça pelo <b>código de barras</b>, desconto por peça ou geral</li>
+          <li>Crédito com parcelas, débito, Pix, dinheiro; pode dividir · <b>baixa no estoque</b> na hora</li>
+          <li>Cliente com telefone e aniversário (base do CRM) · <b>cancelar</b> só o Dono, com motivo</li>
+        </ul>
+      </section>
   <div class="fluxo" aria-label="Do acesso à consulta, em ordem">
     <div><b>Login liberado</b><span>Área do Cliente</span></div><span class="seta">→</span>
     <div><b>Papel definido</b><span>Dono, Estoque ou Vendedora</span></div><span class="seta">→</span>
@@ -152,9 +162,10 @@
     <div><b>Cores e tamanhos</b><span>variações</span></div><span class="seta">→</span>
     <div><b>Entrada no estoque</b><span>por loja</span></div><span class="seta">→</span>
     <div><b>Movimentações</b><span>com histórico</span></div><span class="seta">→</span>
-    <div><b>Consulta</b><span>equipe toda</span></div>
+    <div><b>Consulta</b><span>equipe toda</span></div><span class="seta">→</span>
+    <div><b>Venda</b><span>boleta e cliente</span></div>
   </div>
-  <p class="mut" style="color:var(--sub);font-size:.8rem">Próximas etapas do sistema: <b>Vendas</b> (baixa automática), <b>Reservas</b> e <b>Transferências</b> com confirmação da outra loja.</p>
+  <p class="mut" style="color:var(--sub);font-size:.8rem">Próximas etapas do sistema: <b>Trocas</b>, <b>Reservas</b>, <b>Transferências</b> com confirmação da outra loja e o <b>acompanhamento de clientes</b> (CRM).</p>
 
   <div class="rodape">Nervia Tecnologia · Mapa mental do app Sistema Linum · atualizado em 22/10/2026 · Dúvidas: WhatsApp (21) 96686-9374 · atendimento@nervia.com.br</div>
 </div>

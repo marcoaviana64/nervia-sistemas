@@ -1190,6 +1190,81 @@ set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
 select pg_temp.erro2('select lin_catalogo()', 'Somente o Dono ou o Estoque', 'linum estoque: vendedora não abre o cadastro');
 select pg_temp.ok((select count(*) = 0 from lin_movimentos), 'linum estoque: vendedora não vê o histórico');
 reset role;
+-- Sistema Linum: Vendas e Clientes (boleta de venda)
+reset role;
+insert into lin_estoque values ('20000000-0000-0000-0000-000000000002', (select v from lin_ids where k = 'gav'), 5)
+  on conflict (variante_id, loja_id) do update set quantidade = 5;
+create temp table lin_vd (k text primary key, v text); grant all on lin_vd to authenticated;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora da Gávea
+insert into lin_vd values ('cli', lin_cliente_salvar('{"nome":"Eglacy Rocha","telefone":"(21) 97902-3553","aniversario_dia":"21","aniversario_mes":"7","cpf":"123.456.789-01"}')::text);
+select pg_temp.ok((select telefone = '21979023553' and cpf = '12345678901' and aniversario_dia = 21 and aniversario_mes = 7 and loja_id = (select v from lin_ids where k = 'gav')
+  from lin_clientes where id = (select v from lin_vd where k = 'cli')::uuid), 'linum vendas: cliente com telefone e CPF só dígitos, aniversário e loja da vendedora');
+select pg_temp.erro2($$select lin_cliente_salvar('{"nome":"Outra","cpf":"12345678901"}')$$, 'Este CPF já é do cliente Eglacy Rocha', 'linum vendas: CPF repetido recusado');
+select pg_temp.erro2($$select lin_cliente_salvar('{"nome":"Outra","aniversario_dia":"31","aniversario_mes":"2"}')$$, 'aniversário inválida', 'linum vendas: aniversário inválido recusado');
+select pg_temp.erro2($$select lin_cliente_salvar('{"nome":"Outra","telefone":"9999"}')$$, 'Telefone com DDD', 'linum vendas: telefone curto recusado');
+-- venda da vendedora: 2 peças com 10% e desconto geral de 20 centavos, crédito em 6x
+insert into lin_vd values ('v1', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'cliente_id', (select v from lin_vd where k = 'cli'),
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 2, 'valor_unitario', 440.10, 'desconto_pct', 10)),
+  'desconto', 0.2, 'observacao', 'Niver 21/07', 'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'credito', 'valor', 880, 'parcelas', 6))))::text);
+reset role;
+select pg_temp.ok((select valor_bruto = 978 and valor_itens = 880.20 and desconto = 0.20 and valor_total = 880 and pagamentos -> 0 ->> 'parcelas' = '6'
+    and vendedora_id = '00000000-0000-0000-0000-00000000000c' and data = current_date from lin_vendas where id = (select v from lin_vd where k = 'v1')::bigint)
+  and (select referencia = 'VES01' and cor = 'Azul' and tamanho = 'M' and preco_tabela = 489 and desconto_pct = 10 and valor_total = 880.20 from lin_venda_itens where venda_id = (select v from lin_vd where k = 'v1')::bigint)
+  and (select quantidade = 3 from lin_estoque where variante_id = '20000000-0000-0000-0000-000000000002' and loja_id = (select v from lin_ids where k = 'gav'))
+  and (select count(*) = 1 from lin_movimentos where tipo = 'venda' and observacao = 'Venda nº ' || (select v from lin_vd where k = 'v1')),
+  'linum vendas: venda baixa o estoque, guarda a etiqueta, preço de tabela, desconto, total e parcelas');
+set role authenticated;
+select pg_temp.erro2($$select lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'),
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 1, 'valor_unitario', 489)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 400))))$$, 'é diferente do total da venda (R$ 489,00)', 'linum vendas: pagamento diferente do total recusado');
+select pg_temp.erro2($$select lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'),
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 9, 'valor_unitario', 1)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 9))))$$, 'Estoque insuficiente: Vestido Mar Azul M tem 3', 'linum vendas: estoque insuficiente recusa a venda');
+select pg_temp.erro2($$select lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'ipa'),
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 1, 'valor_unitario', 1)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 1))))$$, 'só registra vendas da sua loja', 'linum vendas: vendedora não vende em outra loja');
+select pg_temp.erro2($$select lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'data', current_date - 10,
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 1, 'valor_unitario', 1)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 1))))$$, 'mais de 7 dias', 'linum vendas: vendedora não lança venda antiga');
+select pg_temp.erro2($$select lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'vendedora_id', '00000000-0000-0000-0000-00000000000b',
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 1, 'valor_unitario', 1)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 1))))$$, 'só registra as próprias vendas', 'linum vendas: vendedora não lança venda em nome de outra');
+reset role;
+select pg_temp.ok((select quantidade = 3 from lin_estoque where variante_id = '20000000-0000-0000-0000-000000000002' and loja_id = (select v from lin_ids where k = 'gav')),
+  'linum vendas: venda recusada não mexe no estoque');
+set role authenticated;
+-- Dono lança a boleta antiga da vendedora (data passada, dinheiro + pix) e uma venda própria
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+insert into lin_vd values ('v2', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'vendedora_id', '00000000-0000-0000-0000-00000000000c',
+  'data', current_date - 17, 'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 1, 'valor_unitario', '489')),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'dinheiro', 'valor', 89), jsonb_build_object('forma', 'pix', 'valor', 400))))::text);
+insert into lin_vd values ('v3', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'),
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 1, 'valor_unitario', '0')), 'pagamentos', '[]'::jsonb))::text);
+select pg_temp.ok((select vendedora_nome <> '' and data = current_date - 17 and jsonb_array_length(pagamentos) = 2 from lin_vendas where id = (select v from lin_vd where k = 'v2')::bigint)
+  and (select count(*) = 3 from lin_vendas), 'linum vendas: Dono lança boleta antiga em nome da vendedora, com duas formas de pagamento');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.ok((select count(*) = 2 from lin_vendas) and (select count(*) = 2 from lin_venda_itens), 'linum vendas: vendedora vê só as vendas dela');
+select pg_temp.erro2($$select lin_venda_cancelar((select v from lin_vd where k = 'v1')::bigint, 'cliente desistiu')$$, 'Somente o Dono', 'linum vendas: vendedora não cancela');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';   -- papel Estoque
+select pg_temp.ok((select count(*) = 0 from lin_vendas) and (select count(*) = 0 from lin_clientes), 'linum vendas: Estoque não vê vendas nem clientes');
+select pg_temp.erro2($$select lin_cliente_salvar('{"nome":"X Y"}')$$, 'Somente o Dono ou a Vendedora', 'linum vendas: Estoque não cadastra cliente');
+select pg_temp.erro2($$select lin_venda_registrar('{}')$$, 'Somente o Dono ou a Vendedora', 'linum vendas: Estoque não vende');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.erro2($$select lin_venda_cancelar((select v from lin_vd where k = 'v1')::bigint, 'x')$$, 'Informe o motivo', 'linum vendas: cancelar exige motivo');
+select lin_venda_cancelar((select v from lin_vd where k = 'v1')::bigint, 'Cliente devolveu no mesmo dia');
+select pg_temp.erro2($$select lin_venda_cancelar((select v from lin_vd where k = 'v1')::bigint, 'de novo, de novo')$$, 'já foi cancelada', 'linum vendas: não cancela duas vezes');
+reset role;
+select pg_temp.ok((select quantidade = 3 from lin_estoque where variante_id = '20000000-0000-0000-0000-000000000002' and loja_id = (select v from lin_ids where k = 'gav'))
+  and (select cancelada_em is not null and motivo_cancelamento = 'Cliente devolveu no mesmo dia' from lin_vendas where id = (select v from lin_vd where k = 'v1')::bigint)
+  and (select count(*) = 1 from lin_movimentos where tipo = 'devolucao' and quantidade = 2),
+  'linum vendas: cancelamento devolve as peças e a venda fica no histórico como cancelada');
+select pg_temp.erro2($$update lin_vendas set valor_total = 1 where id = (select v from lin_vd where k = 'v2')::bigint$$, 'não pode ser alterada', 'linum vendas: venda não se altera');
+select pg_temp.erro2($$delete from lin_vendas where id = (select v from lin_vd where k = 'v2')::bigint$$, 'não se apaga', 'linum vendas: venda não se apaga');
+select pg_temp.ok((select count(*) = 3 from auditoria where acao = 'linum_venda_registrada') and (select count(*) = 1 from auditoria where acao = 'linum_venda_cancelada')
+  and (select count(*) = 1 from auditoria where acao = 'linum_cliente_criado')
+  and (select detalhes -> 'itens' -> 0 ->> 'referencia' = 'VES01' from auditoria where acao = 'linum_venda_registrada' order by id limit 1),
+  'linum vendas: venda, cancelamento e cliente na auditoria');
 reset role;
 set role anon;
 select pg_temp.erro2('select * from apps_vitrine()', 'permission', 'anônimo não vê a vitrine');
