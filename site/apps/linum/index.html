@@ -149,7 +149,8 @@ let MINHA_LOJA = null, ADMIN = false, PAPEL = null, LOJAS = [], PRODUTOS = [], Q
 const F = { q: "", loja: "", cat: "", cor: "", tam: "", zerados: true };
 const dono = () => PAPEL === "dono";
 const controla = () => PAPEL === "dono" || PAPEL === "estoque";   // Estoque: cadastra e movimenta, mas nunca vê custo
-const vende = () => PAPEL === "dono" || PAPEL === "vendedora";      // Vendas e Clientes: Dono e Vendedora (o Estoque não vende)
+let MINHA_COMISSAO = 0;
+const vende = () => !!PAPEL;   // Vendas e Clientes: qualquer pessoa da equipe da Linum vende, em qualquer loja
 const chave = (v, l) => v + ":" + l;
 const qtd = (v, l) => QTD.get(chave(v, l)) || 0;
 const loja = id => LOJAS.find(l => l.id === id) || { nome: "?" };
@@ -175,14 +176,14 @@ async function iniciar() {
     $("abaEquipe").classList.toggle("oculto", !ADMIN);
     $("abaProdutos").classList.toggle("oculto", !controla());
     $("abaVendas").classList.toggle("oculto", !vende()); $("abaClientes").classList.toggle("oculto", !vende());
-    $("quem").textContent = ADMIN ? "Equipe Nervia (Dono)" : dono() ? "Dono" : controla() ? "Estoque · sem custos" : "Vendedora · " + loja(MINHA_LOJA).nome;
+    $("quem").textContent = ADMIN ? "Equipe Nervia (Dono)" : dono() ? "Dono" : controla() ? "Estoque · sem custos" : "Vendedora" + (MINHA_LOJA ? " · " + loja(MINHA_LOJA).nome : "");
     $("aviso").classList.add("oculto"); $("app").classList.remove("oculto");
     render();
   } catch (e) { $("aviso").textContent = e.message.includes("não tem acesso") ? e.message : "Não foi possível carregar: " + e.message; }
 }
 async function carregar() {
   const d = checar(await sb.rpc("lin_estoque_ler"));
-  PAPEL = d.papel; LOJAS = d.lojas || []; PRODUTOS = d.produtos || []; MINHA_LOJA = d.minha_loja || null;
+  PAPEL = d.papel; LOJAS = d.lojas || []; PRODUTOS = d.produtos || []; MINHA_LOJA = d.minha_loja || null; MINHA_COMISSAO = Number(d.comissao_pct || 0);
   QTD = new Map((d.estoque || []).map(([v, l, q]) => [chave(v, l), q]));
 }
 document.querySelectorAll(".barra .aba").forEach(b => b.onclick = () => { VISTA = b.dataset.v; limparMsg(); render(); });
@@ -528,7 +529,7 @@ async function telaVendas() {
   const ok = VENDAS.filter(v => !v.cancelada_em);
   const pecas = ITENS.filter(i => ok.some(v => v.id === i.venda_id)).reduce((s, i) => s + i.quantidade, 0);
   const total = ok.reduce((s, v) => s + Number(v.valor_total), 0);
-  const grupo = (chave, nome) => { const m = {}; ok.forEach(v => { const k = chave(v); m[k] = m[k] || { nome: nome(v), n: 0, t: 0 }; m[k].n++; m[k].t += Number(v.valor_total); });
+  const grupo = (chave, nome) => { const m = {}; ok.forEach(v => { const k = chave(v); m[k] = m[k] || { nome: nome(v), n: 0, t: 0, c: 0 }; m[k].n++; m[k].t += Number(v.valor_total); m[k].c += Number(v.comissao_valor || 0); });
     return Object.values(m).sort((a, b) => b.t - a.t); };
   $("tela").innerHTML = `
     <div class="cabtela"><h2>Vendas</h2><button class="bt pri" id="vnova">+ Nova venda</button></div>
@@ -543,10 +544,11 @@ async function telaVendas() {
       <div class="kpi"><small>Peças</small><b>${n(pecas)}</b></div>
       <div class="kpi"><small>Total vendido</small><b>${brl(total)}</b></div>
       <div class="kpi"><small>Ticket médio</small><b>${brl(ok.length ? total / ok.length : 0)}</b></div>
+      <div class="kpi"><small>${dono() ? "Comissões" : "Sua comissão"}</small><b>${brl(ok.reduce((s, v) => s + Number(v.comissao_valor || 0), 0))}</b><span>${dono() ? "das vendas do período" : MINHA_COMISSAO ? decBR(MINHA_COMISSAO) + "% sobre o valor pago" : "sem comissão"}</span></div>
     </div>
     ${dono() && ok.length ? `<div class="grade2" style="margin-bottom:12px">
       <div class="card"><h2>Por loja</h2>${grupo(v => v.loja_id, v => loja(v.loja_id).nome).map(g => `<div class="vlin"><span>${esc(g.nome)} · ${n(g.n)} venda(s)</span><b>${brl(g.t)}</b></div>`).join("")}</div>
-      <div class="card"><h2>Por vendedora</h2>${grupo(v => v.vendedora_id, v => v.vendedora_nome).map(g => `<div class="vlin"><span>${esc(g.nome)} · ${n(g.n)} venda(s)</span><b>${brl(g.t)}</b></div>`).join("")}</div></div>` : ""}
+      <div class="card"><h2>Por vendedora</h2>${grupo(v => v.vendedora_id, v => v.vendedora_nome).map(g => `<div class="vlin"><span>${esc(g.nome)} · ${n(g.n)} venda(s)${g.c ? ` · comissão ${brl(g.c)}` : ""}</span><b>${brl(g.t)}</b></div>`).join("")}</div></div>` : ""}
     <div class="card"><div class="tw"><table><thead><tr><th>Nº</th><th>Data</th><th>Loja</th><th>Vendedora</th><th>Cliente</th><th>Peças</th><th>Pagamento</th><th class="num">Total</th></tr></thead><tbody>
       ${VENDAS.length ? VENDAS.map(v => { const its = ITENS.filter(i => i.venda_id === v.id), c = cliente(v.cliente_id);
         return `<tr class="vrow ${v.cancelada_em ? "cancelada" : ""}" data-v="${v.id}" style="cursor:pointer"><td>${v.id}</td><td>${dataBR(v.data)}</td><td>${esc(loja(v.loja_id).nome)}</td>
@@ -579,6 +581,7 @@ function verVenda(id) {
       ${Number(v.desconto) ? `<div class="vlin"><span>Desconto geral</span><span>− ${brl(v.desconto)}</span></div>` : ""}
       <div class="vlin"><b>Valor pago</b><b>${brl(v.valor_total)}</b></div>
       ${(v.pagamentos || []).map(p => `<div class="vlin"><span>${esc(FORMAS[p.forma])}${p.forma === "credito" ? ` em ${p.parcelas}x` : ""}</span><span>${brl(p.valor)}</span></div>`).join("")}
+      <div class="vlin"><span>Comissão de ${esc(v.vendedora_nome)}</span><span>${Number(v.comissao_pct) ? `${decBR(Number(v.comissao_pct))}% = ${brl(v.comissao_valor)}` : "sem comissão"}</span></div>
     </div>
     ${v.observacao ? `<div class="campo"><b>Observações:</b> ${esc(v.observacao)}</div>` : ""}
     <div class="mut campo">Registrada por ${esc(v.criado_nome)} em ${new Date(v.criado_em).toLocaleString("pt-BR", { timeZone: TZ })}</div>
@@ -596,13 +599,13 @@ function verVenda(id) {
 }
 
 // ---------------------------------------------------------------- nova venda (formulário no formato da boleta)
+// quem vende escolhe a loja de cada venda (vendedora deslocada); vem marcada a loja principal da pessoa
 async function novaVenda() {
   $("dlg").classList.add("largo");
   const { data: { session } } = await sb.auth.getSession();
   const eu = session.user.id;
-  const NV = { data: hoje(), loja: dono() ? (FV.loja || (LOJAS[0] || {}).id) : MINHA_LOJA, vend: eu, cliente: null, itens: [], desconto: "", obs: "",
+  const NV = { data: hoje(), loja: (dono() && FV.loja) || MINHA_LOJA || (LOJAS[0] || {}).id, vend: eu, cliente: null, itens: [], desconto: "", obs: "",
                pags: [{ forma: "credito", valor: "", parcelas: "1", auto: true }] };
-  if (!NV.loja) { msg("err", "Seu login ainda não tem loja. Peça à Nervia para definir na aba Equipe."); return; }
   const f = $("dlgf");
   const soma = () => r2(NV.itens.reduce((s, i) => s + numV(i.vu) * (Number(i.q) || 0), 0));
   const totalV = () => r2(soma() - numV(NV.desconto));
@@ -610,7 +613,7 @@ async function novaVenda() {
   f.innerHTML = `<h3>Nova venda</h3>
     <div class="campo grade3">
       <div><label for="nvdata">Data</label><input type="date" id="nvdata" value="${NV.data}" max="${hoje()}"></div>
-      <div><label for="nvloja">Loja</label>${dono() ? `<select id="nvloja">${LOJAS.map(l => `<option value="${l.id}" ${l.id === NV.loja ? "selected" : ""}>${esc(l.nome)}</option>`).join("")}</select>` : `<input readonly value="${esc(loja(NV.loja).nome)}">`}</div>
+      <div><label for="nvloja">Loja</label><select id="nvloja">${LOJAS.map(l => `<option value="${l.id}" ${l.id === NV.loja ? "selected" : ""}>${esc(l.nome)}</option>`).join("")}</select></div>
       <div><label for="nvvend">Vendedora</label>${dono() ? `<select id="nvvend">${VENDEDORAS.map(u => `<option value="${u.user_id}" ${u.user_id === eu ? "selected" : ""}>${esc(u.nome)}</option>`).join("")}${VENDEDORAS.some(u => u.user_id === eu) ? "" : `<option value="${eu}" selected>Eu (equipe Nervia)</option>`}</select>` : `<input readonly value="${esc((VENDEDORAS.find(u => u.user_id === eu) || {}).nome || "Eu")}">`}</div>
     </div>
     <div class="caixa"><h4>Cliente</h4><div id="nvcli"></div></div>
@@ -800,18 +803,20 @@ async function telaEquipe() {
   try { EQUIPE = checar(await sb.rpc("lin_equipe")) || []; } catch (e) { $("tela").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; return; }
   const opLoja = sel => `<option value="">—</option>` + LOJAS.map(l => `<option value="${l.id}" ${l.id === sel ? "selected" : ""}>${esc(l.nome)}</option>`).join("");
   $("tela").innerHTML = `<div class="card"><h2>Equipe da Linum</h2>
-    <p class="mut">Aparecem aqui os logins com o app <b>Sistema Linum</b> liberado na Área do Cliente (Administração → Logins). Dono: tudo, inclusive preço de custo. Estoque: cadastra peças, altera o preço de venda e movimenta o estoque, sem ver nem alterar custo. Vendedora: consulta o estoque e registra vendas e clientes da loja dela (escolha a loja), sem preço de custo. Todas as ações ficam na auditoria. Sem papel: o login não entra no app.</p>
-    ${EQUIPE.length ? `<div class="tw"><table><thead><tr><th>Login</th><th>Papel</th><th>Loja</th><th></th></tr></thead><tbody>
+    <p class="mut">Aparecem aqui os logins com o app <b>Sistema Linum</b> liberado na Área do Cliente (Administração → Logins). Dono: tudo, inclusive preço de custo. Estoque: cadastra peças, altera o preço de venda e movimenta o estoque, sem ver nem alterar custo. Vendedora: consulta o estoque, sem preço de custo. <b>Todos vendem</b>, em qualquer loja (a loja principal vem marcada na venda), e cada um vê só as próprias vendas; o Dono vê as de todos. <b>Comissão (%)</b>: sobre o valor pago de cada venda da pessoa; 0 = sem comissão. Mudar o % não altera as vendas já feitas. Todas as ações ficam na auditoria. Sem papel: o login não entra no app.</p>
+    ${EQUIPE.length ? `<div class="tw"><table><thead><tr><th>Login</th><th>Papel</th><th>Loja principal</th><th>Comissão (%)</th><th></th></tr></thead><tbody>
       ${EQUIPE.map((u, i) => `<tr><td><b>${esc(u.nome || u.email)}</b><br><span class="mut">${esc(u.email)}</span></td>
         <td><select data-i="${i}" class="eq-papel"><option value="">Sem papel</option><option value="dono" ${u.papel === "dono" ? "selected" : ""}>Dono</option><option value="estoque" ${u.papel === "estoque" ? "selected" : ""}>Estoque</option><option value="vendedora" ${u.papel === "vendedora" ? "selected" : ""}>Vendedora</option></select></td>
         <td><select data-i="${i}" class="eq-loja">${opLoja(u.loja_id)}</select></td>
+        <td><input data-i="${i}" class="eq-comissao" inputmode="decimal" value="${esc(u.comissao_pct != null ? decBR(Number(u.comissao_pct)) : "0")}" style="width:80px" aria-label="Comissão em %"></td>
         <td><button class="bt pri eq-salvar" data-i="${i}">Salvar</button></td></tr>`).join("")}
       </tbody></table></div>` : '<div class="vazio">Nenhum login com o app liberado ainda.</div>'}</div>`;
   document.querySelectorAll(".eq-salvar").forEach(b => b.onclick = async () => {
     const i = b.dataset.i, u = EQUIPE[i];
     const papel = document.querySelector(`.eq-papel[data-i="${i}"]`).value, lj = document.querySelector(`.eq-loja[data-i="${i}"]`).value || null;
+    const cm = numBR(document.querySelector(`.eq-comissao[data-i="${i}"]`).value) || 0;
     b.disabled = true;
-    try { checar(await sb.rpc("lin_membro_salvar", { p_user: u.user_id, p_papel: papel, p_loja: lj })); msg("ok", `Papel de ${u.nome || u.email} salvo.`); await telaEquipe(); }
+    try { checar(await sb.rpc("lin_membro_salvar", { p_user: u.user_id, p_papel: papel, p_loja: lj, p_comissao: Number(cm) })); msg("ok", `Papel de ${u.nome || u.email} salvo.`); await telaEquipe(); }
     catch (e) { msg("err", e.message); b.disabled = false; }
   });
 }
