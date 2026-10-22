@@ -35,6 +35,7 @@ Ao publicar mudança num app: linha nova no topo do app aqui (com a data) e em `
 | Versão | Data | O que mudou |
 |---|---|---|
 | 1.7 | 22/10/2026 | A aprovação automática nunca passa do limite do Gerente do setor: acima dele, a compra vai ao Gerente do setor (e ao Diretor, se passar do limite). |
+| 1.7 | 22/10/2026 | Relatório de comissões por mês (só o Dono): quanto cada pessoa vendeu e recebe de comissão no mês, com as vendas de cada uma, filtro por loja, os últimos 12 meses lado a lado, CSV e impressão. As vendedoras ainda não veem este relatório. |
 | 1.6 | 22/10/2026 | Aprovação por setor: cada compra diz de qual setor é (Financeiro, Marketing, Operações, Comercial…) e é aprovada pelo Gerente daquele setor; acima do limite dele, segue para o Diretor. O setor pode ter limite próprio. |
 | 1.6 | 22/10/2026 | Cliente na venda: nome e telefone podem ser digitados juntos no mesmo campo (a busca e o cadastro novo separam sozinhos), e acento ou maiúscula não atrapalham a busca. Ao cadastrar cliente com o mesmo nome ou telefone de alguém já cadastrado, o sistema pergunta se é a mesma pessoa, para não duplicar. |
 | 1.5 | 22/10/2026 | Oportunidades: abra a requisição para os fornecedores cadastrados na Plataforma Nervia, que veem só a cidade e o estado (nunca o nome da empresa) e mandam a proposta pelo mesmo link de cotação. |
