@@ -1,4 +1,4 @@
-// Gestão de logins dos sistemas Nervia (só admin): criar, trocar senha, excluir.
+// Gestão de logins dos sistemas Nervia (só admin): criar, editar nome/e-mail, trocar senha, excluir.
 // Um login vale para todos os apps; quais apps cada um vê fica em "app_acessos" e, no Buscador,
 // quais CNPJs fica em "nf_acessos" (as duas tabelas a tela grava direto — RLS permite só ao admin).
 import { admin } from "../_shared/banco.ts";
@@ -45,6 +45,34 @@ servir(async (req, quem) => {
     const { data: alvo } = await sb.from("perfis").select("email").eq("user_id", c.user_id).maybeSingle();
     await auditar(sb, req, quem, "senha_redefinida", null, { login: alvo?.email ?? null, login_id: c.user_id });
     return json({ ok: true, mensagem: "Senha alterada." });
+  }
+
+  if (c.acao === "editar") {
+    // nome e e-mail do login (o e-mail é o usuário de entrada: muda no Auth e no perfil)
+    const { data: antes } = await sb.from("perfis").select("email, nome").eq("user_id", c.user_id).maybeSingle();
+    if (!antes) return erro("Login não encontrado.");
+    const email = String(c.email ?? "").trim().toLowerCase();
+    const nome = String(c.nome ?? "").trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return erro("E-mail inválido.");
+    const mudouEmail = email !== String(antes.email ?? "").toLowerCase(), mudouNome = nome !== (antes.nome ?? "");
+    if (!mudouEmail && !mudouNome) return json({ ok: true, mensagem: "Nada mudou." });
+    if (mudouEmail) {
+      const { data: outro } = await sb.from("perfis").select("user_id").eq("email", email).neq("user_id", c.user_id).maybeSingle();
+      if (outro) return erro(`Já existe outro login com o e-mail ${email}.`);
+    }
+    // e-mail confirmado pela Nervia: troca direto, sem e-mail de confirmação para a pessoa
+    const { error } = await sb.auth.admin.updateUserById(c.user_id, {
+      ...(mudouEmail ? { email, email_confirm: true } : {}), user_metadata: { nome },
+    });
+    if (error) return erro(error.message);
+    const { error: e2 } = await sb.from("perfis").update({ email, nome }).eq("user_id", c.user_id);
+    if (e2) return erro(e2.message);
+    await auditar(sb, req, quem, "login_alterado", null, {
+      login_id: c.user_id, login: email,
+      ...(mudouEmail ? { email_antes: antes.email, email_depois: email } : {}),
+      ...(mudouNome ? { nome_antes: antes.nome ?? "", nome_depois: nome } : {}),
+    });
+    return json({ ok: true, mensagem: mudouEmail ? `Login alterado. A pessoa passa a entrar com ${email} (a senha continua a mesma).` : "Nome alterado." });
   }
 
   if (c.acao === "excluir") {
