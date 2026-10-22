@@ -11,7 +11,7 @@
 .pagina{max-width:1180px}
 .papeis{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:.8rem;color:var(--sub);margin:4px 0 14px}
 .p{display:inline-flex;align-items:center;gap:4px;font-size:.72rem;font-weight:700;padding:1px 7px;border-radius:9px;white-space:nowrap}
-.p.don{background:#e3f3f7;color:#0d6a81}.p.ven{background:#e6f4ec;color:#1d7f46}.p.ner{background:#0f1b2d;color:#fff}
+.p.don{background:#e3f3f7;color:#0d6a81}.p.est{background:#fff3e0;color:#8a5200}.p.ven{background:#e6f4ec;color:#1d7f46}.p.ner{background:#0f1b2d;color:#fff}
 
 .mapa{display:grid;grid-template-columns:1fr 210px 1fr;gap:0 44px;align-items:center;position:relative}
 .lado{display:flex;flex-direction:column;gap:14px;position:relative}
@@ -73,9 +73,9 @@
     <div class="acoes"><a href="cartao.html">Cartão rápido</a><a href="manual.html">Manual</a><button onclick="print()">Imprimir</button></div>
   </div>
 
-  <p class="lead">A Nervia libera o acesso, o Dono cadastra as peças com cores e tamanhos e lança as quantidades de cada loja; a partir daí toda mudança no estoque fica no histórico e todos consultam o que há em Gávea e Ipanema. Os números mostram a ordem.</p>
+  <p class="lead">A Nervia libera o acesso, o Dono ou o Estoque cadastra as peças com cores e tamanhos e lança as quantidades de cada loja; a partir daí toda mudança no estoque fica no histórico e todos consultam o que há em Gávea e Ipanema. Os números mostram a ordem.</p>
   <div class="papeis">Quem faz:
-    <span class="p ner">Equipe Nervia</span><span class="p don">Dono</span><span class="p ven">Vendedora</span></div>
+    <span class="p ner">Equipe Nervia</span><span class="p don">Dono</span><span class="p est">Estoque</span><span class="p ven">Vendedora</span></div>
 
   <div class="mapa">
     <div class="lado esq">
@@ -83,23 +83,23 @@
         <h3><i>1</i>Liberar o acesso <span class="p ner">Equipe Nervia</span></h3>
         <ul>
           <li>Login na <b>Área do Cliente</b> → Administração → Logins, com o app <b>Sistema Linum</b></li>
-          <li>Aba <b>Equipe</b>: papel <b>Dono</b> ou <b>Vendedora</b> (vendedora com a loja)</li>
+          <li>Aba <b>Equipe</b>: <b>Dono</b> (tudo), <b>Estoque</b> (cadastra e movimenta, sem custo) ou <b>Vendedora</b> (só consulta, com a loja)</li>
           <li>Sem papel ou sem o app: não entra</li>
           <li>Troca de papel fica na <b>auditoria</b></li>
         </ul>
       </section>
       <section class="ramo r2">
-        <h3><i>2</i>Cadastrar a peça <span class="p don">Dono</span></h3>
+        <h3><i>2</i>Cadastrar a peça <span class="p don">Dono</span><span class="p est">Estoque</span></h3>
         <ul>
           <li>Aba <b>Produtos</b> → <b>+ Novo produto</b> ou <b>Editar peça</b></li>
           <li><b>Referência</b> (não repete) e <b>descrição</b> obrigatórias</li>
           <li>Categoria, coleção, fornecedor, tecido, consumo de tecido</li>
-          <li>Preço de venda e de custo <span class="q">(custo só o Dono vê)</span></li>
+          <li>Preço de venda; <b>custo só o Dono</b> vê e altera</li>
           <li><b>Código de barras</b> automático: ano + 7 dígitos, não muda</li>
         </ul>
       </section>
       <section class="ramo r3">
-        <h3><i>3</i>Cores, tamanhos e peças especiais <span class="p don">Dono</span></h3>
+        <h3><i>3</i>Cores, tamanhos e peças especiais <span class="p don">Dono</span><span class="p est">Estoque</span></h3>
         <ul>
           <li><b>Cores × tamanhos</b> separados por vírgula → uma variação cada</li>
           <li>As que já existem não se repetem</li>
@@ -114,7 +114,7 @@
 
     <div class="lado dir">
       <section class="ramo r4">
-        <h3><i>4</i>Lançar o estoque <span class="p don">Dono</span></h3>
+        <h3><i>4</i>Lançar o estoque <span class="p don">Dono</span><span class="p est">Estoque</span></h3>
         <ul>
           <li>Aba <b>Estoque</b> → desligar <b>Ocultar zerados</b></li>
           <li>Clicar no quadrado <b>vermelho</b> da variação na loja</li>
@@ -123,23 +123,23 @@
         </ul>
       </section>
       <section class="ramo r5">
-        <h3><i>5</i>Movimentar <span class="p don">Dono</span></h3>
+        <h3><i>5</i>Movimentar <span class="p don">Dono</span><span class="p est">Estoque</span></h3>
         <ul>
           <li><b>Entrada</b>: peças chegando · <b>Saída</b>: uso, perda, beneficiamento</li>
           <li><b>Transferência</b>: de uma loja para a outra</li>
           <li><b>Ajuste</b>: troca pela contagem, guarda antes → depois</li>
           <li>Nunca fica negativo</li>
-          <li><b>Histórico</b> com data, quem fez e motivo: ninguém altera</li>
+          <li><b>Histórico</b> e <b>auditoria</b>: quem fez, papel, data e motivo; ninguém altera</li>
         </ul>
       </section>
       <section class="ramo r6">
-        <h3><i>6</i>Consultar <span class="p don">Dono</span><span class="p ven">Vendedora</span></h3>
+        <h3><i>6</i>Consultar <span class="p don">Dono</span><span class="p est">Estoque</span><span class="p ven">Vendedora</span></h3>
         <ul>
           <li>Um cartão por produto e loja, quadrados por cor e tamanho</li>
           <li><b>Verde</b> = tem peça · <b>vermelho</b> = zerado</li>
           <li>Busca por nome ou referência; filtros de loja, categoria, cor, tamanho</li>
           <li>Total de produtos e peças na tela</li>
-          <li>Vendedora só consulta, sem preço de custo</li>
+          <li>Estoque e Vendedora nunca veem preço de custo</li>
         </ul>
       </section>
     </div>
@@ -147,7 +147,7 @@
 
   <div class="fluxo" aria-label="Do acesso à consulta, em ordem">
     <div><b>Login liberado</b><span>Área do Cliente</span></div><span class="seta">→</span>
-    <div><b>Papel definido</b><span>Dono ou Vendedora</span></div><span class="seta">→</span>
+    <div><b>Papel definido</b><span>Dono, Estoque ou Vendedora</span></div><span class="seta">→</span>
     <div><b>Peça cadastrada</b><span>código de barras</span></div><span class="seta">→</span>
     <div><b>Cores e tamanhos</b><span>variações</span></div><span class="seta">→</span>
     <div><b>Entrada no estoque</b><span>por loja</span></div><span class="seta">→</span>

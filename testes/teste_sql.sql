@@ -1132,6 +1132,64 @@ select pg_temp.erro2($$select lin_variantes_criar((select v from lin_p where k =
 select pg_temp.erro2($$select lin_produto_excluir((select v from lin_p where k = 'saia'))$$, 'Somente o Dono', 'linum produtos: vendedora não exclui');
 select pg_temp.erro2($$select lin_proximo_codigo()$$, 'permission', 'linum produtos: numeração só pelas funções');
 reset role;
+-- Sistema Linum: papel Estoque (cadastra, altera preço de venda e movimenta; nunca vê nem altera custo) e auditoria de tudo
+reset role;
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000d', 'estoque@linum.com.br');
+insert into app_acessos values ('00000000-0000-0000-0000-00000000000d', 'linum');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select lin_membro_salvar('00000000-0000-0000-0000-00000000000d', 'estoque');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+select pg_temp.ok((select lin_estoque_ler()->>'papel') = 'estoque', 'linum estoque: papel Estoque entra no app');
+select pg_temp.ok((select count(*) = 0 from lin_produtos) and (select count(*) = 0 from lin_variantes), 'linum estoque: não lê as tabelas com custo');
+select pg_temp.ok((select position('custo' in lin_catalogo()::text) = 0 and jsonb_array_length(lin_catalogo()->'produtos') >= 3
+  and exists (select 1 from jsonb_array_elements(lin_catalogo()->'produtos') x where x->>'ativo' = 'false')),
+  'linum estoque: catálogo completo (com inativos) sem custo');
+select pg_temp.ok((select count(*) > 0 from lin_movimentos), 'linum estoque: vê o histórico de movimentações');
+select lin_produto_salvar(jsonb_build_object('id', (select v from lin_p where k = 'saia'), 'referencia', 'SAI01', 'descricao', 'Saia Duna Longa',
+  'preco_venda', '349', 'preco_custo', '1', 'ativo', true));
+reset role;
+update lin_produtos set preco_custo = 77 where referencia = 'SAI01';
+set role authenticated;
+select lin_produto_salvar(jsonb_build_object('id', (select v from lin_p where k = 'saia'), 'referencia', 'SAI01', 'descricao', 'Saia Duna Longa',
+  'preco_venda', '359', 'preco_custo', '', 'ativo', true));
+reset role;
+select pg_temp.ok((select preco_venda = 359 and preco_custo = 77 from lin_produtos where referencia = 'SAI01'),
+  'linum estoque: altera o preço de venda e o custo gravado pelo Dono fica como está');
+set role authenticated;
+insert into lin_p values ('novo', lin_produto_salvar('{"referencia":"EST01","descricao":"Peça do Estoque","preco_venda":"199","preco_custo":"50"}'));
+select lin_variantes_criar((select v from lin_p where k = 'novo'), '{Cru}', '{P,M}');
+insert into lin_p values ('esp2', lin_variante_salvar(jsonb_build_object('produto_id', (select v from lin_p where k = 'novo'), 'cor', 'Cru', 'tamanho', 'M', 'edicao', 'Pintada', 'preco_venda', '259', 'preco_custo', '90')));
+reset role;
+select pg_temp.ok((select preco_custo is null from lin_produtos where referencia = 'EST01') and (select preco_custo is null and preco_venda = 259 from lin_variantes where id = (select v from lin_p where k = 'esp2')),
+  'linum estoque: cadastra peça e peça especial, mas o custo que ele manda é ignorado');
+set role authenticated;
+select lin_movimentar((select v from lin_p where k = 'esp2'), (select v from lin_ids where k = 'ipa'), 'entrada', 3, '2026-10-22', 'chegada');
+select lin_transferir((select v from lin_p where k = 'esp2'), (select v from lin_ids where k = 'ipa'), (select v from lin_ids where k = 'gav'), 1, null, 'vitrine');
+select lin_ajustar((select v from lin_p where k = 'esp2'), (select v from lin_ids where k = 'ipa'), 1, null, 'contagem');
+reset role; insert into lin_p select 'estP', id from lin_variantes where produto_id = (select v from lin_p where k = 'novo') and tamanho = 'P'; set role authenticated;
+select lin_variante_ativar((select v from lin_p where k = 'estP'), false);
+select pg_temp.erro2($$select lin_membro_salvar('00000000-0000-0000-0000-00000000000d', 'dono')$$, 'Somente a equipe Nervia', 'linum estoque: não muda o próprio papel');
+reset role;
+select pg_temp.ok((select count(*) = 1 from auditoria where acao = 'linum_estoque_entrada' and user_id = '00000000-0000-0000-0000-00000000000d'
+    and detalhes->>'papel_linum' = 'estoque' and detalhes->>'loja' = 'Ipanema' and detalhes->>'edicao' = 'Pintada' and (detalhes->>'saldo_depois')::int = 3)
+  and (select count(*) = 1 from auditoria where acao = 'linum_estoque_transferencia' and detalhes->>'loja_destino' = 'Gávea')
+  and (select count(*) = 1 from auditoria where acao = 'linum_estoque_ajuste' and user_id = '00000000-0000-0000-0000-00000000000d' and (detalhes->>'antes')::int = 2 and (detalhes->>'depois')::int = 1),
+  'linum auditoria: entrada, transferência e ajuste no log com peça, loja, quem e papel');
+select pg_temp.ok((select count(*) >= 1 from auditoria where acao = 'linum_variantes_criadas' and detalhes->>'referencia' = 'EST01')
+  and (select count(*) = 1 from auditoria where acao = 'linum_peca_especial_criada' and detalhes->>'edicao' = 'Pintada' and not detalhes ? 'preco_custo')
+  and (select count(*) = 1 from auditoria where acao = 'linum_variante_desativada' and detalhes->>'papel_linum' = 'estoque' and detalhes->>'referencia' = 'EST01')
+  and (select count(*) >= 2 from auditoria where acao = 'linum_produto_alterado' and detalhes->>'papel_linum' = 'estoque' and position('preco_custo' in detalhes::text) = 0),
+  'linum auditoria: cadastro de variações, peça especial, desativar e alterações no log (sem custo quando é o Estoque)');
+select pg_temp.ok((select count(*) >= 1 from auditoria where acao = 'linum_produto_alterado' and detalhes->>'papel_linum' = 'dono' and position('preco_custo' in detalhes::text) > 0),
+  'linum auditoria: alteração do Dono guarda o custo antes/depois');
+select pg_temp.ok((select count(*) >= 3 from auditoria where acao like 'linum_estoque_%' and detalhes->>'papel_linum' = 'dono'), 'linum auditoria: movimentações do Dono também no log');
+-- vendedora continua só consultando
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.erro2('select lin_catalogo()', 'Somente o Dono ou o Estoque', 'linum estoque: vendedora não abre o cadastro');
+select pg_temp.ok((select count(*) = 0 from lin_movimentos), 'linum estoque: vendedora não vê o histórico');
+reset role;
 reset role;
 set role anon;
 select pg_temp.erro2('select * from apps_vitrine()', 'permission', 'anônimo não vê a vitrine');

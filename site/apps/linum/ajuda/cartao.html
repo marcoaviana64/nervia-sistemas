@@ -14,13 +14,13 @@
     <div class="acoes"><a href="manual.html">Manual completo</a><a href="mapa.html">Mapa mental</a><button onclick="print()">Imprimir</button></div>
   </div>
 
-  <p class="lead">Produtos e estoque das lojas Gávea e Ipanema por cor e tamanho. O Dono cadastra, consulta e movimenta; a Vendedora só consulta o estoque.</p>
+  <p class="lead">Produtos e estoque das lojas Gávea e Ipanema por cor e tamanho. O Dono faz tudo; o Estoque cadastra e movimenta sem ver custo; a Vendedora só consulta. Toda movimentação e alteração de cadastro fica no registro de auditoria.</p>
 
   <h2>Topo</h2>
   <table>
-    <tr><td>Produtos <span class="eq">DONO</span></td><td>Cadastro das peças, cores, tamanhos e peças especiais.</td></tr>
+    <tr><td>Produtos <span class="eq">DONO · ESTOQUE</span></td><td>Cadastro das peças, cores, tamanhos e peças especiais.</td></tr>
     <tr><td>Estoque</td><td>A lista de produtos com as peças de cada loja.</td></tr>
-    <tr><td>Dono · Vendedora · só consulta</td><td>O seu papel no app (à direita da barra).</td></tr>
+    <tr><td>Dono · Estoque · sem custos · Vendedora · só consulta</td><td>O seu papel no app (à direita da barra).</td></tr>
   </table>
 
   <h2>Filtros</h2>
@@ -41,7 +41,7 @@
     <tr><td>Traço entre os quadrados</td><td>Separa um tamanho do outro.</td></tr>
   </table>
 
-  <h2>Movimentar <span class="eq">DONO</span></h2>
+  <h2>Movimentar <span class="eq">DONO · ESTOQUE</span></h2>
   <table>
     <tr><td>Clique no quadrado</td><td>Abre a movimentação daquela variação.</td></tr>
     <tr><td>Entrada</td><td>Peças chegando na loja: soma.</td></tr>
@@ -55,13 +55,13 @@
     <tr><td>Últimas movimentações</td><td>As 8 mais recentes da variação: data, tipo, quantidade, loja, observação e quem fez.</td></tr>
   </table>
 
-  <h2>Produtos <span class="eq">DONO</span></h2>
+  <h2>Produtos <span class="eq">DONO · ESTOQUE</span></h2>
   <table>
     <tr><td>Buscar · Categoria · Cor · Tamanho · Fornecedor</td><td>Filtra a lista; a busca acha nome, referência ou código de barras.</td></tr>
     <tr><td>+ Novo produto</td><td>Abre o cadastro de uma peça nova.</td></tr>
     <tr><td>Código / Referência · Descrição</td><td>Obrigatórios. A referência não pode repetir.</td></tr>
     <tr><td>Categoria · Coleção · Fornecedor · Tecido</td><td>Opcionais; viram filtros.</td></tr>
-    <tr><td>Preço de custo · Preço de venda</td><td>Em reais, com vírgula (ex.: 1.299,90). O custo só o Dono vê.</td></tr>
+    <tr><td>Preço de custo · Preço de venda</td><td>Em reais, com vírgula (ex.: 1.299,90). O custo só o Dono vê e altera (para o Estoque o campo nem aparece).</td></tr>
     <tr><td>Consumo previsto de tecido</td><td>Metros por peça (ex.: 1,5).</td></tr>
     <tr><td>Código de barras</td><td>Gerado ao salvar (ano + 7 dígitos). Não muda depois.</td></tr>
     <tr><td>Ativo</td><td>Desmarcado: a peça some do estoque.</td></tr>
@@ -77,7 +77,7 @@
   <h2>Equipe <span class="eq">EQUIPE NERVIA</span></h2>
   <table>
     <tr><td>Login</td><td>Logins com o app Sistema Linum liberado na Área do Cliente.</td></tr>
-    <tr><td>Papel</td><td>Dono, Vendedora ou Sem papel (não entra no app).</td></tr>
+    <tr><td>Papel</td><td>Dono (tudo, com custo), Estoque (cadastra e movimenta, sem custo), Vendedora (só consulta) ou Sem papel (não entra no app).</td></tr>
     <tr><td>Loja</td><td>Loja da vendedora (obrigatória para vendedora).</td></tr>
     <tr><td>Salvar</td><td>Grava o papel. Fica na auditoria.</td></tr>
   </table>
