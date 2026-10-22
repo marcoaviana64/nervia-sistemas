@@ -1,0 +1,229 @@
+"""Teste de ponta a ponta do Sistema Linum (Estoque): tela real + banco real (Postgres local com as migrações) servido pelo
+PostgREST (o mesmo motor da API do Supabase). Produtos FICTÍCIOS (catálogo montado aqui, não os dados da Linum).
+
+Precisa de: Postgres (PGHOST/PGPORT/PGUSER), o binário do PostgREST (variável POSTGREST, v12+) e Playwright.
+Sem internet para o CDN: SUPABASE_JS=caminho do supabase.js (umd) da mesma versão.
+Uso: PGHOST=/tmp/pgd PGPORT=5433 PGUSER=postgres POSTGREST=/caminho/postgrest python3 testes/linum/tela_linum_test.py [pasta_prints]
+"""
+import os, sys, json, time, glob, subprocess, threading, http.server, functools, urllib.request
+import jwt
+from playwright.sync_api import sync_playwright
+
+RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+SAIDA = sys.argv[1] if len(sys.argv) > 1 else os.path.join(RAIZ, "testes")
+PG = dict(host=os.environ.get("PGHOST", "localhost"), port=os.environ.get("PGPORT", "5432"), user=os.environ.get("PGUSER", "postgres"))
+DB = "teste_linum_tela"
+SEGREDO = "segredo-de-teste-com-mais-de-32-caracteres!!"
+PORTA_API, PORTA_SITE = 3905, 8817
+
+def psql(sql=None, arquivo=None, db=DB, saida=False):
+    cmd = ["psql", "-h", PG["host"], "-p", PG["port"], "-U", PG["user"], "-d", db, "-v", "ON_ERROR_STOP=1", "-q", "-At"]
+    cmd += ["-f", arquivo] if arquivo else ["-c", sql]
+    r = subprocess.run(cmd, check=True, stdout=subprocess.PIPE if saida else subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+    return r.stdout.strip() if saida else None
+
+def preparar_banco():
+    psql(f"drop database if exists {DB}", db="postgres"); psql(f"create database {DB}", db="postgres")
+    psql(arquivo=os.path.join(RAIZ, "testes", "stubs_supabase.sql"))
+    sql = "\n".join(l for f in sorted(glob.glob(os.path.join(RAIZ, "supabase", "migrations", "*.sql")))
+                    for l in open(f, encoding="utf-8").read().splitlines() if not l.startswith("create extension"))
+    caminho = os.path.join(SAIDA, "_migracoes_linum.sql"); open(caminho, "w", encoding="utf-8").write(sql)
+    psql(arquivo=caminho); os.remove(caminho)
+    psql("""do $$ begin create role autenticador login password 'x' noinherit; exception when duplicate_object then null; end $$;
+      grant anon, authenticated to autenticador;""")
+    psql("""
+      insert into auth.users (id, email, raw_user_meta_data) values
+        ('00000000-0000-0000-0000-0000000000a1', 'marco@nervia.com.br', '{"nome":"Marco"}'),
+        ('00000000-0000-0000-0000-0000000000d1', 'dona@linum.exemplo', '{"nome":"Dona Linum"}'),
+        ('00000000-0000-0000-0000-0000000000b1', 'vendedora@linum.exemplo', '{"nome":"Vera Vendedora"}'),
+        ('00000000-0000-0000-0000-0000000000c2', 'outro@x.exemplo', '{"nome":"Outro"}');
+      update perfis set admin = true where email = 'marco@nervia.com.br';
+      insert into app_acessos values ('00000000-0000-0000-0000-0000000000d1', 'linum'), ('00000000-0000-0000-0000-0000000000b1', 'linum');
+      insert into lin_produtos (id, referencia, descricao, categoria, preco_custo, preco_venda) values
+        ('10000000-0000-0000-0000-000000000001', 'VES-MAR', 'Vestido Mar', 'Vestido', 151.23, 489),
+        ('10000000-0000-0000-0000-000000000002', 'CAL-ARE', 'Calça Areia', 'Calça', 92.11, 359),
+        ('10000000-0000-0000-0000-000000000003', 'CAM-BRI', 'Camisa Brisa', 'Camisa', 70, 299);
+      insert into lin_variantes (id, produto_id, cor, tamanho) values
+        ('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'Azul', 'P'),
+        ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000001', 'Azul', 'M'),
+        ('20000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000001', 'Off White', 'M'),
+        ('20000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000001', 'Azul', 'G'),
+        ('20000000-0000-0000-0000-000000000005', '10000000-0000-0000-0000-000000000002', 'Cru', '38'),
+        ('20000000-0000-0000-0000-000000000006', '10000000-0000-0000-0000-000000000002', 'Cru', '40'),
+        ('20000000-0000-0000-0000-000000000007', '10000000-0000-0000-0000-000000000003', 'Branco', 'U');
+      insert into lin_estoque select v, (select id from lin_lojas where nome = 'Gávea'), q from (values
+        ('20000000-0000-0000-0000-000000000001'::uuid, 3), ('20000000-0000-0000-0000-000000000002'::uuid, 1),
+        ('20000000-0000-0000-0000-000000000004'::uuid, 2), ('20000000-0000-0000-0000-000000000005'::uuid, 4)) x(v, q);
+      insert into lin_estoque select '20000000-0000-0000-0000-000000000003', id, 2 from lin_lojas where nome = 'Ipanema';
+    """)
+
+def iniciar_api():
+    conf = os.path.join(SAIDA, "_postgrest_linum.conf")
+    open(conf, "w").write(f'db-uri = "postgres://autenticador:x@localhost:{PG["port"]}/{DB}"\ndb-schemas = "public"\ndb-anon-role = "anon"\n'
+                          f'jwt-secret = "{SEGREDO}"\nserver-port = {PORTA_API}\nlog-level = "crit"\n')
+    proc = subprocess.Popen([os.environ["POSTGREST"], conf], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    for _ in range(50):
+        try: urllib.request.urlopen(f"http://localhost:{PORTA_API}/"); break
+        except Exception: time.sleep(0.2)
+    return proc, conf
+
+def token(uid, email):
+    return jwt.encode({"sub": uid, "email": email, "role": "authenticated", "aud": "authenticated", "exp": int(time.time()) + 3600}, SEGREDO, algorithm="HS256")
+
+USU = {"admin": ("00000000-0000-0000-0000-0000000000a1", "marco@nervia.com.br"), "dono": ("00000000-0000-0000-0000-0000000000d1", "dona@linum.exemplo"),
+       "vendedora": ("00000000-0000-0000-0000-0000000000b1", "vendedora@linum.exemplo"), "outro": ("00000000-0000-0000-0000-0000000000c2", "outro@x.exemplo")}
+CONFIG = f'window.NERVIA_CONFIG={{SUPABASE_URL:"http://127.0.0.1:{PORTA_SITE}",SUPABASE_ANON_KEY:"anon"}};'
+
+def entrar(b, papel, largura=1300):
+    uid, email = USU[papel]; t = token(uid, email)
+    sessao = {"access_token": t, "refresh_token": "x", "token_type": "bearer", "expires_in": 3600, "expires_at": int(time.time()) + 3600,
+              "user": {"id": uid, "email": email, "aud": "authenticated", "role": "authenticated"}}
+    ctx = b.new_context(viewport={"width": largura, "height": 900})
+    ctx.add_init_script(f"localStorage.setItem('sb-127-auth-token', {json.dumps(json.dumps(sessao))});")
+    ctx.route("**/config.js", lambda r: r.fulfill(body=CONFIG, content_type="text/javascript"))
+    if os.environ.get("SUPABASE_JS"):
+        ctx.route("**/supabase-js@*/**", lambda r: r.fulfill(path=os.environ["SUPABASE_JS"], content_type="text/javascript"))
+    respostas = []
+    def api(rota):
+        url = rota.request.url.replace(f"http://127.0.0.1:{PORTA_SITE}/rest/v1", f"http://localhost:{PORTA_API}")
+        r = rota.fetch(url=url); respostas.append(r.text()); rota.fulfill(response=r)
+    ctx.route(f"http://127.0.0.1:{PORTA_SITE}/rest/v1/**", api)
+    pg = ctx.new_page(); erros = []
+    pg.on("pageerror", lambda e: erros.append(str(e)))
+    pg.respostas = respostas
+    return pg, erros
+
+def abrir(pg, rota="/apps/linum/"):
+    pg.goto(f"http://127.0.0.1:{PORTA_SITE}{rota}"); pg.wait_for_selector("#app:not(.oculto), #aviso:not(.oculto)"); pg.wait_for_timeout(400)
+
+def ok(cond, nome):
+    if not cond: raise SystemExit("FALHOU: " + nome)
+    print("ok ", nome)
+
+def chips(pg): return pg.eval_on_selector_all(".prod", "cs => cs.map(c => c.querySelector('h2').textContent + ' @ ' + c.querySelector('.selo').textContent + ': ' + [...c.querySelectorAll('.chip')].map(x => x.querySelector('b').textContent + ' ' + x.querySelector('small').textContent + '=' + x.querySelector('strong').textContent).join(', '))")
+def qtd_banco(var, loja): return int(psql(f"select coalesce((select quantidade from lin_estoque where variante_id = '{var}' and loja_id = (select id from lin_lojas where nome = '{loja}')), 0)", saida=True))
+V_AZUL_P, V_AZUL_M, V_OFF_M, V_CRU_38 = "20000000-0000-0000-0000-000000000001", "20000000-0000-0000-0000-000000000002", "20000000-0000-0000-0000-000000000003", "20000000-0000-0000-0000-000000000005"
+
+def loja_id(nome): return psql(f"select id from lin_lojas where nome = '{nome}'", saida=True)
+def chip(pg, var, loja): return pg.locator(f'button.chip[data-v="{var}"][data-l="{loja_id(loja)}"]')
+
+def salvar_mov(pg, tipo, qtd, obs="", destino=None):
+    pg.click(f'#dlgf [data-g="tipo"][data-x="{tipo}"]')
+    if destino: pg.click(f'#dlgf [data-g="destino"]:has-text("{destino}")')
+    pg.fill("#mq", str(qtd)); pg.fill("#mo", obs); pg.click("#ms"); pg.wait_for_timeout(700)
+
+preparar_banco()
+api, conf = iniciar_api()
+srv = http.server.ThreadingHTTPServer(("127.0.0.1", PORTA_SITE), functools.partial(http.server.SimpleHTTPRequestHandler, directory=os.path.join(RAIZ, "site")))
+http.server.SimpleHTTPRequestHandler.log_message = lambda *a: None
+threading.Thread(target=srv.serve_forever, daemon=True).start()
+try:
+    with sync_playwright() as p:
+        b = p.chromium.launch()
+
+        # ---------------------------------------------------------------- login sem papel ainda (dono antes da equipe)
+        pg, erros = entrar(b, "dono"); abrir(pg)
+        ok("não tem acesso ao Sistema Linum" in pg.text_content("#aviso"), "login com o app mas sem papel: mensagem clara")
+
+        # ---------------------------------------------------------------- equipe Nervia define os papéis
+        pg, erros = entrar(b, "admin"); abrir(pg)
+        ok(pg.is_visible("#abaEquipe") and "Equipe Nervia" in pg.text_content("#quem"), "admin vê a aba Equipe")
+        pg.click("#abaEquipe"); pg.wait_for_selector(".eq-salvar")
+        linhas = pg.eval_on_selector_all("table tbody tr", "ts => ts.map(t => t.textContent)")
+        ok(len(linhas) == 2 and not any("outro@x" in l for l in linhas), "equipe lista só os logins com o app liberado")
+        i_dono = next(i for i, l in enumerate(linhas) if "dona@linum" in l); i_vend = 1 - i_dono
+        pg.select_option(f'.eq-papel[data-i="{i_dono}"]', "dono"); pg.click(f'.eq-salvar[data-i="{i_dono}"]'); pg.wait_for_timeout(600)
+        pg.select_option(f'.eq-papel[data-i="{i_vend}"]', "vendedora"); pg.click(f'.eq-salvar[data-i="{i_vend}"]'); pg.wait_for_timeout(600)
+        ok("Escolha a loja" in pg.text_content("#msg"), "vendedora sem loja: erro do servidor na tela")
+        pg.select_option(f'.eq-papel[data-i="{i_vend}"]', "vendedora"); pg.select_option(f'.eq-loja[data-i="{i_vend}"]', label="Ipanema")
+        pg.click(f'.eq-salvar[data-i="{i_vend}"]'); pg.wait_for_timeout(600)
+        ok(psql("select string_agg(papel || ':' || coalesce((select nome from lin_lojas where id = loja_id), '-'), ',' order by papel) from lin_membros", saida=True) == "dono:-,vendedora:Ipanema",
+           "papéis gravados (dono; vendedora da Ipanema)")
+        ok(int(psql("select count(*) from auditoria where acao = 'linum_papel_definido'", saida=True)) == 2, "papéis na auditoria")
+        pg.screenshot(path=os.path.join(SAIDA, "linum_equipe.png"), full_page=True)
+        ok(not erros, "sem erros de JavaScript (admin)")
+
+        # ---------------------------------------------------------------- dono: consulta
+        pg, erros = entrar(b, "dono"); abrir(pg)
+        ok(not pg.is_visible("#abaEquipe") and pg.text_content("#quem") == "Dono", "dono não vê a aba Equipe")
+        c = chips(pg)
+        ok(c == ["Calça Areia @ Gávea: Cru 38=4 un.", "Vestido Mar @ Gávea: Azul P=3 un., Azul M=1 un., Azul G=2 un.", "Vestido Mar @ Ipanema: Off White M=2 un."],
+           "um cartão por produto e loja, tamanhos na ordem P M G, zerados ocultos")
+        ok(pg.text_content("#resumo").startswith("2 produto(s) · 12 peça(s)"), "resumo de produtos e peças")
+        ok(pg.locator(".prod").nth(1).locator(".sep").count() == 2, "traço entre tamanhos diferentes")
+        ok("R$ 489,00" in pg.text_content(".prod >> nth=1").replace("\xa0", " "), "preço de venda no cartão")
+        pg.click("#fzero"); pg.wait_for_timeout(200)
+        ok(pg.locator(".chip.zero").count() > 0 and any("Camisa Brisa" in x for x in chips(pg)), "ocultar zerados inativo: zerados em vermelho e produto sem peça aparece")
+        pg.click("#fzero"); pg.fill("#fq", "cal"); pg.wait_for_timeout(200)
+        ok(chips(pg) == ["Calça Areia @ Gávea: Cru 38=4 un."], "busca por nome")
+        pg.fill("#fq", "ves-m"); pg.wait_for_timeout(200)
+        ok(len(chips(pg)) == 2, "busca por referência")
+        pg.fill("#fq", ""); pg.select_option("#floja", label="Ipanema"); pg.wait_for_timeout(200)
+        ok(chips(pg) == ["Vestido Mar @ Ipanema: Off White M=2 un."] and "em Ipanema" in pg.text_content("#resumo"), "filtro por loja")
+        pg.select_option("#floja", ""); pg.select_option("#ftam", "M"); pg.wait_for_timeout(200)
+        ok(chips(pg) == ["Vestido Mar @ Gávea: Azul M=1 un.", "Vestido Mar @ Ipanema: Off White M=2 un."], "filtro por tamanho")
+        pg.select_option("#ftam", ""); pg.select_option("#fcor", "Cru"); pg.wait_for_timeout(200)
+        ok(chips(pg) == ["Calça Areia @ Gávea: Cru 38=4 un."], "filtro por cor")
+        pg.select_option("#fcor", ""); pg.select_option("#fcat", "Vestido"); pg.wait_for_timeout(200)
+        ok(len(chips(pg)) == 2, "filtro por categoria"); pg.select_option("#fcat", "")
+        pg.screenshot(path=os.path.join(SAIDA, "linum_estoque_dono.png"), full_page=True)
+
+        # ---------------------------------------------------------------- dono: movimentar
+        chip(pg, V_AZUL_P, "Gávea").click(); pg.wait_for_selector("#dlg[open]"); pg.wait_for_timeout(500)
+        ok("Vestido Mar — Azul P" in pg.text_content("#dlgf h3") and "Gávea (3)" in pg.text_content("#dlgf") and "Nenhuma movimentação" in pg.text_content(".hist"),
+           "movimentação abre com a variação, a quantidade por loja e o histórico vazio")
+        salvar_mov(pg, "entrada", 5, "chegada da fábrica")
+        ok(not pg.is_visible("#dlg") and "Estoque atualizado" in pg.text_content("#msg") and qtd_banco(V_AZUL_P, "Gávea") == 8, "entrada soma na loja")
+        ok("Azul P=8 un." in " ".join(chips(pg)), "tela atualizada depois da entrada")
+        chip(pg, V_AZUL_P, "Gávea").click(); pg.wait_for_selector("#dlg[open]"); pg.wait_for_timeout(500)
+        salvar_mov(pg, "saida", 20, "perda")
+        ok(pg.is_visible("#dlg") and "Estoque insuficiente: a loja tem 8" in pg.text_content("#dlgf .msg.err"), "saída maior que o estoque: erro dentro do formulário")
+        salvar_mov(pg, "saida", 0)
+        ok("maior que zero" in pg.text_content("#dlgf .msg.err"), "quantidade zero barrada na tela")
+        salvar_mov(pg, "transferencia", 3, "para a vitrine", destino="Ipanema")
+        ok(qtd_banco(V_AZUL_P, "Gávea") == 5 and qtd_banco(V_AZUL_P, "Ipanema") == 3, "transferência entre lojas")
+        ok("Vestido Mar @ Ipanema: Azul P=3 un., Off White M=2 un." in chips(pg), "cartão da loja de destino atualizado")
+        chip(pg, V_OFF_M, "Ipanema").click(); pg.wait_for_selector("#dlg[open]"); pg.wait_for_timeout(500)
+        pg.click('#dlgf [data-g="tipo"][data-x="ajuste"]')
+        ok(pg.input_value("#mq") == "2" and "Nova quantidade" in pg.text_content("#dlgf"), "ajuste começa com a quantidade atual")
+        salvar_mov(pg, "ajuste", 0, "contagem de outubro")
+        ok(qtd_banco(V_OFF_M, "Ipanema") == 0 and not any("Off White" in x for x in chips(pg)), "ajuste para zero some da lista (ocultar zerados)")
+        ok(psql("select antes || '>' || depois || ' ' || observacao || ' ' || criado_nome from lin_movimentos where tipo = 'ajuste'", saida=True) == "2>0 contagem de outubro Dona Linum",
+           "ajuste no histórico com antes, depois, motivo e quem fez")
+        chip(pg, V_AZUL_P, "Gávea").click(); pg.wait_for_selector("#dlg[open]"); pg.wait_for_timeout(700)
+        h = pg.text_content(".hist")
+        ok("Transferência 3 · Gávea → Ipanema · para a vitrine · Dona Linum" in h and "Entrada 5 · Gávea · chegada da fábrica" in h, "últimas movimentações da variação")
+        pg.screenshot(path=os.path.join(SAIDA, "linum_movimentar.png"))
+        pg.click("#mx")
+        ok(int(psql("select count(*) from lin_movimentos", saida=True)) == 3, "só as movimentações válidas foram gravadas")
+        ok(not erros, "sem erros de JavaScript (dono)")
+
+        # ---------------------------------------------------------------- vendedora: só consulta, sem custo
+        pg, erros = entrar(b, "vendedora"); abrir(pg)
+        ok("só consulta" in pg.text_content("#quem") and pg.locator("button.chip").count() == 0 and pg.locator("div.chip").count() > 0, "vendedora: quadrados sem clique")
+        ok(not any("custo" in r or "151.23" in r for r in pg.respostas), "vendedora não recebe preço de custo")
+        r = pg.evaluate("""async () => { const c = window.NERVIA_CONFIG; const s = supabase.createClient(c.SUPABASE_URL, c.SUPABASE_ANON_KEY);
+            const a = await s.from('lin_produtos').select('preco_custo'); const m = await s.rpc('lin_movimentar', {p_variante: '%s', p_loja: '%s', p_tipo: 'entrada', p_quantidade: 1});
+            return [a.data ? a.data.length : -1, m.error ? m.error.message : 'sem erro']; }""" % (V_CRU_38, loja_id("Gávea")))
+        ok(r[0] == 0 and "Somente o Dono" in r[1], "vendedora não lê o custo nem movimenta pela API")
+        ok(not erros, "sem erros de JavaScript (vendedora)")
+
+        # ---------------------------------------------------------------- celular, iframe, ajuda e quem não tem acesso
+        pg, erros = entrar(b, "vendedora", largura=390); abrir(pg)
+        ok(pg.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), "celular sem rolagem lateral")
+        pg.screenshot(path=os.path.join(SAIDA, "linum_celular.png"), full_page=True)
+        pg.set_content(f'<iframe src="http://127.0.0.1:{PORTA_SITE}/apps/linum/" width="900" height="600"></iframe>'); pg.wait_for_timeout(1500)
+        fr = pg.frames[1]
+        ok(fr.evaluate("document.documentElement.classList.contains('embutido')") and not fr.is_visible(".topo"), "dentro da Área do Cliente esconde o próprio topo")
+        pg, erros = entrar(b, "outro"); abrir(pg)
+        ok("não tem acesso" in pg.text_content("#aviso") and not pg.is_visible("#app"), "login sem o app não vê o estoque")
+        for pagina in ("cartao", "manual"):
+            abrir_ajuda = pg.goto(f"http://127.0.0.1:{PORTA_SITE}/apps/linum/ajuda/{pagina}.html")
+            ok(abrir_ajuda.ok and "Sistema Linum" in pg.title() and pg.locator('script[src="/marca-dagua.js"][data-tipo="doc"]').count() == 1, f"ajuda: {pagina} com marca d'água")
+        pg.goto(f"http://127.0.0.1:{PORTA_SITE}/ajuda/novidades.html?app=linum&nome=Sistema%20Linum"); pg.wait_for_timeout(400)
+        ok("1.0" in pg.text_content("body"), "novidades do app (versão 1.0)")
+        b.close()
+    print("TODOS OS TESTES DE TELA DO SISTEMA LINUM OK")
+finally:
+    api.terminate(); srv.shutdown()
+    if os.path.exists(conf): os.remove(conf)

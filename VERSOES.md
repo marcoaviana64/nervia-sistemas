@@ -57,3 +57,9 @@ Ao publicar mudança num app: linha nova no topo do app aqui (com a data) e em `
 | 1.2 | 21/10/2026 | Ao aprovar a fatura enviada pelo formulário, só as unidades do link são trocadas. |
 | 1.1 | 21/10/2026 | Formulário da fatura pelo link: o cliente informa as licenças pagas do mês, sem login, e a Nervia confere e aprova. |
 | 1.0 | 21/10/2026 | Lançamento: contas e licenças de cada unidade, mudanças entre exportações e licenças pagas sem uso. |
+
+## Sistema Linum (`linum`)
+
+| Versão | Data | O que mudou |
+|---|---|---|
+| 1.0 | 22/10/2026 | Lançamento: estoque das lojas por produto, cor e tamanho; o Dono registra entrada, saída, transferência e ajuste, com histórico. |

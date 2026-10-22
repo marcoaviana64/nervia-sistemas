@@ -41,6 +41,9 @@ window.NERVIA_VERSOES = {
     ["1.1", "Formulário da fatura pelo link: o cliente informa as licenças pagas do mês, sem login, e a Nervia confere e aprova."],
     ["1.0", "Lançamento: contas e licenças de cada unidade, mudanças entre exportações e licenças pagas sem uso."],
   ],
+  "linum": [
+    ["1.0", "Lançamento: estoque das lojas por produto, cor e tamanho; o Dono registra entrada, saída, transferência e ajuste, com histórico."],
+  ],
 };
 
 // "versão 1.4" (vazio se o app não está na lista)

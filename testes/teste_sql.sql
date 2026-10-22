@@ -141,7 +141,7 @@ end $$;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
 select pg_temp.ok((select count(*) = 0 from apps), 'login sem app liberado não vê apps');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
-select pg_temp.ok((select count(*) = 9 from apps), 'admin vê todos os apps, inclusive inativos');
+select pg_temp.ok((select count(*) = 10 from apps), 'admin vê todos os apps, inclusive inativos');
 insert into app_acessos values ('00000000-0000-0000-0000-00000000000c', 'chamados');
 update apps set ativo = false where id = 'chamados';
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
@@ -975,6 +975,96 @@ select pg_temp.ok((select empresa <> 'Eu mesmo' and empresa <> '' and cliques_de
   from apps_interesse() where app_id = 'compras'), 'interesse: empresa pelos acessos do login, cliques e reação');
 update perfis set empresa = 'Linum Comércio' where user_id = '00000000-0000-0000-0000-00000000000b';
 select pg_temp.ok((select empresa = 'Linum Comércio' from apps_interesse() where app_id = 'compras'), 'admin preenche a empresa do login');
+-- ---------------------------------------------------------------- Sistema Linum: Estoque (lin_)
+reset role;
+select pg_temp.ok((select count(*) = 2 from lin_lojas) and (select situacao = 'oculto' and manual_url like '/apps/linum/ajuda/%' from apps where id = 'linum'),
+  'linum: lojas Gávea e Ipanema e app cadastrado fora da vitrine');
+insert into lin_produtos (id, referencia, descricao, categoria, preco_custo, preco_venda) values
+  ('10000000-0000-0000-0000-000000000001', 'VES01', 'Vestido Mar', 'Vestido', 150, 489),
+  ('10000000-0000-0000-0000-000000000002', 'CAL01', 'Calça Areia', 'Calça', 90, 359);
+insert into lin_produtos (id, referencia, descricao, ativo) values ('10000000-0000-0000-0000-000000000003', 'OLD01', 'Peça antiga', false);
+insert into lin_variantes (id, produto_id, cor, tamanho, preco_custo) values
+  ('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'Azul', 'P', 150),
+  ('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000001', 'Azul', 'M', 150),
+  ('20000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000002', 'Cru', 'G', 90),
+  ('20000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000003', 'Preto', 'U', 10);
+insert into lin_variantes (id, produto_id, cor, tamanho, ativo) values ('20000000-0000-0000-0000-000000000005', '10000000-0000-0000-0000-000000000002', 'Cru', 'P', false);
+create temp table lin_ids (k text primary key, v uuid); grant all on lin_ids to authenticated, anon;
+insert into lin_ids select case nome when 'Gávea' then 'gav' else 'ipa' end, id from lin_lojas;
+-- b = dono da Linum, c = vendedora; o papel só vale com o app liberado
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.erro2('select lin_estoque_ler()', 'não tem acesso ao Sistema Linum', 'linum: login sem papel não lê o estoque');
+select pg_temp.erro2($$select lin_membro_salvar('00000000-0000-0000-0000-00000000000b', 'dono')$$, 'Somente a equipe Nervia', 'linum: cliente não define papel');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select pg_temp.erro2($$select lin_membro_salvar('00000000-0000-0000-0000-00000000000b', 'dono')$$, 'Libere o app', 'linum: papel exige o app liberado');
+reset role;
+insert into app_acessos values ('00000000-0000-0000-0000-00000000000b', 'linum'), ('00000000-0000-0000-0000-00000000000c', 'linum');
+set role authenticated;
+select lin_membro_salvar('00000000-0000-0000-0000-00000000000b', 'dono');
+select pg_temp.erro2($$select lin_membro_salvar('00000000-0000-0000-0000-00000000000c', 'vendedora')$$, 'Escolha a loja', 'linum: vendedora exige loja');
+select lin_membro_salvar('00000000-0000-0000-0000-00000000000c', 'vendedora', (select v from lin_ids where k = 'ipa'));
+select pg_temp.ok((select count(*) = 2 from jsonb_array_elements(lin_equipe()) e where e->>'papel' is not null), 'linum: equipe lista os logins com papel');
+select pg_temp.ok((select count(*) = 2 from auditoria where acao = 'linum_papel_definido'), 'linum: papel definido vai para a auditoria');
+-- dono movimenta
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok(lin_movimentar('20000000-0000-0000-0000-000000000001', (select v from lin_ids where k = 'gav'), 'entrada', 5, '2026-10-20', 'chegada') = 5, 'linum: entrada soma');
+select lin_movimentar('20000000-0000-0000-0000-000000000003', (select v from lin_ids where k = 'gav'), 'entrada', 2);
+select pg_temp.ok(lin_movimentar('20000000-0000-0000-0000-000000000001', (select v from lin_ids where k = 'gav'), 'saida', 1, null, 'perda') = 4, 'linum: saída baixa');
+select pg_temp.erro2($$select lin_movimentar('20000000-0000-0000-0000-000000000001', (select v from lin_ids where k = 'gav'), 'saida', 9)$$,
+  'Estoque insuficiente: a loja tem 4', 'linum: saída maior que o estoque recusada');
+select pg_temp.erro2($$select lin_movimentar('20000000-0000-0000-0000-000000000001', (select v from lin_ids where k = 'gav'), 'entrada', 0)$$,
+  'maior que zero', 'linum: quantidade zero recusada');
+select pg_temp.erro2($$select lin_movimentar('20000000-0000-0000-0000-000000000001', (select v from lin_ids where k = 'gav'), 'venda', 1)$$,
+  'Tipo inválido', 'linum: venda não entra pela movimentação manual');
+select lin_transferir('20000000-0000-0000-0000-000000000001', (select v from lin_ids where k = 'gav'), (select v from lin_ids where k = 'ipa'), 3, '2026-10-21', 'vitrine');
+select pg_temp.ok((select quantidade = 1 from lin_estoque where variante_id = '20000000-0000-0000-0000-000000000001' and loja_id = (select v from lin_ids where k = 'gav'))
+  and (select quantidade = 3 from lin_estoque where variante_id = '20000000-0000-0000-0000-000000000001' and loja_id = (select v from lin_ids where k = 'ipa')),
+  'linum: transferência tira da origem e põe no destino');
+select pg_temp.erro2($$select lin_transferir('20000000-0000-0000-0000-000000000001', (select v from lin_ids where k = 'gav'), (select v from lin_ids where k = 'ipa'), 2)$$,
+  'insuficiente na loja de origem', 'linum: transferência maior que a origem recusada');
+select pg_temp.erro2($$select lin_transferir('20000000-0000-0000-0000-000000000001', (select v from lin_ids where k = 'gav'), (select v from lin_ids where k = 'gav'), 1)$$,
+  'diferentes', 'linum: transferência para a mesma loja recusada');
+select lin_ajustar('20000000-0000-0000-0000-000000000002', (select v from lin_ids where k = 'ipa'), 7);
+select lin_ajustar('20000000-0000-0000-0000-000000000002', (select v from lin_ids where k = 'ipa'), 0, null, 'contagem');
+select pg_temp.erro2($$select lin_ajustar('20000000-0000-0000-0000-000000000002', (select v from lin_ids where k = 'ipa'), 0)$$, 'nada a ajustar', 'linum: ajuste para a mesma quantidade recusado');
+select pg_temp.erro2($$select lin_ajustar('20000000-0000-0000-0000-000000000002', (select v from lin_ids where k = 'ipa'), -1)$$, 'negativa', 'linum: ajuste negativo recusado');
+select pg_temp.ok((select antes = 0 and depois = 7 and quantidade = 7 and observacao = 'Ajuste de 0 para 7' from lin_movimentos where tipo = 'ajuste' order by id limit 1)
+  and (select antes = 7 and depois = 0 and observacao = 'contagem' from lin_movimentos where tipo = 'ajuste' order by id desc limit 1),
+  'linum: ajuste guarda antes/depois e observação automática');
+select pg_temp.ok((select count(*) = 6 from lin_movimentos) and (select bool_and(criado_por = '00000000-0000-0000-0000-00000000000b' and criado_nome <> '') from lin_movimentos)
+  and (select data = '2026-10-21' and loja_destino_id is not null from lin_movimentos where tipo = 'transferencia'),
+  'linum: cada movimentação no histórico com quem e quando');
+reset role;   -- pela tela o RLS já não deixa; o gatilho segura até o dono do banco
+select pg_temp.erro2('update lin_movimentos set quantidade = 99', 'não pode ser alterado', 'linum: histórico não se altera (nem fora da tela)');
+set role authenticated;
+select pg_temp.erro2($$insert into lin_estoque values ('20000000-0000-0000-0000-000000000003', (select v from lin_ids where k = 'ipa'), 50)$$, 'row-level security', 'linum: estoque não se grava direto');
+select pg_temp.ok((select count(*) = 3 from lin_produtos) and (select sum(preco_custo) = 240 from lin_produtos), 'linum: dono lê o catálogo com custo');
+select pg_temp.ok((select e->>'papel' = 'dono' and jsonb_array_length(e->'lojas') = 2 and jsonb_array_length(e->'produtos') = 2
+    and (select jsonb_array_length(p->'variantes') from jsonb_array_elements(e->'produtos') p where p->>'referencia' = 'CAL01') = 1
+    and jsonb_array_length(e->'estoque') = 3 from (select lin_estoque_ler() e) x),
+  'linum: leitura traz só produtos e variações ativos e as quantidades diferentes de zero');
+-- vendedora: só consulta, sem custo
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.ok((select e->>'papel' = 'vendedora' and jsonb_array_length(e->'produtos') = 2 and position('custo' in e::text) = 0 from (select lin_estoque_ler() e) x),
+  'linum: vendedora consulta o estoque sem preço de custo');
+select pg_temp.ok((select count(*) = 0 from lin_produtos) and (select count(*) = 0 from lin_variantes) and (select count(*) = 0 from lin_movimentos)
+  and (select count(*) = 0 from lin_estoque) and (select count(*) = 2 from lin_lojas), 'linum: vendedora não lê tabelas com custo nem o histórico');
+select pg_temp.erro2($$select lin_movimentar('20000000-0000-0000-0000-000000000001', (select v from lin_ids where k = 'gav'), 'entrada', 1)$$, 'Somente o Dono', 'linum: vendedora não movimenta');
+select pg_temp.erro2($$select lin_ajustar('20000000-0000-0000-0000-000000000001', (select v from lin_ids where k = 'gav'), 1)$$, 'Somente o Dono', 'linum: vendedora não ajusta');
+select pg_temp.erro2($$select lin_transferir('20000000-0000-0000-0000-000000000001', (select v from lin_ids where k = 'ipa'), (select v from lin_ids where k = 'gav'), 1)$$, 'Somente o Dono', 'linum: vendedora não transfere');
+-- app retirado na Área do Cliente: o papel deixa de valer
+reset role;
+delete from app_acessos where user_id = '00000000-0000-0000-0000-00000000000c' and app_id = 'linum';
+set role authenticated;
+select pg_temp.erro2('select lin_estoque_ler()', 'não tem acesso', 'linum: sem o app liberado o papel não vale');
+set role anon;
+select pg_temp.erro2('select lin_estoque_ler()', 'permission', 'linum: anônimo não lê o estoque');
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select lin_membro_salvar('00000000-0000-0000-0000-00000000000b', '');
+select pg_temp.ok((select count(*) = 1 from auditoria where acao = 'linum_papel_retirado'), 'linum: papel retirado auditado');
 reset role;
 set role anon;
 select pg_temp.erro2('select * from apps_vitrine()', 'permission', 'anônimo não vê a vitrine');

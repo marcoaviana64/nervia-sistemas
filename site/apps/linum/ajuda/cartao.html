@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cartão de referência · Sistema Linum | Nervia</title>
+<link rel="stylesheet" href="/ajuda/ajuda.css">
+</head>
+<body>
+<div class="pagina">
+  <div class="cab">
+    <img src="/img/nervia-logo.png" alt="Nervia">
+    <div><div class="t">Sistema Linum · Cartão de referência</div><div class="s">Cada campo e botão em uma linha</div></div>
+    <div class="acoes"><a href="manual.html">Manual completo</a><button onclick="print()">Imprimir</button></div>
+  </div>
+
+  <p class="lead">Estoque das lojas Gávea e Ipanema por produto, cor e tamanho. O Dono consulta e movimenta; a Vendedora só consulta.</p>
+
+  <h2>Topo</h2>
+  <table>
+    <tr><td>Estoque</td><td>A lista de produtos com as peças de cada loja.</td></tr>
+    <tr><td>Dono · Vendedora · só consulta</td><td>O seu papel no app (à direita da barra).</td></tr>
+  </table>
+
+  <h2>Filtros</h2>
+  <table>
+    <tr><td>Buscar por nome ou referência</td><td>Mostra só os produtos que têm o texto no nome ou na referência.</td></tr>
+    <tr><td>Todas as lojas</td><td>Escolha uma loja para ver só as peças dela.</td></tr>
+    <tr><td>Categoria · Cor · Tamanho</td><td>Mostra só os produtos e as variações daquela categoria, cor ou tamanho.</td></tr>
+    <tr><td>Ocultar zerados: ativo / inativo</td><td>Ativo (padrão): esconde as variações sem peça na loja. Inativo: mostra todas, as zeradas em vermelho.</td></tr>
+    <tr><td>N produto(s) · N peça(s)</td><td>Total do que está na tela com os filtros escolhidos.</td></tr>
+  </table>
+
+  <h2>Cartão do produto</h2>
+  <table>
+    <tr><td>Nome e preço</td><td>Nome da peça e preço de venda cadastrado.</td></tr>
+    <tr><td>Ref · Peça · selo da loja</td><td>Referência, categoria e a loja daquele cartão (um cartão por loja).</td></tr>
+    <tr><td>Quadrado verde</td><td>Cor, tamanho e quantidade da variação na loja.</td></tr>
+    <tr><td>Quadrado vermelho</td><td>Variação sem peça na loja (aparece com "Ocultar zerados" inativo).</td></tr>
+    <tr><td>Traço entre os quadrados</td><td>Separa um tamanho do outro.</td></tr>
+  </table>
+
+  <h2>Movimentar <span class="eq">DONO</span></h2>
+  <table>
+    <tr><td>Clique no quadrado</td><td>Abre a movimentação daquela variação.</td></tr>
+    <tr><td>Entrada</td><td>Peças chegando na loja: soma.</td></tr>
+    <tr><td>Saída</td><td>Uso interno, perda, beneficiamento: tira. Não deixa ficar negativo.</td></tr>
+    <tr><td>Transferência</td><td>Tira da loja de origem e põe na de destino.</td></tr>
+    <tr><td>Ajuste</td><td>Troca a quantidade pela contada (ex.: inventário). Guarda o antes e o depois.</td></tr>
+    <tr><td>Loja (N) · Loja de destino</td><td>Onde a movimentação acontece; entre parênteses, quanto a loja tem hoje.</td></tr>
+    <tr><td>Quantidade · Nova quantidade</td><td>Peças movimentadas (1 ou mais) ou, no ajuste, a quantidade certa (0 ou mais).</td></tr>
+    <tr><td>Data · Observação</td><td>Quando aconteceu e o motivo. Vão para o histórico.</td></tr>
+    <tr><td>Salvar movimentação</td><td>Grava e atualiza a tela.</td></tr>
+    <tr><td>Últimas movimentações</td><td>As 8 mais recentes da variação: data, tipo, quantidade, loja, observação e quem fez.</td></tr>
+  </table>
+
+  <h2>Equipe <span class="eq">EQUIPE NERVIA</span></h2>
+  <table>
+    <tr><td>Login</td><td>Logins com o app Sistema Linum liberado na Área do Cliente.</td></tr>
+    <tr><td>Papel</td><td>Dono, Vendedora ou Sem papel (não entra no app).</td></tr>
+    <tr><td>Loja</td><td>Loja da vendedora (obrigatória para vendedora).</td></tr>
+    <tr><td>Salvar</td><td>Grava o papel. Fica na auditoria.</td></tr>
+  </table>
+  <div class="rodape">Nervia Tecnologia · Cartão de referência do app Sistema Linum · atualizado em 22/10/2026</div>
+</div>
+<script src="/marca-dagua.js" data-tipo="doc"></script>
+</body>
+</html>
