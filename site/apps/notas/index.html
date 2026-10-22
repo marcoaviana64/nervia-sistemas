@@ -258,6 +258,7 @@ function desenharPainel() {
     ${CFG.NFE_HABILITADA ? `<button class="sec" onclick="cienciaSel('ciencia')" ${temCert ? "" : "disabled"} title="NF-e só resumo com até 10 dias">Dar ciência nas selecionadas</button>
     <button class="sec" onclick="cienciaSel('confirmacao')" ${temCert ? "" : "disabled"} title="NF-e só resumo com até 90 dias">Confirmar operação nas selecionadas</button>` : ""}
     <button class="sec" onclick="imprimirSel()">Imprimir espelho</button>
+    <button class="sec" id="bZip" onclick="baixarXmls()">Baixar XMLs (.zip)</button>
     <button class="sec" onclick="exportar()">Exportar CSV</button>
     ${ehAdmin ? `<button class="sec" onclick="alternarAuto(${!e.busca_automatica})">${e.busca_automatica ? "Desligar" : "Ligar"} busca automática</button>
     ${CFG.NFE_HABILITADA ? `<button class="sec" id="bNfeChave" onclick="alternarNfe(${!nfeOn})">${nfeOn ? "Desligar NF-e" : "Ligar NF-e"}</button>
@@ -403,7 +404,74 @@ async function baixarXml(id) {
   location.href = data.signedUrl;
 }
 
-// ------------------------------------------------------------ seleção de linhas (vale para espelho, CSV e ciência)
+// Vários XMLs num .zip: as notas marcadas ou, sem marcação, toda a lista filtrada. Montado no navegador
+// (zip "deflate" quando o navegador tem CompressionStream; senão, sem compressão).
+const CRC_T = Array.from({ length: 256 }, (_, n) => { for (let k = 0; k < 8; k++) n = n & 1 ? 0xEDB88320 ^ (n >>> 1) : n >>> 1; return n >>> 0; });
+const crc32 = b => { let c = ~0; for (let i = 0; i < b.length; i++) c = CRC_T[(c ^ b[i]) & 255] ^ (c >>> 8); return ~c >>> 0; };
+async function comprimir(b) {
+  if (typeof CompressionStream === "undefined") return null;
+  try { return new Uint8Array(await new Response(new Blob([b]).stream().pipeThrough(new CompressionStream("deflate-raw"))).arrayBuffer()); }
+  catch { return null; }
+}
+async function montarZip(arquivos) {
+  const partes = [], central = [], enc = new TextEncoder();
+  const agora = new Date(), hora = (agora.getHours() << 11) | (agora.getMinutes() << 5) | (agora.getSeconds() >> 1);
+  const dia = ((agora.getFullYear() - 1980) << 9) | ((agora.getMonth() + 1) << 5) | agora.getDate();
+  let pos = 0;
+  for (const { nome, dados } of arquivos) {
+    const n = enc.encode(nome), crc = crc32(dados), z = await comprimir(dados);
+    const usa = z && z.length < dados.length, corpo = usa ? z : dados, metodo = usa ? 8 : 0;
+    const cab = new DataView(new ArrayBuffer(30));
+    [[0, 0x04034b50, 4], [4, 20, 2], [6, 0x0800, 2], [8, metodo, 2], [10, hora, 2], [12, dia, 2], [14, crc, 4], [18, corpo.length, 4], [22, dados.length, 4], [26, n.length, 2], [28, 0, 2]]
+      .forEach(([o, v, t]) => t === 4 ? cab.setUint32(o, v, true) : cab.setUint16(o, v, true));
+    const cen = new DataView(new ArrayBuffer(46));
+    [[0, 0x02014b50, 4], [4, 20, 2], [6, 20, 2], [8, 0x0800, 2], [10, metodo, 2], [12, hora, 2], [14, dia, 2], [16, crc, 4], [20, corpo.length, 4], [24, dados.length, 4], [28, n.length, 2], [42, pos, 4]]
+      .forEach(([o, v, t]) => t === 4 ? cen.setUint32(o, v, true) : cen.setUint16(o, v, true));
+    partes.push(cab, n, corpo); central.push(cen, n);
+    pos += 30 + n.length + corpo.length;
+  }
+  const tamCentral = central.reduce((a, x) => a + x.byteLength, 0), fim = new DataView(new ArrayBuffer(22));
+  [[0, 0x06054b50, 4], [8, arquivos.length, 2], [10, arquivos.length, 2], [12, tamCentral, 4], [16, pos, 4]]
+    .forEach(([o, v, t]) => t === 4 ? fim.setUint32(o, v, true) : fim.setUint16(o, v, true));
+  return new Blob([...partes, ...central, fim], { type: "application/zip" });
+}
+async function baixarXmls() {
+  const sel = new Set(selecionadas());
+  const lista = (sel.size ? notasCache.filter(n => sel.has(n.id)) : notasCache).filter(n => n.xml_path);
+  if (!lista.length) return msg($("msgP"), "info", sel.size ? "Nenhuma das notas marcadas tem XML guardado." : "Nenhuma nota com XML nesta lista.");
+  if (lista.length > 3000) return msg($("msgP"), "info", `São ${lista.length} XMLs: baixe no máximo 3.000 por vez (use os filtros De/Até ou marque menos notas).`);
+  const b = $("bZip"); b.disabled = true;
+  const arquivos = [], falhas = [], usados = new Set();
+  try {
+    for (let i = 0; i < lista.length; i += 8) {
+      msg($("msgP"), "info", `Baixando XMLs: ${Math.min(i + 8, lista.length)} de ${lista.length}…`);
+      await Promise.all(lista.slice(i, i + 8).map(async n => {
+        const { data, error } = await sb.storage.from("nf-xml").download(n.xml_path);
+        if (error) return falhas.push(`${n.numero || n.chave}: ${error.message}`);
+        let nome = n.xml_path.split("/").slice(1).join("/") || n.xml_path;
+        while (usados.has(nome)) nome = nome.replace(/(\.xml)?$/i, "_$1");
+        usados.add(nome);
+        arquivos.push({ nome, dados: new Uint8Array(await data.arrayBuffer()) });
+      }));
+    }
+    if (!arquivos.length) return msg($("msgP"), "err", "Não foi possível baixar os XMLs:\n" + falhas.slice(0, 10).join("\n"));
+    arquivos.sort((x, y) => x.nome.localeCompare(y.nome));
+    const zip = await montarZip(arquivos);
+    const de = $("xDe").value, ate = $("xAte").value;
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(zip);
+    a.download = `xml-${atual}${de || ate ? `-${de || "inicio"}_a_${ate || "hoje"}` : ""}.zip`;
+    a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    const resumo = lista.filter(n => n.tipo === "NFE" && !n.completo).length;
+    msg($("msgP"), falhas.length ? "info" : "ok", `${arquivos.length} XML(s) no arquivo ${a.download}.`
+      + (resumo ? ` ${resumo} NF-e ainda são só resumo (arquivo "-resumo.xml"): o XML completo vem depois da ciência.` : "")
+      + (lista.length < (sel.size || notasCache.length) ? ` ${(sel.size || notasCache.length) - lista.length} nota(s) sem XML guardado ficaram de fora.` : "")
+      + (falhas.length ? `\nNão baixados (${falhas.length}):\n` + falhas.slice(0, 10).join("\n") : ""));
+  } catch (e) { msg($("msgP"), "err", "Não foi possível montar o .zip: " + e.message); }
+  finally { b.disabled = false; }
+}
+
+// ------------------------------------------------------------ seleção de linhas (vale para espelho, CSV, XMLs e ciência)
 const selecionadas = () => [...document.querySelectorAll(".ck:checked")].map(c => +c.value);
 function contarSel() {
   const n = selecionadas().length, t = document.querySelectorAll(".ck").length;
