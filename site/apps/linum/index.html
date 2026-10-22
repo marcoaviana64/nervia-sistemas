@@ -10,7 +10,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <style>
 /* Sistema Linum (app "linum", tabelas lin_): o sistema da LINUM Roupas de Linho trazido do Lovable para a Plataforma.
-   Primeira parte: Estoque das lojas por produto, cor e tamanho. Dono consulta e movimenta; Vendedora só consulta. */
+   Produtos, estoque das lojas, vendas (boleta) e clientes. Dono: tudo; Estoque: cadastra e movimenta sem custo;
+   Vendedora: consulta o estoque e registra as vendas da loja dela. */
 :root{
   --bg:#f3f6f8;--surface:#fff;--surface-2:#eaf1f4;--border:#dde6ec;--ink:#0f1b2d;--ink-soft:#4f5f73;--ink-faint:#8796a8;
   --accent:#107e99;--accent-soft:#e3f3f7;--primary:#0b2545;
@@ -96,6 +97,14 @@ dialog h3{margin:0 0 4px;font-size:17px}
 .vlin:first-of-type{border-top:0}
 .vlin .acs{display:flex;gap:12px}
 .vlin input{width:110px}
+.grade3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+dialog.largo{max-width:860px}
+tr.cancelada td{color:var(--ink-faint);text-decoration:line-through}tr.cancelada td:last-child{text-decoration:none}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px}
+.kpi small{display:block;color:var(--ink-soft)}.kpi b{font-size:22px;display:block;font-variant-numeric:tabular-nums}.kpi span{font-size:12px;color:var(--ink-faint)}
+td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+@media (max-width:640px){.grade3{grid-template-columns:1fr}}
 @media (max-width:520px){.grade2{grid-template-columns:1fr}}
 @media (max-width:520px){.duas{grid-template-columns:1fr}.prod h2{white-space:normal}}
 @media print{.barra,.filtros,.topo,.noprint{display:none!important}body{background:#fff}.prod{break-inside:avoid}}
@@ -103,12 +112,14 @@ dialog h3{margin:0 0 4px;font-size:17px}
 </head>
 <body>
 <div class="casca">
-  <div class="topo"><div class="marca">LI</div><div><b>Sistema Linum</b><br><span>Produtos e estoque das lojas por cor e tamanho</span><br><span data-versao="linum"></span></div></div>
+  <div class="topo"><div class="marca">LI</div><div><b>Sistema Linum</b><br><span>Produtos, estoque, vendas e clientes das lojas</span><br><span data-versao="linum"></span></div></div>
   <div id="aviso" class="centro">Carregando…</div>
   <div id="app" class="oculto">
     <div class="barra">
       <button class="aba oculto" data-v="produtos" id="abaProdutos">Produtos</button>
       <button class="aba on" data-v="estoque">Estoque</button>
+      <button class="aba oculto" data-v="vendas" id="abaVendas">Vendas</button>
+      <button class="aba oculto" data-v="clientes" id="abaClientes">Clientes</button>
       <button class="aba oculto" data-v="equipe" id="abaEquipe">Equipe</button>
       <div class="dir" id="quem"></div>
     </div>
@@ -117,6 +128,7 @@ dialog h3{margin:0 0 4px;font-size:17px}
   </div>
 </div>
 <dialog id="dlg"><form method="dialog" id="dlgf"></form></dialog>
+<dialog id="dlg2"><form method="dialog" id="dlg2f"></form></dialog>
 <script>
 const CFG = window.NERVIA_CONFIG || {};
 const EMBUTIDO = window.self !== window.top;
@@ -133,10 +145,11 @@ const n = v => Number(v || 0).toLocaleString("pt-BR");
 function msg(tipo, texto) { const m = $("msg"); m.className = "msg " + tipo; m.textContent = texto; m.scrollIntoView({ block: "nearest" }); if (tipo === "ok") setTimeout(() => m.classList.add("oculto"), 5000); }
 function limparMsg() { $("msg").className = "msg oculto"; }
 
-let ADMIN = false, PAPEL = null, LOJAS = [], PRODUTOS = [], QTD = new Map(), VISTA = "estoque", EQUIPE = [];
+let MINHA_LOJA = null, ADMIN = false, PAPEL = null, LOJAS = [], PRODUTOS = [], QTD = new Map(), VISTA = "estoque", EQUIPE = [];
 const F = { q: "", loja: "", cat: "", cor: "", tam: "", zerados: true };
 const dono = () => PAPEL === "dono";
 const controla = () => PAPEL === "dono" || PAPEL === "estoque";   // Estoque: cadastra e movimenta, mas nunca vê custo
+const vende = () => PAPEL === "dono" || PAPEL === "vendedora";      // Vendas e Clientes: Dono e Vendedora (o Estoque não vende)
 const chave = (v, l) => v + ":" + l;
 const qtd = (v, l) => QTD.get(chave(v, l)) || 0;
 const loja = id => LOJAS.find(l => l.id === id) || { nome: "?" };
@@ -161,14 +174,15 @@ async function iniciar() {
     await carregar();
     $("abaEquipe").classList.toggle("oculto", !ADMIN);
     $("abaProdutos").classList.toggle("oculto", !controla());
-    $("quem").textContent = ADMIN ? "Equipe Nervia (Dono)" : dono() ? "Dono" : controla() ? "Estoque · sem custos" : "Vendedora · só consulta";
+    $("abaVendas").classList.toggle("oculto", !vende()); $("abaClientes").classList.toggle("oculto", !vende());
+    $("quem").textContent = ADMIN ? "Equipe Nervia (Dono)" : dono() ? "Dono" : controla() ? "Estoque · sem custos" : "Vendedora · " + loja(MINHA_LOJA).nome;
     $("aviso").classList.add("oculto"); $("app").classList.remove("oculto");
     render();
   } catch (e) { $("aviso").textContent = e.message.includes("não tem acesso") ? e.message : "Não foi possível carregar: " + e.message; }
 }
 async function carregar() {
   const d = checar(await sb.rpc("lin_estoque_ler"));
-  PAPEL = d.papel; LOJAS = d.lojas || []; PRODUTOS = d.produtos || [];
+  PAPEL = d.papel; LOJAS = d.lojas || []; PRODUTOS = d.produtos || []; MINHA_LOJA = d.minha_loja || null;
   QTD = new Map((d.estoque || []).map(([v, l, q]) => [chave(v, l), q]));
 }
 document.querySelectorAll(".barra .aba").forEach(b => b.onclick = () => { VISTA = b.dataset.v; limparMsg(); render(); });
@@ -176,6 +190,8 @@ function render() {
   document.querySelectorAll(".barra .aba").forEach(b => b.classList.toggle("on", b.dataset.v === VISTA));
   if (VISTA === "equipe" && ADMIN) return telaEquipe();
   if (VISTA === "produtos" && controla()) return telaProdutos();
+  if (VISTA === "vendas" && vende()) return telaVendas();
+  if (VISTA === "clientes" && vende()) return telaClientes();
   telaEstoque();
 }
 
@@ -469,13 +485,322 @@ function editarProduto(pid) {
   $("dlg").showModal();
 }
 
+// ---------------------------------------------------------------- vendas e clientes (Dono e Vendedora; boleta de venda)
+const FORMAS = { credito: "Cartão de crédito", debito: "Débito", pix: "Pix", dinheiro: "Dinheiro", cheque: "Cheque", outro: "Outro" };
+const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+let VENDAS = [], ITENS = [], CLIENTES = [], VENDEDORAS = [];
+const FV = { de: "", ate: "", loja: "", vend: "" };
+const FC = { q: "", niver: false };
+const soDig = t => String(t || "").replace(/\D/g, "");
+const fone = t => { const d = soDig(t); return d.length === 11 ? `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}` : d.length === 10 ? `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}` : d; };
+const niver = c => c.aniversario_dia ? `${String(c.aniversario_dia).padStart(2, "0")}/${MESES[c.aniversario_mes - 1]}` : "";
+const numV = t => { const x = numBR(t); return x === "" ? 0 : Number(x); };
+const r2 = x => Math.round(x * 100) / 100;
+const cliente = id => CLIENTES.find(c => c.id === id);
+const pagTxt = v => (v.pagamentos || []).map(p => FORMAS[p.forma] + (p.forma === "credito" && p.parcelas > 1 ? ` ${p.parcelas}x` : "")).join(" + ") || "—";
+
+async function carregarClientes() {
+  CLIENTES = await todas(() => sb.from("lin_clientes").select("*").order("nome"));
+}
+async function carregarVendedoras() {
+  if (!VENDEDORAS.length) VENDEDORAS = checar(await sb.rpc("lin_vendedoras")) || [];
+}
+async function carregarVendas() {
+  let q = () => { let x = sb.from("lin_vendas").select("*").gte("data", FV.de).lte("data", FV.ate).order("data", { ascending: false }).order("id", { ascending: false });
+    if (FV.loja) x = x.eq("loja_id", FV.loja); if (FV.vend) x = x.eq("vendedora_id", FV.vend); return x; };
+  VENDAS = await todas(q);
+  ITENS = [];
+  for (let i = 0; i < VENDAS.length; i += 200) {
+    const ids = VENDAS.slice(i, i + 200).map(v => v.id);
+    ITENS.push(...await todas(() => sb.from("lin_venda_itens").select("*").in("venda_id", ids).order("id")));
+  }
+}
+function periodoPadrao() {
+  if (FV.de) return;
+  const h = hoje(); FV.ate = h; FV.de = h.slice(0, 8) + "01";
+}
+
+async function telaVendas() {
+  periodoPadrao();
+  $("tela").innerHTML = '<div class="card">Carregando…</div>';
+  try { await Promise.all([carregarVendas(), carregarClientes(), carregarVendedoras()]); }
+  catch (e) { $("tela").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; return; }
+  const ok = VENDAS.filter(v => !v.cancelada_em);
+  const pecas = ITENS.filter(i => ok.some(v => v.id === i.venda_id)).reduce((s, i) => s + i.quantidade, 0);
+  const total = ok.reduce((s, v) => s + Number(v.valor_total), 0);
+  const grupo = (chave, nome) => { const m = {}; ok.forEach(v => { const k = chave(v); m[k] = m[k] || { nome: nome(v), n: 0, t: 0 }; m[k].n++; m[k].t += Number(v.valor_total); });
+    return Object.values(m).sort((a, b) => b.t - a.t); };
+  $("tela").innerHTML = `
+    <div class="cabtela"><h2>Vendas</h2><button class="bt pri" id="vnova">+ Nova venda</button></div>
+    <div class="filtros">
+      <label class="chk">De <input type="date" id="fvde" value="${esc(FV.de)}" style="width:auto"></label>
+      <label class="chk">Até <input type="date" id="fvate" value="${esc(FV.ate)}" style="width:auto"></label>
+      ${dono() ? `<select id="fvloja" aria-label="Loja"><option value="">Todas as lojas</option>${LOJAS.map(l => `<option value="${l.id}" ${l.id === FV.loja ? "selected" : ""}>${esc(l.nome)}</option>`).join("")}</select>
+      <select id="fvvend" aria-label="Vendedora"><option value="">Todas as vendedoras</option>${VENDEDORAS.map(u => `<option value="${u.user_id}" ${u.user_id === FV.vend ? "selected" : ""}>${esc(u.nome)}</option>`).join("")}</select>` : ""}
+    </div>
+    <div class="kpis">
+      <div class="kpi"><small>Vendas</small><b>${n(ok.length)}</b><span>${VENDAS.length - ok.length ? n(VENDAS.length - ok.length) + " cancelada(s)" : "no período"}</span></div>
+      <div class="kpi"><small>Peças</small><b>${n(pecas)}</b></div>
+      <div class="kpi"><small>Total vendido</small><b>${brl(total)}</b></div>
+      <div class="kpi"><small>Ticket médio</small><b>${brl(ok.length ? total / ok.length : 0)}</b></div>
+    </div>
+    ${dono() && ok.length ? `<div class="grade2" style="margin-bottom:12px">
+      <div class="card"><h2>Por loja</h2>${grupo(v => v.loja_id, v => loja(v.loja_id).nome).map(g => `<div class="vlin"><span>${esc(g.nome)} · ${n(g.n)} venda(s)</span><b>${brl(g.t)}</b></div>`).join("")}</div>
+      <div class="card"><h2>Por vendedora</h2>${grupo(v => v.vendedora_id, v => v.vendedora_nome).map(g => `<div class="vlin"><span>${esc(g.nome)} · ${n(g.n)} venda(s)</span><b>${brl(g.t)}</b></div>`).join("")}</div></div>` : ""}
+    <div class="card"><div class="tw"><table><thead><tr><th>Nº</th><th>Data</th><th>Loja</th><th>Vendedora</th><th>Cliente</th><th>Peças</th><th>Pagamento</th><th class="num">Total</th></tr></thead><tbody>
+      ${VENDAS.length ? VENDAS.map(v => { const its = ITENS.filter(i => i.venda_id === v.id), c = cliente(v.cliente_id);
+        return `<tr class="vrow ${v.cancelada_em ? "cancelada" : ""}" data-v="${v.id}" style="cursor:pointer"><td>${v.id}</td><td>${dataBR(v.data)}</td><td>${esc(loja(v.loja_id).nome)}</td>
+          <td>${esc(v.vendedora_nome)}</td><td>${c ? esc(c.nome) : '<span class="mut">—</span>'}</td>
+          <td>${esc(its.map(i => `${i.quantidade > 1 ? i.quantidade + "× " : ""}${i.referencia} ${i.cor} ${i.tamanho}`).join(", "))}</td>
+          <td>${esc(pagTxt(v))}</td><td class="num">${v.cancelada_em ? '<span class="tag">cancelada</span> ' : ""}${brl(v.valor_total)}</td></tr>`; }).join("")
+      : '<tr><td colspan="8" class="mut">Nenhuma venda no período.</td></tr>'}
+    </tbody></table></div></div>`;
+  $("vnova").onclick = () => novaVenda();
+  $("fvde").onchange = e => { FV.de = e.target.value || FV.de; telaVendas(); };
+  $("fvate").onchange = e => { FV.ate = e.target.value || FV.ate; telaVendas(); };
+  if ($("fvloja")) { $("fvloja").onchange = e => { FV.loja = e.target.value; telaVendas(); }; $("fvvend").onchange = e => { FV.vend = e.target.value; telaVendas(); }; }
+  document.querySelectorAll(".vrow").forEach(r => r.onclick = () => verVenda(Number(r.dataset.v)));
+}
+
+function verVenda(id) {
+  $("dlg").classList.add("largo");
+  const v = VENDAS.find(x => x.id === id), its = ITENS.filter(i => i.venda_id === id), c = cliente(v.cliente_id), f = $("dlgf");
+  f.innerHTML = `<h3>Venda nº ${v.id}${v.cancelada_em ? ' <span class="tag">cancelada</span>' : ""}</h3>
+    <div class="mut">${dataBR(v.data)} · ${esc(loja(v.loja_id).nome)} · vendedora ${esc(v.vendedora_nome)}</div>
+    <div class="campo"><b>Cliente:</b> ${c ? `${esc(c.nome)}${c.telefone ? " · " + esc(fone(c.telefone)) : ""}` : '<span class="mut">não informado</span>'}</div>
+    <div class="campo tw"><table><thead><tr><th>Peça</th><th class="num">Qtd</th><th class="num">Tabela</th><th class="num">Desc.</th><th class="num">Valor</th><th class="num">Total</th></tr></thead><tbody>
+      ${its.map(i => `<tr><td><b>${esc(i.referencia)}</b> ${esc(i.descricao)}<br><span class="mut">${esc([i.cor, i.tamanho, i.edicao].filter(Boolean).join(" · "))}</span></td>
+        <td class="num">${n(i.quantidade)}</td><td class="num">${brl(i.preco_tabela)}</td><td class="num">${Number(i.desconto_pct) ? decBR(Number(i.desconto_pct)) + "%" : "—"}</td>
+        <td class="num">${brl(i.valor_unitario)}</td><td class="num">${brl(i.valor_total)}</td></tr>`).join("")}
+    </tbody></table></div>
+    <div class="campo">
+      <div class="vlin"><span>Valor de tabela</span><span>${brl(v.valor_bruto)}</span></div>
+      <div class="vlin"><span>Peças com desconto</span><span>${brl(v.valor_itens)}</span></div>
+      ${Number(v.desconto) ? `<div class="vlin"><span>Desconto geral</span><span>− ${brl(v.desconto)}</span></div>` : ""}
+      <div class="vlin"><b>Valor pago</b><b>${brl(v.valor_total)}</b></div>
+      ${(v.pagamentos || []).map(p => `<div class="vlin"><span>${esc(FORMAS[p.forma])}${p.forma === "credito" ? ` em ${p.parcelas}x` : ""}</span><span>${brl(p.valor)}</span></div>`).join("")}
+    </div>
+    ${v.observacao ? `<div class="campo"><b>Observações:</b> ${esc(v.observacao)}</div>` : ""}
+    <div class="mut campo">Registrada por ${esc(v.criado_nome)} em ${new Date(v.criado_em).toLocaleString("pt-BR", { timeZone: TZ })}</div>
+    ${v.cancelada_em ? `<div class="msg err">Cancelada por ${esc(v.cancelada_nome || "")} em ${new Date(v.cancelada_em).toLocaleString("pt-BR", { timeZone: TZ })}: ${esc(v.motivo_cancelamento)}</div>` : ""}
+    <div id="verr"></div>
+    <div class="acoes">${dono() && !v.cancelada_em ? '<button type="button" class="bt" id="vcanc" style="color:var(--crit);border-color:var(--crit)">Cancelar venda</button>' : ""}<button type="button" class="bt pri" id="vfechar">Fechar</button></div>`;
+  $("vfechar").onclick = () => $("dlg").close();
+  if ($("vcanc")) $("vcanc").onclick = async () => {
+    const motivo = prompt("Motivo do cancelamento (as peças voltam para o estoque da loja):");
+    if (motivo === null) return;
+    try { checar(await sb.rpc("lin_venda_cancelar", { p_venda: v.id, p_motivo: motivo })); $("dlg").close(); await carregar(); await telaVendas(); msg("ok", `Venda nº ${v.id} cancelada; as peças voltaram para o estoque.`); }
+    catch (e) { $("verr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+  };
+  $("dlg").showModal();
+}
+
+// ---------------------------------------------------------------- nova venda (formulário no formato da boleta)
+async function novaVenda() {
+  $("dlg").classList.add("largo");
+  const { data: { session } } = await sb.auth.getSession();
+  const eu = session.user.id;
+  const NV = { data: hoje(), loja: dono() ? (FV.loja || (LOJAS[0] || {}).id) : MINHA_LOJA, vend: eu, cliente: null, itens: [], desconto: "", obs: "",
+               pags: [{ forma: "credito", valor: "", parcelas: "1", auto: true }] };
+  if (!NV.loja) { msg("err", "Seu login ainda não tem loja. Peça à Nervia para definir na aba Equipe."); return; }
+  const f = $("dlgf");
+  const soma = () => r2(NV.itens.reduce((s, i) => s + numV(i.vu) * (Number(i.q) || 0), 0));
+  const totalV = () => r2(soma() - numV(NV.desconto));
+  const disp = vid => qtd(vid, NV.loja);
+  f.innerHTML = `<h3>Nova venda</h3>
+    <div class="campo grade3">
+      <div><label for="nvdata">Data</label><input type="date" id="nvdata" value="${NV.data}" max="${hoje()}"></div>
+      <div><label for="nvloja">Loja</label>${dono() ? `<select id="nvloja">${LOJAS.map(l => `<option value="${l.id}" ${l.id === NV.loja ? "selected" : ""}>${esc(l.nome)}</option>`).join("")}</select>` : `<input readonly value="${esc(loja(NV.loja).nome)}">`}</div>
+      <div><label for="nvvend">Vendedora</label>${dono() ? `<select id="nvvend">${VENDEDORAS.map(u => `<option value="${u.user_id}" ${u.user_id === eu ? "selected" : ""}>${esc(u.nome)}</option>`).join("")}${VENDEDORAS.some(u => u.user_id === eu) ? "" : `<option value="${eu}" selected>Eu (equipe Nervia)</option>`}</select>` : `<input readonly value="${esc((VENDEDORAS.find(u => u.user_id === eu) || {}).nome || "Eu")}">`}</div>
+    </div>
+    <div class="caixa"><h4>Cliente</h4><div id="nvcli"></div></div>
+    <div class="caixa"><h4>Peças</h4>
+      <input id="nvpq" type="search" placeholder="Referência, nome ou código de barras da etiqueta" autocomplete="off">
+      <div id="nvres"></div><div id="nvitens" class="campo"></div></div>
+    <div class="caixa"><h4>Pagamento</h4>
+      <div class="vlin"><span>Peças</span><b id="nvsoma"></b></div>
+      <div class="vlin"><span>Desconto geral (R$)</span><input id="nvdesc" inputmode="decimal" placeholder="0,00" style="width:110px"></div>
+      <div class="vlin"><b>Total a pagar</b><b id="nvtotal"></b></div>
+      <div id="nvpags" class="campo"></div>
+      <div class="acoes" style="justify-content:space-between;margin-top:6px"><button type="button" class="lnk" id="nvmaispag">+ outra forma de pagamento</button><span id="nvfalta" class="mut"></span></div>
+    </div>
+    <div class="campo"><label for="nvobs">Observações</label><input id="nvobs" maxlength="500" placeholder="Ex.: Niver 21/07, troca combinada, ajuste na barra"></div>
+    <div id="nverr"></div>
+    <div class="acoes"><button type="button" class="bt" id="nvx">Cancelar</button><button type="button" class="bt pri" id="nvok">Registrar venda</button></div>`;
+
+  const totais = () => {
+    const t = totalV();
+    if (NV.pags.length === 1 && NV.pags[0].auto) { NV.pags[0].valor = t > 0 ? moeda(t) : ""; const i = f.querySelector('[data-pg="0"][data-k="valor"]'); if (i) i.value = NV.pags[0].valor; }
+    $("nvsoma").textContent = brl(soma()); $("nvtotal").textContent = brl(t);
+    const falta = r2(t - NV.pags.reduce((s, p) => s + numV(p.valor), 0));
+    $("nvfalta").textContent = Math.abs(falta) < 0.01 ? "" : falta > 0 ? `Falta ${brl(falta)}` : `Passou ${brl(-falta)}`;
+    f.querySelectorAll("[data-it-total]").forEach(el => { const it = NV.itens[el.dataset.itTotal]; el.textContent = brl(numV(it.vu) * (Number(it.q) || 0)); });
+  };
+  const desenharCliente = () => {
+    const c = NV.cliente;
+    $("nvcli").innerHTML = c ? `<div class="vlin"><span><b>${esc(c.nome)}</b>${c.telefone ? " · " + esc(fone(c.telefone)) : ""}${niver(c) ? " · aniversário " + niver(c) : ""}</span>
+        <span class="acs"><button type="button" class="lnk" id="nvcedit">Editar</button><button type="button" class="lnk" id="nvctroca">Trocar</button></span></div>`
+      : `<input id="nvcq" type="search" placeholder="Nome, telefone ou CPF (deixe vazio se não quiser identificar)" autocomplete="off"><div id="nvcres"></div>`;
+    if (c) {
+      $("nvctroca").onclick = () => { NV.cliente = null; desenharCliente(); $("nvcq").focus(); };
+      $("nvcedit").onclick = () => editarCliente(c, novo => { NV.cliente = novo; desenharCliente(); });
+      return;
+    }
+    const busca = () => {
+      const t = $("nvcq").value.trim(), d = soDig(t), tl = t.toLowerCase();
+      const l = t.length < 2 ? [] : CLIENTES.filter(x => x.nome.toLowerCase().includes(tl) || (d.length >= 4 && (x.telefone.includes(d) || (x.cpf || "").includes(d)))).slice(0, 6);
+      $("nvcres").innerHTML = (l.map(x => `<div class="vlin"><span><b>${esc(x.nome)}</b>${x.telefone ? " · " + esc(fone(x.telefone)) : ""}</span><button type="button" class="lnk" data-cli="${x.id}">Escolher</button></div>`).join("")
+        + (t.length >= 2 ? `<div class="vlin"><span class="mut">${l.length ? "Não é nenhum desses?" : "Cliente não encontrado."}</span><button type="button" class="lnk" id="nvcnovo">+ Novo cliente</button></div>` : ""));
+      $("nvcres").querySelectorAll("[data-cli]").forEach(b => b.onclick = () => { NV.cliente = cliente(b.dataset.cli); desenharCliente(); });
+      if ($("nvcnovo")) $("nvcnovo").onclick = () => editarCliente({ nome: d.length >= 8 ? "" : t, telefone: d.length >= 8 ? d : "" }, novo => { NV.cliente = novo; desenharCliente(); });
+    };
+    $("nvcq").oninput = busca;
+  };
+  const desenharItens = () => {
+    $("nvitens").innerHTML = NV.itens.length ? `<div class="tw"><table><thead><tr><th>Peça</th><th class="num">Qtd</th><th class="num">Tabela</th><th class="num">Desc. %</th><th class="num">Valor</th><th class="num">Total</th><th></th></tr></thead><tbody>
+      ${NV.itens.map((it, i) => `<tr><td><b>${esc(it.ref)}</b> ${esc(it.desc)}<br><span class="mut">${esc(it.var)} · ${n(disp(it.vid))} na loja</span></td>
+        <td class="num"><input data-i="${i}" data-k="q" type="number" min="1" max="${disp(it.vid)}" value="${it.q}" style="width:60px"></td>
+        <td class="num">${brl(it.tab)}</td>
+        <td class="num"><input data-i="${i}" data-k="pct" inputmode="decimal" value="${esc(it.pct)}" placeholder="0" style="width:64px"></td>
+        <td class="num"><input data-i="${i}" data-k="vu" inputmode="decimal" value="${esc(it.vu)}" style="width:90px"></td>
+        <td class="num" data-it-total="${i}"></td><td><button type="button" class="lnk perigo" data-rm="${i}" title="Tirar">×</button></td></tr>`).join("")}
+      </tbody></table></div>` : '<div class="mut">Procure a peça acima pela referência, pelo nome ou pelo código de barras.</div>';
+    $("nvitens").querySelectorAll("input[data-i]").forEach(inp => inp.oninput = () => {
+      const it = NV.itens[inp.dataset.i], k = inp.dataset.k; it[k] = inp.value;
+      if (k === "pct") { it.vu = moeda(r2(it.tab * (1 - Math.min(Math.max(numV(it.pct), 0), 100) / 100))); $("nvitens").querySelector(`[data-i="${inp.dataset.i}"][data-k="vu"]`).value = it.vu; }
+      if (k === "vu") { it.pct = it.tab > 0 && numV(it.vu) < it.tab ? decBR(r2((1 - numV(it.vu) / it.tab) * 100)) : ""; $("nvitens").querySelector(`[data-i="${inp.dataset.i}"][data-k="pct"]`).value = it.pct; }
+      totais();
+    });
+    $("nvitens").querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { NV.itens.splice(Number(b.dataset.rm), 1); desenharItens(); });
+    totais();
+  };
+  const addItem = (p, v) => {
+    const ja = NV.itens.find(i => i.vid === v.id);
+    if (ja) { ja.q = String(Math.min((Number(ja.q) || 0) + 1, disp(v.id))); }
+    else { const tab = Number(v.preco_venda != null ? v.preco_venda : p.preco_venda) || 0;
+      NV.itens.push({ vid: v.id, ref: p.referencia, desc: p.descricao, var: nomeVar(v), tab, q: "1", pct: "", vu: moeda(tab) }); }
+    $("nvpq").value = ""; $("nvres").innerHTML = ""; desenharItens(); $("nvpq").focus();
+  };
+  const buscaPeca = () => {
+    const t = $("nvpq").value.trim().toLowerCase();
+    if (t.length < 2) { $("nvres").innerHTML = ""; return []; }
+    const r = [];
+    for (const p of PRODUTOS) {
+      const casaP = p.referencia.toLowerCase().includes(t) || p.descricao.toLowerCase().includes(t) || (p.codigo_barras || "") === t;
+      for (const v of p.variantes) if ((casaP || (v.codigo_barras || "") === t) && disp(v.id) > 0) r.push([p, v]);
+      if (r.length > 40) break;
+    }
+    $("nvres").innerHTML = r.length ? r.slice(0, 40).map(([p, v], i) => `<div class="vlin"><span><b>${esc(p.referencia)}</b> ${esc(p.descricao)} — ${esc(nomeVar(v))} · ${brl(v.preco_venda != null ? v.preco_venda : p.preco_venda)} · ${n(disp(v.id))} na loja</span>
+        <button type="button" class="lnk" data-add="${i}">Adicionar</button></div>`).join("") : `<div class="mut">Nenhuma peça com estoque em ${esc(loja(NV.loja).nome)} para “${esc(t)}”.</div>`;
+    $("nvres").querySelectorAll("[data-add]").forEach(b => b.onclick = () => addItem(...r[b.dataset.add]));
+    return r;
+  };
+  $("nvpq").oninput = buscaPeca;
+  $("nvpq").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); const r = buscaPeca(); if (r.length === 1) addItem(...r[0]); } };
+  const desenharPags = () => {
+    $("nvpags").innerHTML = NV.pags.map((p, i) => `<div class="vlin">
+      <select data-pg="${i}" data-k="forma" style="width:auto">${Object.entries(FORMAS).map(([k, r]) => `<option value="${k}" ${k === p.forma ? "selected" : ""}>${r}</option>`).join("")}</select>
+      ${p.forma === "credito" ? `<select data-pg="${i}" data-k="parcelas" style="width:auto">${Array.from({ length: 12 }, (_, x) => x + 1).map(x => `<option value="${x}" ${String(x) === String(p.parcelas) ? "selected" : ""}>${x}x</option>`).join("")}</select>` : "<span></span>"}
+      <input data-pg="${i}" data-k="valor" inputmode="decimal" value="${esc(p.valor)}" placeholder="0,00" style="width:110px">
+      ${NV.pags.length > 1 ? `<button type="button" class="lnk perigo" data-pgrm="${i}">×</button>` : ""}</div>`).join("");
+    $("nvpags").querySelectorAll("[data-pg]").forEach(el => el[el.tagName === "SELECT" ? "onchange" : "oninput"] = () => {
+      const p = NV.pags[el.dataset.pg]; p[el.dataset.k] = el.value; if (el.dataset.k === "valor") p.auto = false;
+      if (el.dataset.k === "forma") desenharPags(); else totais();
+    });
+    $("nvpags").querySelectorAll("[data-pgrm]").forEach(b => b.onclick = () => { NV.pags.splice(Number(b.dataset.pgrm), 1); desenharPags(); });
+    totais();
+  };
+  $("nvmaispag").onclick = () => { NV.pags.forEach(p => p.auto = false); const falta = r2(totalV() - NV.pags.reduce((s, p) => s + numV(p.valor), 0));
+    NV.pags.push({ forma: "pix", valor: falta > 0 ? moeda(falta) : "", parcelas: "1" }); desenharPags(); };
+  $("nvdata").onchange = e => NV.data = e.target.value;
+  if ($("nvloja")) $("nvloja").onchange = e => { NV.loja = e.target.value; NV.itens = []; desenharItens(); };
+  if ($("nvvend")) $("nvvend").onchange = e => NV.vend = e.target.value;
+  $("nvdesc").oninput = e => { NV.desconto = e.target.value; totais(); };
+  $("nvobs").oninput = e => NV.obs = e.target.value;
+  $("nvx").onclick = () => $("dlg").close();
+  $("nvok").onclick = async () => {
+    const erro = t => { $("nverr").innerHTML = `<div class="msg err">${esc(t)}</div>`; $("nverr").scrollIntoView({ block: "nearest" }); };
+    if (!NV.itens.length) return erro("Acrescente ao menos uma peça.");
+    for (const it of NV.itens) { if (!(Number(it.q) >= 1)) return erro(`Quantidade inválida em ${it.ref}.`); if (Number(it.q) > disp(it.vid)) return erro(`${it.ref} ${it.var}: a loja tem só ${disp(it.vid)}.`); }
+    const pags = NV.pags.filter(p => numV(p.valor) > 0);
+    $("nvok").disabled = true; $("nvok").textContent = "Registrando…";
+    try {
+      const id = checar(await sb.rpc("lin_venda_registrar", { p: { loja_id: NV.loja, vendedora_id: NV.vend, cliente_id: NV.cliente ? NV.cliente.id : null, data: NV.data,
+        desconto: numBR(NV.desconto) || 0, observacao: NV.obs.trim(),
+        itens: NV.itens.map(i => ({ variante_id: i.vid, quantidade: Number(i.q), valor_unitario: numBR(i.vu) || 0, desconto_pct: numBR(i.pct) || 0 })),
+        pagamentos: pags.map(p => ({ forma: p.forma, valor: numBR(p.valor), parcelas: Number(p.parcelas) || 1 })) } }));
+      $("dlg").close(); await carregar();
+      if (VISTA === "vendas") await telaVendas();
+      msg("ok", `Venda nº ${id} registrada; o estoque de ${loja(NV.loja).nome} foi atualizado.`);
+    } catch (e) { erro(e.message); $("nvok").disabled = false; $("nvok").textContent = "Registrar venda"; }
+  };
+  desenharCliente(); desenharItens(); desenharPags();
+  $("dlg").showModal();
+}
+
+// ---------------------------------------------------------------- clientes
+function editarCliente(c, depois) {
+  const f = $("dlg2f"), C = Object.assign({ nome: "", telefone: "", cpf: "", email: "", endereco: "", aniversario_dia: "", aniversario_mes: "", observacoes: "" }, c || {});
+  f.innerHTML = `<h3>${C.id ? "Editar cliente" : "Novo cliente"}</h3>
+    <div class="campo"><label for="cl_nome">Nome</label><input id="cl_nome" value="${esc(C.nome)}"></div>
+    <div class="campo grade2"><div><label for="cl_tel">Telefone (com DDD)</label><input id="cl_tel" inputmode="tel" value="${esc(fone(C.telefone))}" placeholder="(21) 99999-9999"></div>
+      <div><label for="cl_cpf">CPF</label><input id="cl_cpf" inputmode="numeric" value="${esc(C.cpf || "")}" placeholder="opcional"></div></div>
+    <div class="campo grade2"><div><label for="cl_email">E-mail</label><input id="cl_email" type="email" value="${esc(C.email)}"></div>
+      <div><label>Aniversário</label><div style="display:flex;gap:6px"><select id="cl_dia" aria-label="Dia"><option value="">Dia</option>${Array.from({ length: 31 }, (_, x) => x + 1).map(x => `<option ${String(x) === String(C.aniversario_dia) ? "selected" : ""}>${x}</option>`).join("")}</select>
+        <select id="cl_mes" aria-label="Mês"><option value="">Mês</option>${MESES.map((m, x) => `<option value="${x + 1}" ${String(x + 1) === String(C.aniversario_mes) ? "selected" : ""}>${m}</option>`).join("")}</select></div></div></div>
+    <div class="campo"><label for="cl_end">Endereço</label><input id="cl_end" value="${esc(C.endereco)}"></div>
+    <div class="campo"><label for="cl_obs">Observações</label><input id="cl_obs" value="${esc(C.observacoes)}" placeholder="Preferências, medidas, como gosta de ser atendida…"></div>
+    <div id="clerr"></div>
+    <div class="acoes"><button type="button" class="bt" id="clx">Cancelar</button><button type="button" class="bt pri" id="clok">Salvar cliente</button></div>`;
+  $("clx").onclick = () => $("dlg2").close();
+  $("clok").onclick = async () => {
+    try {
+      const id = checar(await sb.rpc("lin_cliente_salvar", { p: { id: C.id || null, nome: $("cl_nome").value, telefone: $("cl_tel").value, cpf: $("cl_cpf").value,
+        email: $("cl_email").value, endereco: $("cl_end").value, aniversario_dia: $("cl_dia").value, aniversario_mes: $("cl_mes").value, observacoes: $("cl_obs").value } }));
+      await carregarClientes(); $("dlg2").close();
+      if (depois) depois(cliente(id));
+    } catch (e) { $("clerr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+  };
+  $("dlg2").showModal(); $("cl_nome").focus();
+}
+
+async function telaClientes() {
+  $("tela").innerHTML = '<div class="card">Carregando…</div>';
+  try {
+    await carregarClientes();
+    VENDAS = await todas(() => sb.from("lin_vendas").select("id, cliente_id, data, valor_total, cancelada_em, loja_id").not("cliente_id", "is", null).is("cancelada_em", null));
+  } catch (e) { $("tela").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; return; }
+  $("tela").innerHTML = `
+    <div class="cabtela"><h2>Clientes <span class="mut">· ${n(CLIENTES.length)} cadastrado(s)</span></h2><button class="bt pri" id="cnovo">+ Novo cliente</button></div>
+    <div class="filtros"><input id="cq" type="search" placeholder="Nome, telefone ou CPF" value="${esc(FC.q)}">
+      <button type="button" class="pilula ${FC.niver ? "on" : ""}" id="cniver">Aniversariantes de ${MESES[new Date().getMonth()]}</button></div>
+    <div class="card"><div class="tw"><table><thead><tr><th>Cliente</th><th>Telefone</th><th>Aniversário</th><th class="num">Compras</th><th class="num">Total</th><th>Última compra</th></tr></thead><tbody id="clista"></tbody></table></div>
+    ${dono() ? "" : '<div class="mut" style="margin-top:6px">Compras e total contam só as vendas que você registrou.</div>'}</div>`;
+  $("cnovo").onclick = () => editarCliente(null, () => telaClientes());
+  $("cq").oninput = e => { FC.q = e.target.value; listaClientes(); };
+  $("cniver").onclick = () => { FC.niver = !FC.niver; telaClientes(); };
+  listaClientes();
+}
+function listaClientes() {
+  const t = FC.q.trim().toLowerCase(), d = soDig(t), mes = new Date().getMonth() + 1;
+  const l = CLIENTES.filter(c => (!t || c.nome.toLowerCase().includes(t) || (d.length >= 4 && (c.telefone.includes(d) || (c.cpf || "").includes(d))))
+    && (!FC.niver || c.aniversario_mes === mes)).sort((a, b) => FC.niver ? a.aniversario_dia - b.aniversario_dia : a.nome.localeCompare(b.nome, "pt-BR"));
+  $("clista").innerHTML = l.length ? l.slice(0, 500).map(c => {
+    const vs = VENDAS.filter(v => v.cliente_id === c.id), tot = vs.reduce((s, v) => s + Number(v.valor_total), 0), ult = vs.map(v => v.data).sort().pop();
+    return `<tr class="crow" data-c="${c.id}" style="cursor:pointer"><td><b>${esc(c.nome)}</b>${c.observacoes ? `<br><span class="mut">${esc(c.observacoes)}</span>` : ""}</td>
+      <td>${c.telefone ? `<a href="https://wa.me/55${esc(c.telefone)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(fone(c.telefone))}</a>` : "—"}</td>
+      <td>${niver(c) || "—"}</td><td class="num">${n(vs.length)}</td><td class="num">${vs.length ? brl(tot) : "—"}</td><td>${ult ? dataBR(ult) : "—"}</td></tr>`;
+  }).join("") : `<tr><td colspan="6" class="mut">${CLIENTES.length ? "Nenhum cliente com esse filtro." : "Nenhum cliente ainda. Eles entram aqui ao registrar a venda ou em “+ Novo cliente”."}</td></tr>`;
+  document.querySelectorAll(".crow").forEach(r => r.onclick = () => editarCliente(cliente(r.dataset.c), () => telaClientes()));
+}
+
 // ---------------------------------------------------------------- equipe (só a equipe Nervia)
 async function telaEquipe() {
   $("tela").innerHTML = '<div class="card">Carregando…</div>';
   try { EQUIPE = checar(await sb.rpc("lin_equipe")) || []; } catch (e) { $("tela").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; return; }
   const opLoja = sel => `<option value="">—</option>` + LOJAS.map(l => `<option value="${l.id}" ${l.id === sel ? "selected" : ""}>${esc(l.nome)}</option>`).join("");
   $("tela").innerHTML = `<div class="card"><h2>Equipe da Linum</h2>
-    <p class="mut">Aparecem aqui os logins com o app <b>Sistema Linum</b> liberado na Área do Cliente (Administração → Logins). Dono: tudo, inclusive preço de custo. Estoque: cadastra peças, altera o preço de venda e movimenta o estoque, sem ver nem alterar custo. Vendedora: só consulta, sem preço de custo. Todas as ações ficam na auditoria. Sem papel: o login não entra no app.</p>
+    <p class="mut">Aparecem aqui os logins com o app <b>Sistema Linum</b> liberado na Área do Cliente (Administração → Logins). Dono: tudo, inclusive preço de custo. Estoque: cadastra peças, altera o preço de venda e movimenta o estoque, sem ver nem alterar custo. Vendedora: consulta o estoque e registra vendas e clientes da loja dela (escolha a loja), sem preço de custo. Todas as ações ficam na auditoria. Sem papel: o login não entra no app.</p>
     ${EQUIPE.length ? `<div class="tw"><table><thead><tr><th>Login</th><th>Papel</th><th>Loja</th><th></th></tr></thead><tbody>
       ${EQUIPE.map((u, i) => `<tr><td><b>${esc(u.nome || u.email)}</b><br><span class="mut">${esc(u.email)}</span></td>
         <td><select data-i="${i}" class="eq-papel"><option value="">Sem papel</option><option value="dono" ${u.papel === "dono" ? "selected" : ""}>Dono</option><option value="estoque" ${u.papel === "estoque" ? "selected" : ""}>Estoque</option><option value="vendedora" ${u.papel === "vendedora" ? "selected" : ""}>Vendedora</option></select></td>
@@ -491,6 +816,7 @@ async function telaEquipe() {
   });
 }
 
+$("dlg").addEventListener("close", () => $("dlg").classList.remove("largo"));
 $("dlg").addEventListener("close", () => { if (VISTA === "produtos" && $("plista")) listaProdutos(); });
 iniciar();
 </script>

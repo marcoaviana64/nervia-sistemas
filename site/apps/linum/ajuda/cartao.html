@@ -14,13 +14,14 @@
     <div class="acoes"><a href="manual.html">Manual completo</a><a href="mapa.html">Mapa mental</a><button onclick="print()">Imprimir</button></div>
   </div>
 
-  <p class="lead">Produtos e estoque das lojas Gávea e Ipanema por cor e tamanho. O Dono faz tudo; o Estoque cadastra e movimenta sem ver custo; a Vendedora só consulta. Toda movimentação e alteração de cadastro fica no registro de auditoria.</p>
+  <p class="lead">Produtos e estoque das lojas Gávea e Ipanema por cor e tamanho. O Dono faz tudo; o Estoque cadastra e movimenta sem ver custo; a Vendedora consulta e registra as vendas da loja dela. Toda venda, movimentação e alteração de cadastro fica no registro de auditoria.</p>
 
   <h2>Topo</h2>
   <table>
     <tr><td>Produtos <span class="eq">DONO · ESTOQUE</span></td><td>Cadastro das peças, cores, tamanhos e peças especiais.</td></tr>
     <tr><td>Estoque</td><td>A lista de produtos com as peças de cada loja.</td></tr>
-    <tr><td>Dono · Estoque · sem custos · Vendedora · só consulta</td><td>O seu papel no app (à direita da barra).</td></tr>
+    <tr><td>Vendas · Clientes <span class="eq">DONO · VENDEDORA</span></td><td>Registro das vendas (a boleta) e cadastro dos clientes.</td></tr>
+    <tr><td>Dono · Estoque · sem custos · Vendedora · loja</td><td>O seu papel no app (à direita da barra).</td></tr>
   </table>
 
   <h2>Filtros</h2>
@@ -74,10 +75,37 @@
     <tr><td>Editar peça · Excluir peça</td><td>No cartão do produto. Excluir só sem movimentação e sem estoque.</td></tr>
   </table>
 
+  <h2>Vendas <span class="eq">DONO · VENDEDORA</span></h2>
+  <table>
+    <tr><td>De · Até · Loja · Vendedora</td><td>Período e filtros da lista (loja e vendedora só para o Dono). A vendedora vê só as vendas dela.</td></tr>
+    <tr><td>Vendas · Peças · Total vendido · Ticket médio</td><td>Totais do período, sem as canceladas.</td></tr>
+    <tr><td>Por loja · Por vendedora</td><td>Resumo do período (Dono).</td></tr>
+    <tr><td>Linha da venda</td><td>Clique para ver a boleta completa.</td></tr>
+    <tr><td>+ Nova venda</td><td>Abre a boleta.</td></tr>
+    <tr><td>Data · Loja · Vendedora</td><td>A vendedora vende na loja dela, com data de até 7 dias atrás. O Dono escolhe loja e vendedora e lança boletas antigas.</td></tr>
+    <tr><td>Cliente</td><td>Digite nome, telefone ou CPF e clique em Escolher, ou + Novo cliente. Pode ficar sem cliente.</td></tr>
+    <tr><td>Peças</td><td>Referência, nome ou código de barras da etiqueta (Enter adiciona quando só uma peça aparece). Só aparecem peças com estoque na loja.</td></tr>
+    <tr><td>Qtd · Desc. % · Valor</td><td>Desconto por peça em %; o valor se ajusta (ou digite o valor e o % aparece).</td></tr>
+    <tr><td>Desconto geral (R$)</td><td>Desconto em reais sobre o total das peças.</td></tr>
+    <tr><td>Forma · parcelas · valor</td><td>Crédito (até 12x), débito, Pix, dinheiro, cheque ou outro. + outra forma divide o pagamento; a soma tem de fechar com o total.</td></tr>
+    <tr><td>Observações</td><td>Ex.: aniversário, troca combinada, ajuste.</td></tr>
+    <tr><td>Registrar venda</td><td>Grava e dá baixa no estoque da loja.</td></tr>
+    <tr><td>Cancelar venda <span class="eq">DONO</span></td><td>Com motivo. A venda fica no histórico como cancelada e as peças voltam ao estoque.</td></tr>
+  </table>
+
+  <h2>Clientes <span class="eq">DONO · VENDEDORA</span></h2>
+  <table>
+    <tr><td>Busca</td><td>Nome, telefone ou CPF.</td></tr>
+    <tr><td>Aniversariantes do mês</td><td>Só quem faz aniversário no mês, em ordem de dia.</td></tr>
+    <tr><td>Telefone</td><td>Abre a conversa no WhatsApp.</td></tr>
+    <tr><td>Compras · Total · Última compra</td><td>Pelas vendas (a vendedora vê só as que ela registrou).</td></tr>
+    <tr><td>Nome · Telefone · CPF · E-mail · Aniversário · Endereço · Observações</td><td>Cadastro do cliente. Nome obrigatório; CPF não repete.</td></tr>
+  </table>
+
   <h2>Equipe <span class="eq">EQUIPE NERVIA</span></h2>
   <table>
     <tr><td>Login</td><td>Logins com o app Sistema Linum liberado na Área do Cliente.</td></tr>
-    <tr><td>Papel</td><td>Dono (tudo, com custo), Estoque (cadastra e movimenta, sem custo), Vendedora (só consulta) ou Sem papel (não entra no app).</td></tr>
+    <tr><td>Papel</td><td>Dono (tudo, com custo), Estoque (cadastra e movimenta, sem custo), Vendedora (consulta e vende na loja dela) ou Sem papel (não entra no app).</td></tr>
     <tr><td>Loja</td><td>Loja da vendedora (obrigatória para vendedora).</td></tr>
     <tr><td>Salvar</td><td>Grava o papel. Fica na auditoria.</td></tr>
   </table>
