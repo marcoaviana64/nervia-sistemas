@@ -68,6 +68,15 @@
   <div class="nota">O espelho reproduz os dados do XML autorizado, com a chave de acesso (e o código de barras, na NF-e) para conferência no portal oficial. O documento fiscal válido é sempre o XML. Nota cancelada sai com a marca <b>CANCELADA</b>; NF-e <span class="tag res">só resumo</span> sai como "espelho de resumo, sem valor fiscal" até a ciência liberar o XML.</div>
   <p>NF-e marcadas <span class="tag res">só resumo</span> ainda não têm o XML completo. Para liberar, a própria empresa registra a ciência ou a confirmação da operação (ver "Liberar o XML completo", no item 6).</p>
 
+  <h3>Baixar os XMLs de um período</h3>
+  <ol>
+    <li>Escolha o período em <b>De</b> e <b>Até</b> (e, se quiser, Tipo, Situação ou o fornecedor em Buscar).</li>
+    <li>Para baixar só algumas notas, marque-as; sem marcação, vão os XMLs de toda a lista da tela.</li>
+    <li>Clique em <b>Baixar XMLs (.zip)</b> e aguarde a contagem ("Baixando XMLs: 40 de 120…"). O arquivo <code>xml-CNPJ-início_a_fim.zip</code> é baixado, com as pastas <code>nfe/</code> e <code>nfse/</code>.</li>
+    <li>NF-e <span class="tag res">só resumo</span> entram como <code>-resumo.xml</code> (sem valor fiscal); o XML completo vem depois da ciência. Notas sem XML guardado ficam de fora e o aviso diz quantas.</li>
+    <li>No máximo 3.000 XMLs por vez: com mais que isso, divida o período.</li>
+  </ol>
+
   <h2 id="excel">5. Exportar para o Excel</h2>
   <ol>
     <li>Ajuste os filtros para mostrar só o que você quer.</li>

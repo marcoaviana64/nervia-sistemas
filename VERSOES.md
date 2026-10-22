@@ -8,6 +8,7 @@ Ao publicar mudança num app: linha nova no topo do app aqui (com a data) e em `
 
 | Versão | Data | O que mudou |
 |---|---|---|
+| 1.8 | 22/10/2026 | Baixar XMLs (.zip): os XMLs das notas marcadas ou, sem marcação, de toda a lista filtrada (período, tipo, fornecedor), num arquivo só. |
 | 1.7 | 14/10/2026 | Recuperar NF-e anteriores: traz as NF-e dos últimos 90 dias que outro sistema da empresa já tinha baixado. |
 | 1.6 | 14/10/2026 | Registro de auditoria das ações sensíveis (ciência, confirmação, certificado, termo, acessos), com comprovante para imprimir. |
 | 1.5 | 14/10/2026 | O próprio cliente pode dar ciência (NF-e de até 10 dias) e confirmar a operação (até 90 dias). |
