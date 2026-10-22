@@ -259,7 +259,7 @@ function vPainel() {
   <div class="card"><h2>Esperando você<span class="dir"><button class="bt pri" data-acao="novaReq">+ Nova requisição</button></span></h2>${tabelaReqs(minhas)}</div>
   <div class="card"><h2>Regras desta unidade</h2><div class="mut">Mínimo de ${u.minimo_propostas} propostas · automática até ${brl(u.alcada_automatica)} (só menor preço e fornecedor já usado) ·
     Gerente até ${brl(u.alcada_gerente)} · acima: Gerente e Diretor · matriz: preço ${u.pesos?.preco}%, prazo ${u.pesos?.prazo}%, pagamento ${u.pesos?.pagamento}%, qualidade ${u.pesos?.qualidade}%.</div>
-    ${setoresAtivos().length ? `<div class="mut" style="margin-top:6px"><b>Setores:</b> cada compra é aprovada pelo Gerente do setor dela. ${setoresAtivos().map(x => `${esc(x.nome)}${x.alcada_gerente != null ? ` (Gerente até ${brl(x.alcada_gerente)})` : ""}`).join(" · ")}.</div>` : ""}</div>`;
+    ${setoresAtivos().length ? `<div class="mut" style="margin-top:6px"><b>Setores:</b> cada compra é aprovada pelo Gerente do setor dela. ${setoresAtivos().map(x => `${esc(x.nome)}${x.alcada_gerente != null ? ` (Gerente até ${brl(x.alcada_gerente)}${num(x.alcada_gerente) < num(u.alcada_automatica) ? `, automática até ${brl(x.alcada_gerente)}` : ""})` : ""}`).join(" · ")}. A automática nunca passa do limite do Gerente do setor.</div>` : ""}</div>`;
 }
 function vReqs() {
   const fs = { abertas: r => !["concluida", "cancelada", "reprovada"].includes(r.status), todas: () => true };
@@ -518,7 +518,7 @@ function vConfig() {
       <div><label>Peso qualidade (%)</label><input id="pQual" type="number" value="${u.pesos.qualidade}"></div>
     </div><div class="acoes"><button class="bt pri" data-acao="salvarUnidade">Salvar regras</button><span class="mut">Os quatro pesos precisam somar 100.</span></div></div>
   <div class="card"><h2>Setores<span class="dir"><button class="bt" data-acao="novoSetor">+ Novo setor</button></span></h2>
-    <p class="mut">Com setores, cada requisição diz de qual setor é (Financeiro, Marketing, Operações, Comercial…) e é aprovada pelo Gerente daquele setor; acima do limite dele segue para o Diretor. Sem limite próprio, vale o “Gerente até” da unidade. Sem nenhum setor ativo, a unidade funciona como antes (qualquer Gerente).</p>
+    <p class="mut">Com setores, cada requisição diz de qual setor é (Financeiro, Marketing, Operações, Comercial…) e é aprovada pelo Gerente daquele setor; acima do limite dele segue para o Diretor. Sem limite próprio, vale o “Gerente até” da unidade. A aprovação automática nunca passa do limite do Gerente do setor. Sem nenhum setor ativo, a unidade funciona como antes (qualquer Gerente).</p>
     ${SETORES.length ? `<div class="tw"><table><tr><th>Setor</th><th>Gerente aprova até</th><th>Situação</th><th></th></tr>${SETORES.map(x => `<tr><td><b>${esc(x.nome)}</b></td><td>${x.alcada_gerente != null ? brl(x.alcada_gerente) : `<span class="mut">o da unidade (${brl(u.alcada_gerente)})</span>`}</td><td>${x.ativo ? tag("ativo", "t-ok") : tag("inativo", "t-mut")}</td><td><button class="lnk" data-acao="editSetor" data-id="${x.id}">alterar</button></td></tr>`).join("")}</table></div>` : '<p class="mut">Nenhum setor nesta unidade.</p>'}</div>
   <div class="card"><h2>Papéis nesta unidade</h2>
     <p class="mut">O login também precisa ter o app “Orçamentos de Compras” liberado em <a href="/cliente/#admin" target="_top">Administração → Logins</a>. O Gerente pode ser de um setor ou de todos; para ser Gerente de dois setores, dê o papel duas vezes.</p>

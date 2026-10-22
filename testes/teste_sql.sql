@@ -1283,6 +1283,21 @@ update cmp_membros set setor_id = '31000000-0000-0000-0000-000000000002' where u
 set role authenticated;
 select pg_temp.como('00000000-0000-0000-0000-0000000000e2');
 select pg_temp.erro('select cmp_enviar_aprovacao(' || pg_temp.id('s3') || ')', 'Ninguém tem o papel de Gerente do setor Financeiro', 'setores: sem Gerente do setor (nem geral) não envia');
+-- a automática nunca passa do limite do Gerente do setor (Comercial: Gerente até 1.000; automática da unidade: 5.000)
+reset role;
+update cmp_setores set alcada_gerente = 1000 where id = '31000000-0000-0000-0000-000000000003';
+set role authenticated;
+select pg_temp.como('00000000-0000-0000-0000-0000000000e1');
+insert into cmp_requisicoes (unidade_id, grupo, titulo, setor_id) values ('30000000-0000-0000-0000-000000000003', 'Informática e tecnologia', 'Monitor do Comercial', '31000000-0000-0000-0000-000000000003');
+insert into ids select 's4', max(id)::text from cmp_requisicoes;
+insert into cmp_requisicoes (unidade_id, grupo, titulo, setor_id) values ('30000000-0000-0000-0000-000000000003', 'Informática e tecnologia', 'Mouse do Comercial', '31000000-0000-0000-0000-000000000003');
+insert into ids select 's5', max(id)::text from cmp_requisicoes;
+select pg_temp.como('00000000-0000-0000-0000-0000000000e2');
+select cmp_salvar_proposta(pg_temp.id(k)::bigint, pg_temp.id('fa')::uuid, v, 0, 0, 5, 'À vista', 0, null, ''), cmp_excecao(pg_temp.id(k)::bigint, 'Teste do limite da automática por setor.')
+  from (values ('s4', 3000), ('s5', 800)) x(k, v);
+select cmp_escolher(pg_temp.id(k)::bigint, (select id from cmp_propostas where requisicao_id = pg_temp.id(k)::bigint), '') from (values ('s4'), ('s5')) x(k);
+select pg_temp.ok(cmp_enviar_aprovacao(pg_temp.id('s4')::bigint) = 'diretor', 'setores: 3 mil no Comercial (Gerente até 1 mil) não é automática mesmo com a automática da unidade em 5 mil');
+select pg_temp.ok(cmp_enviar_aprovacao(pg_temp.id('s5')::bigint) = 'automatica', 'setores: até o limite do Gerente do setor a automática continua valendo');
 reset role;
 reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'

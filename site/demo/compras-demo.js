@@ -229,7 +229,7 @@
     cmp_enviar_aprovacao(a) {
       const r = reqPara(a.p_req, ["comprador"], ["cotacao"]), u = unidade(), st = setorDe(r.setor_id);
       if (!st && S.setores.some((x) => x.ativo)) falha("Informe o setor da requisição antes de enviar: é o Gerente do setor que aprova.");
-      const lim = st && st.alcada_gerente != null ? st.alcada_gerente : u.alcada_gerente;
+      const lim = st && st.alcada_gerente != null ? st.alcada_gerente : u.alcada_gerente, auto = Math.min(u.alcada_automatica, lim);
       if (!r.proposta_escolhida) falha("Escolha o fornecedor antes de enviar.");
       const props = S.propostas.filter((x) => x.requisicao_id === r.id);
       if (props.length < u.minimo_propostas && !r.excecao) falha(`Só ${props.length} proposta(s): o mínimo é ${u.minimo_propostas}. Registre mais propostas ou a exceção de exclusividade.`);
@@ -239,14 +239,14 @@
       const novo = f ? !comprasDe(f.id).some((x) => x.id !== r.id) : false, comp = f ? f.cadastrado_por === EU.id : false;
       const disp = !!(f && f.certidoes_validade && f.certidoes_validade < hoje());
       // compra pela internet: nunca automática; o Gerente dá o aval
-      const alcada = !inter && tot <= u.alcada_automatica && menor && !novo ? "automatica" : tot <= lim ? "gerente" : "diretor";
+      const alcada = !inter && tot <= auto && menor && !novo ? "automatica" : tot <= lim ? "gerente" : "diretor";
       Object.assign(r, { alcada, valor_aprovacao: tot, fornecedor_novo: novo, compra_internet: inter, cadastrado_pelo_comprador: comp, enviado_por: EU.id, enviado_em: agoraISO(),
         status: alcada === "automatica" ? "aprovada" : "aprovacao", atualizado_em: agoraISO() });
       registrar(r.id, p.fornecedor_id, "enviada_aprovacao", `Enviada para aprovação: ${nomeP(p)}, ${brl(tot)}. Alçada: ${{ automatica: "automática", gerente: "Gerente", diretor: "Gerente e Diretor" }[alcada]}`
         + (alcada !== "automatica" && st ? ` (Gerente do setor ${st.nome})` : "") + (inter ? ". Compra pela internet: precisa do aval do Gerente" : "") + (novo ? ". Primeira compra com este fornecedor" : "") + (comp ? ". Fornecedor cadastrado por quem está comprando" : "")
         + (disp ? ". Certidões vencidas, dispensadas pelo Gerente nesta compra" : ""));
       if (alcada === "automatica") {
-        S.aprovacoes.push({ id: novoId("aprov"), requisicao_id: r.id, etapa: "sistema", decisao: "aprovado", comentario: `Até ${brl(u.alcada_automatica)}, menor preço e fornecedor com compras anteriores.`, por: null, por_nome: "Sistema", em: agoraISO() });
+        S.aprovacoes.push({ id: novoId("aprov"), requisicao_id: r.id, etapa: "sistema", decisao: "aprovado", comentario: `Até ${brl(auto)}, menor preço e fornecedor com compras anteriores.`, por: null, por_nome: "Sistema", em: agoraISO() });
         registrar(r.id, null, "aprovacao_automatica", "Aprovação automática (até a alçada, menor preço).");
       }
       return alcada;
