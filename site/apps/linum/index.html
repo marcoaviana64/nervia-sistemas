@@ -211,7 +211,9 @@ function cartao(p, l, vars) {
   const chips = vars.map(v => {
     const q = qtd(v.id, l.id), sep = ant !== null && ant !== (v.tamanho || "").trim() ? '<span class="sep"></span>' : "";
     ant = (v.tamanho || "").trim();
-    const corpo = `<b title="${esc(v.cor)}">${esc(v.cor || "—")}</b><small>${esc([v.tamanho, v.edicao].filter(Boolean).join(" · "))}</small><strong>${n(q)} un.</strong>`;
+    // peça especial (edição: pintura, bordado...) pode ter preço próprio; mostra só quando difere do preço da peça
+    const preco = v.preco_venda != null && Number(v.preco_venda) !== Number(p.preco_venda) ? `<small>${brl(v.preco_venda)}</small>` : "";
+    const corpo = `<b title="${esc(v.cor)}">${esc(v.cor || "—")}</b><small>${esc([v.tamanho, v.edicao].filter(Boolean).join(" · "))}</small>${preco}<strong>${n(q)} un.</strong>`;
     return sep + (dono()
       ? `<button type="button" class="chip ${q > 0 ? "" : "zero"}" data-p="${p.id}" data-v="${v.id}" data-l="${l.id}" title="Movimentar">${corpo}</button>`
       : `<div class="chip ${q > 0 ? "" : "zero"}">${corpo}</div>`);

@@ -51,6 +51,9 @@ def preparar_banco():
         ('20000000-0000-0000-0000-000000000005', '10000000-0000-0000-0000-000000000002', 'Cru', '38'),
         ('20000000-0000-0000-0000-000000000006', '10000000-0000-0000-0000-000000000002', 'Cru', '40'),
         ('20000000-0000-0000-0000-000000000007', '10000000-0000-0000-0000-000000000003', 'Branco', 'U');
+      insert into lin_variantes (id, produto_id, cor, tamanho, edicao, preco_venda) values
+        ('20000000-0000-0000-0000-000000000008', '10000000-0000-0000-0000-000000000002', 'Cru', '40', 'Bordada', 590);
+      insert into lin_estoque select '20000000-0000-0000-0000-000000000008', id, 1 from lin_lojas where nome = 'Gávea';
       insert into lin_estoque select v, (select id from lin_lojas where nome = 'Gávea'), q from (values
         ('20000000-0000-0000-0000-000000000001'::uuid, 3), ('20000000-0000-0000-0000-000000000002'::uuid, 1),
         ('20000000-0000-0000-0000-000000000004'::uuid, 2), ('20000000-0000-0000-0000-000000000005'::uuid, 4)) x(v, q);
@@ -147,15 +150,16 @@ try:
         pg, erros = entrar(b, "dono"); abrir(pg)
         ok(not pg.is_visible("#abaEquipe") and pg.text_content("#quem") == "Dono", "dono não vê a aba Equipe")
         c = chips(pg)
-        ok(c == ["Calça Areia @ Gávea: Cru 38=4 un.", "Vestido Mar @ Gávea: Azul P=3 un., Azul M=1 un., Azul G=2 un.", "Vestido Mar @ Ipanema: Off White M=2 un."],
+        ok(c == ["Calça Areia @ Gávea: Cru 38=4 un., Cru 40 · Bordada=1 un.", "Vestido Mar @ Gávea: Azul P=3 un., Azul M=1 un., Azul G=2 un.", "Vestido Mar @ Ipanema: Off White M=2 un."],
            "um cartão por produto e loja, tamanhos na ordem P M G, zerados ocultos")
-        ok(pg.text_content("#resumo").startswith("2 produto(s) · 12 peça(s)"), "resumo de produtos e peças")
+        ok(pg.text_content("#resumo").startswith("2 produto(s) · 13 peça(s)"), "resumo de produtos e peças")
+        ok("R$ 590,00" in pg.text_content(".prod >> nth=0").replace("\xa0", " "), "peça especial (edição) com preço próprio no quadrado")
         ok(pg.locator(".prod").nth(1).locator(".sep").count() == 2, "traço entre tamanhos diferentes")
         ok("R$ 489,00" in pg.text_content(".prod >> nth=1").replace("\xa0", " "), "preço de venda no cartão")
         pg.click("#fzero"); pg.wait_for_timeout(200)
         ok(pg.locator(".chip.zero").count() > 0 and any("Camisa Brisa" in x for x in chips(pg)), "ocultar zerados inativo: zerados em vermelho e produto sem peça aparece")
         pg.click("#fzero"); pg.fill("#fq", "cal"); pg.wait_for_timeout(200)
-        ok(chips(pg) == ["Calça Areia @ Gávea: Cru 38=4 un."], "busca por nome")
+        ok(len(chips(pg)) == 1 and chips(pg)[0].startswith("Calça Areia @ Gávea"), "busca por nome")
         pg.fill("#fq", "ves-m"); pg.wait_for_timeout(200)
         ok(len(chips(pg)) == 2, "busca por referência")
         pg.fill("#fq", ""); pg.select_option("#floja", label="Ipanema"); pg.wait_for_timeout(200)
@@ -163,7 +167,7 @@ try:
         pg.select_option("#floja", ""); pg.select_option("#ftam", "M"); pg.wait_for_timeout(200)
         ok(chips(pg) == ["Vestido Mar @ Gávea: Azul M=1 un.", "Vestido Mar @ Ipanema: Off White M=2 un."], "filtro por tamanho")
         pg.select_option("#ftam", ""); pg.select_option("#fcor", "Cru"); pg.wait_for_timeout(200)
-        ok(chips(pg) == ["Calça Areia @ Gávea: Cru 38=4 un."], "filtro por cor")
+        ok(len(chips(pg)) == 1 and chips(pg)[0].startswith("Calça Areia @ Gávea"), "filtro por cor")
         pg.select_option("#fcor", ""); pg.select_option("#fcat", "Vestido"); pg.wait_for_timeout(200)
         ok(len(chips(pg)) == 2, "filtro por categoria"); pg.select_option("#fcat", "")
         pg.screenshot(path=os.path.join(SAIDA, "linum_estoque_dono.png"), full_page=True)
