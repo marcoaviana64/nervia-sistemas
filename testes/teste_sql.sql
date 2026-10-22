@@ -1002,7 +1002,6 @@ reset role;
 insert into app_acessos values ('00000000-0000-0000-0000-00000000000b', 'linum'), ('00000000-0000-0000-0000-00000000000c', 'linum');
 set role authenticated;
 select lin_membro_salvar('00000000-0000-0000-0000-00000000000b', 'dono');
-select pg_temp.erro2($$select lin_membro_salvar('00000000-0000-0000-0000-00000000000c', 'vendedora')$$, 'Escolha a loja', 'linum: vendedora exige loja');
 select lin_membro_salvar('00000000-0000-0000-0000-00000000000c', 'vendedora', (select v from lin_ids where k = 'ipa'));
 select pg_temp.ok((select count(*) = 2 from jsonb_array_elements(lin_equipe()) e where e->>'papel' is not null), 'linum: equipe lista os logins com papel');
 select pg_temp.ok((select count(*) = 2 from auditoria where acao = 'linum_papel_definido'), 'linum: papel definido vai para a auditoria');
@@ -1221,9 +1220,6 @@ select pg_temp.erro2($$select lin_venda_registrar(jsonb_build_object('loja_id', 
 select pg_temp.erro2($$select lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'),
   'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 9, 'valor_unitario', 1)),
   'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 9))))$$, 'Estoque insuficiente: Vestido Mar Azul M tem 3', 'linum vendas: estoque insuficiente recusa a venda');
-select pg_temp.erro2($$select lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'ipa'),
-  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 1, 'valor_unitario', 1)),
-  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 1))))$$, 'só registra vendas da sua loja', 'linum vendas: vendedora não vende em outra loja');
 select pg_temp.erro2($$select lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'data', current_date - 10,
   'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 1, 'valor_unitario', 1)),
   'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 1))))$$, 'mais de 7 dias', 'linum vendas: vendedora não lança venda antiga');
@@ -1247,9 +1243,7 @@ set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
 select pg_temp.ok((select count(*) = 2 from lin_vendas) and (select count(*) = 2 from lin_venda_itens), 'linum vendas: vendedora vê só as vendas dela');
 select pg_temp.erro2($$select lin_venda_cancelar((select v from lin_vd where k = 'v1')::bigint, 'cliente desistiu')$$, 'Somente o Dono', 'linum vendas: vendedora não cancela');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';   -- papel Estoque
-select pg_temp.ok((select count(*) = 0 from lin_vendas) and (select count(*) = 0 from lin_clientes), 'linum vendas: Estoque não vê vendas nem clientes');
-select pg_temp.erro2($$select lin_cliente_salvar('{"nome":"X Y"}')$$, 'Somente o Dono ou a Vendedora', 'linum vendas: Estoque não cadastra cliente');
-select pg_temp.erro2($$select lin_venda_registrar('{}')$$, 'Somente o Dono ou a Vendedora', 'linum vendas: Estoque não vende');
+select pg_temp.ok((select count(*) = 0 from lin_vendas) and (select count(*) = 1 from lin_clientes), 'linum vendas: Estoque não vê as vendas dos outros, mas vê os clientes');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
 select pg_temp.erro2($$select lin_venda_cancelar((select v from lin_vd where k = 'v1')::bigint, 'x')$$, 'Informe o motivo', 'linum vendas: cancelar exige motivo');
 select lin_venda_cancelar((select v from lin_vd where k = 'v1')::bigint, 'Cliente devolveu no mesmo dia');
@@ -1265,6 +1259,46 @@ select pg_temp.ok((select count(*) = 3 from auditoria where acao = 'linum_venda_
   and (select count(*) = 1 from auditoria where acao = 'linum_cliente_criado')
   and (select detalhes -> 'itens' -> 0 ->> 'referencia' = 'VES01' from auditoria where acao = 'linum_venda_registrada' order by id limit 1),
   'linum vendas: venda, cancelamento e cliente na auditoria');
+-- Sistema Linum: todos vendem em qualquer loja; comissão em % por pessoa (0 = sem comissão)
+reset role;
+insert into lin_estoque values ('20000000-0000-0000-0000-000000000003', (select v from lin_ids where k = 'ipa'), 4)
+  on conflict (variante_id, loja_id) do update set quantidade = 4;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select pg_temp.erro2($$select lin_membro_salvar('00000000-0000-0000-0000-00000000000c', 'vendedora', null, 120)$$, 'de 0 a 100', 'linum comissão: % acima de 100 recusado');
+select lin_membro_salvar('00000000-0000-0000-0000-00000000000c', 'vendedora', (select v from lin_ids where k = 'gav'), 3.5);
+select lin_membro_salvar('00000000-0000-0000-0000-00000000000c', 'vendedora', null);   -- sem informar a comissão: mantém 3,5%
+select pg_temp.ok((select (e->>'comissao_pct')::numeric = 3.5 from jsonb_array_elements(lin_equipe()) e where e->>'user_id' = '00000000-0000-0000-0000-00000000000c')
+  and (select count(*) = 3 from jsonb_array_elements(lin_vendedoras())), 'linum comissão: % salvo na equipe; todos os membros aparecem entre quem vende');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora, sem loja principal
+insert into lin_vd values ('v4', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'ipa'),
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000003', 'quantidade', 1, 'valor_unitario', 359)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 359))))::text);
+reset role;
+select pg_temp.ok((select loja_id = (select v from lin_ids where k = 'ipa') and comissao_pct = 3.5 and comissao_valor = 12.57 from lin_vendas where id = (select v from lin_vd where k = 'v4')::bigint),
+  'linum comissão: vendedora vende em qualquer loja e a venda guarda 3,5% = R$ 12,57');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';   -- Estoque também vende, com 0% de comissão
+insert into lin_vd values ('v5', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'ipa'), 'cliente_id', (select v from lin_vd where k = 'cli'),
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000003', 'quantidade', 1, 'valor_unitario', 359)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'debito', 'valor', 359))))::text);
+select pg_temp.ok((select count(*) = 1 from lin_vendas) and (select comissao_pct = 0 and comissao_valor = 0 from lin_vendas where id = (select v from lin_vd where k = 'v5')::bigint),
+  'linum comissão: Estoque vende sem comissão (0%) e vê só a venda dele');
+select pg_temp.ok((select count(*) = 0 from lin_produtos), 'linum comissão: quem é do Estoque continua sem ler o custo');
+select pg_temp.erro2($$select lin_venda_cancelar((select v from lin_vd where k = 'v5')::bigint, 'teste de cancelamento')$$, 'Somente o Dono', 'linum comissão: Estoque não cancela venda');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.ok((select count(*) = 3 from lin_vendas) and (select count(*) = 0 from lin_vendas where vendedora_id <> '00000000-0000-0000-0000-00000000000c'),
+  'linum comissão: vendedora vê só as vendas dela, de todas as lojas');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok((select count(*) = 5 from lin_vendas), 'linum comissão: Dono vê as vendas de todos');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select lin_membro_salvar('00000000-0000-0000-0000-00000000000c', 'vendedora', null, 5);
+reset role;
+select pg_temp.ok((select comissao_pct = 3.5 from lin_vendas where id = (select v from lin_vd where k = 'v4')::bigint),
+  'linum comissão: mudar o % não altera as vendas já feitas');
+select pg_temp.ok((select count(*) >= 1 from auditoria where acao = 'linum_papel_definido' and (detalhes->>'comissao_pct')::numeric = 5 and (detalhes->>'comissao_pct_antes')::numeric = 3.5)
+  and (select (detalhes->>'comissao_valor')::numeric = 12.57 from auditoria where acao = 'linum_venda_registrada' and (detalhes->>'venda')::bigint = (select v from lin_vd where k = 'v4')::bigint),
+  'linum comissão: troca do % e comissão da venda na auditoria');
 reset role;
 set role anon;
 select pg_temp.erro2('select * from apps_vitrine()', 'permission', 'anônimo não vê a vitrine');

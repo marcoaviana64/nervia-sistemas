@@ -77,13 +77,13 @@
   <ol>
     <li>Crie o login na Área do Cliente → Administração → Logins e marque o app <b>Sistema Linum</b>.</li>
     <li>No app, abra <b>Equipe</b>. Aparecem os logins com o app liberado.</li>
-    <li>Escolha o <b>Papel</b>: <b>Dono</b> (tudo, inclusive preço de custo), <b>Estoque</b> (cadastra peças, altera o preço de venda e movimenta o estoque, sem ver nem alterar custo) ou <b>Vendedora</b> (consulta o estoque e registra as vendas e os clientes da loja dela) e, para a vendedora, a <b>Loja</b>. Clique em <b>Salvar</b>. A troca fica na auditoria.</li>
+    <li>Escolha o <b>Papel</b>: <b>Dono</b> (tudo, inclusive preço de custo), <b>Estoque</b> (cadastra peças, altera o preço de venda e movimenta o estoque, sem ver nem alterar custo) ou <b>Vendedora</b> (consulta o estoque). Todos vendem, em qualquer loja, e veem só as próprias vendas; o Dono vê as de todos. Informe a <b>Loja principal</b> (opcional, vem marcada na venda) e a <b>Comissão (%)</b> sobre o valor pago das vendas da pessoa (0 = sem comissão). Clique em <b>Salvar</b>. A troca fica na auditoria.</li>
     <li>Para tirar alguém do app, escolha <b>Sem papel</b> ou retire o app do login na Área do Cliente.</li>
   </ol>
 
   <h2 id="vender">5. Registrar uma venda (a boleta)</h2>
   <ol>
-    <li>Aba <b>Vendas</b> → <b>+ Nova venda</b>. A data vem com hoje; a loja e a vendedora são as suas. O Dono pode escolher outra loja e outra vendedora e lançar boletas de papel antigas (data passada); a vendedora lança vendas de até 7 dias atrás.</li>
+    <li>Aba <b>Vendas</b> → <b>+ Nova venda</b>. A data vem com hoje e a loja com a sua loja principal: troque a <b>Loja</b> se estiver vendendo em outra. Quem vendeu é você; o Dono pode escolher outra pessoa e lançar boletas de papel antigas (data passada). Os demais lançam vendas de até 7 dias atrás.</li>
     <li><b>Cliente</b>: digite o nome, o telefone ou o CPF. Se aparecer, clique em <b>Escolher</b>. Se não, <b>+ Novo cliente</b>: nome, telefone com DDD, CPF (opcional), e-mail, aniversário (dia e mês), endereço e observações. Venda sem cliente também é aceita.</li>
     <li><b>Peças</b>: digite a referência (ex.: B31), o nome ou o código de barras da etiqueta. Só aparecem as cores e tamanhos que a loja tem. Clique em <b>Adicionar</b> (com leitor de código de barras, o Enter já adiciona).</li>
     <li>Em cada peça, ajuste a <b>quantidade</b>. O <b>valor</b> vem do preço de tabela (ou do preço da peça especial). Para desconto por peça, digite o <b>Desc. %</b> (ex.: 10) e o valor se ajusta; ou digite o valor combinado e o % aparece.</li>
@@ -92,6 +92,9 @@
     <li>Escreva as <b>Observações</b> se houver (ex.: aniversário, ajuste na barra) e clique em <b>Registrar venda</b>. O estoque da loja baixa na hora e a venda aparece na lista com o número.</li>
   </ol>
   <p>A venda não pode ser editada depois de registrada. Se algo saiu errado, o Dono cancela e a venda é registrada de novo.</p>
+
+  <h3>Comissão</h3>
+  <p>Cada venda guarda a comissão de quem vendeu: o % cadastrado na Equipe sobre o valor pago (ex.: 3,5% de R$ 898,00 = R$ 31,43). Na aba Vendas, cada um vê a própria comissão do período; o Dono vê o total e a de cada pessoa. Venda cancelada não conta.</p>
 
   <h2 id="cancelar">6. Cancelar uma venda (Dono)</h2>
   <ol>
@@ -104,7 +107,7 @@
     <li>Aba <b>Clientes</b>: lista com telefone (clique para abrir o WhatsApp), aniversário, número de compras, total e última compra.</li>
     <li>Busque por nome, telefone ou CPF. <b>Aniversariantes do mês</b> mostra só quem faz aniversário no mês.</li>
     <li>Clique no cliente para corrigir o cadastro. <b>+ Novo cliente</b> cadastra sem venda.</li>
-    <li>A vendedora vê todos os clientes, mas as compras e o total contam só as vendas que ela registrou.</li>
+    <li>Todos veem todos os clientes, mas as compras e o total contam só as vendas que a pessoa registrou (o Dono vê todas).</li>
   </ol>
 
   <h2 id="registro">Registro de auditoria</h2>
@@ -124,7 +127,7 @@
     <tr><td>Estoque insuficiente: … tem N peça(s) em …</td><td>A quantidade da venda é maior que o estoque da loja. Ajuste a quantidade.</td></tr>
     <tr><td>A soma dos pagamentos (R$ …) é diferente do total da venda</td><td>Confira os valores das formas de pagamento: a soma tem de fechar com o total.</td></tr>
     <tr><td>Venda com mais de 7 dias: peça ao Dono para lançar</td><td>Boleta antiga: o Dono lança, escolhendo a vendedora.</td></tr>
-    <tr><td>Você só registra vendas da sua loja</td><td>A vendedora vende na loja definida para ela na aba Equipe.</td></tr>
+    <tr><td>Você só registra as próprias vendas</td><td>Venda de outra pessoa: o Dono lança, escolhendo quem vendeu.</td></tr>
     <tr><td>Este CPF já é do cliente …</td><td>O cliente já está cadastrado: escolha-o na busca.</td></tr>
     <tr><td>Telefone com DDD: 10 ou 11 dígitos</td><td>Digite o DDD e o número (ex.: 21 99999-0000).</td></tr>
     <tr><td>Informe a edição da peça especial</td><td>Peça especial precisa da edição (ex.: Bordada).</td></tr>
@@ -136,7 +139,7 @@
     <tr><td>Informe uma quantidade inteira maior que zero</td><td>Digite um número inteiro (1 ou mais; no ajuste, 0 ou mais).</td></tr>
     <tr><td>Somente o Dono ou o Estoque …</td><td>Vendedora não cadastra peças nem movimenta o estoque (a venda já dá baixa sozinha). Se precisar, peça ao Dono ou a quem cuida do estoque.</td></tr>
     <tr><td>Libere o app Sistema Linum para este login … <span class="eq">EQUIPE NERVIA</span></td><td>Marque o app no login (Área do Cliente → Administração → Logins) e tente de novo.</td></tr>
-    <tr><td>Escolha a loja da vendedora <span class="eq">EQUIPE NERVIA</span></td><td>Vendedora precisa de loja.</td></tr>
+    <tr><td>Comissão: de 0 a 100% <span class="eq">EQUIPE NERVIA</span></td><td>Digite o percentual (ex.: 3,5).</td></tr>
   </table>
   <div class="rodape">Dúvidas: WhatsApp (21) 96686-9374 · atendimento@nervia.com.br<br>Nervia Tecnologia · Manual do app Sistema Linum · atualizado em 22/10/2026</div>
 </div>

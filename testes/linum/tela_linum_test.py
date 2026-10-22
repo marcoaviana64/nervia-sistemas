@@ -140,13 +140,17 @@ try:
         i_est = next(i for i, l in enumerate(linhas) if "estoque@linum" in l)
         pg.select_option(f'.eq-papel[data-i="{i_dono}"]', "dono"); pg.click(f'.eq-salvar[data-i="{i_dono}"]'); pg.wait_for_timeout(600)
         pg.select_option(f'.eq-papel[data-i="{i_vend}"]', "vendedora"); pg.click(f'.eq-salvar[data-i="{i_vend}"]'); pg.wait_for_timeout(600)
-        ok("Escolha a loja" in pg.text_content("#msg"), "vendedora sem loja: erro do servidor na tela")
+        ok("salvo" in pg.text_content("#msg") and psql("select comissao_pct from lin_membros where papel = 'vendedora'", saida=True) == "0.00",
+           "vendedora sem loja principal é aceita (vende em qualquer loja), comissão 0% até definir")
         pg.select_option(f'.eq-papel[data-i="{i_vend}"]', "vendedora"); pg.select_option(f'.eq-loja[data-i="{i_vend}"]', label="Ipanema")
+        pg.fill(f'.eq-comissao[data-i="{i_vend}"]', "3,5")
         pg.click(f'.eq-salvar[data-i="{i_vend}"]'); pg.wait_for_timeout(600)
         pg.select_option(f'.eq-papel[data-i="{i_est}"]', "estoque"); pg.click(f'.eq-salvar[data-i="{i_est}"]'); pg.wait_for_timeout(600)
         ok(psql("select string_agg(papel || ':' || coalesce((select nome from lin_lojas where id = loja_id), '-'), ',' order by papel) from lin_membros", saida=True) == "dono:-,estoque:-,vendedora:Ipanema",
            "papéis gravados (dono; estoque; vendedora da Ipanema)")
-        ok(int(psql("select count(*) from auditoria where acao = 'linum_papel_definido'", saida=True)) == 3, "papéis na auditoria")
+        ok(int(psql("select count(*) from auditoria where acao = 'linum_papel_definido'", saida=True)) == 4, "papéis na auditoria")
+        ok(psql("select string_agg(papel || ':' || comissao_pct, ',' order by papel) from lin_membros", saida=True) == "dono:0.00,estoque:0.00,vendedora:3.50",
+           "comissão em % gravada pela Equipe (vendedora 3,5%; os outros 0%)")
         pg.screenshot(path=os.path.join(SAIDA, "linum_equipe.png"), full_page=True)
         ok(not erros, "sem erros de JavaScript (admin)")
 
@@ -243,7 +247,7 @@ try:
 
         # ---------------------------------------------------------------- papel Estoque: cadastra e movimenta, sem custo
         pg, erros = entrar(b, "estoque"); abrir(pg)
-        ok(pg.text_content("#quem") == "Estoque · sem custos" and pg.is_visible("#abaProdutos") and not pg.is_visible("#abaEquipe"), "Estoque vê Produtos e Estoque, sem Equipe")
+        ok(pg.text_content("#quem") == "Estoque · sem custos" and pg.is_visible("#abaProdutos") and pg.is_visible("#abaVendas") and not pg.is_visible("#abaEquipe"), "Estoque vê Produtos, Estoque e Vendas, sem Equipe")
         ok(chip(pg, V_AZUL_P, "Gávea").count() == 1, "Estoque clica no quadrado para movimentar")
         chip(pg, V_AZUL_P, "Gávea").click(); pg.wait_for_selector("#dlg[open]"); pg.wait_for_timeout(600)
         ok("Dona Linum" in pg.text_content(".hist"), "Estoque vê o histórico da variação")
@@ -300,6 +304,8 @@ try:
         ok("registrada" in pg.text_content("#msg") and not pg.is_visible("#dlg"), "venda registrada")
         ok(psql("select valor_bruto || ' ' || valor_total || ' ' || (pagamentos->0->>'parcelas') || ' ' || observacao from lin_vendas", saida=True) == "998.00 898.00 6 Niver 21/07"
            and qtd_banco(V_AZUL_P, "Ipanema") == 1, "venda gravada com tabela, total, parcelas e baixa no estoque da Ipanema")
+        ok(psql("select comissao_pct || ' ' || comissao_valor from lin_vendas", saida=True) == "3.50 31.43" and "31,43" in pg.text_content(".kpis").replace("\xa0", " "),
+           "comissão da vendedora: 3,5% do valor pago, no KPI dela")
         ok("Carmen Fictícia" in pg.text_content("#tela") and "898,00" in pg.text_content(".kpis").replace("\xa0", " "), "lista e total do período")
         pg.screenshot(path=os.path.join(SAIDA, "linum_vendas.png"), full_page=True)
         pg.click("#abaClientes"); pg.wait_for_selector("#clista")
@@ -322,6 +328,28 @@ try:
         ok(psql("select count(*) from auditoria where acao in ('linum_venda_registrada', 'linum_venda_cancelada', 'linum_cliente_criado')", saida=True) == "3", "venda, cancelamento e cliente na auditoria")
         ok(not erros, "sem erros de JavaScript (vendas do Dono)")
 
+        # ---------------------------------------------------------------- Estoque também vende (0% de comissão) e vendedora em outra loja
+        pg, erros = entrar(b, "estoque"); abrir(pg)
+        ok(pg.is_visible("#abaVendas") and pg.is_visible("#abaClientes"), "Estoque vende e vê clientes")
+        pg.click("#abaVendas"); pg.wait_for_selector("#vnova")
+        ok("Nenhuma venda no período" in pg.text_content("#tela"), "Estoque vê só as vendas dele")
+        pg.click("#vnova"); pg.wait_for_selector("#dlg[open] #nvloja")
+        pg.select_option("#nvloja", label="Gávea"); pg.fill("#nvpq", "cal-are"); pg.wait_for_timeout(150)
+        pg.click('#nvres [data-add="0"]'); pg.wait_for_timeout(150)
+        pg.select_option('#nvpags [data-k="forma"]', "pix"); pg.click("#nvok"); pg.wait_for_timeout(1000)
+        ok("registrada" in pg.text_content("#msg") and "Sua comissão" in pg.text_content(".kpis") and "sem comissão" in pg.text_content(".kpis"), "Estoque registra venda na Gávea; KPI sem comissão")
+        ok(psql("select (select nome from lin_lojas where id = loja_id) || ' ' || comissao_pct || ' ' || comissao_valor from lin_vendas order by id desc limit 1", saida=True) == "Gávea 0.00 0.00",
+           "venda do Estoque gravada na loja escolhida e sem comissão")
+        ok(not any("preco_custo" in r for r in pg.respostas), "Estoque que vende continua sem receber custo")
+        ok(not erros, "sem erros de JavaScript (Estoque que vende)")
+        pg, erros = entrar(b, "vendedora"); abrir(pg)
+        pg.click("#abaVendas"); pg.wait_for_selector("#vnova"); pg.click("#vnova"); pg.wait_for_selector("#dlg[open] #nvloja")
+        ok(pg.eval_on_selector("#nvloja", "s => s.options[s.selectedIndex].text") == "Ipanema", "venda da vendedora começa na loja principal dela")
+        pg.select_option("#nvloja", label="Gávea"); pg.fill("#nvpq", "ves-mar"); pg.wait_for_timeout(150)
+        ok("Azul M" in pg.text_content("#nvres") and "na loja" in pg.text_content("#nvres"), "vendedora deslocada vê o estoque da outra loja")
+        pg.click("#nvx")
+        ok(not erros, "sem erros de JavaScript (vendedora deslocada)")
+
         # ---------------------------------------------------------------- celular, iframe, ajuda e quem não tem acesso
         pg, erros = entrar(b, "vendedora", largura=390); abrir(pg)
         ok(pg.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), "celular sem rolagem lateral")
@@ -335,7 +363,7 @@ try:
             abrir_ajuda = pg.goto(f"http://127.0.0.1:{PORTA_SITE}/apps/linum/ajuda/{pagina}.html")
             ok(abrir_ajuda.ok and "Sistema Linum" in pg.title() and pg.locator('script[src="/marca-dagua.js"][data-tipo="doc"]').count() == 1, f"ajuda: {pagina} com marca d'água")
         pg.goto(f"http://127.0.0.1:{PORTA_SITE}/ajuda/novidades.html?app=linum&nome=Sistema%20Linum"); pg.wait_for_timeout(400)
-        ok("1.3" in pg.text_content("body"), "novidades do app (versão 1.3)")
+        ok("1.4" in pg.text_content("body"), "novidades do app (versão 1.4)")
         ok(psql("select mapa_url from apps where id = 'linum'", saida=True) == "/apps/linum/ajuda/mapa.html", "botão Mapa ligado no cadastro do app")
         b.close()
     print("TODOS OS TESTES DE TELA DO SISTEMA LINUM OK")
