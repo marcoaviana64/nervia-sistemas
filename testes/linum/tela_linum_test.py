@@ -36,9 +36,10 @@ def preparar_banco():
         ('00000000-0000-0000-0000-0000000000a1', 'marco@nervia.com.br', '{"nome":"Marco"}'),
         ('00000000-0000-0000-0000-0000000000d1', 'dona@linum.exemplo', '{"nome":"Dona Linum"}'),
         ('00000000-0000-0000-0000-0000000000b1', 'vendedora@linum.exemplo', '{"nome":"Vera Vendedora"}'),
-        ('00000000-0000-0000-0000-0000000000c2', 'outro@x.exemplo', '{"nome":"Outro"}');
+        ('00000000-0000-0000-0000-0000000000c2', 'outro@x.exemplo', '{"nome":"Outro"}'),
+        ('00000000-0000-0000-0000-0000000000e1', 'estoque@linum.exemplo', '{"nome":"Edu Estoque"}');
       update perfis set admin = true where email = 'marco@nervia.com.br';
-      insert into app_acessos values ('00000000-0000-0000-0000-0000000000d1', 'linum'), ('00000000-0000-0000-0000-0000000000b1', 'linum');
+      insert into app_acessos values ('00000000-0000-0000-0000-0000000000d1', 'linum'), ('00000000-0000-0000-0000-0000000000b1', 'linum'), ('00000000-0000-0000-0000-0000000000e1', 'linum');
       insert into lin_produtos (id, referencia, descricao, categoria, preco_custo, preco_venda) values
         ('10000000-0000-0000-0000-000000000001', 'VES-MAR', 'Vestido Mar', 'Vestido', 151.23, 489),
         ('10000000-0000-0000-0000-000000000002', 'CAL-ARE', 'Calça Areia', 'Calça', 92.11, 359),
@@ -74,7 +75,8 @@ def token(uid, email):
     return jwt.encode({"sub": uid, "email": email, "role": "authenticated", "aud": "authenticated", "exp": int(time.time()) + 3600}, SEGREDO, algorithm="HS256")
 
 USU = {"admin": ("00000000-0000-0000-0000-0000000000a1", "marco@nervia.com.br"), "dono": ("00000000-0000-0000-0000-0000000000d1", "dona@linum.exemplo"),
-       "vendedora": ("00000000-0000-0000-0000-0000000000b1", "vendedora@linum.exemplo"), "outro": ("00000000-0000-0000-0000-0000000000c2", "outro@x.exemplo")}
+       "vendedora": ("00000000-0000-0000-0000-0000000000b1", "vendedora@linum.exemplo"), "outro": ("00000000-0000-0000-0000-0000000000c2", "outro@x.exemplo"),
+       "estoque": ("00000000-0000-0000-0000-0000000000e1", "estoque@linum.exemplo")}
 CONFIG = f'window.NERVIA_CONFIG={{SUPABASE_URL:"http://127.0.0.1:{PORTA_SITE}",SUPABASE_ANON_KEY:"anon"}};'
 
 def entrar(b, papel, largura=1300):
@@ -133,16 +135,18 @@ try:
         ok(pg.is_visible("#abaEquipe") and "Equipe Nervia" in pg.text_content("#quem"), "admin vê a aba Equipe")
         pg.click("#abaEquipe"); pg.wait_for_selector(".eq-salvar")
         linhas = pg.eval_on_selector_all("table tbody tr", "ts => ts.map(t => t.textContent)")
-        ok(len(linhas) == 2 and not any("outro@x" in l for l in linhas), "equipe lista só os logins com o app liberado")
-        i_dono = next(i for i, l in enumerate(linhas) if "dona@linum" in l); i_vend = 1 - i_dono
+        ok(len(linhas) == 3 and not any("outro@x" in l for l in linhas), "equipe lista só os logins com o app liberado")
+        i_dono = next(i for i, l in enumerate(linhas) if "dona@linum" in l); i_vend = next(i for i, l in enumerate(linhas) if "vendedora@linum" in l)
+        i_est = next(i for i, l in enumerate(linhas) if "estoque@linum" in l)
         pg.select_option(f'.eq-papel[data-i="{i_dono}"]', "dono"); pg.click(f'.eq-salvar[data-i="{i_dono}"]'); pg.wait_for_timeout(600)
         pg.select_option(f'.eq-papel[data-i="{i_vend}"]', "vendedora"); pg.click(f'.eq-salvar[data-i="{i_vend}"]'); pg.wait_for_timeout(600)
         ok("Escolha a loja" in pg.text_content("#msg"), "vendedora sem loja: erro do servidor na tela")
         pg.select_option(f'.eq-papel[data-i="{i_vend}"]', "vendedora"); pg.select_option(f'.eq-loja[data-i="{i_vend}"]', label="Ipanema")
         pg.click(f'.eq-salvar[data-i="{i_vend}"]'); pg.wait_for_timeout(600)
-        ok(psql("select string_agg(papel || ':' || coalesce((select nome from lin_lojas where id = loja_id), '-'), ',' order by papel) from lin_membros", saida=True) == "dono:-,vendedora:Ipanema",
-           "papéis gravados (dono; vendedora da Ipanema)")
-        ok(int(psql("select count(*) from auditoria where acao = 'linum_papel_definido'", saida=True)) == 2, "papéis na auditoria")
+        pg.select_option(f'.eq-papel[data-i="{i_est}"]', "estoque"); pg.click(f'.eq-salvar[data-i="{i_est}"]'); pg.wait_for_timeout(600)
+        ok(psql("select string_agg(papel || ':' || coalesce((select nome from lin_lojas where id = loja_id), '-'), ',' order by papel) from lin_membros", saida=True) == "dono:-,estoque:-,vendedora:Ipanema",
+           "papéis gravados (dono; estoque; vendedora da Ipanema)")
+        ok(int(psql("select count(*) from auditoria where acao = 'linum_papel_definido'", saida=True)) == 3, "papéis na auditoria")
         pg.screenshot(path=os.path.join(SAIDA, "linum_equipe.png"), full_page=True)
         ok(not erros, "sem erros de JavaScript (admin)")
 
@@ -237,6 +241,27 @@ try:
         ok(any("Saia Duna @ Gávea" in x and "Areia M · Bordada=0 un." in x for x in chips(pg)), "produto novo aparece no estoque para lançar as quantidades")
         ok(not erros, "sem erros de JavaScript (produtos)")
 
+        # ---------------------------------------------------------------- papel Estoque: cadastra e movimenta, sem custo
+        pg, erros = entrar(b, "estoque"); abrir(pg)
+        ok(pg.text_content("#quem") == "Estoque · sem custos" and pg.is_visible("#abaProdutos") and not pg.is_visible("#abaEquipe"), "Estoque vê Produtos e Estoque, sem Equipe")
+        ok(chip(pg, V_AZUL_P, "Gávea").count() == 1, "Estoque clica no quadrado para movimentar")
+        chip(pg, V_AZUL_P, "Gávea").click(); pg.wait_for_selector("#dlg[open]"); pg.wait_for_timeout(600)
+        ok("Dona Linum" in pg.text_content(".hist"), "Estoque vê o histórico da variação")
+        salvar_mov(pg, "entrada", 2, "reposição")
+        ok(qtd_banco(V_AZUL_P, "Gávea") == 7, "Estoque faz entrada")
+        pg.click("#abaProdutos"); pg.wait_for_selector("#plista")
+        ok("custo" not in pg.text_content("#plista").lower() and pg.locator(".prod").count() == 4, "lista de produtos sem custo")
+        pg.click('[data-ed="10000000-0000-0000-0000-000000000001"]'); pg.wait_for_selector("#dlg[open]")
+        ok(pg.locator("#pf_preco_custo").count() == 0 and "custo" not in pg.text_content("#dlgf").lower().replace("custódia", ""), "cadastro aberto pelo Estoque sem campo de custo")
+        pg.fill("#pf_preco_venda", "499,00"); pg.click("#pfs"); pg.wait_for_timeout(800)
+        ok(psql("select preco_venda || ' ' || preco_custo from lin_produtos where id = '10000000-0000-0000-0000-000000000001'", saida=True) == "499.00 151.23",
+           "Estoque altera o preço de venda e o custo continua o do Dono")
+        pg.click("#pfx")
+        ok(not any("151.23" in r or "preco_custo" in r for r in pg.respostas), "Estoque não recebe custo do servidor")
+        ok(psql("select count(*) from auditoria where acao in ('linum_estoque_entrada', 'linum_produto_alterado') and detalhes->>'papel_linum' = 'estoque'", saida=True) == "2",
+           "ações do Estoque na auditoria")
+        ok(not erros, "sem erros de JavaScript (estoque)")
+
         # ---------------------------------------------------------------- vendedora: só consulta, sem custo
         pg, erros = entrar(b, "vendedora"); abrir(pg)
         ok(not pg.is_visible("#abaProdutos"), "vendedora não vê a aba Produtos")
@@ -261,7 +286,7 @@ try:
             abrir_ajuda = pg.goto(f"http://127.0.0.1:{PORTA_SITE}/apps/linum/ajuda/{pagina}.html")
             ok(abrir_ajuda.ok and "Sistema Linum" in pg.title() and pg.locator('script[src="/marca-dagua.js"][data-tipo="doc"]').count() == 1, f"ajuda: {pagina} com marca d'água")
         pg.goto(f"http://127.0.0.1:{PORTA_SITE}/ajuda/novidades.html?app=linum&nome=Sistema%20Linum"); pg.wait_for_timeout(400)
-        ok("1.1" in pg.text_content("body"), "novidades do app (versão 1.1)")
+        ok("1.2" in pg.text_content("body"), "novidades do app (versão 1.2)")
         ok(psql("select mapa_url from apps where id = 'linum'", saida=True) == "/apps/linum/ajuda/mapa.html", "botão Mapa ligado no cadastro do app")
         b.close()
     print("TODOS OS TESTES DE TELA DO SISTEMA LINUM OK")

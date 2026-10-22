@@ -15,18 +15,18 @@
   </div>
 
   <h1>Como usar o Sistema Linum</h1>
-  <p class="lead">O Dono cadastra as peças (cores, tamanhos e peças especiais) e o Sistema Linum mostra quantas peças de cada produto, cor e tamanho há em cada loja (Gávea e Ipanema). O Dono também registra o que entra, sai, muda de loja ou é corrigido na contagem; tudo fica num histórico. A Vendedora só consulta e não vê preço de custo.</p>
+  <p class="lead">O Dono (ou quem cuida do Estoque) cadastra as peças (cores, tamanhos e peças especiais) e o Sistema Linum mostra quantas peças de cada produto, cor e tamanho há em cada loja (Gávea e Ipanema). O Dono também registra o que entra, sai, muda de loja ou é corrigido na contagem; tudo fica num histórico. A Vendedora só consulta e não vê preço de custo.</p>
 
   <ul class="indice">
-    <li><a href="#produtos">0. Cadastrar produtos, cores e tamanhos (Dono)</a></li>
+    <li><a href="#produtos">0. Cadastrar produtos, cores e tamanhos (Dono ou Estoque)</a></li>
     <li><a href="#consultar">1. Consultar o estoque</a></li>
-    <li><a href="#movimentar">2. Registrar entrada, saída, transferência ou ajuste (Dono)</a></li>
-    <li><a href="#historico">3. Ver o histórico de uma variação (Dono)</a></li>
-    <li><a href="#equipe">4. Definir quem é Dono e quem é Vendedora (equipe Nervia)</a></li>
+    <li><a href="#movimentar">2. Registrar entrada, saída, transferência ou ajuste (Dono ou Estoque)</a></li>
+    <li><a href="#historico">3. Ver o histórico de uma variação (Dono ou Estoque)</a></li>
+    <li><a href="#equipe">4. Definir os papéis: Dono, Estoque e Vendedora (equipe Nervia)</a></li>
     <li><a href="#problemas">5. Mensagens e o que fazer</a></li>
   </ul>
 
-  <h2 id="produtos">0. Cadastrar produtos, cores e tamanhos (Dono)</h2>
+  <h2 id="produtos">0. Cadastrar produtos, cores e tamanhos (Dono ou Estoque)</h2>
   <ol>
     <li>Abra a aba <b>Produtos</b> e clique em <b>+ Novo produto</b> (ou em <b>Editar peça</b> num produto da lista).</li>
     <li>Preencha <b>Código / Referência</b> e <b>Descrição</b> (obrigatórios) e o que tiver: categoria, coleção, fornecedor, tecido, preços (com vírgula, ex.: 1.299,90) e consumo de tecido.</li>
@@ -47,7 +47,7 @@
     <li>Embaixo dos filtros, o total de produtos e de peças do que está na tela.</li>
   </ol>
 
-  <h2 id="movimentar">2. Registrar entrada, saída, transferência ou ajuste (Dono)</h2>
+  <h2 id="movimentar">2. Registrar entrada, saída, transferência ou ajuste (Dono ou Estoque)</h2>
   <ol>
     <li>Clique no quadrado da variação (cor e tamanho) na loja.</li>
     <li>Escolha o tipo:
@@ -63,27 +63,30 @@
   </ol>
   <p>Vendas, reservas e transferências com confirmação da outra loja chegam ao Sistema Linum nas próximas etapas.</p>
 
-  <h2 id="historico">3. Ver o histórico de uma variação (Dono)</h2>
+  <h2 id="historico">3. Ver o histórico de uma variação (Dono ou Estoque)</h2>
   <ol>
     <li>Clique no quadrado da variação.</li>
     <li>Embaixo do formulário, <b>Últimas movimentações desta variação</b> mostra as 8 mais recentes: data, tipo, quantidade (no ajuste, "antes → depois"), loja, observação e quem fez.</li>
     <li>O histórico não pode ser alterado nem apagado. Um lançamento errado se corrige com outro (por exemplo, um ajuste para a quantidade certa).</li>
   </ol>
 
-  <h2 id="equipe">4. Definir quem é Dono e quem é Vendedora (equipe Nervia)</h2>
+  <h2 id="equipe">4. Definir os papéis: Dono, Estoque e Vendedora (equipe Nervia)</h2>
   <ol>
     <li>Crie o login na Área do Cliente → Administração → Logins e marque o app <b>Sistema Linum</b>.</li>
     <li>No app, abra <b>Equipe</b>. Aparecem os logins com o app liberado.</li>
-    <li>Escolha o <b>Papel</b> (Dono ou Vendedora) e, para a vendedora, a <b>Loja</b>. Clique em <b>Salvar</b>. A troca fica na auditoria.</li>
+    <li>Escolha o <b>Papel</b>: <b>Dono</b> (tudo, inclusive preço de custo), <b>Estoque</b> (cadastra peças, altera o preço de venda e movimenta o estoque, sem ver nem alterar custo) ou <b>Vendedora</b> (só consulta) e, para a vendedora, a <b>Loja</b>. Clique em <b>Salvar</b>. A troca fica na auditoria.</li>
     <li>Para tirar alguém do app, escolha <b>Sem papel</b> ou retire o app do login na Área do Cliente.</li>
   </ol>
+
+  <h2 id="registro">Registro de auditoria</h2>
+  <p>Toda entrada, saída, transferência e ajuste de estoque, todo cadastro ou alteração de peça, cor, tamanho e peça especial, desativação, exclusão e troca de papel fica gravado no registro de auditoria da Nervia: o que foi feito, em qual peça e loja, por quem, com qual papel, data e hora. Ninguém altera nem apaga. Quando quem fez é o Estoque, o registro não guarda custo.</p>
 
   <h2 id="problemas">5. Mensagens e o que fazer</h2>
   <table>
     <tr><th>Mensagem</th><th>O que fazer</th></tr>
     <tr><td>Entre na Área do Cliente para ver o estoque</td><td>A sessão expirou: entre de novo em nervia.com.br/cliente.</td></tr>
-    <tr><td>Seu login não tem acesso ao Sistema Linum</td><td>O login ainda não tem papel (Dono ou Vendedora). Fale com a Nervia.</td></tr>
-    <tr><td>Nenhum produto cadastrado ainda</td><td>Cadastre na aba Produtos (Dono).</td></tr>
+    <tr><td>Seu login não tem acesso ao Sistema Linum</td><td>O login ainda não tem papel (Dono, Estoque ou Vendedora). Fale com a Nervia.</td></tr>
+    <tr><td>Nenhum produto cadastrado ainda</td><td>Cadastre na aba Produtos (Dono ou Estoque).</td></tr>
     <tr><td>Já existe um produto com a referência …</td><td>A referência já é de outra peça: use outra ou edite a peça que já existe.</td></tr>
     <tr><td>Esta cor/tamanho tem movimentações de estoque. Desative em vez de excluir.</td><td>Use <b>Desativar</b>: a variação some do estoque e o histórico fica.</td></tr>
     <tr><td>Esta peça tem movimentações registradas e não pode ser excluída</td><td>Desmarque <b>Ativo</b> no cadastro da peça.</td></tr>
@@ -95,7 +98,7 @@
     <tr><td>Escolha lojas de origem e destino diferentes</td><td>Na transferência, a loja de destino precisa ser outra.</td></tr>
     <tr><td>A loja já tem N peça(s): nada a ajustar</td><td>No ajuste, a nova quantidade é igual à atual.</td></tr>
     <tr><td>Informe uma quantidade inteira maior que zero</td><td>Digite um número inteiro (1 ou mais; no ajuste, 0 ou mais).</td></tr>
-    <tr><td>Somente o Dono pode …</td><td>Vendedora só consulta. Se precisar movimentar, peça ao Dono.</td></tr>
+    <tr><td>Somente o Dono ou o Estoque …</td><td>Vendedora só consulta. Se precisar cadastrar ou movimentar, peça ao Dono ou a quem cuida do estoque.</td></tr>
     <tr><td>Libere o app Sistema Linum para este login … <span class="eq">EQUIPE NERVIA</span></td><td>Marque o app no login (Área do Cliente → Administração → Logins) e tente de novo.</td></tr>
     <tr><td>Escolha a loja da vendedora <span class="eq">EQUIPE NERVIA</span></td><td>Vendedora precisa de loja.</td></tr>
   </table>

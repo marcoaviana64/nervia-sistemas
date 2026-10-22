@@ -136,6 +136,7 @@ function limparMsg() { $("msg").className = "msg oculto"; }
 let ADMIN = false, PAPEL = null, LOJAS = [], PRODUTOS = [], QTD = new Map(), VISTA = "estoque", EQUIPE = [];
 const F = { q: "", loja: "", cat: "", cor: "", tam: "", zerados: true };
 const dono = () => PAPEL === "dono";
+const controla = () => PAPEL === "dono" || PAPEL === "estoque";   // Estoque: cadastra e movimenta, mas nunca vê custo
 const chave = (v, l) => v + ":" + l;
 const qtd = (v, l) => QTD.get(chave(v, l)) || 0;
 const loja = id => LOJAS.find(l => l.id === id) || { nome: "?" };
@@ -159,8 +160,8 @@ async function iniciar() {
     ADMIN = !!(p && p.admin);
     await carregar();
     $("abaEquipe").classList.toggle("oculto", !ADMIN);
-    $("abaProdutos").classList.toggle("oculto", !dono());
-    $("quem").textContent = ADMIN ? "Equipe Nervia (Dono)" : dono() ? "Dono" : "Vendedora · só consulta";
+    $("abaProdutos").classList.toggle("oculto", !controla());
+    $("quem").textContent = ADMIN ? "Equipe Nervia (Dono)" : dono() ? "Dono" : controla() ? "Estoque · sem custos" : "Vendedora · só consulta";
     $("aviso").classList.add("oculto"); $("app").classList.remove("oculto");
     render();
   } catch (e) { $("aviso").textContent = e.message.includes("não tem acesso") ? e.message : "Não foi possível carregar: " + e.message; }
@@ -174,7 +175,7 @@ document.querySelectorAll(".barra .aba").forEach(b => b.onclick = () => { VISTA 
 function render() {
   document.querySelectorAll(".barra .aba").forEach(b => b.classList.toggle("on", b.dataset.v === VISTA));
   if (VISTA === "equipe" && ADMIN) return telaEquipe();
-  if (VISTA === "produtos" && dono()) return telaProdutos();
+  if (VISTA === "produtos" && controla()) return telaProdutos();
   telaEstoque();
 }
 
@@ -223,7 +224,7 @@ function lista() {
   $("resumo").textContent = cartoes.length ? `${n(prods.size)} produto(s) · ${n(pecas)} peça(s)${F.loja ? " em " + loja(F.loja).nome : ""}` : "";
   $("lista").innerHTML = cartoes.length ? cartoes.join("") : `<div class="vazio">${PRODUTOS.length
     ? "Nenhum produto com esses filtros." + (F.zerados ? " Desligue “Ocultar zerados” para ver as variações sem peça." : "")
-    : (dono() ? "Nenhum produto cadastrado ainda. Cadastre as peças na aba Produtos." : "Nenhum produto cadastrado ainda.")}</div>`;
+    : (controla() ? "Nenhum produto cadastrado ainda. Cadastre as peças na aba Produtos." : "Nenhum produto cadastrado ainda.")}</div>`;
   document.querySelectorAll("#lista button.chip").forEach(b => b.onclick = () => movimentar(b.dataset.p, b.dataset.v, b.dataset.l));
 }
 function cartao(p, l, vars) {
@@ -234,7 +235,7 @@ function cartao(p, l, vars) {
     // peça especial (edição: pintura, bordado...) pode ter preço próprio; mostra só quando difere do preço da peça
     const preco = v.preco_venda != null && Number(v.preco_venda) !== Number(p.preco_venda) ? `<small>${brl(v.preco_venda)}</small>` : "";
     const corpo = `<b title="${esc(v.cor)}">${esc(v.cor || "—")}</b><small>${esc([v.tamanho, v.edicao].filter(Boolean).join(" · "))}</small>${preco}<strong>${n(q)} un.</strong>`;
-    return sep + (dono()
+    return sep + (controla()
       ? `<button type="button" class="chip ${q > 0 ? "" : "zero"}" data-p="${p.id}" data-v="${v.id}" data-l="${l.id}" title="Movimentar">${corpo}</button>`
       : `<div class="chip ${q > 0 ? "" : "zero"}">${corpo}</div>`);
   }).join("");
@@ -312,6 +313,11 @@ async function todas(q) {   // o Supabase devolve no máximo 1000 linhas por con
   return l;
 }
 async function carregarProdutos() {
+  if (!dono()) {   // Estoque: o mesmo cadastro, sem as colunas de custo (as tabelas com custo só o Dono lê)
+    const c = checar(await sb.rpc("lin_catalogo"));
+    PRODS = c.produtos || []; VARS = c.variantes || [];
+    return;
+  }
   PRODS = await todas(() => sb.from("lin_produtos").select("*").order("descricao").order("referencia"));
   VARS = await todas(() => sb.from("lin_variantes").select("*").order("criado_em"));
 }
@@ -394,7 +400,7 @@ function editarProduto(pid) {
       <div class="campo">${campo("descricao", "Descrição (nome da peça)")}</div>
       <div class="campo grade2">${campo("colecao", "Coleção")}${campo("fornecedor", "Fornecedor")}</div>
       <div class="campo">${campo("tecido", "Tecido")}</div>
-      <div class="campo grade2">${campo("preco_custo", "Preço de custo (R$)", 'inputmode="decimal"')}${campo("preco_venda", "Preço de venda (R$)", 'inputmode="decimal"')}</div>
+      <div class="campo grade2">${dono() ? campo("preco_custo", "Preço de custo (R$)", 'inputmode="decimal"') : ""}${campo("preco_venda", "Preço de venda (R$)", 'inputmode="decimal"')}</div>
       <div class="campo">${campo("consumo_metros", "Consumo previsto de tecido (metros por peça)", 'inputmode="decimal"')}</div>
       <div class="campo"><label>Código de barras</label><input readonly value="${esc(p && p.codigo_barras ? p.codigo_barras : "Gerado automaticamente ao salvar")}"></div>
       <div class="campo"><label class="chk" style="text-transform:none;font-size:13px;color:var(--ink)"><input type="checkbox" data-k="ativo" ${F2.ativo ? "checked" : ""} style="width:auto"> Ativo (aparece no estoque)</label></div>
@@ -405,7 +411,7 @@ function editarProduto(pid) {
           ? `<div class="vlin"><b>${esc(v.cor)} · ${esc(v.tamanho)}</b>
               <span><label>Edição</label><input data-x="edicao" value="${esc(v.edicao)}" placeholder="peça comum"></span>
               <span><label>Venda (R$)</label><input data-x="preco_venda" inputmode="decimal" value="${esc(moeda(v.preco_venda))}" placeholder="do produto"></span>
-              <span><label>Custo (R$)</label><input data-x="preco_custo" inputmode="decimal" value="${esc(moeda(v.preco_custo))}" placeholder="do produto"></span>
+              ${dono() ? `<span><label>Custo (R$)</label><input data-x="preco_custo" inputmode="decimal" value="${esc(moeda(v.preco_custo))}" placeholder="do produto"></span>` : ""}
               <span class="acs"><button type="button" class="lnk" data-vsalvar="${v.id}">Salvar</button><button type="button" class="lnk" data-vcancel="1">Cancelar</button></span></div>`
           : `<div class="vlin"><span>${esc(nomeVar(v))}${v.preco_venda != null ? " · " + brl(v.preco_venda) : ""}${v.codigo_barras ? ` <span class="mut">cód. ${esc(v.codigo_barras)}</span>` : ""}${v.ativo ? "" : '<span class="tag">inativa</span>'}</span>
               <span class="acs"><button type="button" class="lnk" data-veditar="${v.id}">Preço/edição</button><button type="button" class="lnk" data-vativo="${v.id}">${v.ativo ? "Desativar" : "Reativar"}</button><button type="button" class="lnk perigo" data-vexcluir="${v.id}">Excluir</button></span></div>`).join("")}</div>` : ""}
@@ -413,7 +419,7 @@ function editarProduto(pid) {
       ${p ? `<div class="caixa"><h4>Nova peça especial</h4><div class="mut">Peça única (bordada, pintura artística…) com preço e código de barras próprios. Pode repetir cor e tamanho de outra variação. Preço vazio = preço do produto.</div>
         <div class="campo grade2"><div><label>Cor</label><input data-e="cor" value="${esc(esp.cor)}"></div><div><label>Tamanho</label><input data-e="tamanho" value="${esc(esp.tamanho)}"></div></div>
         <div class="campo"><label>Edição</label><input data-e="edicao" value="${esc(esp.edicao)}" placeholder="Ex.: Bordada à mão"></div>
-        <div class="campo grade2"><div><label>Preço de venda (R$)</label><input data-e="preco_venda" inputmode="decimal" value="${esc(esp.preco_venda)}"></div><div><label>Preço de custo (R$)</label><input data-e="preco_custo" inputmode="decimal" value="${esc(esp.preco_custo)}"></div></div>
+        <div class="campo grade2"><div><label>Preço de venda (R$)</label><input data-e="preco_venda" inputmode="decimal" value="${esc(esp.preco_venda)}"></div>${dono() ? `<div><label>Preço de custo (R$)</label><input data-e="preco_custo" inputmode="decimal" value="${esc(esp.preco_custo)}"></div>` : ""}</div>
         <div class="acoes" style="margin-top:8px"><button type="button" class="bt" id="espadd">Acrescentar peça especial</button></div></div>` : ""}
       ${erro ? `<div class="msg err">${esc(erro)}</div>` : ""}${ok ? `<div class="msg ok">${esc(ok)}</div>` : ""}
       <div class="acoes"><button type="button" class="bt" id="pfx">Fechar</button><button type="button" class="bt pri" id="pfs">Salvar produto</button></div>
@@ -425,7 +431,7 @@ function editarProduto(pid) {
     f.querySelectorAll("[data-vcancel]").forEach(b => b.onclick = () => { ler(); editando = null; desenhar(); });
     f.querySelectorAll("[data-vsalvar]").forEach(b => b.onclick = () => {
       const x = k => f.querySelector(`[data-x="${k}"]`).value;
-      acao(async () => { checar(await sb.rpc("lin_variante_salvar", { p: { id: b.dataset.vsalvar, edicao: x("edicao"), preco_venda: numBR(x("preco_venda")), preco_custo: numBR(x("preco_custo")) } })); editando = null; }, "Variação atualizada.");
+      acao(async () => { checar(await sb.rpc("lin_variante_salvar", { p: { id: b.dataset.vsalvar, edicao: x("edicao"), preco_venda: numBR(x("preco_venda")), preco_custo: dono() ? numBR(x("preco_custo")) : "" } })); editando = null; }, "Variação atualizada.");
     });
     f.querySelectorAll("[data-vativo]").forEach(b => b.onclick = () => {
       const v = VARS.find(x => x.id === b.dataset.vativo);
@@ -469,10 +475,10 @@ async function telaEquipe() {
   try { EQUIPE = checar(await sb.rpc("lin_equipe")) || []; } catch (e) { $("tela").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; return; }
   const opLoja = sel => `<option value="">—</option>` + LOJAS.map(l => `<option value="${l.id}" ${l.id === sel ? "selected" : ""}>${esc(l.nome)}</option>`).join("");
   $("tela").innerHTML = `<div class="card"><h2>Equipe da Linum</h2>
-    <p class="mut">Aparecem aqui os logins com o app <b>Sistema Linum</b> liberado na Área do Cliente (Administração → Logins). Dono: consulta e movimenta o estoque. Vendedora: só consulta, sem preço de custo. Sem papel: o login não entra no app.</p>
+    <p class="mut">Aparecem aqui os logins com o app <b>Sistema Linum</b> liberado na Área do Cliente (Administração → Logins). Dono: tudo, inclusive preço de custo. Estoque: cadastra peças, altera o preço de venda e movimenta o estoque, sem ver nem alterar custo. Vendedora: só consulta, sem preço de custo. Todas as ações ficam na auditoria. Sem papel: o login não entra no app.</p>
     ${EQUIPE.length ? `<div class="tw"><table><thead><tr><th>Login</th><th>Papel</th><th>Loja</th><th></th></tr></thead><tbody>
       ${EQUIPE.map((u, i) => `<tr><td><b>${esc(u.nome || u.email)}</b><br><span class="mut">${esc(u.email)}</span></td>
-        <td><select data-i="${i}" class="eq-papel"><option value="">Sem papel</option><option value="dono" ${u.papel === "dono" ? "selected" : ""}>Dono</option><option value="vendedora" ${u.papel === "vendedora" ? "selected" : ""}>Vendedora</option></select></td>
+        <td><select data-i="${i}" class="eq-papel"><option value="">Sem papel</option><option value="dono" ${u.papel === "dono" ? "selected" : ""}>Dono</option><option value="estoque" ${u.papel === "estoque" ? "selected" : ""}>Estoque</option><option value="vendedora" ${u.papel === "vendedora" ? "selected" : ""}>Vendedora</option></select></td>
         <td><select data-i="${i}" class="eq-loja">${opLoja(u.loja_id)}</select></td>
         <td><button class="bt pri eq-salvar" data-i="${i}">Salvar</button></td></tr>`).join("")}
       </tbody></table></div>` : '<div class="vazio">Nenhum login com o app liberado ainda.</div>'}</div>`;
