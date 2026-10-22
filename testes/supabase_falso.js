@@ -161,6 +161,7 @@
       if (nome === "sincronizar") return { data: { ok: true, mensagem: "Tudo baixado. A SEFAZ libera a próxima consulta em 1h.", resumo: { nova: 3, atualizada: 1, evento: 0 } } };
       if (nome === "ciencia") return { data: { ok: true, registradas: body.ids.length, falhas: [], mensagem: `Ciência registrada em ${body.ids.length} de ${body.ids.length} nota(s).` } };
       if (nome === "certificado") return { data: { ok: true, titular: "LINUM:22222222000122", validade: futuro } };
+      if (nome === "usuarios" && body.acao === "editar") return { data: { ok: true, mensagem: `Login alterado. A pessoa passa a entrar com ${body.email} (a senha continua a mesma).` } };
       if (nome === "usuarios") return { data: { ok: true, mensagem: "Login criado." } };
       if (nome === "email" && body.acao === "situacao") return { data: { ok: true, configurado: true, remetente: "nao-responda@nervia.com.br", gancho: true } };
       if (nome === "email" && body.acao === "teste") return { data: { ok: true, mensagem: `E-mail de teste enviado para ${body.para} por nao-responda@nervia.com.br.` } };

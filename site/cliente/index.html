@@ -701,7 +701,12 @@ async function admLogins() {
       <button style="margin-top:14px" onclick="criarLogin()">Criar login</button>
     </div>
     <div class="cartao">${perfis.map(p => `<div class="usu">
-      <b>${esc(p.nome || p.email)}</b>${p.admin ? '<span class="tag">ADMIN</span>' : ""}<div class="small">${esc(p.email)}</div>
+      <b>${esc(p.nome || p.email)}</b>${p.admin ? '<span class="tag">ADMIN</span>' : ""}<div class="small">${esc(p.email)} <button class="lnk" style="font-size:.82rem;margin-left:6px" onclick="editarLogin('${p.user_id}')">editar nome e e-mail</button></div>
+      <div class="linha oculto" id="ed-${p.user_id}" style="margin-top:8px;align-items:end">
+        <div><label>Nome</label><input class="edNome" value="${esc(p.nome || "")}"></div>
+        <div><label>E-mail (usuário de entrada)</label><input class="edEmail" type="email" value="${esc(p.email || "")}"></div>
+        <div style="display:flex;gap:8px"><button onclick="salvarLogin('${p.user_id}')">Salvar</button><button class="sec" onclick="editarLogin('${p.user_id}')">Cancelar</button></div>
+      </div>
       <div style="display:flex;gap:8px;align-items:center;margin-top:6px;max-width:420px"><span class="small">Empresa</span>
         <input class="fEmpresa" style="padding:6px 10px;font-size:.88rem" value="${esc(p.empresa || "")}" placeholder="nome da empresa do login" onchange="salvarEmpresa('${p.user_id}', this.value)"></div>
       ${p.admin ? '<div class="small" style="margin-top:6px">Administradores veem todos os aplicativos e todas as empresas.</div>' : chipsApps(p.user_id, acessos.filter(a => a.user_id === p.user_id).map(a => a.app_id)) +
@@ -722,6 +727,15 @@ async function criarLogin() {
     if (emp && r.user_id) await sb.from("perfis").update({ empresa: emp }).eq("user_id", r.user_id);
     await admLogins(); msg($("msgAdm"), "ok", r.mensagem + " Envie o e-mail e a senha inicial ao cliente; ele pode trocar a senha depois.");
   } catch (e) { msg($("msgAdm"), "err", e.message); }
+}
+function editarLogin(uid) { $("ed-" + uid).classList.toggle("oculto"); }
+async function salvarLogin(uid) {
+  const box = $("ed-" + uid), nome = box.querySelector(".edNome").value.trim(), email = box.querySelector(".edEmail").value.trim();
+  const p = (window._perfis || []).find(x => x.user_id === uid) || {};
+  if (email.toLowerCase() !== String(p.email || "").toLowerCase()
+      && !confirm(`Trocar o e-mail de entrada de ${p.email} para ${email}?\nA pessoa passa a entrar com o e-mail novo (a senha continua a mesma).`)) return;
+  try { const r = await funcao("usuarios", { acao: "editar", user_id: uid, nome, email }); await admLogins(); msg($("msgAdm"), "ok", r.mensagem); }
+  catch (e) { msg($("msgAdm"), "err", e.message); }
 }
 async function salvarEmpresa(uid, valor) {
   try { checar(await sb.from("perfis").update({ empresa: valor.trim() }).eq("user_id", uid)); msg($("msgAdm"), "ok", "Empresa do login salva."); }

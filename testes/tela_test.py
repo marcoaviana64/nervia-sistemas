@@ -345,6 +345,15 @@ with sync_playwright() as p:
     # Administração → E-mails
     pg, erros = nova(b)
     pg.goto("http://127.0.0.1:8811/cliente/?papel=admin#admin"); pg.wait_for_selector("#abaEml")
+    # editar nome e e-mail de um login
+    pg.goto("http://127.0.0.1:8811/cliente/?papel=admin#admin"); pg.wait_for_selector("#ed-u-cli", state="attached")
+    pg.click("#admConteudo .usu:has(#ed-u-cli) >> text=editar nome e e-mail"); pg.wait_for_selector("#ed-u-cli:not(.oculto)")
+    pg.fill("#ed-u-cli .edEmail", "financeiro2@linum.com.br"); pg.fill("#ed-u-cli .edNome", "Financeiro da Linum")
+    pg.on("dialog", lambda d: d.accept())
+    pg.click("#ed-u-cli >> text=Salvar"); pg.wait_for_selector("#msgAdm.ok")
+    ed = [c for c in pg.evaluate("window.__chamadas") if c[0] == "fn:usuarios"][-1][1]
+    assert ed == {"acao": "editar", "user_id": "u-cli", "nome": "Financeiro da Linum", "email": "financeiro2@linum.com.br"}, ed
+    assert "financeiro2@linum.com.br" in pg.inner_text("#msgAdm")
     # volta da Administração para os aplicativos (botão na página e o "Área do Cliente" do topo)
     pg.click("#bVoltarAdm"); pg.wait_for_selector("#vApps:not(.oculto)"); assert pg.is_hidden("#vAdmin")
     pg.click("#bAdmin"); pg.wait_for_selector("#vAdmin:not(.oculto)")
