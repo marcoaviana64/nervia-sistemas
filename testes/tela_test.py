@@ -310,7 +310,7 @@ with sync_playwright() as p:
     assert href.startswith("mailto:atendimento@nervia.com.br?subject=") and "financeiro%40linum.com.br" in href, href
     assert not [c for c in pg.evaluate("window.__chamadas") if str(c[0]).startswith("auth:reset")], "não envia e-mail automático"
     pg.screenshot(path=f"{SAIDA}/portal_esqueci.png")
-    pg.click("text=← Voltar para entrar"); pg.wait_for_selector("#pEntrar:not(.oculto)")
+    pg.click("#pEsqueci >> text=← Voltar para entrar"); pg.wait_for_selector("#pEntrar:not(.oculto)")
     pg.goto("about:blank"); pg.goto("http://127.0.0.1:8811/cliente/?papel=anon#esqueci"); pg.wait_for_selector("#pEsqueci:not(.oculto)")
     # login do app aberto fora do portal aponta para o esqueci
     pg.goto("http://127.0.0.1:8811/apps/notas/?papel=anon"); pg.wait_for_selector("#telaLogin:not(.oculto)")
@@ -318,6 +318,39 @@ with sync_playwright() as p:
     pg.set_viewport_size({"width": 390, "height": 844}); pg.goto("http://127.0.0.1:8811/cliente/?papel=anon"); pg.wait_for_selector("#vLogin:not(.oculto)")
     assert pg.evaluate("document.documentElement.scrollWidth") <= 390
     pg.screenshot(path=f"{SAIDA}/portal_login_celular.png")
+    assert not erros, erros
+
+    # ---------------- esqueci minha senha AUTOMÁTICO (CFG.ESQUECI_AUTOMATICO) + senha nova pelo link + aba E-mails
+    pg, erros = nova(b)
+    pg.route("**/config.js", lambda r: r.fulfill(body=CONFIG.replace("NFE_HABILITADA:true", "NFE_HABILITADA:true,ESQUECI_AUTOMATICO:true"), content_type="text/javascript"))
+    pg.goto("http://127.0.0.1:8811/cliente/?papel=anon"); pg.wait_for_selector("#vLogin:not(.oculto)")
+    pg.fill("#lEmail", "financeiro@linum.com.br"); pg.click("text=Esqueci minha senha"); pg.wait_for_selector("#pEsqueciAuto:not(.oculto)")
+    assert pg.is_hidden("#pEsqueci") and pg.input_value("#aEmail") == "financeiro@linum.com.br"
+    pg.click("#bLink"); pg.wait_for_selector("#msgLogin.ok")
+    reset = [c for c in pg.evaluate("window.__chamadas") if c[0] == "auth:reset"]
+    assert reset and reset[0][1] == "financeiro@linum.com.br" and reset[0][2]["redirectTo"] == "http://127.0.0.1:8811/cliente/", reset
+    assert "Se este e-mail tiver login" in pg.inner_text("#msgLogin")
+    pg.screenshot(path=f"{SAIDA}/portal_esqueci_auto.png")
+    # link vencido: volta para o pedido com aviso
+    pg.goto("about:blank"); pg.goto("http://127.0.0.1:8811/cliente/?papel=anon#error=access_denied&error_code=otp_expired"); pg.wait_for_selector("#pEsqueciAuto:not(.oculto)")
+    assert "venceu ou já foi usado" in pg.inner_text("#msgLogin")
+    # voltou pelo link do e-mail: pede a senha nova antes de entrar
+    pg.goto("about:blank"); pg.goto("http://127.0.0.1:8811/cliente/?papel=recuperacao#access_token=x&type=recovery"); pg.wait_for_selector("#pNova:not(.oculto)")
+    assert pg.is_hidden("#vArea") and pg.inner_text("#tLogin") == "Criar senha nova"
+    pg.fill("#rsSenha", "senhanova123"); pg.fill("#rsSenha2", "outra12345"); pg.click("#pNova button"); pg.wait_for_selector("#msgLogin.err")
+    pg.fill("#rsSenha2", "senhanova123"); pg.click("#pNova button"); pg.wait_for_selector("#vArea:not(.oculto)")
+    assert ["auth:updateUser", {"password": "senhanova123"}] in pg.evaluate("window.__chamadas")
+    assert "type=recovery" not in pg.url
+    assert not erros, erros
+    # Administração → E-mails
+    pg, erros = nova(b)
+    pg.goto("http://127.0.0.1:8811/cliente/?papel=admin#admin"); pg.wait_for_selector("#abaEml")
+    pg.click("#abaEml"); pg.wait_for_selector("#tEmail")
+    t = pg.inner_text("#admConteudo")
+    assert "nao-responda@nervia.com.br" in t and "Senha nova" in t and "falhou" in t and "Caixa não encontrada" in t and "desligado" in t, t
+    pg.fill("#tEmail", "marco@nervia.com.br"); pg.click("#admConteudo button:has-text('Enviar teste')"); pg.wait_for_selector("#msgAdm.ok")
+    assert "marco@nervia.com.br" in pg.inner_text("#msgAdm")
+    pg.screenshot(path=f"{SAIDA}/portal_emails.png", full_page=True)
     assert not erros, erros
 
     # ---------------- Painel de Notas

@@ -1300,4 +1300,19 @@ select pg_temp.ok(cmp_enviar_aprovacao(pg_temp.id('s4')::bigint) = 'diretor', 's
 select pg_temp.ok(cmp_enviar_aprovacao(pg_temp.id('s5')::bigint) = 'automatica', 'setores: até o limite do Gerente do setor a automática continua valendo');
 reset role;
 reset request.jwt.claim.sub;
+-- ---------------------------------------------------------------- e-mails (registro dos envios)
+reset role;
+insert into email_envios (tipo, para, assunto, ok) values ('teste', 'a@b.com', 'Teste', true);
+set role authenticated;
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+select pg_temp.ok((select count(*) = 1 from email_envios), 'e-mails: equipe Nervia lê o registro de envios');
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+select pg_temp.ok((select count(*) = 0 from email_envios), 'e-mails: cliente não lê o registro de envios');
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+select pg_temp.erro($$insert into email_envios (tipo, para, ok) values ('x', 'y@z.com', true)$$, 'permission', 'e-mails: nem a equipe grava pela tela (só as funções)');
+reset role;
+set role anon;
+select pg_temp.erro('select * from email_envios', 'permission', 'e-mails: anônimo não lê');
+reset role;
+reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'

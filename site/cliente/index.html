@@ -157,7 +157,26 @@ td.mono{font-family:ui-monospace,Consolas,monospace;font-size:.8rem}
         <button style="width:100%;margin-top:14px;padding:12px">Entrar</button>
       </form>
     </div>
-    <!-- esqueci minha senha -->
+    <!-- esqueci minha senha: automático (link por e-mail, com CFG.ESQUECI_AUTOMATICO) -->
+    <div id="pEsqueciAuto" class="oculto">
+      <p>Informe o e-mail do seu login. Se ele estiver cadastrado, você recebe em alguns minutos um link de <b>nao-responda@nervia.com.br</b> para criar uma senha nova.</p>
+      <form onsubmit="pedirLink(event)">
+        <label for="aEmail">Seu e-mail de login</label><input id="aEmail" type="email" autocomplete="username" required>
+        <button id="bLink" style="width:100%;margin-top:14px;padding:12px">Enviar link para criar senha nova</button>
+      </form>
+      <p class="small" style="margin-top:10px">Não chegou? Confira o lixo eletrônico. Se mesmo assim não chegar, fale com a Nervia pelos botões abaixo.</p>
+      <button type="button" class="lnk" style="margin-top:10px" onclick="modoLogin('entrar')">← Voltar para entrar</button>
+    </div>
+    <!-- senha nova (depois de abrir o link do e-mail) -->
+    <div id="pNova" class="oculto">
+      <p>Escolha a sua senha nova (mínimo 8 caracteres).</p>
+      <form onsubmit="salvarNova(event)">
+        <label for="rsSenha">Senha nova</label><input id="rsSenha" type="password" autocomplete="new-password" minlength="8" required>
+        <label for="rsSenha2">Repita a senha nova</label><input id="rsSenha2" type="password" autocomplete="new-password" minlength="8" required>
+        <button style="width:100%;margin-top:14px;padding:12px">Salvar senha e entrar</button>
+      </form>
+    </div>
+    <!-- esqueci minha senha: pedido manual à Nervia -->
     <div id="pEsqueci" class="oculto">
       <p>Peça uma senha nova à Nervia <b>enviando um e-mail do seu próprio endereço</b> (o mesmo do login) para <b id="emailNervia">atendimento@nervia.com.br</b>.</p>
       <p>A Nervia responde com uma senha provisória. Depois de entrar, troque por uma sua em <b>Trocar senha</b>, no topo da tela.</p>
@@ -223,13 +242,17 @@ td.mono{font-family:ui-monospace,Consolas,monospace;font-size:.8rem}
   <main id="vAdmin" class="pagina oculto">
     <h1>Administração</h1>
     <div class="sub">Logins e aplicativos da Área do Cliente</div>
-    <div class="abas"><button id="abaUsu" onclick="aba('usu')">Logins</button><button id="abaApps" onclick="aba('apps')">Aplicativos</button><button id="abaInt" onclick="aba('int')">Interesse nos apps</button><button id="abaAud" onclick="aba('aud')">Auditoria</button><button id="abaAcs" onclick="aba('acs')">Acessos do site</button></div>
+    <div class="abas"><button id="abaUsu" onclick="aba('usu')">Logins</button><button id="abaApps" onclick="aba('apps')">Aplicativos</button><button id="abaInt" onclick="aba('int')">Interesse nos apps</button><button id="abaAud" onclick="aba('aud')">Auditoria</button><button id="abaAcs" onclick="aba('acs')">Acessos do site</button><button id="abaEml" onclick="aba('eml')">E-mails</button></div>
     <div id="msgAdm" class="msg"></div>
     <div id="admConteudo"></div>
   </main>
 </div>
 
 <script>
+// link do e-mail de senha nova: o Supabase volta com #...type=recovery (ou #error=... se o link venceu).
+// Guardado antes de criar o cliente, que lê e limpa o endereço.
+const RECUPERACAO = /type=recovery/.test(location.hash);
+const ERRO_LINK = /error_code=|error=access_denied/.test(location.hash);
 const CFG = window.BUSCADOR_CONFIG || window.NERVIA_CONFIG || {};
 const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
 const CONTATO = Object.assign({ whatsapp: "5521966869374", email: "atendimento@nervia.com.br" }, CFG.CONTATO || {});
@@ -255,7 +278,9 @@ async function iniciar() {
     return msg($("msgLogin"), "err", "Configuração pendente: preencha o arquivo /config.js com a URL e a anon key do Supabase.");
   }
   const { data: { session } } = await sb.auth.getSession();
+  if (ERRO_LINK && !session) { telaLogin("esqueci"); history.replaceState(null, "", location.pathname); return msg($("msgLogin"), "err", "Este link venceu ou já foi usado. Peça outro abaixo."); }
   if (!session) return telaLogin(location.hash === "#esqueci" ? "esqueci" : "entrar");
+  if (RECUPERACAO && !senhaNovaSalva) return telaLogin("nova");
   eu = session.user;
   perfil = checar(await sb.from("perfis").select("nome, admin, empresa").eq("user_id", eu.id).maybeSingle()) || {};
   apps = checar(await sb.from("apps").select("*").order("ordem").order("nome"));
@@ -266,6 +291,7 @@ async function iniciar() {
   // equipe Nervia: os acessos deste navegador ao site não entram na contagem (site/acesso.js)
   if (perfil.admin && location.pathname.startsWith("/cliente/")) { try { localStorage.setItem("nervia-nao-contar", "1"); } catch {} }
   $("abaAcs").classList.toggle("oculto", location.pathname.startsWith("/demo/"));
+  $("abaEml").classList.toggle("oculto", location.pathname.startsWith("/demo/"));
   $("vLogin").classList.add("oculto"); $("vArea").classList.remove("oculto");
   rota();
 }
@@ -284,11 +310,15 @@ function telaLogin(modo) {
   modoLogin(modo);
 }
 function modoLogin(modo) {
+  const auto = !!CFG.ESQUECI_AUTOMATICO;
   $("pEntrar").classList.toggle("oculto", modo !== "entrar");
-  $("pEsqueci").classList.toggle("oculto", modo !== "esqueci");
-  $("tLogin").textContent = { entrar: "Área do Cliente", esqueci: "Esqueci minha senha" }[modo];
+  $("pEsqueci").classList.toggle("oculto", modo !== "esqueci" || auto);
+  $("pEsqueciAuto").classList.toggle("oculto", modo !== "esqueci" || !auto);
+  $("pNova").classList.toggle("oculto", modo !== "nova");
+  $("tLogin").textContent = { entrar: "Área do Cliente", esqueci: "Esqueci minha senha", nova: "Criar senha nova" }[modo];
   msg($("msgLogin"), "", "");
   if (modo === "esqueci" && !rEmail.value) rEmail.value = lEmail.value.trim();
+  if (modo === "esqueci" && !aEmail.value) aEmail.value = lEmail.value.trim();
   atualizarContato();
 }
 function atualizarContato() {
@@ -302,7 +332,28 @@ function atualizarContato() {
   $("bPedir").href = `mailto:${CONTATO.email}?subject=${encodeURIComponent("Nova senha - Área do Cliente")}&body=${encodeURIComponent(pedido)}`;
   $("emailNervia").textContent = CONTATO.email;
 }
-lEmail.addEventListener("input", atualizarContato); rEmail.addEventListener("input", atualizarContato);
+lEmail.addEventListener("input", atualizarContato); rEmail.addEventListener("input", atualizarContato); aEmail.addEventListener("input", () => { rEmail.value = aEmail.value; atualizarContato(); });
+
+// envio automático (CFG.ESQUECI_AUTOMATICO): o Supabase gera o link e o gancho email-auth manda pelo Microsoft 365.
+// A resposta é sempre a mesma, exista ou não o login (não revela quem tem acesso).
+async function pedirLink(ev) {
+  ev.preventDefault();
+  $("bLink").disabled = true;
+  const { error } = await sb.auth.resetPasswordForEmail(aEmail.value.trim(), { redirectTo: location.origin + location.pathname });
+  $("bLink").disabled = false;
+  if (error && /rate|limit|seconds/i.test(error.message)) return msg($("msgLogin"), "err", "Muitos pedidos seguidos. Espere alguns minutos e tente de novo.");
+  if (error && !/not found|user/i.test(error.message)) return msg($("msgLogin"), "err", "Não foi possível enviar agora. Tente de novo em alguns minutos ou fale com a Nervia.");
+  msg($("msgLogin"), "ok", "Pronto. Se este e-mail tiver login, o link chega em alguns minutos. Confira também o lixo eletrônico.");
+}
+let senhaNovaSalva = false;
+async function salvarNova(ev) {
+  ev.preventDefault();
+  if (rsSenha.value !== rsSenha2.value) return msg($("msgLogin"), "err", "As duas senhas não são iguais.");
+  const { error } = await sb.auth.updateUser({ password: rsSenha.value });
+  if (error) return msg($("msgLogin"), "err", /different|same/i.test(error.message) ? "A senha nova precisa ser diferente da anterior." : error.message);
+  senhaNovaSalva = true; rsSenha.value = rsSenha2.value = ""; history.replaceState(null, "", location.pathname);
+  iniciar();
+}
 
 async function sair() { await sb.auth.signOut(); location.hash = ""; location.reload(); }
 async function trocarSenha() {
@@ -441,9 +492,32 @@ function fecharAjuda() { $("painelAjuda").classList.add("oculto"); }
 // ------------------------------------------------------------ administração
 async function aba(qual) {
   abaAtual = qual;
-  ["usu", "apps", "int", "aud", "acs"].forEach(k => $("aba" + k[0].toUpperCase() + k.slice(1)).classList.toggle("on", qual === k));
+  ["usu", "apps", "int", "aud", "acs", "eml"].forEach(k => $("aba" + k[0].toUpperCase() + k.slice(1)).classList.toggle("on", qual === k));
   msg($("msgAdm"), "", "");
-  try { qual === "usu" ? await admLogins() : qual === "aud" ? await admAuditoria() : qual === "acs" ? await admAcessos() : qual === "int" ? await admInteresse() : admApps(); } catch (e) { msg($("msgAdm"), "err", e.message); }
+  try { qual === "usu" ? await admLogins() : qual === "aud" ? await admAuditoria() : qual === "acs" ? await admAcessos() : qual === "int" ? await admInteresse() : qual === "eml" ? await admEmails() : admApps(); } catch (e) { msg($("msgAdm"), "err", e.message); }
+}
+
+// E-mails automáticos pelo Microsoft 365 (função email): situação, teste e os últimos envios (tabela email_envios)
+const TIPOS_EMAIL = { teste: "Teste", auth_recovery: "Senha nova", auth_invite: "Convite", auth_magiclink: "Link de acesso", auth_signup: "Confirmação de e-mail", auth_email_change: "Troca de e-mail", auth_reauthentication: "Código" };
+async function admEmails() {
+  $("admConteudo").innerHTML = '<div class="cartao"><h2>E-mails</h2><div class="small">Carregando…</div></div>';
+  let sit = null, erroSit = "";
+  try { sit = await funcao("email", { acao: "situacao" }); } catch (e) { erroSit = e.message; }
+  const env = checar(await sb.from("email_envios").select("*").order("em", { ascending: false }).limit(100)) || [];
+  const A = window.NERVIA_AUDITORIA;
+  $("admConteudo").innerHTML = `<div class="cartao"><h2>E-mails</h2>
+    <div class="small">Os e-mails automáticos saem pelo Microsoft 365 da Nervia, pela caixa compartilhada configurada nas funções (segredo EMAIL_REMETENTE). O conteúdo não fica guardado aqui, só para quem, quando e se deu certo. Cópia de cada e-mail em "Itens enviados" da caixa.</div>
+    <p style="margin:14px 0 6px">${erroSit ? `<span class="tag" style="background:#fbeaea;color:var(--err)">função indisponível</span> <span class="small">${esc(erroSit)}</span>`
+      : sit.configurado ? `<span class="tag">configurado</span> Remetente: <b>${esc(sit.remetente)}</b>` : `<span class="tag" style="background:#fbeaea;color:var(--err)">não configurado</span> <span class="small">Faltam os segredos do Microsoft 365 nas funções do Supabase.</span>`}
+      ${sit ? `<br><span class="small">"Esqueci minha senha" automático: ${CFG.ESQUECI_AUTOMATICO ? "<b>ligado</b>" : "desligado (pedido manual por e-mail)"}${sit.gancho ? "" : " · segredo do gancho (SEND_EMAIL_HOOK_SECRET) não configurado"}.</span>` : ""}</p>
+    <form onsubmit="testarEmail(event)" style="display:flex;gap:8px;flex-wrap:wrap;align-items:end"><div><label for="tEmail">Enviar um e-mail de teste para</label><input id="tEmail" type="email" required value="${esc(eu.email)}"></div><button>Enviar teste</button></form>
+    <h3 style="margin:18px 0 6px">Últimos envios</h3>
+    ${env.length ? `<div style="overflow-x:auto"><table class="aud"><tr><th>Quando</th><th>Tipo</th><th>Para</th><th>Assunto</th><th>Resultado</th></tr>${env.map(e => `<tr><td>${A.dataHora(e.em)}</td><td>${esc(TIPOS_EMAIL[e.tipo] || e.tipo)}</td><td>${esc(e.para)}</td><td>${esc(e.assunto)}</td><td>${e.ok ? '<span class="tag">enviado</span>' : `<span class="tag" style="background:#fbeaea;color:var(--err)">falhou</span> <span class="small">${esc(e.erro || "")}</span>`}</td></tr>`).join("")}</table></div>` : '<div class="small">Nenhum e-mail enviado ainda.</div>'}</div>`;
+}
+async function testarEmail(ev) {
+  ev.preventDefault();
+  try { const r = await funcao("email", { acao: "teste", para: $("tEmail").value.trim() }); await admEmails(); msg($("msgAdm"), "ok", r.mensagem); }
+  catch (e) { await admEmails(); msg($("msgAdm"), "err", e.message); }
 }
 
 // Interesse nos apps da vitrine: reações (uma por login×app) e cliques. Só a equipe Nervia (função apps_interesse).
