@@ -524,7 +524,7 @@ function periodoPadrao() {
 async function telaVendas() {
   periodoPadrao();
   $("tela").innerHTML = '<div class="card">Carregando…</div>';
-  try { await Promise.all([carregarVendas(), carregarClientes(), carregarVendedoras()]); }
+  try { await Promise.all([carregarVendas(), carregarTrocas(), carregarClientes(), carregarVendedoras()]); }
   catch (e) { $("tela").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; return; }
   const ok = VENDAS.filter(v => !v.cancelada_em);
   const pecas = ITENS.filter(i => ok.some(v => v.id === i.venda_id)).reduce((s, i) => s + i.quantidade, 0);
@@ -532,7 +532,7 @@ async function telaVendas() {
   const grupo = (chave, nome) => { const m = {}; ok.forEach(v => { const k = chave(v); m[k] = m[k] || { nome: nome(v), n: 0, t: 0, c: 0 }; m[k].n++; m[k].t += Number(v.valor_total); m[k].c += Number(v.comissao_valor || 0); });
     return Object.values(m).sort((a, b) => b.t - a.t); };
   $("tela").innerHTML = `
-    <div class="cabtela"><h2>Vendas</h2><button class="bt pri" id="vnova">+ Nova venda</button></div>
+    <div class="cabtela"><h2>Vendas</h2><span style="display:flex;gap:8px"><button class="bt" id="vtroca">+ Troca</button><button class="bt pri" id="vnova">+ Nova venda</button></span></div>
     <div class="filtros">
       <label class="chk">De <input type="date" id="fvde" value="${esc(FV.de)}" style="width:auto"></label>
       <label class="chk">Até <input type="date" id="fvate" value="${esc(FV.ate)}" style="width:auto"></label>
@@ -543,6 +543,7 @@ async function telaVendas() {
       <div class="kpi"><small>Vendas</small><b>${n(ok.length)}</b><span>${VENDAS.length - ok.length ? n(VENDAS.length - ok.length) + " cancelada(s)" : "no período"}</span></div>
       <div class="kpi"><small>Peças</small><b>${n(pecas)}</b></div>
       <div class="kpi"><small>Total vendido</small><b>${brl(total)}</b></div>
+      <div class="kpi"><small>Trocas</small><b>${n(TROCAS.filter(t => !t.cancelada_em).length)}</b><span>${TROCAS.some(t => !t.cancelada_em && Number(t.diferenca)) ? "diferença " + brl(TROCAS.filter(t => !t.cancelada_em).reduce((s, t) => s + Number(t.diferenca), 0)) : "no período"}</span></div>
       <div class="kpi"><small>Ticket médio</small><b>${brl(ok.length ? total / ok.length : 0)}</b></div>
       <div class="kpi"><small>${dono() ? "Comissões" : "Sua comissão"}</small><b>${brl(ok.reduce((s, v) => s + Number(v.comissao_valor || 0), 0))}</b><span>${dono() ? "das vendas do período" : MINHA_COMISSAO ? decBR(MINHA_COMISSAO) + "% sobre o valor pago" : "sem comissão"}</span></div>
     </div>
@@ -556,8 +557,11 @@ async function telaVendas() {
           <td>${esc(its.map(i => `${i.quantidade > 1 ? i.quantidade + "× " : ""}${i.referencia} ${i.cor} ${i.tamanho}`).join(", "))}</td>
           <td>${esc(pagTxt(v))}</td><td class="num">${v.cancelada_em ? '<span class="tag">cancelada</span> ' : ""}${brl(v.valor_total)}</td></tr>`; }).join("")
       : '<tr><td colspan="8" class="mut">Nenhuma venda no período.</td></tr>'}
-    </tbody></table></div></div>`;
+    </tbody></table></div></div>
+    ${htmlTrocas()}`;
   $("vnova").onclick = () => novaVenda();
+  $("vtroca").onclick = () => novaTroca();
+  document.querySelectorAll(".trow").forEach(r => r.onclick = () => verTroca(Number(r.dataset.t)));
   $("fvde").onchange = e => { FV.de = e.target.value || FV.de; telaVendas(); };
   $("fvate").onchange = e => { FV.ate = e.target.value || FV.ate; telaVendas(); };
   if ($("fvloja")) { $("fvloja").onchange = e => { FV.loja = e.target.value; telaVendas(); }; $("fvvend").onchange = e => { FV.vend = e.target.value; telaVendas(); }; }
@@ -738,6 +742,214 @@ async function novaVenda() {
     } catch (e) { erro(e.message); $("nvok").disabled = false; $("nvok").textContent = "Registrar venda"; }
   };
   desenharCliente(); desenharItens(); desenharPags();
+  $("dlg").showModal();
+}
+
+// ---------------------------------------------------------------- trocas (a opção "Troca" da boleta)
+const DEVOLUCAO = { dinheiro: "Dinheiro", pix: "Pix", estorno: "Estorno no cartão", vale: "Vale-troca" };
+let TROCAS = [], TITENS = [];
+async function carregarTrocas() {
+  const q = () => { let x = sb.from("lin_trocas").select("*").gte("data", FV.de).lte("data", FV.ate).order("data", { ascending: false }).order("id", { ascending: false });
+    if (FV.loja) x = x.eq("loja_id", FV.loja); if (FV.vend) x = x.eq("atendente_id", FV.vend); return x; };
+  TROCAS = await todas(q);
+  TITENS = TROCAS.length ? await todas(() => sb.from("lin_troca_itens").select("*").in("troca_id", TROCAS.map(t => t.id)).order("id")) : [];
+}
+const difTxt = t => Number(t.diferenca) > 0 ? `cliente pagou ${brl(t.diferenca)}` : Number(t.diferenca) < 0 ? `devolvido ${brl(-t.diferenca)} (${DEVOLUCAO[t.devolucao_forma] || "—"})` : "sem diferença";
+function htmlTrocas() {
+  if (!TROCAS.length) return "";
+  const pecas = (id, tipo) => TITENS.filter(i => i.troca_id === id && i.tipo === tipo).map(i => `${i.quantidade > 1 ? i.quantidade + "× " : ""}${i.referencia} ${i.cor} ${i.tamanho}`).join(", ");
+  return `<div class="card"><h2>Trocas do período</h2><div class="tw"><table><thead><tr><th>Nº</th><th>Data</th><th>Loja</th><th>Atendente</th><th>Cliente</th><th>Devolveu</th><th>Levou</th><th class="num">Diferença</th></tr></thead><tbody>
+    ${TROCAS.map(t => { const c = cliente(t.cliente_id);
+      return `<tr class="trow ${t.cancelada_em ? "cancelada" : ""}" data-t="${t.id}" style="cursor:pointer"><td>T${t.id}</td><td>${dataBR(t.data)}</td><td>${esc(loja(t.loja_id).nome)}</td>
+        <td>${esc(t.atendente_nome)}</td><td>${c ? esc(c.nome) : '<span class="mut">—</span>'}${t.venda_id ? `<br><span class="mut">venda nº ${t.venda_id}</span>` : ""}</td>
+        <td>${esc(pecas(t.id, "devolvida"))}</td><td>${esc(pecas(t.id, "nova"))}</td>
+        <td class="num">${t.cancelada_em ? '<span class="tag">cancelada</span> ' : ""}${esc(difTxt(t))}</td></tr>`; }).join("")}
+  </tbody></table></div></div>`;
+}
+function verTroca(id) {
+  $("dlg").classList.add("largo");
+  const t = TROCAS.find(x => x.id === id), its = TITENS.filter(i => i.troca_id === id), c = cliente(t.cliente_id), f = $("dlgf");
+  const tab = tipo => its.filter(i => i.tipo === tipo).map(i => `<tr><td><b>${esc(i.referencia)}</b> ${esc(i.descricao)}<br><span class="mut">${esc([i.cor, i.tamanho, i.edicao].filter(Boolean).join(" · "))}</span></td>
+    <td class="num">${n(i.quantidade)}</td><td class="num">${brl(i.valor_unitario)}</td><td class="num">${brl(i.valor_total)}</td></tr>`).join("");
+  f.innerHTML = `<h3>Troca T${t.id}${t.cancelada_em ? ' <span class="tag">cancelada</span>' : ""}</h3>
+    <div class="mut">${dataBR(t.data)} · ${esc(loja(t.loja_id).nome)} · atendente ${esc(t.atendente_nome)}${t.venda_id ? ` · da venda nº ${t.venda_id}` : " · compra sem venda no sistema"}</div>
+    <div class="campo"><b>Cliente:</b> ${c ? `${esc(c.nome)}${c.telefone ? " · " + esc(fone(c.telefone)) : ""}` : '<span class="mut">não informado</span>'}</div>
+    <div class="campo"><h4 style="margin:0 0 4px">Devolveu (voltou ao estoque)</h4><div class="tw"><table><thead><tr><th>Peça</th><th class="num">Qtd</th><th class="num">Valor</th><th class="num">Total</th></tr></thead><tbody>${tab("devolvida")}</tbody></table></div></div>
+    <div class="campo"><h4 style="margin:0 0 4px">Levou (saiu do estoque)</h4><div class="tw"><table><thead><tr><th>Peça</th><th class="num">Qtd</th><th class="num">Valor</th><th class="num">Total</th></tr></thead><tbody>${tab("nova")}</tbody></table></div></div>
+    <div class="campo">
+      <div class="vlin"><span>Devolvido</span><span>${brl(t.valor_devolvido)}</span></div>
+      <div class="vlin"><span>Peças levadas</span><span>${brl(t.valor_novas)}</span></div>
+      <div class="vlin"><b>Diferença</b><b>${esc(difTxt(t))}</b></div>
+      ${(t.pagamentos || []).map(p => `<div class="vlin"><span>${esc(FORMAS[p.forma])}${p.forma === "credito" ? ` em ${p.parcelas}x` : ""}</span><span>${brl(p.valor)}</span></div>`).join("")}
+    </div>
+    ${t.observacao ? `<div class="campo"><b>Observações:</b> ${esc(t.observacao)}</div>` : ""}
+    <div class="mut campo">Registrada por ${esc(t.criado_nome)} em ${new Date(t.criado_em).toLocaleString("pt-BR", { timeZone: TZ })}. A troca não muda a comissão da venda.</div>
+    ${t.cancelada_em ? `<div class="msg err">Cancelada por ${esc(t.cancelada_nome || "")} em ${new Date(t.cancelada_em).toLocaleString("pt-BR", { timeZone: TZ })}: ${esc(t.motivo_cancelamento)}</div>` : ""}
+    <div id="terr"></div>
+    <div class="acoes">${dono() && !t.cancelada_em ? '<button type="button" class="bt" id="tcanc" style="color:var(--crit);border-color:var(--crit)">Cancelar troca</button>' : ""}<button type="button" class="bt pri" id="tfechar">Fechar</button></div>`;
+  $("tfechar").onclick = () => $("dlg").close();
+  if ($("tcanc")) $("tcanc").onclick = async () => {
+    const motivo = prompt("Motivo do cancelamento (a peça devolvida sai de novo e a levada volta ao estoque):");
+    if (motivo === null) return;
+    try { checar(await sb.rpc("lin_troca_cancelar", { p_troca: t.id, p_motivo: motivo })); $("dlg").close(); await carregar(); await telaVendas(); msg("ok", `Troca T${t.id} cancelada; o estoque voltou ao que era.`); }
+    catch (e) { $("terr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+  };
+  $("dlg").showModal();
+}
+
+async function novaTroca() {
+  $("dlg").classList.add("largo");
+  const { data: { session } } = await sb.auth.getSession();
+  const eu = session.user.id;
+  const TR = { data: hoje(), loja: (dono() && FV.loja) || MINHA_LOJA || (LOJAS[0] || {}).id, at: eu, modo: "venda", venda: null, cliente: null,
+               dev: [], novas: [], forma: "pix", parcelas: "1", devForma: "", obs: "", pagModo: null };
+  const f = $("dlgf");
+  const disp = vid => qtd(vid, TR.loja);
+  const somaDev = () => r2(TR.dev.reduce((s, i) => s + numV(i.vu) * (Number(i.q) || 0), 0));
+  const somaNov = () => r2(TR.novas.reduce((s, i) => s + numV(i.vu) * (Number(i.q) || 0), 0));
+  const busca = (t, comEstoque) => {
+    t = t.trim().toLowerCase(); const r = [];
+    if (t.length < 2) return r;
+    for (const p of PRODUTOS) {
+      const casaP = p.referencia.toLowerCase().includes(t) || p.descricao.toLowerCase().includes(t) || (p.codigo_barras || "") === t;
+      for (const v of p.variantes) if ((casaP || (v.codigo_barras || "") === t) && (!comEstoque || disp(v.id) > 0)) r.push([p, v]);
+      if (r.length > 40) break;
+    }
+    return r;
+  };
+  const precoTab = (p, v) => Number(v.preco_venda != null ? v.preco_venda : p.preco_venda) || 0;
+  f.innerHTML = `<h3>Troca</h3>
+    <div class="campo grade3">
+      <div><label for="trdata">Data</label><input type="date" id="trdata" value="${TR.data}" max="${hoje()}"></div>
+      <div><label for="trloja">Loja da troca</label><select id="trloja">${LOJAS.map(l => `<option value="${l.id}" ${l.id === TR.loja ? "selected" : ""}>${esc(l.nome)}</option>`).join("")}</select></div>
+      <div><label for="trat">Atendente</label>${dono() ? `<select id="trat">${VENDEDORAS.map(u => `<option value="${u.user_id}" ${u.user_id === eu ? "selected" : ""}>${esc(u.nome)}</option>`).join("")}${VENDEDORAS.some(u => u.user_id === eu) ? "" : `<option value="${eu}" selected>Eu (equipe Nervia)</option>`}</select>` : `<input readonly value="${esc((VENDEDORAS.find(u => u.user_id === eu) || {}).nome || "Eu")}">`}</div>
+    </div>
+    <div class="caixa"><h4>Peça que a cliente devolve</h4>
+      <div class="opcoes"><button type="button" class="pilula on" data-modo="venda">Venda do sistema</button><button type="button" class="pilula" data-modo="avulsa">Compra antiga (sem venda no sistema)</button></div>
+      <div id="trdevbox" class="campo"></div><div id="trdev" class="campo"></div></div>
+    <div class="caixa"><h4>Cliente</h4><div id="trcli"></div></div>
+    <div class="caixa"><h4>Peça que a cliente leva</h4>
+      <input id="trpq" type="search" placeholder="Referência, nome ou código de barras (só peças com estoque na loja da troca)" autocomplete="off">
+      <div id="trres"></div><div id="trnovas" class="campo"></div></div>
+    <div class="caixa"><h4>Diferença</h4>
+      <div class="vlin"><span>Devolvido</span><b id="trvdev"></b></div>
+      <div class="vlin"><span>Peças levadas</span><b id="trvnov"></b></div>
+      <div class="vlin"><b id="trdiftxt"></b><b id="trdif"></b></div>
+      <div id="trpag"></div></div>
+    <div class="campo"><label for="trobs">Observações</label><input id="trobs" maxlength="500" placeholder="Ex.: tamanho não serviu"></div>
+    <div id="trerr"></div>
+    <div class="acoes"><button type="button" class="bt" id="trx">Cancelar</button><button type="button" class="bt pri" id="trok">Registrar troca</button></div>`;
+
+  const totais = () => {
+    const d = somaDev(), nv = somaNov(), dif = r2(nv - d);
+    $("trvdev").textContent = brl(d); $("trvnov").textContent = brl(nv);
+    $("trdiftxt").textContent = dif > 0 ? "A cliente paga" : dif < 0 ? "A loja devolve" : "Sem diferença";
+    $("trdif").textContent = brl(Math.abs(dif));
+    const modo = dif > 0 ? "pag" : dif < 0 ? "dev" : "";   // só redesenha quando muda de "paga" para "devolve"
+    if (modo === TR.pagModo) return;
+    TR.pagModo = modo;
+    if (modo === "pag") {
+      $("trpag").innerHTML = `<div class="vlin"><span>Forma de pagamento</span><span style="display:flex;gap:6px"><select id="trforma" style="width:auto">${Object.entries(FORMAS).map(([k, r]) => `<option value="${k}" ${k === TR.forma ? "selected" : ""}>${r}</option>`).join("")}</select>
+        <select id="trparc" style="width:auto">${Array.from({ length: 12 }, (_, x) => x + 1).map(x => `<option value="${x}" ${String(x) === TR.parcelas ? "selected" : ""}>${x}x</option>`).join("")}</select></span></div>`;
+      $("trparc").style.display = TR.forma === "credito" ? "" : "none";
+      $("trforma").onchange = e => { TR.forma = e.target.value; $("trparc").style.display = TR.forma === "credito" ? "" : "none"; };
+      $("trparc").onchange = e => TR.parcelas = e.target.value;
+    } else if (modo === "dev") {
+      $("trpag").innerHTML = `<div class="vlin"><span>Como a diferença volta para a cliente</span><select id="trdevforma" style="width:auto"><option value="">Escolha…</option>${Object.entries(DEVOLUCAO).map(([k, r]) => `<option value="${k}" ${k === TR.devForma ? "selected" : ""}>${r}</option>`).join("")}</select></div>`;
+      $("trdevforma").onchange = e => TR.devForma = e.target.value;
+    } else $("trpag").innerHTML = "";
+  };
+  const linhas = (lista, el, tipo) => {
+    $(el).innerHTML = lista.length ? `<div class="tw"><table><thead><tr><th>Peça</th><th class="num">Qtd</th><th class="num">Valor</th><th class="num">Total</th><th></th></tr></thead><tbody>
+      ${lista.map((it, i) => `<tr><td><b>${esc(it.ref)}</b> ${esc(it.desc)}<br><span class="mut">${esc(it.var)}${it.max != null ? ` · até ${it.max}` : tipo === "nova" ? ` · ${n(disp(it.vid))} na loja` : ""}</span></td>
+        <td class="num"><input data-l="${tipo}" data-i="${i}" data-k="q" type="number" min="1" ${it.max != null ? `max="${it.max}"` : ""} value="${it.q}" style="width:60px"></td>
+        <td class="num">${it.fixo ? brl(numV(it.vu)) : `<input data-l="${tipo}" data-i="${i}" data-k="vu" inputmode="decimal" value="${esc(it.vu)}" style="width:90px">`}</td>
+        <td class="num" data-tot="${tipo}${i}">${brl(numV(it.vu) * (Number(it.q) || 0))}</td>
+        <td><button type="button" class="lnk perigo" data-rm="${tipo}" data-i="${i}">×</button></td></tr>`).join("")}</tbody></table></div>` : "";
+    $(el).querySelectorAll("input[data-l]").forEach(inp => inp.oninput = () => {
+      const it = (tipo === "dev" ? TR.dev : TR.novas)[inp.dataset.i]; it[inp.dataset.k] = inp.value;
+      $(el).querySelector(`[data-tot="${tipo}${inp.dataset.i}"]`).textContent = brl(numV(it.vu) * (Number(it.q) || 0)); totais();
+    });
+    $(el).querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { (tipo === "dev" ? TR.dev : TR.novas).splice(Number(b.dataset.i), 1); desenhar(); });
+  };
+  const desenharDevBox = () => {
+    f.querySelectorAll("[data-modo]").forEach(b => b.classList.toggle("on", b.dataset.modo === TR.modo));
+    if (TR.modo === "venda") {
+      $("trdevbox").innerHTML = `<div style="display:flex;gap:6px;flex-wrap:wrap"><input id="trvnum" inputmode="numeric" placeholder="Número da venda (na boleta / lista de vendas)" style="flex:1;min-width:200px" value="${TR.venda ? TR.venda.venda : ""}">
+        <button type="button" class="bt" id="trvbusca">Buscar venda</button></div>
+        ${TR.venda ? `<div class="mut" style="margin-top:6px">Venda nº ${TR.venda.venda} de ${dataBR(TR.venda.data)} · ${esc(loja(TR.venda.loja_id).nome)} · ${esc(TR.venda.vendedora)}</div>
+          ${TR.venda.itens.map((i, x) => `<div class="vlin"><span><b>${esc(i.referencia)}</b> ${esc(i.descricao)} — ${esc([i.cor, i.tamanho, i.edicao].filter(Boolean).join(" "))} · pago ${brl(i.valor_unitario)} · ${i.trocavel > 0 ? `pode trocar ${i.trocavel}` : "já trocada"}</span>
+            ${i.trocavel > 0 ? `<button type="button" class="lnk" data-devv="${x}">Devolver</button>` : ""}</div>`).join("")}` : ""}`;
+      $("trvbusca").onclick = async () => {
+        try { TR.venda = checar(await sb.rpc("lin_venda_trocavel", { p_venda: Number(soDig($("trvnum").value)) })); TR.dev = [];
+          if (!TR.cliente && TR.venda.cliente_id) { if (!cliente(TR.venda.cliente_id)) await carregarClientes(); TR.cliente = cliente(TR.venda.cliente_id) || null; }
+          $("trerr").innerHTML = ""; desenhar(); }
+        catch (e) { $("trerr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+      };
+      $("trvnum").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); $("trvbusca").click(); } };
+      f.querySelectorAll("[data-devv]").forEach(b => b.onclick = () => {
+        const i = TR.venda.itens[b.dataset.devv];
+        if (!TR.dev.some(d => d.vid === i.variante_id)) TR.dev.push({ vid: i.variante_id, ref: i.referencia, desc: i.descricao, var: [i.cor, i.tamanho, i.edicao].filter(Boolean).join(" "),
+          q: "1", vu: moeda(i.valor_unitario), fixo: true, max: i.trocavel });
+        desenhar();
+      });
+    } else {
+      $("trdevbox").innerHTML = `<input id="trdq" type="search" placeholder="Referência, nome ou código de barras da peça devolvida" autocomplete="off"><div id="trdres"></div>`;
+      $("trdq").oninput = () => {
+        const r = busca($("trdq").value, false);
+        $("trdres").innerHTML = r.slice(0, 30).map(([p, v], i) => `<div class="vlin"><span><b>${esc(p.referencia)}</b> ${esc(p.descricao)} — ${esc(nomeVar(v))} · tabela ${brl(precoTab(p, v))}</span><button type="button" class="lnk" data-dadd="${i}">Devolver</button></div>`).join("")
+          || ($("trdq").value.trim().length >= 2 ? '<div class="mut">Nenhuma peça encontrada.</div>' : "");
+        $("trdres").querySelectorAll("[data-dadd]").forEach(b => b.onclick = () => { const [p, v] = r[b.dataset.dadd];
+          TR.dev.push({ vid: v.id, ref: p.referencia, desc: p.descricao, var: nomeVar(v), q: "1", vu: moeda(precoTab(p, v)) }); $("trdq").value = ""; desenhar(); });
+      };
+    }
+  };
+  const desenharCliente = () => {
+    const c = TR.cliente;
+    $("trcli").innerHTML = c ? `<div class="vlin"><span><b>${esc(c.nome)}</b>${c.telefone ? " · " + esc(fone(c.telefone)) : ""}</span><button type="button" class="lnk" id="trctroca">Trocar</button></div>`
+      : `<input id="trcq" type="search" placeholder="Nome, telefone ou CPF (opcional)" autocomplete="off"><div id="trcres"></div>`;
+    if (c) { $("trctroca").onclick = () => { TR.cliente = null; desenharCliente(); }; return; }
+    $("trcq").oninput = () => {
+      const t = $("trcq").value.trim(), d = soDig(t), tl = t.toLowerCase();
+      const l = t.length < 2 ? [] : CLIENTES.filter(x => x.nome.toLowerCase().includes(tl) || (d.length >= 4 && (x.telefone.includes(d) || (x.cpf || "").includes(d)))).slice(0, 6);
+      $("trcres").innerHTML = l.map(x => `<div class="vlin"><span><b>${esc(x.nome)}</b>${x.telefone ? " · " + esc(fone(x.telefone)) : ""}</span><button type="button" class="lnk" data-cli="${x.id}">Escolher</button></div>`).join("")
+        + (t.length >= 2 ? `<div class="vlin"><span class="mut">${l.length ? "Não é nenhum desses?" : "Cliente não encontrado."}</span><button type="button" class="lnk" id="trcnovo">+ Novo cliente</button></div>` : "");
+      $("trcres").querySelectorAll("[data-cli]").forEach(b => b.onclick = () => { TR.cliente = cliente(b.dataset.cli); desenharCliente(); });
+      if ($("trcnovo")) $("trcnovo").onclick = () => editarCliente({ nome: d.length >= 8 ? "" : t, telefone: d.length >= 8 ? d : "" }, novo => { TR.cliente = novo; desenharCliente(); });
+    };
+  };
+  const desenhar = () => { desenharDevBox(); linhas(TR.dev, "trdev", "dev"); linhas(TR.novas, "trnovas", "nova"); desenharCliente(); totais(); };
+  f.querySelectorAll("[data-modo]").forEach(b => b.onclick = () => { if (TR.modo === b.dataset.modo) return; TR.modo = b.dataset.modo; TR.dev = []; TR.venda = null; desenhar(); });
+  $("trpq").oninput = () => {
+    const r = busca($("trpq").value, true);
+    $("trres").innerHTML = r.slice(0, 30).map(([p, v], i) => `<div class="vlin"><span><b>${esc(p.referencia)}</b> ${esc(p.descricao)} — ${esc(nomeVar(v))} · ${brl(precoTab(p, v))} · ${n(disp(v.id))} na loja</span><button type="button" class="lnk" data-nadd="${i}">Levar</button></div>`).join("")
+      || ($("trpq").value.trim().length >= 2 ? `<div class="mut">Nenhuma peça com estoque em ${esc(loja(TR.loja).nome)}.</div>` : "");
+    $("trres").querySelectorAll("[data-nadd]").forEach(b => b.onclick = () => { const [p, v] = r[b.dataset.nadd];
+      TR.novas.push({ vid: v.id, ref: p.referencia, desc: p.descricao, var: nomeVar(v), q: "1", vu: moeda(precoTab(p, v)) }); $("trpq").value = ""; $("trres").innerHTML = ""; desenhar(); });
+  };
+  $("trdata").onchange = e => TR.data = e.target.value;
+  $("trloja").onchange = e => { TR.loja = e.target.value; TR.novas = []; desenhar(); };
+  if ($("trat")) $("trat").onchange = e => TR.at = e.target.value;
+  $("trobs").oninput = e => TR.obs = e.target.value;
+  $("trx").onclick = () => $("dlg").close();
+  $("trok").onclick = async () => {
+    const erro = t => { $("trerr").innerHTML = `<div class="msg err">${esc(t)}</div>`; $("trerr").scrollIntoView({ block: "nearest" }); };
+    if (!TR.dev.length) return erro("Informe a peça que a cliente devolve.");
+    if (!TR.novas.length) return erro("Informe a peça que a cliente leva.");
+    const dif = r2(somaNov() - somaDev());
+    $("trok").disabled = true; $("trok").textContent = "Registrando…";
+    try {
+      const id = checar(await sb.rpc("lin_troca_registrar", { p: { loja_id: TR.loja, atendente_id: TR.at, cliente_id: TR.cliente ? TR.cliente.id : null,
+        venda_id: TR.modo === "venda" && TR.venda ? TR.venda.venda : null, data: TR.data, observacao: TR.obs.trim(), devolucao_forma: dif < 0 ? TR.devForma : null,
+        devolvidas: TR.dev.map(i => ({ variante_id: i.vid, quantidade: Number(i.q), valor_unitario: numBR(i.vu) || 0 })),
+        novas: TR.novas.map(i => ({ variante_id: i.vid, quantidade: Number(i.q), valor_unitario: numBR(i.vu) || 0 })),
+        pagamentos: dif > 0 ? [{ forma: TR.forma, valor: dif, parcelas: Number(TR.parcelas) || 1 }] : [] } }));
+      $("dlg").close(); await carregar();
+      if (VISTA === "vendas") await telaVendas();
+      msg("ok", `Troca T${id} registrada; o estoque de ${loja(TR.loja).nome} foi atualizado.`);
+    } catch (e) { erro(e.message); $("trok").disabled = false; $("trok").textContent = "Registrar troca"; }
+  };
+  desenhar();
   $("dlg").showModal();
 }
 

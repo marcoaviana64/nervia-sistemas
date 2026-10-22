@@ -1299,6 +1299,78 @@ select pg_temp.ok((select comissao_pct = 3.5 from lin_vendas where id = (select 
 select pg_temp.ok((select count(*) >= 1 from auditoria where acao = 'linum_papel_definido' and (detalhes->>'comissao_pct')::numeric = 5 and (detalhes->>'comissao_pct_antes')::numeric = 3.5)
   and (select (detalhes->>'comissao_valor')::numeric = 12.57 from auditoria where acao = 'linum_venda_registrada' and (detalhes->>'venda')::bigint = (select v from lin_vd where k = 'v4')::bigint),
   'linum comissão: troca do % e comissão da venda na auditoria');
+-- Sistema Linum: Troca (a opção "Troca" da boleta)
+reset role;
+create temp table lin_tr (k text primary key, v text); grant all on lin_tr to authenticated;
+create or replace function pg_temp.est(v uuid, l text) returns int language sql as $$
+  select coalesce((select quantidade from lin_estoque where variante_id = v and loja_id = (select x.v from lin_ids x where x.k = l)), 0) $$;
+insert into lin_tr values ('ini_g3', pg_temp.est('20000000-0000-0000-0000-000000000003', 'gav')::text), ('ini_g2', pg_temp.est('20000000-0000-0000-0000-000000000002', 'gav')::text);
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora, troca na Gávea a calça comprada na Ipanema (venda v4)
+select pg_temp.ok((select (e->>'trocavel')::int = 1 and (e->>'valor_unitario')::numeric = 359 from jsonb_array_elements(lin_venda_trocavel((select v from lin_vd where k = 'v4')::bigint)->'itens') e),
+  'linum troca: venda mostra o que ainda pode ser trocado e o valor pago');
+select pg_temp.erro2($$select lin_troca_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'venda_id', (select v from lin_vd where k = 'v4'),
+  'devolvidas', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000003', 'quantidade', 1)),
+  'novas', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 1, 'valor_unitario', 489)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 100))))$$, 'diferença de R$ 130,00', 'linum troca: diferença a pagar tem de fechar');
+insert into lin_tr values ('t1', lin_troca_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'venda_id', (select v from lin_vd where k = 'v4'),
+  'devolvidas', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000003', 'quantidade', 1, 'valor_unitario', 1)),
+  'novas', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 1, 'valor_unitario', 489)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'credito', 'valor', 130, 'parcelas', 2))))::text);
+reset role;
+select pg_temp.ok((select valor_devolvido = 359 and valor_novas = 489 and diferenca = 130 and devolucao_forma is null and venda_id = (select v from lin_vd where k = 'v4')::bigint
+    from lin_trocas where id = (select v from lin_tr where k = 't1')::bigint)
+  and pg_temp.est('20000000-0000-0000-0000-000000000003', 'gav') = (select v from lin_tr where k = 'ini_g3')::int + 1
+  and pg_temp.est('20000000-0000-0000-0000-000000000002', 'gav') = (select v from lin_tr where k = 'ini_g2')::int - 1
+  and (select count(*) = 2 from lin_movimentos where observacao like 'Troca nº ' || (select v from lin_tr where k = 't1') || ' %'),
+  'linum troca: devolvida volta e nova sai na loja da troca; valor da devolvida é o pago na venda; cliente paga a diferença');
+select pg_temp.ok((select comissao_valor = 12.57 from lin_vendas where id = (select v from lin_vd where k = 'v4')::bigint), 'linum troca: comissão da venda original não muda');
+set role authenticated;
+select pg_temp.erro2($$select lin_troca_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'venda_id', (select v from lin_vd where k = 'v4'),
+  'devolvidas', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000003', 'quantidade', 1)),
+  'novas', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 1, 'valor_unitario', 359)), 'pagamentos', '[]'::jsonb))$$,
+  'só restam 0 peça', 'linum troca: não troca de novo a mesma peça da venda');
+select pg_temp.erro2($$select lin_troca_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'venda_id', (select v from lin_vd where k = 'v4'),
+  'devolvidas', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 1)),
+  'novas', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 1)), 'pagamentos', '[]'::jsonb))$$,
+  'não está na venda', 'linum troca: peça que não é da venda recusada');
+select pg_temp.erro2($$select lin_troca_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'venda_id', (select v from lin_vd where k = 'v1'),
+  'devolvidas', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 1)),
+  'novas', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 1)), 'pagamentos', '[]'::jsonb))$$,
+  'foi cancelada', 'linum troca: venda cancelada não tem troca');
+-- compra antiga (sem venda no sistema): peça nova mais barata, a loja devolve a diferença
+select pg_temp.erro2($$select lin_troca_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'),
+  'devolvidas', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 1, 'valor_unitario', 400)),
+  'novas', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000003', 'quantidade', 1, 'valor_unitario', 359)), 'pagamentos', '[]'::jsonb))$$,
+  'Informe como a diferença de R$ 41,00 volta', 'linum troca: diferença a devolver exige a forma');
+insert into lin_tr values ('t2', lin_troca_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'cliente_id', (select v from lin_vd where k = 'cli'),
+  'devolvidas', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 1, 'valor_unitario', 400)),
+  'novas', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000003', 'quantidade', 1, 'valor_unitario', 359)),
+  'devolucao_forma', 'vale', 'observacao', 'compra de antes do sistema'))::text);
+reset role;
+select pg_temp.ok((select diferenca = -41 and devolucao_forma = 'vale' and venda_id is null and cliente_id is not null from lin_trocas where id = (select v from lin_tr where k = 't2')::bigint),
+  'linum troca: compra antiga, diferença de R$ 41 volta em vale-troca');
+set role authenticated;
+select pg_temp.erro2($$select lin_troca_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'),
+  'devolvidas', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 1, 'valor_unitario', 1)),
+  'novas', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000003', 'quantidade', 99, 'valor_unitario', 0)), 'pagamentos', '[]'::jsonb))$$,
+  'Estoque insuficiente', 'linum troca: sem estoque da peça nova a troca é recusada');
+select pg_temp.ok((select count(*) = 2 from lin_trocas), 'linum troca: vendedora vê as trocas dela');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+select pg_temp.ok((select count(*) = 0 from lin_trocas) and (select count(*) = 0 from lin_troca_itens), 'linum troca: os outros não veem as trocas dela');
+select pg_temp.erro2($$select lin_troca_cancelar((select v from lin_tr where k = 't1')::bigint, 'motivo qualquer')$$, 'Somente o Dono', 'linum troca: só o Dono cancela');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok((select count(*) = 2 from lin_trocas), 'linum troca: Dono vê todas');
+select lin_troca_cancelar((select v from lin_tr where k = 't1')::bigint, 'Lançada na venda errada');
+reset role;
+select pg_temp.ok(pg_temp.est('20000000-0000-0000-0000-000000000003', 'gav') = (select v from lin_tr where k = 'ini_g3')::int - 1   -- +1 e −1 da 1ª troca (cancelada) e −1 da 2ª
+  and pg_temp.est('20000000-0000-0000-0000-000000000002', 'gav') = (select v from lin_tr where k = 'ini_g2')::int
+  and (select (e->>'trocavel')::int = 1 from jsonb_array_elements(lin_venda_trocavel((select v from lin_vd where k = 'v4')::bigint)->'itens') e),
+  'linum troca: cancelar desfaz o estoque e a peça da venda volta a poder ser trocada');
+select pg_temp.erro2($$update lin_trocas set diferenca = 0 where id = (select v from lin_tr where k = 't2')::bigint$$, 'Não pode ser alterada', 'linum troca: troca não se altera');
+select pg_temp.erro2($$delete from lin_troca_itens$$, 'não se apaga', 'linum troca: itens não se apagam');
+select pg_temp.ok((select count(*) = 2 from auditoria where acao = 'linum_troca_registrada') and (select count(*) = 1 from auditoria where acao = 'linum_troca_cancelada'),
+  'linum troca: registro e cancelamento na auditoria');
 reset role;
 set role anon;
 select pg_temp.erro2('select * from apps_vitrine()', 'permission', 'anônimo não vê a vitrine');

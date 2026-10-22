@@ -102,6 +102,18 @@
     <li>Escreva o motivo. As peças voltam para o estoque da loja; a venda continua na lista, riscada, com quem cancelou, quando e por quê.</li>
   </ol>
 
+  <h2 id="troca">6a. Registrar uma troca</h2>
+  <p>É a opção "Troca" da boleta: a cliente devolve uma peça e leva outra.</p>
+  <ol>
+    <li>Na aba <b>Vendas</b>, clique em <b>+ Troca</b>. Escolha a <b>loja da troca</b>: a peça devolvida entra no estoque dessa loja e a levada sai dela.</li>
+    <li><b>Peça que a cliente devolve</b>: em <b>Venda do sistema</b>, digite o número da venda (Nº na lista de vendas), clique em <b>Buscar venda</b> e em <b>Devolver</b> na peça. O valor é o que a cliente pagou, e cada peça só pode ser trocada uma vez. Se a compra foi antes do sistema, use <b>Compra antiga</b>: busque a peça e informe o valor.</li>
+    <li><b>Cliente</b>: vem da venda; na compra antiga, busque ou cadastre (opcional).</li>
+    <li><b>Peça que a cliente leva</b>: busque pela referência, nome ou código de barras (só aparecem peças com estoque na loja) e clique em <b>Levar</b>. Ajuste o valor se combinar outro preço.</li>
+    <li><b>Diferença</b>: se a peça levada vale mais, a cliente paga a diferença (escolha a forma e as parcelas); se vale menos, escolha como a loja devolve (dinheiro, Pix, estorno no cartão ou vale-troca).</li>
+    <li>Clique em <b>Registrar troca</b>. A troca aparece em <b>Trocas do período</b> (Nº T…). A comissão da venda original não muda.</li>
+    <li>Só o <b>Dono</b> cancela uma troca (clique nela → <b>Cancelar troca</b>, com motivo): a peça levada volta ao estoque e a devolvida sai de novo.</li>
+  </ol>
+
   <h2 id="clientes">7. Clientes</h2>
   <ol>
     <li>Aba <b>Clientes</b>: lista com telefone (clique para abrir o WhatsApp), aniversário, número de compras, total e última compra.</li>
@@ -129,6 +141,9 @@
     <tr><td>Venda com mais de 7 dias: peça ao Dono para lançar</td><td>Boleta antiga: o Dono lança, escolhendo a vendedora.</td></tr>
     <tr><td>Você só registra as próprias vendas</td><td>Venda de outra pessoa: o Dono lança, escolhendo quem vendeu.</td></tr>
     <tr><td>Este CPF já é do cliente …</td><td>O cliente já está cadastrado: escolha-o na busca.</td></tr>
+    <tr><td>Venda nº … não encontrada · A venda nº … foi cancelada</td><td>Confira o número na lista de vendas. Venda cancelada não tem troca; use Compra antiga se for o caso.</td></tr>
+    <tr><td>… da venda nº … só restam N peça(s) para trocar</td><td>A peça já foi trocada antes. Confira em Trocas do período.</td></tr>
+    <tr><td>Informe como a diferença de R$ … volta para a cliente</td><td>Escolha dinheiro, Pix, estorno no cartão ou vale-troca.</td></tr>
     <tr><td>Telefone com DDD: 10 ou 11 dígitos</td><td>Digite o DDD e o número (ex.: 21 99999-0000).</td></tr>
     <tr><td>Informe a edição da peça especial</td><td>Peça especial precisa da edição (ex.: Bordada).</td></tr>
     <tr><td>Nenhum produto com esses filtros</td><td>Limpe a busca e os filtros ou desligue "Ocultar zerados".</td></tr>
