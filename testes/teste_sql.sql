@@ -1496,4 +1496,47 @@ set role anon;
 select pg_temp.erro('select * from email_envios', 'permission', 'e-mails: anônimo não lê');
 reset role;
 reset request.jwt.claim.sub;
+-- ---------------------------------------------------------------- Sistema Linum: CRM (clientes e possíveis clientes, histórico de contatos)
+reset role;
+insert into lin_estoque values ('20000000-0000-0000-0000-000000000003', (select v from lin_ids where k = 'ipa'), 5)
+  on conflict (variante_id, loja_id) do update set quantidade = 5;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora
+insert into lin_vd values ('pos', lin_cliente_salvar('{"nome":"Paula Possível","telefone":"21988887777","situacao":"possivel","origem":"Instagram","interesses":"vestidos de linho"}')::text);
+select pg_temp.ok((select situacao = 'possivel' and origem = 'Instagram' and responsavel_id = '00000000-0000-0000-0000-00000000000c' and proximo_contato is null
+  from lin_clientes where id = (select v from lin_vd where k = 'pos')::uuid), 'linum crm: vendedora cadastra possível cliente e fica como responsável');
+select pg_temp.erro2($$select lin_contato_registrar(jsonb_build_object('cliente_id', (select v from lin_vd where k = 'pos'), 'canal', 'whatsapp', 'resultado', 'vai_a_loja', 'texto', 'oi'))$$,
+  'Escreva o que foi conversado', 'linum crm: contato sem texto recusado');
+select pg_temp.erro2($$select lin_contato_registrar(jsonb_build_object('cliente_id', (select v from lin_vd where k = 'pos'), 'canal', 'pombo', 'resultado', 'vai_a_loja', 'texto', 'chamei para a loja'))$$,
+  'como foi o contato', 'linum crm: canal desconhecido recusado');
+select pg_temp.erro2($$select lin_contato_registrar(jsonb_build_object('cliente_id', (select v from lin_vd where k = 'pos'), 'canal', 'whatsapp', 'resultado', 'vai_a_loja', 'texto', 'chamei para a loja', 'proximo_contato', current_date - 2))$$,
+  'hoje ou depois', 'linum crm: próximo contato no passado recusado');
+insert into lin_vd values ('ct1', lin_contato_registrar(jsonb_build_object('cliente_id', (select v from lin_vd where k = 'pos'), 'canal', 'whatsapp', 'resultado', 'vai_a_loja',
+  'texto', 'Mandei fotos da coleção nova; disse que passa sábado na Gávea.', 'proximo_contato', current_date + 3))::text);
+select pg_temp.ok((select proximo_contato = current_date + 3 and ultimo_contato is not null from lin_clientes where id = (select v from lin_vd where k = 'pos')::uuid)
+  and (select por_nome <> '' and canal = 'whatsapp' from lin_contatos where id = (select v from lin_vd where k = 'ct1')::bigint),
+  'linum crm: contato registrado com quem fez e atualiza o próximo contato do cadastro');
+select pg_temp.erro2($$update lin_contatos set texto = 'outra coisa' where id = (select v from lin_vd where k = 'ct1')::bigint$$, 'permission', 'linum crm: contato não se altera pela tela');
+select pg_temp.erro2($$insert into lin_contatos (cliente_id, canal, resultado, texto) values ((select v from lin_vd where k = 'pos')::uuid, 'loja', 'outro', 'direto')$$, 'permission', 'linum crm: contato só pela função');
+-- edição pela venda (sem campos do CRM) não apaga o acompanhamento
+select lin_cliente_salvar(jsonb_build_object('id', (select v from lin_vd where k = 'pos'), 'nome', 'Paula Possível', 'telefone', '21988887777'));
+select pg_temp.ok((select situacao = 'possivel' and origem = 'Instagram' and proximo_contato = current_date + 3 from lin_clientes where id = (select v from lin_vd where k = 'pos')::uuid),
+  'linum crm: cadastro rápido da venda não mexe nos campos do acompanhamento');
+select pg_temp.erro2($$select lin_cliente_salvar(jsonb_build_object('id', (select v from lin_vd where k = 'pos'), 'nome', 'Paula Possível', 'situacao', 'possivel', 'responsavel_id', '00000000-0000-0000-0000-0000000000ff'))$$,
+  'alguém da equipe', 'linum crm: responsável de fora da equipe recusado');
+-- quem compra vira cliente
+insert into lin_vd values ('vpos', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'ipa'), 'cliente_id', (select v from lin_vd where k = 'pos'),
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000003', 'quantidade', 1, 'valor_unitario', 359)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 359))))::text);
+select pg_temp.ok((select situacao = 'cliente' from lin_clientes where id = (select v from lin_vd where k = 'pos')::uuid), 'linum crm: possível cliente que compra vira cliente');
+-- a equipe toda vê o histórico; quem não é da Linum não vê
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';   -- Estoque
+select pg_temp.ok((select count(*) = 1 from lin_contatos where cliente_id = (select v from lin_vd where k = 'pos')::uuid), 'linum crm: outra pessoa da equipe vê o histórico do contato');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
+select pg_temp.ok((select count(*) = 0 from lin_contatos), 'linum crm: login fora da Linum não vê contatos');
+reset role;
+select pg_temp.erro2($$delete from lin_contatos where id = (select v from lin_vd where k = 'ct1')::bigint$$, 'não pode ser alterado nem apagado', 'linum crm: histórico é somente inclusão (nem o dono do banco apaga)');
+select pg_temp.ok((select count(*) = 1 from auditoria where acao = 'linum_contato_registrado' and detalhes->>'resultado' = 'vai_a_loja' and not (detalhes ? 'texto')),
+  'linum crm: contato na auditoria (sem o texto da conversa)');
+reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'
