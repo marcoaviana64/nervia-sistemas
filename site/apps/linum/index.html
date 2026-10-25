@@ -1102,6 +1102,9 @@ function editarCliente(c, depois, crm = false) {
   $("dlg2").showModal(); $("cl_nome").focus();
 }
 
+// valor da venda no histórico: só para o Dono (o texto gravado não tem o valor; a vendedora não vê o das colegas)
+const valorVenda = x => { if (!x.venda_id || x.resultado !== "comprou" || !dono()) return ""; const v = VENDAS.find(y => y.id === x.venda_id);
+  return v ? ` <b>· ${brl(v.valor_total)}</b>` : ""; };
 // ficha do cliente: dados, compras, histórico de contatos e "Registrar contato"
 async function fichaCliente(id) {
   const f = $("dlgf"), c = cliente(id); if (!c) return;
@@ -1132,8 +1135,8 @@ async function fichaCliente(id) {
       <div class="acoes"><button type="button" class="bt pri" id="ctok">Registrar contato</button></div>
     </div>
     <h2 style="font-size:15px;margin:12px 0 4px">Histórico de contatos <span class="mut">· ${n(contatos.length)}</span></h2>
-    <div id="cthist">${contatos.length ? contatos.map(x => `<div class="vlin ctitem" style="display:block"><div><b>${quando(x.em)}</b> · ${esc(x.por_nome || "—")} · ${CANAIS[x.canal]} <span class="tag">${RESULTADOS[x.resultado]}</span>${x.proximo_contato ? ` <span class="mut">· próximo: ${dataBR(x.proximo_contato)}</span>` : ""}</div>
-      <div style="white-space:pre-line;margin-top:2px">${esc(x.texto)}</div></div>`).join("") : '<div class="mut">Nenhum contato registrado ainda.</div>'}</div>
+    <div id="cthist">${contatos.length ? contatos.map(x => `<div class="vlin ctitem" style="display:block"><div><b>${quando(x.em)}</b> · ${esc(x.por_nome || "—")} · ${x.venda_id ? "registro automático da venda" : CANAIS[x.canal]} <span class="tag">${x.venda_id && x.resultado === "outro" ? "Cancelada" : RESULTADOS[x.resultado]}</span>${x.proximo_contato ? ` <span class="mut">· próximo: ${dataBR(x.proximo_contato)}</span>` : ""}</div>
+      <div style="white-space:pre-line;margin-top:2px">${esc(x.texto)}${valorVenda(x)}</div></div>`).join("") : '<div class="mut">Nenhum contato registrado ainda.</div>'}</div>
     <div class="acoes"><button type="button" class="bt" id="fcx">Fechar</button></div>`;
   $("fcx").onclick = () => $("dlg").close();
   $("fced").onclick = () => editarCliente(c, () => { fichaCliente(id); listaClientes(); kpisClientes(); }, true);
