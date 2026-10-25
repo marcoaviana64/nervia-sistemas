@@ -589,7 +589,29 @@ try:
         ok(qtd_banco(V_CRU_38, "Gávea") == antes + 3 and "concluída" in pg.text_content("#dlgf")
            and psql("select count(*) from lin_movimentos where tipo = 'producao'", saida=True) == "1", "3 peças entram no estoque da Gávea e a ficha fica concluída")
         pg.screenshot(path=os.path.join(SAIDA, "linum_producao_ficha.png"), full_page=True)
-        pg.click("#fx"); pg.click('[data-pa="painel"]'); pg.wait_for_selector("#pdtela .kpis")
+        # compra pelo XML da NF-e (nota fictícia: linho em metros, malha em quilos e um item que não é tecido)
+        pg.click("#fx"); pg.click('[data-pa="rolos"]'); pg.wait_for_selector("#pdxml", state="attached")
+        xml = ('<?xml version="1.0" encoding="UTF-8"?><nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><NFe><infNFe Id="NFe33261012345678000190550010000012341000012345" versao="4.00">'
+               '<ide><nNF>1234</nNF><dhEmi>2026-10-20T10:00:00-03:00</dhEmi></ide><emit><CNPJ>12345678000190</CNPJ><xNome>Tecelagem Ficticia Ltda</xNome></emit>'
+               '<det nItem="1"><prod><xProd>LINHO MISTO AREIA 1,40M</xProd><uCom>MT</uCom><qCom>61.0000</qCom><vProd>850.00</vProd><vFrete>50.00</vFrete></prod><imposto><IPI><IPITrib><vIPI>0.00</vIPI></IPITrib></IPI></imposto></det>'
+               '<det nItem="2"><prod><xProd>MALHA DE LINHO CRU</xProd><uCom>KG</uCom><qCom>12.5000</qCom><vProd>500.00</vProd><vDesc>20.00</vDesc></prod><imposto/></det>'
+               '<det nItem="3"><prod><xProd>ETIQUETA BORDADA</xProd><uCom>UN</uCom><qCom>100</qCom><vProd>80.00</vProd></prod><imposto/></det>'
+               '</infNFe></NFe></nfeProc>')
+        pg.set_input_files("#pdxml", files=[{"name": "nota.xml", "mimeType": "text/xml", "buffer": xml.encode()}]); pg.wait_for_selector("#dlg[open] #nfeok")
+        dlg = pg.text_content("#dlgf").replace("\xa0", " ")
+        ok("Tecelagem Ficticia Ltda" in dlg and "nº 1234" in dlg and "R$ 900,00" in dlg and "R$ 480,00" in dlg and "unidade não reconhecida" in dlg,
+           "XML lido: fornecedor, número, valor de cada item (com frete e desconto) e o item sem unidade de tecido avisado")
+        ok(pg.is_checked('[data-nfi="0"]') and pg.is_checked('[data-nfi="1"]') and not pg.is_checked('[data-nfi="2"]') and pg.input_value('[data-nfu="1"]') == "kg",
+           "itens de tecido marcados, o resto desmarcado; quilos reconhecido")
+        pg.fill('[data-nfr="0"]', "2"); pg.fill('[data-nfc="0"]', "Areia"); pg.fill('[data-nfc="1"]', "Cru")
+        pg.screenshot(path=os.path.join(SAIDA, "linum_producao_xml.png"), full_page=True)
+        pg.click("#nfeok"); pg.wait_for_timeout(900)
+        ok(psql("select string_agg(unidade || ':' || metros_iniciais || ':' || valor_pago, ',' order by codigo) from lin_rolos where nota = '1234'", saida=True) == "m:30.50:450.00,m:30.50:450.00,kg:12.50:480.00"
+           and "kg" in pg.text_content("#pdrolos"), "nota importada: 2 rolos de 30,5 m e 1 de 12,5 kg, valor dividido")
+        pg.set_input_files("#pdxml", files=[{"name": "nota.xml", "mimeType": "text/xml", "buffer": xml.encode()}]); pg.wait_for_selector("#dlg[open] #nfeok")
+        ok("já importado" in pg.text_content("#dlgf") and pg.is_disabled('[data-nfi="0"]'), "a mesma nota de novo: itens já importados ficam travados")
+        pg.click("#nfex")
+        pg.click('[data-pa="painel"]'); pg.wait_for_selector("#pdtela .kpis")
         ok("Maria Costureira" in pg.text_content("#pdpagl") and "R$ 75,00" in pg.text_content("#pdpagl").replace("\xa0", " "), "a pagar no mês: costureira 3 × R$ 25,00")
         pg.screenshot(path=os.path.join(SAIDA, "linum_producao_painel.png"), full_page=True)
         ok(not erros, "sem erros de JavaScript (produção do Dono)")
@@ -623,7 +645,7 @@ try:
             abrir_ajuda = pg.goto(f"http://127.0.0.1:{PORTA_SITE}/apps/linum/ajuda/{pagina}.html")
             ok(abrir_ajuda.ok and "Sistema Linum" in pg.title() and pg.locator('script[src="/marca-dagua.js"][data-tipo="doc"]').count() == 1, f"ajuda: {pagina} com marca d'água")
         pg.goto(f"http://127.0.0.1:{PORTA_SITE}/ajuda/novidades.html?app=linum&nome=Sistema%20Linum"); pg.wait_for_timeout(400)
-        ok("2.0" in pg.text_content("body"), "novidades do app (versão 2.0)")
+        ok("2.1" in pg.text_content("body"), "novidades do app (versão 2.1)")
         ok(psql("select mapa_url from apps where id = 'linum'", saida=True) == "/apps/linum/ajuda/mapa.html", "botão Mapa ligado no cadastro do app")
         b.close()
     print("TODOS OS TESTES DE TELA DO SISTEMA LINUM OK")

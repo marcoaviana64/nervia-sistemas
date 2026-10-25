@@ -30,6 +30,7 @@
     <li><a href="#comissoes">7a. Comissões do mês (Dono)</a></li>
     <li><a href="#ranking">7b. Ranking das vendedoras</a></li>
     <li><a href="#producao">7c. Produção: rolos, fichas e etapas</a></li>
+    <li><a href="#xml">7d. Compra de tecido pelo XML da nota</a></li>
     <li><a href="#problemas">8. Mensagens e o que fazer</a></li>
   </ul>
 
@@ -176,8 +177,8 @@
   <p>Aba <b>Produção</b> (Dono e quem tem a permissão Produção). O caminho de uma peça: <b>linho → corte → conferência → costura → conferência → lavagem → passadoria → estoque</b>. Quem não tem a permissão <b>Valores da produção</b> usa tudo igual, mas não vê valor pago, preço por peça nem custo.</p>
   <ol>
     <li><b>Parceiros</b>: cadastre os cortadores, costureiras, a lavanderia e a passadoria, com telefone (para o WhatsApp) e o <b>preço por peça</b> (só quem tem Valores).</li>
-    <li><b>Metragem por peça</b>: informe quantos metros de linho cada peça gasta. Se um tamanho gasta diferente, abra "Por tamanho" e informe nele.</li>
-    <li><b>Rolos de linho → + Registrar compra</b>: tecido, cor, quantos rolos e os metros de cada um, data, fornecedor, nota e o valor pago (total da compra; o sistema divide entre os rolos). Cada rolo ganha um código (R-2026-001…). Clique no rolo para ver o histórico do saldo e, se precisar, <b>Ajustar o saldo</b> com o motivo.</li>
+    <li><b>Tecido por peça</b>: informe quanto tecido cada peça gasta e a unidade — <b>metros</b> ou <b>quilos</b> (tecido vendido por quilo, como a malha). A unidade vale para todos os tamanhos e tem de ser a mesma dos rolos que a peça usa. Se um tamanho gasta diferente, abra "Por tamanho" e informe nele.</li>
+    <li><b>Rolos de tecido → + Registrar compra</b> (ou <b>Importar XML da nota</b>, ver 7d): tecido, cor, unidade (metros ou quilos), quantos rolos e quanto tem cada um, data, fornecedor, nota e o valor pago (total da compra; o sistema divide entre os rolos). Cada rolo ganha um código (R-2026-001…). Clique no rolo para ver o histórico do saldo e, se precisar, <b>Ajustar o saldo</b> com o motivo.</li>
     <li><b>Fichas → + Nova ficha</b>: procure a peça, clique nas cores e tamanhos e informe as quantidades (pode pôr várias peças na mesma ficha). A metragem vem do cadastro e pode ser trocada só nesta ficha. Informe o prazo, a loja que vai receber e o molde e as instruções para o cortador. O total de linho aparece embaixo. <b>Imprimir ficha</b> gera a folha para o cortador.</li>
     <li><b>Enviar para corte</b>: escolha o cortador, o prazo e de que rolo sai o linho — o sistema já preenche a metragem no rolo mais antigo e passa para o seguinte se o primeiro não tiver saldo. O linho sai do rolo nesse momento. <b>WhatsApp</b> manda ao parceiro a lista das peças.</li>
     <li>Quando as peças voltarem, <b>Receber e conferir</b>: informe quantas vieram boas e quantas perdidas ou com defeito (com o motivo). Pode receber só uma parte; o resto continua com o parceiro. No corte, informe a sobra de linho que voltou: ela entra de novo no rolo.</li>
@@ -186,6 +187,15 @@
     <li><b>Encerrar ficha</b> (com motivo): sem nada enviado, cancela; depois de enviada, encerra o que não vai mais ser feito. Antes, receba as remessas que estão com parceiros.</li>
     <li><b>Painel</b>: linho em estoque, peças com cada parceiro (com prazo; atrasadas em vermelho), prontas para o estoque e linho por tecido e cor. Com Valores: <b>A pagar aos parceiros</b> no mês (peças recebidas boas × preço por peça) e o <b>custo por peça</b> na ficha (linho pelo preço por metro do rolo + o preço de cada etapa).</li>
     <li>Tudo fica no registro de auditoria: compras e ajustes de rolo, parceiros, metragem, fichas, envios, conferências e entradas no estoque.</li>
+  </ol>
+
+  <h2 id="xml">7d. Compra de tecido pelo XML da nota</h2>
+  <ol>
+    <li>Peça ao fornecedor o <b>XML da NF-e</b> (ele vem junto com o DANFE por e-mail; o PDF não serve).</li>
+    <li>Em <b>Produção → Rolos de tecido</b>, clique em <b>Importar XML da nota</b> e escolha o arquivo.</li>
+    <li>Aparecem o fornecedor, o número, a data e cada item da nota com a quantidade, a unidade e o valor (o valor do item já soma frete, seguro, IPI e tira o desconto). Itens que não são tecido (unidade "UN", por exemplo) vêm desmarcados.</li>
+    <li>Confira o nome do tecido, escreva a <b>cor</b> e informe <b>quantos rolos</b> vieram em cada item: a quantidade (e o valor) é dividida igualmente entre eles. Se um rolo veio com metragem diferente, ajuste depois o saldo dele.</li>
+    <li>Clique em <b>Importar rolos</b>. Cada rolo ganha o seu código. Se importar a mesma nota de novo, os itens já importados aparecem travados.</li>
   </ol>
 
   <h2 id="registro">Registro de auditoria</h2>
@@ -209,7 +219,9 @@
     <tr><td>Este CPF já é do cliente …</td><td>O cliente já está cadastrado: escolha-o na busca.</td></tr>
     <tr><td>Escolha o resultado do contato · Escreva o que foi conversado</td><td>No Registrar contato, escolha o resultado e escreva pelo menos uma frase.</td></tr>
     <tr><td>Seu login não tem a permissão Produção</td><td>Peça à Nervia para marcar a permissão Produção na aba Equipe.</td></tr>
-    <tr><td>Falta a metragem por peça de …</td><td>Informe os metros em Produção → Metragem por peça (ou na própria ficha).</td></tr>
+    <tr><td>Falta o tecido por peça de …</td><td>Informe em Produção → Tecido por peça (ou na própria ficha).</td></tr>
+    <tr><td>Rolo de outra unidade · Faltou escolher rolo de tecido por …</td><td>No corte, use rolos da mesma unidade da peça (metros ou quilos).</td></tr>
+    <tr><td>O item … da nota … já foi registrado</td><td>Esse item da nota já virou rolo: não precisa importar de novo.</td></tr>
     <tr><td>O rolo … não tem metragem suficiente</td><td>Use outro rolo para o restante ou ajuste o saldo do rolo se ele foi medido.</td></tr>
     <tr><td>Só há N peça(s) … disponíveis para …</td><td>A etapa anterior ainda não devolveu essas peças: receba a remessa antes.</td></tr>
     <tr><td>Escreva o motivo das peças perdidas ou com defeito</td><td>Na conferência, escreva o motivo na linha da peça perdida.</td></tr>
