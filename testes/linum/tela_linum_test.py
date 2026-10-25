@@ -545,6 +545,7 @@ try:
         pg, erros = entrar(b, "dono"); abrir(pg)
         pg.click("#abaProducao"); pg.wait_for_selector("#pdabas")
         ok("com valores" in pg.text_content(".cabtela"), "Dono vê a produção com valores")
+        ok(pg.get_attribute("#pdmapa", "href") == "ajuda/mapa-producao.html", "botão Mapa da produção na aba")
         pg.click('[data-pa="parceiros"]'); pg.wait_for_selector("#pdnovop")
         for nome, tipo, preco in (("Carlos Cortador", "cortador", "8,00"), ("Maria Costureira", "costureira", "25,00"), ("Lavanderia Azul", "lavanderia", "5,00"), ("Passadeira Rosa", "passadoria", "3,00")):
             pg.click("#pdnovop"); pg.wait_for_selector("#dlg2[open] #ppok")
@@ -651,7 +652,7 @@ try:
         ok(fr.evaluate("document.documentElement.classList.contains('embutido')") and not fr.is_visible(".topo"), "dentro da Área do Cliente esconde o próprio topo")
         pg, erros = entrar(b, "outro"); abrir(pg)
         ok("não tem acesso" in pg.text_content("#aviso") and not pg.is_visible("#app"), "login sem o app não vê o estoque")
-        for pagina in ("cartao", "manual", "mapa"):
+        for pagina in ("cartao", "manual", "mapa", "mapa-producao"):
             abrir_ajuda = pg.goto(f"http://127.0.0.1:{PORTA_SITE}/apps/linum/ajuda/{pagina}.html")
             ok(abrir_ajuda.ok and "Sistema Linum" in pg.title() and pg.locator('script[src="/marca-dagua.js"][data-tipo="doc"]').count() == 1, f"ajuda: {pagina} com marca d'água")
         pg.goto(f"http://127.0.0.1:{PORTA_SITE}/ajuda/novidades.html?app=linum&nome=Sistema%20Linum"); pg.wait_for_timeout(400)

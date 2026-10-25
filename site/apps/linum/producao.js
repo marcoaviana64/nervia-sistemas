@@ -36,7 +36,7 @@ async function telaProducao() {
   $("tela").innerHTML = '<div class="card">Carregando…</div>';
   try { await carregarProducao(); } catch (e) { $("tela").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; return; }
   const abas = [["painel", "Painel"], ["fichas", "Fichas"], ["rolos", "Rolos de tecido"], ["parceiros", "Parceiros"], ["metragem", "Metragem por peça"]];
-  $("tela").innerHTML = `<div class="cabtela"><h2>Produção</h2><span class="mut">${valores() ? "com valores" : "sem valores (peça a permissão à Nervia)"}</span></div>
+  $("tela").innerHTML = `<div class="cabtela"><h2>Produção</h2><span style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="mut">${valores() ? "com valores" : "sem valores (peça a permissão à Nervia)"}</span><a class="bt" id="pdmapa" href="ajuda/mapa-producao.html" target="_blank" rel="noopener">Mapa da produção</a></span></div>
     <div class="filtros" id="pdabas">${abas.map(([k, t]) => `<button type="button" class="pilula ${FPR.aba === k ? "on" : ""}" data-pa="${k}">${t}</button>`).join("")}</div>
     <div id="pdtela"></div>`;
   document.querySelectorAll("[data-pa]").forEach(b => b.onclick = () => { FPR.aba = b.dataset.pa; telaProducao(); });
