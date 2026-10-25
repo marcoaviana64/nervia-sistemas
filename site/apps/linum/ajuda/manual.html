@@ -28,6 +28,7 @@
     <li><a href="#visita">6b. Registrar uma visita sem contato</a></li>
     <li><a href="#clientes">7. Clientes e acompanhamento</a></li>
     <li><a href="#comissoes">7a. Comissões do mês (Dono)</a></li>
+    <li><a href="#ranking">7b. Ranking das vendedoras</a></li>
     <li><a href="#problemas">8. Mensagens e o que fazer</a></li>
   </ul>
 
@@ -155,6 +156,21 @@
   </ol>
   <p>A comissão de cada venda é o % que a pessoa tinha no dia da venda (aba Equipe) sobre o valor pago; mudar o % depois não muda as vendas antigas. Venda cancelada não entra; troca não muda a comissão.</p>
 
+  <h2 id="ranking">7b. Ranking das vendedoras</h2>
+  <p>Incentivo da equipe: a melhor vendedora do mês e do ano. Participa quem tem papel no app e não é Dono.</p>
+  <ol>
+    <li>Aba <b>Ranking</b>: vem o mês atual. <b>Ano</b> mostra o ano; <b>‹ ›</b> trocam o período.</li>
+    <li>A <b>nota final</b> (1 a 5) é a média de quatro critérios, com o mesmo peso:
+      <ul><li><b>Vendas</b>: valor vendido no período, sem canceladas. Quem mais vendeu tira 5; as outras, na proporção (metade do valor = 3).</li>
+        <li><b>Cliente na venda</b>: quanto das vendas teve a cliente identificada na boleta (100% = 5, nenhuma = 1).</li>
+        <li><b>Acompanhamento</b>: contatos registrados na ficha das clientes, visitas sem contato e clientes cadastradas. Quem mais registrou tira 5; as outras, na proporção. Os registros automáticos das vendas não contam aqui.</li>
+        <li><b>Nota da Dona</b>: de 1 a 5, dada pelo Dono uma vez por mês (atendimento, postura, cuidado com a loja, equipe). No ano, vale a média dos meses.</li></ul></li>
+    <li>Critério sem dados no período (ex.: ainda sem nota da Dona) não entra na média; a tabela mostra "3 de 4 critérios".</li>
+    <li>O <b>Dono</b> dá a nota no ranking do <b>mês</b>: <b>Dar nota</b> (ou <b>Trocar nota</b>) na linha da vendedora, escolhe de 1 a 5 e escreve um comentário, se quiser. A nota pode ser trocada; tudo fica no registro de auditoria.</li>
+    <li>No mês e no ano atuais o destaque diz <b>Liderando até agora</b>; nos períodos fechados, <b>Vendedora do mês</b> / <b>Vendedora do ano</b>.</li>
+    <li>Todas veem a classificação e as notas de todas. Valores em reais, número de vendas e o comentário da Dona: o Dono vê de todas; cada vendedora vê só os seus.</li>
+  </ol>
+
   <h2 id="registro">Registro de auditoria</h2>
   <p>Toda entrada, saída, transferência e ajuste de estoque, todo cadastro ou alteração de peça, cor, tamanho e peça especial, desativação, exclusão e troca de papel fica gravado no registro de auditoria da Nervia: o que foi feito, em qual peça e loja, por quem, com qual papel, data e hora. Ninguém altera nem apaga. Quando quem fez é o Estoque, o registro não guarda custo.</p>
 
@@ -175,6 +191,7 @@
     <tr><td>Você só registra as próprias vendas</td><td>Venda de outra pessoa: o Dono lança, escolhendo quem vendeu.</td></tr>
     <tr><td>Este CPF já é do cliente …</td><td>O cliente já está cadastrado: escolha-o na busca.</td></tr>
     <tr><td>Escolha o resultado do contato · Escreva o que foi conversado</td><td>No Registrar contato, escolha o resultado e escreva pelo menos uma frase.</td></tr>
+    <tr><td>A nota vai de 1 a 5</td><td>Ao dar a nota da Dona, clique numa das estrelas antes de salvar.</td></tr>
     <tr><td>Escolha por que não levou (pode marcar mais de um)</td><td>Na visita sem contato, marque pelo menos um motivo.</td></tr>
     <tr><td>Escreva qual foi o outro motivo</td><td>Com Outro marcado, escreva o motivo no campo embaixo dos botões (ou desmarque Outro).</td></tr>
     <tr><td>O próximo contato precisa ser hoje ou depois</td><td>Escolha uma data a partir de hoje, ou Sem próximo.</td></tr>

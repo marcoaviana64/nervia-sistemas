@@ -1581,5 +1581,38 @@ select pg_temp.erro2($$select lin_visita_registrar(jsonb_build_object('loja_id',
 reset role;
 select pg_temp.erro2($$delete from lin_visitas$$, 'não pode ser alterada', 'linum visita: somente inclusão');
 select pg_temp.ok((select count(*) = 1 from auditoria where acao = 'linum_visita_registrada' and detalhes->'motivos' ? 'tamanho' and detalhes->>'motivo_outro' <> ''), 'linum visita: na auditoria');
+-- ranking das vendedoras
+set role authenticated;
+create temp table if not exists lin_mes as select date_trunc('month', now() at time zone 'America/Sao_Paulo')::date as de;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora não dá nota
+select pg_temp.erro2($$select lin_nota_vendedora_salvar('00000000-0000-0000-0000-00000000000c', (select de from lin_mes), 5, '')$$, 'Só o Dono', 'linum ranking: vendedora não dá nota');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';   -- Dono
+select pg_temp.erro2($$select lin_nota_vendedora_salvar('00000000-0000-0000-0000-00000000000c', (select de from lin_mes), 6, '')$$, 'de 1 a 5', 'linum ranking: nota de 1 a 5');
+select pg_temp.erro2($$select lin_nota_vendedora_salvar('00000000-0000-0000-0000-00000000000b', (select de from lin_mes), 4, '')$$, 'não o Dono', 'linum ranking: Dono não recebe nota');
+select pg_temp.erro2($$select lin_nota_vendedora_salvar('00000000-0000-0000-0000-00000000000c', ((select de from lin_mes) + interval '2 months')::date, 4, '')$$, 'ainda não começou', 'linum ranking: mês futuro recusado');
+select lin_nota_vendedora_salvar('00000000-0000-0000-0000-00000000000c', (select de from lin_mes) + 10, 3, 'primeira');
+select lin_nota_vendedora_salvar('00000000-0000-0000-0000-00000000000c', (select de from lin_mes), 5, 'Atendimento excelente');
+select pg_temp.ok((select count(*) = 1 and max(nota) = 5 from lin_notas_vendedora where user_id = '00000000-0000-0000-0000-00000000000c'),
+  'linum ranking: uma nota por mês (a segunda troca a primeira)');
+create temp table lin_rk as select lin_ranking((select de from lin_mes), ((select de from lin_mes) + interval '1 month - 1 day')::date) as r;
+select pg_temp.ok((select (r->>'dono')::boolean and jsonb_array_length(r->'participantes') = 2 from lin_rk)
+  and (select (p->>'posicao')::int >= 1 and (p->>'dona')::numeric = 5 and (p->>'valor') is not null and (p->>'final')::numeric between 1 and 5
+         from lin_rk, jsonb_array_elements(r->'participantes') p where p->>'user_id' = '00000000-0000-0000-0000-00000000000c'),
+  'linum ranking: Dono vê todas, com nota da Dona, valor e nota final de 1 a 5');
+select pg_temp.ok((select bool_and((p->>'vendas')::numeric between 1 and 5) and max((p->>'vendas')::numeric) = 5
+   from lin_rk, jsonb_array_elements(r->'participantes') p where p->>'vendas' is not null),
+  'linum ranking: quem mais vendeu tira 5 em vendas');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.ok((select (p->>'valor') is not null and p->>'comentario' = 'Atendimento excelente' from jsonb_array_elements(lin_ranking((select de from lin_mes), ((select de from lin_mes) + interval '1 month - 1 day')::date)->'participantes') p where (p->>'eu')::boolean)
+  and (select bool_and(p->>'valor' is null and p->>'comentario' is null and p->>'final' is not null) from jsonb_array_elements(lin_ranking((select de from lin_mes), ((select de from lin_mes) + interval '1 month - 1 day')::date)->'participantes') p where not (p->>'eu')::boolean),
+  'linum ranking: vendedora vê a posição e as notas de todas, mas valores e comentário só os dela');
+select pg_temp.ok((select count(*) = 0 from lin_notas_vendedora where user_id <> '00000000-0000-0000-0000-00000000000c'), 'linum ranking: vendedora só lê a própria nota');
+select pg_temp.ok((select jsonb_array_length(lin_ranking(date_trunc('year', (select de from lin_mes))::date, (date_trunc('year', (select de from lin_mes)) + interval '1 year - 1 day')::date)->'participantes') = 2),
+  'linum ranking: ranking do ano');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
+select pg_temp.erro2($$select lin_ranking(current_date, current_date)$$, 'não tem acesso', 'linum ranking: login fora da Linum não vê o ranking');
+reset role;
+select pg_temp.ok((select count(*) = 1 from auditoria where acao = 'linum_nota_vendedora_dada') and (select count(*) = 1 from auditoria where acao = 'linum_nota_vendedora_alterada' and (detalhes->>'antes')::int = 3),
+  'linum ranking: nota dada e alterada na auditoria (com o antes)');
 reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'
