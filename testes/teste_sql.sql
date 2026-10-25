@@ -1538,5 +1538,28 @@ reset role;
 select pg_temp.erro2($$delete from lin_contatos where id = (select v from lin_vd where k = 'ct1')::bigint$$, 'não pode ser alterado nem apagado', 'linum crm: histórico é somente inclusão (nem o dono do banco apaga)');
 select pg_temp.ok((select count(*) = 1 from auditoria where acao = 'linum_contato_registrado' and detalhes->>'resultado' = 'vai_a_loja' and not (detalhes ? 'texto')),
   'linum crm: contato na auditoria (sem o texto da conversa)');
+-- visita sem contato
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora
+select pg_temp.erro2($$select lin_visita_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'ipa'), 'motivos', jsonb_build_array()))$$, 'por que não levou', 'linum visita: motivo obrigatório');
+select pg_temp.erro2($$select lin_visita_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'ipa'), 'motivos', jsonb_build_array('sei_la')))$$, 'por que não levou', 'linum visita: motivo desconhecido recusado');
+select pg_temp.erro2($$select lin_visita_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'ipa'), 'motivos', jsonb_build_array('preco', 'outro')))$$, 'outro motivo', 'linum visita: Outro exige o motivo escrito');
+select pg_temp.erro2($$select lin_visita_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'ipa'), 'motivos', jsonb_build_array('preco'), 'pessoas', 30))$$, 'de 1 a 20', 'linum visita: pessoas de 1 a 20');
+select pg_temp.erro2($$select lin_visita_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'ipa'), 'motivos', jsonb_build_array('preco'), 'pecas', jsonb_build_array('20000000-0000-0000-0000-0000000000ff')))$$, 'não encontrada', 'linum visita: peça inexistente recusada');
+insert into lin_vd values ('vis1', lin_visita_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'ipa'), 'motivos', jsonb_build_array('tamanho', 'outro', 'tamanho'), 'motivo_outro', 'Procurava linho mais grosso', 'faltou', 'M', 'pessoas', 2,
+  'pecas', jsonb_build_array('20000000-0000-0000-0000-000000000003', '20000000-0000-0000-0000-000000000003')))::text);
+select pg_temp.ok((select pessoas = 2 and faltou = 'M' and motivos = array['outro', 'tamanho'] and motivo_outro = 'Procurava linho mais grosso' and jsonb_array_length(pecas) = 1 and pecas->0->>'tamanho' is not null and por_nome <> ''
+  and data = (now() at time zone 'America/Sao_Paulo')::date from lin_visitas where id = (select v from lin_vd where k = 'vis1')::bigint),
+  'linum visita: vários motivos (sem repetir), Outro escrito, cópia da peça e data de Brasília');
+select pg_temp.erro2($$insert into lin_visitas (loja_id, motivos) values ((select v from lin_ids where k = 'ipa'), array['preco'])$$, 'permission', 'linum visita: só pela função');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';   -- Estoque: não vê a visita da vendedora
+select pg_temp.ok((select count(*) = 0 from lin_visitas), 'linum visita: cada um vê só as próprias visitas');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';   -- Dono vê todas
+select pg_temp.ok((select count(*) = 1 from lin_visitas), 'linum visita: o Dono vê todas');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
+select pg_temp.erro2($$select lin_visita_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'ipa'), 'motivos', jsonb_build_array('preco')))$$, 'não tem acesso', 'linum visita: login fora da Linum não registra');
+reset role;
+select pg_temp.erro2($$delete from lin_visitas$$, 'não pode ser alterada', 'linum visita: somente inclusão');
+select pg_temp.ok((select count(*) = 1 from auditoria where acao = 'linum_visita_registrada' and detalhes->'motivos' ? 'tamanho' and detalhes->>'motivo_outro' <> ''), 'linum visita: na auditoria');
 reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'

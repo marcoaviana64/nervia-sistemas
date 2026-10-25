@@ -536,7 +536,7 @@ function periodoPadrao() {
 async function telaVendas() {
   periodoPadrao();
   $("tela").innerHTML = '<div class="card">Carregando…</div>';
-  try { await Promise.all([carregarVendas(), carregarTrocas(), carregarClientes(), carregarVendedoras()]); }
+  try { await Promise.all([carregarVendas(), carregarTrocas(), carregarVisitas(), carregarClientes(), carregarVendedoras()]); }
   catch (e) { $("tela").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; return; }
   const ok = VENDAS.filter(v => !v.cancelada_em);
   const pecas = ITENS.filter(i => ok.some(v => v.id === i.venda_id)).reduce((s, i) => s + i.quantidade, 0);
@@ -544,7 +544,7 @@ async function telaVendas() {
   const grupo = (chave, nome) => { const m = {}; ok.forEach(v => { const k = chave(v); m[k] = m[k] || { nome: nome(v), n: 0, t: 0, c: 0 }; m[k].n++; m[k].t += Number(v.valor_total); m[k].c += Number(v.comissao_valor || 0); });
     return Object.values(m).sort((a, b) => b.t - a.t); };
   $("tela").innerHTML = `
-    <div class="cabtela"><h2>Vendas</h2><span style="display:flex;gap:8px"><button class="bt" id="vtroca">+ Troca</button><button class="bt pri" id="vnova">+ Nova venda</button></span></div>
+    <div class="cabtela"><h2>Vendas</h2><span style="display:flex;gap:8px;flex-wrap:wrap"><button class="bt" id="vvisita">+ Visita sem contato</button><button class="bt" id="vtroca">+ Troca</button><button class="bt pri" id="vnova">+ Nova venda</button></span></div>
     <div class="filtros">
       <label class="chk">De <input type="date" id="fvde" value="${esc(FV.de)}" style="width:auto"></label>
       <label class="chk">Até <input type="date" id="fvate" value="${esc(FV.ate)}" style="width:auto"></label>
@@ -556,6 +556,7 @@ async function telaVendas() {
       <div class="kpi"><small>Peças</small><b>${n(pecas)}</b></div>
       <div class="kpi"><small>Total vendido</small><b>${brl(total)}</b></div>
       <div class="kpi"><small>Trocas</small><b>${n(TROCAS.filter(t => !t.cancelada_em).length)}</b><span>${TROCAS.some(t => !t.cancelada_em && Number(t.diferenca)) ? "diferença " + brl(TROCAS.filter(t => !t.cancelada_em).reduce((s, t) => s + Number(t.diferenca), 0)) : "no período"}</span></div>
+      <div class="kpi"><small>Visitas sem compra</small><b>${n(VISITAS.reduce((s, v) => s + v.pessoas, 0))}</b><span>${VISITAS.length ? "conversão " + n(Math.round(100 * ok.length / (ok.length + VISITAS.reduce((s, v) => s + v.pessoas, 0)))) + "%" : "nenhuma registrada"}</span></div>
       <div class="kpi"><small>Ticket médio</small><b>${brl(ok.length ? total / ok.length : 0)}</b></div>
       <div class="kpi"><small>${dono() ? "Comissões" : "Sua comissão"}</small><b>${brl(ok.reduce((s, v) => s + Number(v.comissao_valor || 0), 0))}</b><span>${dono() ? "das vendas do período" : MINHA_COMISSAO ? decBR(MINHA_COMISSAO) + "% sobre o valor pago" : "sem comissão"}</span></div>
     </div>
@@ -570,8 +571,9 @@ async function telaVendas() {
           <td>${esc(pagTxt(v))}</td><td class="num">${v.cancelada_em ? '<span class="tag">cancelada</span> ' : ""}${brl(v.valor_total)}</td></tr>`; }).join("")
       : '<tr><td colspan="8" class="mut">Nenhuma venda no período.</td></tr>'}
     </tbody></table></div></div>
-    ${htmlTrocas()}`;
+    ${htmlTrocas()}${htmlVisitas()}`;
   $("vnova").onclick = () => novaVenda();
+  $("vvisita").onclick = () => novaVisita();
   $("vtroca").onclick = () => novaTroca();
   document.querySelectorAll(".trow").forEach(r => r.onclick = () => verTroca(Number(r.dataset.t)));
   $("fvde").onchange = e => { FV.de = e.target.value || FV.de; telaVendas(); };
@@ -610,6 +612,77 @@ function verVenda(id) {
     if (motivo === null) return;
     try { checar(await sb.rpc("lin_venda_cancelar", { p_venda: v.id, p_motivo: motivo })); $("dlg").close(); await carregar(); await telaVendas(); msg("ok", `Venda nº ${v.id} cancelada; as peças voltaram para o estoque.`); }
     catch (e) { $("verr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+  };
+  $("dlg").showModal();
+}
+
+// ---------------------------------------------------------------- visita sem contato (entrou, olhou, não levou e não deixou contato)
+const MOTIVOS = { tamanho: "Faltou tamanho", cor: "Faltou cor", preco: "Preço", so_olhando: "Só olhando", vai_voltar: "Vai voltar", outro: "Outro" };
+let VISITAS = [];
+async function carregarVisitas() {
+  const q = () => { let x = sb.from("lin_visitas").select("*").gte("data", FV.de).lte("data", FV.ate).order("em", { ascending: false });
+    if (FV.loja) x = x.eq("loja_id", FV.loja); if (FV.vend) x = x.eq("por", FV.vend); return x; };
+  VISITAS = await todas(q);
+}
+const pecaTxt = x => [x.referencia, x.cor, x.tamanho, x.edicao].filter(Boolean).join(" ");
+function htmlVisitas() {
+  if (!VISITAS.length) return "";
+  const conta = lista => { const m = {}; lista.forEach(k => { if (k) m[k] = (m[k] || 0) + 1; }); return Object.entries(m).sort((a, b) => b[1] - a[1]); };
+  const mot = conta(VISITAS.flatMap(v => v.motivos.flatMap(m => Array(v.pessoas).fill(m === "outro" && v.motivo_outro ? "outro:" + v.motivo_outro : m))));
+  const pecas = conta(VISITAS.flatMap(v => v.pecas.map(pecaTxt))).slice(0, 8);
+  const falt = conta(VISITAS.map(v => v.faltou.trim().toUpperCase())).slice(0, 8);
+  const bloco = (t, l, f) => `<div class="card"><h2>${t}</h2>${l.length ? l.map(([k, q]) => `<div class="vlin"><span>${esc(f(k))}</span><b>${n(q)}</b></div>`).join("") : '<div class="mut">—</div>'}</div>`;
+  return `<div class="card" id="visitas"><h2>Visitas sem compra do período</h2>
+    <div class="grade3" style="margin-bottom:10px">${bloco("Por que não levou", mot, k => k.startsWith("outro:") ? "Outro: " + k.slice(6) : MOTIVOS[k])}${bloco("Peças olhadas sem venda", pecas, k => k)}${bloco("O que faltou", falt, k => k)}</div>
+    <div class="tw"><table><thead><tr><th>Quando</th><th>Loja</th><th>Quem registrou</th><th class="num">Pessoas</th><th>Por que não levou</th><th>Peças</th><th>Observação</th></tr></thead><tbody>
+    ${VISITAS.map(v => `<tr class="visrow"><td>${quando(v.em)}</td><td>${esc(loja(v.loja_id).nome)}</td><td>${esc(v.por_nome)}</td><td class="num">${n(v.pessoas)}</td>
+      <td>${esc(v.motivos.map(m => m === "outro" && v.motivo_outro ? "Outro: " + v.motivo_outro : MOTIVOS[m]).join(", "))}${v.faltou ? ` <span class="mut">(faltou ${esc(v.faltou)})</span>` : ""}</td><td>${esc(v.pecas.map(pecaTxt).join(", ")) || "—"}</td><td>${esc(v.observacao) || "—"}</td></tr>`).join("")}
+    </tbody></table></div></div>`;
+}
+function novaVisita() {
+  const f = $("dlgf"), V = { loja: MINHA_LOJA || (LOJAS[0] || {}).id, motivos: [], pecas: [] };
+  $("dlg").classList.add("largo");
+  f.innerHTML = `<h3>Visita sem contato</h3>
+    <div class="mut">Alguém entrou, olhou e saiu sem comprar e sem deixar contato. Não anote nome nem dados da pessoa: só o que ela procurou.</div>
+    <div class="campo grade2"><div><label for="visloja">Loja</label><select id="visloja">${LOJAS.map(l => `<option value="${l.id}" ${l.id === V.loja ? "selected" : ""}>${esc(l.nome)}</option>`).join("")}</select></div>
+      <div><label for="vispes">Quantas pessoas</label><input id="vispes" type="number" min="1" max="20" value="1"></div></div>
+    <div class="campo"><label>Por que não levou <span class="mut">(pode marcar mais de um)</span></label><div class="filtros" style="margin:0" id="vismot">${Object.entries(MOTIVOS).map(([k, t]) => `<button type="button" class="pilula" data-mot="${k}" aria-pressed="false">${t}</button>`).join("")}</div>
+      <input id="visoutro" class="oculto" maxlength="200" placeholder="Qual foi o outro motivo? Ex.: procurava linho mais grosso" style="margin-top:6px"></div>
+    <div class="campo"><label for="visfalt">O que faltou (tamanho, cor)</label><input id="visfalt" maxlength="100" placeholder="Ex.: M, azul marinho"></div>
+    <div class="campo"><label for="vispq">Peças que olhou ou provou (opcional)</label><input id="vispq" type="search" placeholder="Referência, nome ou código de barras" autocomplete="off"><div id="visres"></div><div id="vispecas"></div></div>
+    <div class="campo"><label for="visobs">Observação</label><input id="visobs" maxlength="500" placeholder="Ex.: procurava roupa para casamento em dezembro"></div>
+    <div id="viserr"></div>
+    <div class="acoes"><button type="button" class="bt" id="visx">Cancelar</button><button type="button" class="bt pri" id="visok">Registrar visita</button></div>`;
+  f.querySelectorAll("[data-mot]").forEach(b => b.onclick = () => {
+    const k = b.dataset.mot, on = !V.motivos.includes(k);
+    V.motivos = on ? V.motivos.concat(k) : V.motivos.filter(x => x !== k);
+    b.classList.toggle("on", on); b.setAttribute("aria-pressed", on);
+    if (k === "outro") { $("visoutro").classList.toggle("oculto", !on); if (on) $("visoutro").focus(); }
+  });
+  const achar = vid => { for (const p of PRODUTOS) { const v = p.variantes.find(x => x.id === vid); if (v) return [p, v]; } return [null, null]; };
+  const desenharPecas = () => {
+    $("vispecas").innerHTML = V.pecas.map((vid, i) => { const [p, v] = achar(vid);
+      return `<div class="vlin"><span><b>${esc(p.referencia)}</b> ${esc(p.descricao)} — ${esc(nomeVar(v))}</span><button type="button" class="lnk perigo" data-vrm="${i}">×</button></div>`; }).join("");
+    $("vispecas").querySelectorAll("[data-vrm]").forEach(b => b.onclick = () => { V.pecas.splice(Number(b.dataset.vrm), 1); desenharPecas(); });
+  };
+  $("vispq").oninput = () => {
+    const t = $("vispq").value.trim().toLowerCase(), r = [];
+    if (t.length >= 2) for (const p of PRODUTOS) {
+      const casaP = p.referencia.toLowerCase().includes(t) || p.descricao.toLowerCase().includes(t);
+      for (const v of p.variantes) if ((casaP || (v.codigo_barras || "") === t) && !V.pecas.includes(v.id)) r.push([p, v]);
+      if (r.length > 30) break;
+    }
+    $("visres").innerHTML = r.slice(0, 30).map(([p, v], i) => `<div class="vlin"><span><b>${esc(p.referencia)}</b> ${esc(p.descricao)} — ${esc(nomeVar(v))}</span><button type="button" class="lnk" data-vadd="${i}">Adicionar</button></div>`).join("")
+      || (t.length >= 2 ? `<div class="mut">Nenhuma peça para “${esc(t)}”.</div>` : "");
+    $("visres").querySelectorAll("[data-vadd]").forEach(b => b.onclick = () => { V.pecas.push(r[b.dataset.vadd][1].id); $("vispq").value = ""; $("visres").innerHTML = ""; desenharPecas(); });
+  };
+  $("visx").onclick = () => $("dlg").close();
+  $("visok").onclick = async () => {
+    $("visok").disabled = true;
+    try {
+      checar(await sb.rpc("lin_visita_registrar", { p: { loja_id: $("visloja").value, pessoas: $("vispes").value, motivos: V.motivos, motivo_outro: V.motivos.includes("outro") ? $("visoutro").value : "", faltou: $("visfalt").value, pecas: V.pecas, observacao: $("visobs").value } }));
+      $("dlg").close(); await telaVendas(); msg("ok", "Visita registrada.");
+    } catch (e) { $("viserr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; $("visok").disabled = false; }
   };
   $("dlg").showModal();
 }

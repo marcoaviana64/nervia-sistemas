@@ -65,6 +65,7 @@ Ao publicar mudança num app: linha nova no topo do app aqui (com a data) e em `
 
 | Versão | Data | O que mudou |
 |---|---|---|
+| 1.9 | 25/10/2026 | Visita sem contato: quando alguém entra, olha e sai sem comprar e sem deixar contato, a vendedora registra por que não levou (pode marcar mais de um motivo; em "Outro", escreve qual), o que faltou (tamanho, cor) e as peças que olhou, sem dados da pessoa. O período mostra a conversão, os motivos e as peças mais olhadas sem venda. |
 | 1.8 | 25/10/2026 | CRM de clientes: cada cliente ou possível cliente (quem ainda não comprou) tem uma ficha com o histórico de contatos (WhatsApp, ligação, Instagram, na loja), o resultado de cada um e a data do próximo contato. A aba Clientes mostra quem está para contatar hoje ou atrasado, quem cada pessoa acompanha, como a cliente conheceu a Linum e os interesses dela. Quem compra vira cliente sozinho. |
 | 1.7 | 22/10/2026 | Relatório de comissões por mês (só o Dono): quanto cada pessoa vendeu e recebe de comissão no mês, com as vendas de cada uma, filtro por loja, os últimos 12 meses lado a lado, CSV e impressão. As vendedoras ainda não veem este relatório. |
 | 1.6 | 22/10/2026 | Cliente na venda: nome e telefone podem ser digitados juntos no mesmo campo (a busca e o cadastro novo separam sozinhos), e acento ou maiúscula não atrapalham a busca. Ao cadastrar cliente com o mesmo nome ou telefone de alguém já cadastrado, o sistema pergunta se é a mesma pessoa, para não duplicar. |
