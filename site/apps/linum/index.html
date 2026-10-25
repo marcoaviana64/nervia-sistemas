@@ -34,7 +34,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-ap
 .barra .aba{border:0;background:none;padding:8px 12px;border-radius:8px;cursor:pointer;font:inherit;color:var(--ink-soft)}
 .barra .aba.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
 .barra .dir{margin-left:auto;font-size:12px;color:var(--ink-soft);padding-right:4px}
-select,input{font:inherit;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink);width:100%}
+select,input,textarea{font:inherit;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink);width:100%}
 label{display:block;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);margin-bottom:3px}
 .bt{font:inherit;font-size:13px;font-weight:600;padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--ink);cursor:pointer;white-space:nowrap}
 .bt:hover{border-color:var(--ink-soft)}.bt.pri{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -83,6 +83,7 @@ dialog h3{margin:0 0 4px;font-size:17px}
 .hist ul{margin:0;padding-left:18px}
 .cabtela{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-bottom:8px}
 .cabtela h2{margin:0;font-size:18px}
+.tag.possivel{background:var(--info-bg);color:var(--info)}
 .tag{display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;font-weight:600;background:var(--surface-2);color:var(--ink-soft);margin-left:6px;vertical-align:middle}
 .vtag{display:inline-block;font-size:12px;padding:2px 8px;border:1px solid var(--border);border-radius:7px;margin:2px 4px 2px 0}
 .vtag.off{opacity:.5;text-decoration:line-through}
@@ -170,6 +171,7 @@ const nomeVar = v => [v.cor || "—", v.tamanho, v.edicao].filter(Boolean).join(
 async function iniciar() {
   const { data: { session } } = await sb.auth.getSession();
   if (!session) { $("aviso").innerHTML = 'Entre na <a href="/cliente/" target="_top">Área do Cliente</a> para ver o estoque.'; return; }
+  EU = session.user.id;
   try {
     const p = checar(await sb.from("perfis").select("admin").eq("user_id", session.user.id).maybeSingle());
     ADMIN = !!(p && p.admin);
@@ -492,9 +494,9 @@ function editarProduto(pid) {
 // ---------------------------------------------------------------- vendas e clientes (Dono e Vendedora; boleta de venda)
 const FORMAS = { credito: "Cartão de crédito", debito: "Débito", pix: "Pix", dinheiro: "Dinheiro", cheque: "Cheque", outro: "Outro" };
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
-let VENDAS = [], ITENS = [], CLIENTES = [], VENDEDORAS = [];
+let VENDAS = [], ITENS = [], CLIENTES = [], VENDEDORAS = [], EU = "";   // EU = login de quem está usando
 const FV = { de: "", ate: "", loja: "", vend: "" };
-const FC = { q: "", niver: false };
+const FC = { q: "", niver: false, sit: "", agenda: false, meus: false };
 const soDig = t => String(t || "").replace(/\D/g, "");
 // clientes: nome sem acento/maiúsculas; nome e telefone digitados juntos ("Maria 21 99999-0000") são separados
 const semAc = t => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
@@ -963,10 +965,27 @@ async function novaTroca() {
   $("dlg").showModal();
 }
 
-// ---------------------------------------------------------------- clientes
-function editarCliente(c, depois) {
-  const f = $("dlg2f"), C = Object.assign({ nome: "", telefone: "", cpf: "", email: "", endereco: "", aniversario_dia: "", aniversario_mes: "", observacoes: "" }, c || {});
+// ---------------------------------------------------------------- clientes e acompanhamento (CRM)
+const CANAIS = { whatsapp: "WhatsApp", ligacao: "Ligação", instagram: "Instagram", loja: "Na loja", email: "E-mail", outro: "Outro" };
+const RESULTADOS = { sem_resposta: "Não respondeu", conversou: "Conversou", vai_a_loja: "Vai à loja", veio_a_loja: "Veio à loja", comprou: "Comprou", sem_interesse: "Sem interesse agora", outro: "Outro" };
+const ORIGENS = ["Instagram", "Indicação", "Passou na loja", "WhatsApp", "Evento", "Site", "Outro"];
+const somaDias = (d, k) => { const x = new Date(d + "T12:00:00Z"); x.setUTCDate(x.getUTCDate() + k); return x.toISOString().slice(0, 10); };
+const quando = v => v ? new Date(v).toLocaleString("pt-BR", { timeZone: TZ, day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—";
+const proxTxt = c => !c.proximo_contato ? "—" : c.proximo_contato < hoje() ? `<b style="color:var(--crit)">${dataBR(c.proximo_contato)} · atrasado</b>`
+  : c.proximo_contato === hoje() ? `<b style="color:var(--accent)">hoje</b>` : dataBR(c.proximo_contato);
+const sitTag = c => c.situacao === "possivel" ? '<span class="tag possivel">possível cliente</span>' : "";
+const comprasDe = id => { const vs = VENDAS.filter(v => v.cliente_id === id); return { n: vs.length, tot: vs.reduce((s, v) => s + Number(v.valor_total), 0), ult: vs.map(v => v.data).sort().pop() }; };
+
+// crm = true na aba Clientes: mostra e grava situação, como conheceu, interesses, responsável e próximo contato
+// (o cadastro rápido da venda não manda esses campos e não mexe neles)
+function editarCliente(c, depois, crm = false) {
+  const f = $("dlg2f"), eu = EU, C = Object.assign({ nome: "", telefone: "", cpf: "", email: "", endereco: "", aniversario_dia: "", aniversario_mes: "", observacoes: "",
+    situacao: crm ? "possivel" : "cliente", origem: "", interesses: "", responsavel_id: eu, responsavel_nome: "", proximo_contato: "" }, c || {});
+  const resp = VENDEDORAS.some(u => u.user_id === C.responsavel_id) ? "" : `<option value="${C.responsavel_id || ""}" selected>${esc(C.responsavel_nome || (C.responsavel_id === eu ? "Eu" : "—"))}</option>`;
   f.innerHTML = `<h3>${C.id ? "Editar cliente" : "Novo cliente"}</h3>
+    ${crm ? `<div class="campo"><label>Situação</label><div class="filtros" style="margin:0">
+      <button type="button" class="pilula ${C.situacao === "possivel" ? "on" : ""}" data-sit="possivel">Possível cliente (ainda não comprou)</button>
+      <button type="button" class="pilula ${C.situacao === "cliente" ? "on" : ""}" data-sit="cliente">Cliente</button></div></div>` : ""}
     <div class="campo"><label for="cl_nome">Nome</label><input id="cl_nome" value="${esc(C.nome)}"></div>
     <div class="campo grade2"><div><label for="cl_tel">Telefone (com DDD)</label><input id="cl_tel" inputmode="tel" value="${esc(fone(C.telefone))}" placeholder="(21) 99999-9999"></div>
       <div><label for="cl_cpf">CPF</label><input id="cl_cpf" inputmode="numeric" value="${esc(C.cpf || "")}" placeholder="opcional"></div></div>
@@ -975,8 +994,14 @@ function editarCliente(c, depois) {
         <select id="cl_mes" aria-label="Mês"><option value="">Mês</option>${MESES.map((m, x) => `<option value="${x + 1}" ${String(x + 1) === String(C.aniversario_mes) ? "selected" : ""}>${m}</option>`).join("")}</select></div></div></div>
     <div class="campo"><label for="cl_end">Endereço</label><input id="cl_end" value="${esc(C.endereco)}"></div>
     <div class="campo"><label for="cl_obs">Observações</label><input id="cl_obs" value="${esc(C.observacoes)}" placeholder="Preferências, medidas, como gosta de ser atendida…"></div>
+    ${crm ? `<div class="campo grade2"><div><label for="cl_origem">Como conheceu a Linum</label><select id="cl_origem"><option value="">—</option>${ORIGENS.concat(C.origem && !ORIGENS.includes(C.origem) ? [C.origem] : []).map(o => `<option ${o === C.origem ? "selected" : ""}>${esc(o)}</option>`).join("")}</select></div>
+      <div><label for="cl_resp">Quem acompanha</label><select id="cl_resp">${resp}${VENDEDORAS.map(u => `<option value="${u.user_id}" ${u.user_id === C.responsavel_id ? "selected" : ""}>${esc(u.nome)}</option>`).join("")}</select></div></div>
+    <div class="campo"><label for="cl_int">Interesses</label><input id="cl_int" value="${esc(C.interesses)}" placeholder="Peças, cores, tamanhos, ocasiões… (ex.: vestidos longos, tamanho M, festa em dezembro)"></div>
+    <div class="campo"><label for="cl_prox">Próximo contato</label><input id="cl_prox" type="date" value="${esc(C.proximo_contato || "")}" style="width:auto"></div>` : ""}
     <div id="clerr"></div>
     <div class="acoes"><button type="button" class="bt" id="clx">Cancelar</button><button type="button" class="bt pri" id="clok">Salvar cliente</button></div>`;
+  let sit = C.situacao;
+  f.querySelectorAll("[data-sit]").forEach(b => b.onclick = () => { sit = b.dataset.sit; f.querySelectorAll("[data-sit]").forEach(x => x.classList.toggle("on", x === b)); });
   $("clx").onclick = () => $("dlg2").close();
   let mesmoAssim = false;
   $("clok").onclick = async () => {
@@ -992,9 +1017,11 @@ function editarCliente(c, depois) {
       $("cloutra").onclick = () => { mesmoAssim = true; $("clok").click(); };
       return;
     }
+    const p = { id: C.id || null, nome: $("cl_nome").value, telefone: $("cl_tel").value, cpf: $("cl_cpf").value,
+      email: $("cl_email").value, endereco: $("cl_end").value, aniversario_dia: $("cl_dia").value, aniversario_mes: $("cl_mes").value, observacoes: $("cl_obs").value };
+    if (crm) Object.assign(p, { situacao: sit, origem: $("cl_origem").value, interesses: $("cl_int").value, responsavel_id: $("cl_resp").value, proximo_contato: $("cl_prox").value });
     try {
-      const id = checar(await sb.rpc("lin_cliente_salvar", { p: { id: C.id || null, nome: $("cl_nome").value, telefone: $("cl_tel").value, cpf: $("cl_cpf").value,
-        email: $("cl_email").value, endereco: $("cl_end").value, aniversario_dia: $("cl_dia").value, aniversario_mes: $("cl_mes").value, observacoes: $("cl_obs").value } }));
+      const id = checar(await sb.rpc("lin_cliente_salvar", { p }));
       await carregarClientes(); $("dlg2").close();
       if (depois) depois(cliente(id));
     } catch (e) { $("clerr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
@@ -1002,34 +1029,100 @@ function editarCliente(c, depois) {
   $("dlg2").showModal(); $("cl_nome").focus();
 }
 
+// ficha do cliente: dados, compras, histórico de contatos e "Registrar contato"
+async function fichaCliente(id) {
+  const f = $("dlgf"), c = cliente(id); if (!c) return;
+  $("dlg").classList.add("largo");
+  let contatos = [];
+  try { contatos = await todas(() => sb.from("lin_contatos").select("*").eq("cliente_id", id).order("em", { ascending: false }).order("id", { ascending: false })); }
+  catch (e) { msg("err", e.message); return; }
+  const cp = comprasDe(id), eu = EU, meuNome = (VENDEDORAS.find(u => u.user_id === eu) || {}).nome || "";
+  const wa = c.telefone ? `https://wa.me/55${c.telefone}?text=${encodeURIComponent(`Olá, ${c.nome.split(" ")[0]}! Aqui é ${meuNome ? meuNome.split(" ")[0] + ", " : ""}da Linum. `)}` : "";
+  const dados = [c.telefone && fone(c.telefone), c.email, niver(c) && "aniversário " + niver(c), c.origem && "conheceu por " + c.origem].filter(Boolean).map(esc).join(" · ");
+  f.innerHTML = `<h3>${esc(c.nome)} ${sitTag(c) || '<span class="tag">cliente</span>'}</h3>
+    <div class="mut">${dados || "Sem telefone nem e-mail"}</div>
+    ${c.interesses ? `<div style="margin-top:6px"><b>Interesses:</b> ${esc(c.interesses)}</div>` : ""}
+    ${c.observacoes ? `<div style="margin-top:4px"><b>Observações:</b> ${esc(c.observacoes)}</div>` : ""}
+    <div class="vlin" style="margin-top:8px"><span>Quem acompanha: <b>${esc(c.responsavel_nome || "—")}</b> · Próximo contato: ${proxTxt(c)}</span>
+      <span class="acs">${wa ? `<a class="lnk" id="fcwa" href="${esc(wa)}" target="_blank" rel="noopener">Abrir WhatsApp</a>` : ""}<button type="button" class="lnk" id="fced">Editar dados</button></span></div>
+    <div class="vlin"><span>${cp.n ? `${n(cp.n)} compra(s) · ${brl(cp.tot)} · última em ${dataBR(cp.ult)}` : "Nenhuma compra registrada"}${dono() ? "" : ' <span class="mut">(compras que você registrou)</span>'}</span></div>
+    <div class="card" style="margin-top:12px;background:var(--surface-2)">
+      <h2>Registrar contato</h2>
+      <div class="grade2"><div><label for="ctcanal">Como foi</label><select id="ctcanal">${Object.entries(CANAIS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></div>
+        <div><label for="ctres">Resultado</label><select id="ctres"><option value="">Escolha…</option>${Object.entries(RESULTADOS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></div></div>
+      <div class="campo"><label for="cttxt">O que foi conversado</label><textarea id="cttxt" rows="3" placeholder="Ex.: chamei para ver a coleção nova; vem sábado à tarde com a filha; gostou do vestido Mar azul M"></textarea></div>
+      <div class="campo"><label for="ctprox">Próximo contato</label><div class="filtros" style="margin:0;align-items:center">
+        <input id="ctprox" type="date" min="${hoje()}" value="${somaDias(hoje(), 7)}" style="flex:0 1 auto;width:auto">
+        ${[[3, "+3 dias"], [7, "+1 semana"], [30, "+1 mês"]].map(([k, t]) => `<button type="button" class="pilula" data-dias="${k}">${t}</button>`).join("")}
+        <button type="button" class="pilula" data-dias="">Sem próximo</button></div></div>
+      <div id="cterr"></div>
+      <div class="acoes"><button type="button" class="bt pri" id="ctok">Registrar contato</button></div>
+    </div>
+    <h2 style="font-size:15px;margin:12px 0 4px">Histórico de contatos <span class="mut">· ${n(contatos.length)}</span></h2>
+    <div id="cthist">${contatos.length ? contatos.map(x => `<div class="vlin ctitem" style="display:block"><div><b>${quando(x.em)}</b> · ${esc(x.por_nome || "—")} · ${CANAIS[x.canal]} <span class="tag">${RESULTADOS[x.resultado]}</span>${x.proximo_contato ? ` <span class="mut">· próximo: ${dataBR(x.proximo_contato)}</span>` : ""}</div>
+      <div style="white-space:pre-line;margin-top:2px">${esc(x.texto)}</div></div>`).join("") : '<div class="mut">Nenhum contato registrado ainda.</div>'}</div>
+    <div class="acoes"><button type="button" class="bt" id="fcx">Fechar</button></div>`;
+  $("fcx").onclick = () => $("dlg").close();
+  $("fced").onclick = () => editarCliente(c, () => { fichaCliente(id); listaClientes(); kpisClientes(); }, true);
+  f.querySelectorAll("[data-dias]").forEach(b => b.onclick = () => { $("ctprox").value = b.dataset.dias ? somaDias(hoje(), Number(b.dataset.dias)) : ""; });
+  $("ctok").onclick = async () => {
+    $("ctok").disabled = true;
+    try {
+      checar(await sb.rpc("lin_contato_registrar", { p: { cliente_id: id, canal: $("ctcanal").value, resultado: $("ctres").value, texto: $("cttxt").value, proximo_contato: $("ctprox").value } }));
+      await carregarClientes(); listaClientes(); kpisClientes();
+      await fichaCliente(id); msg("ok", "Contato registrado.");
+    } catch (e) { $("cterr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; $("ctok").disabled = false; }
+  };
+  if (!$("dlg").open) $("dlg").showModal();
+}
+
 async function telaClientes() {
   $("tela").innerHTML = '<div class="card">Carregando…</div>';
   try {
-    await carregarClientes();
+    await Promise.all([carregarClientes(), carregarVendedoras()]);
     VENDAS = await todas(() => sb.from("lin_vendas").select("id, cliente_id, data, valor_total, cancelada_em, loja_id").not("cliente_id", "is", null).is("cancelada_em", null));
   } catch (e) { $("tela").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; return; }
+  const pil = (id, on, t) => `<button type="button" class="pilula ${on ? "on" : ""}" id="${id}">${t}</button>`;
   $("tela").innerHTML = `
     <div class="cabtela"><h2>Clientes <span class="mut">· ${n(CLIENTES.length)} cadastrado(s)</span></h2><button class="bt pri" id="cnovo">+ Novo cliente</button></div>
+    <div class="kpis" id="ckpis"></div>
     <div class="filtros"><input id="cq" type="search" placeholder="Nome, telefone ou CPF" value="${esc(FC.q)}">
-      <button type="button" class="pilula ${FC.niver ? "on" : ""}" id="cniver">Aniversariantes de ${MESES[new Date().getMonth()]}</button></div>
-    <div class="card"><div class="tw"><table><thead><tr><th>Cliente</th><th>Telefone</th><th>Aniversário</th><th class="num">Compras</th><th class="num">Total</th><th>Última compra</th></tr></thead><tbody id="clista"></tbody></table></div>
-    ${dono() ? "" : '<div class="mut" style="margin-top:6px">Compras e total contam só as vendas que você registrou.</div>'}</div>`;
-  $("cnovo").onclick = () => editarCliente(null, () => telaClientes());
+      <select id="csit" aria-label="Situação"><option value="">Clientes e possíveis</option><option value="cliente" ${FC.sit === "cliente" ? "selected" : ""}>Só clientes</option><option value="possivel" ${FC.sit === "possivel" ? "selected" : ""}>Só possíveis clientes</option></select>
+      ${pil("cagenda", FC.agenda, "Para contatar até hoje")}${pil("cmeus", FC.meus, "Só os que eu acompanho")}
+      ${pil("cniver", FC.niver, "Aniversariantes de " + MESES[new Date().getMonth()])}</div>
+    <div class="card"><div class="tw"><table><thead><tr><th>Cliente</th><th>Telefone</th><th>Próximo contato</th><th>Último contato</th><th>Quem acompanha</th><th class="num">Compras</th><th class="num">Total</th></tr></thead><tbody id="clista"></tbody></table></div>
+    <div class="mut" style="margin-top:6px">Clique no cliente para ver o histórico e registrar um contato.${dono() ? "" : " Compras e total contam só as vendas que você registrou."}</div></div>`;
+  $("cnovo").onclick = () => editarCliente(null, c => { listaClientes(); kpisClientes(); if (c) fichaCliente(c.id); }, true);
   $("cq").oninput = e => { FC.q = e.target.value; listaClientes(); };
-  $("cniver").onclick = () => { FC.niver = !FC.niver; telaClientes(); };
-  listaClientes();
+  $("csit").onchange = e => { FC.sit = e.target.value; listaClientes(); };
+  const alterna = (id, k) => $(id).onclick = () => { FC[k] = !FC[k]; $(id).classList.toggle("on", FC[k]); listaClientes(); };
+  alterna("cagenda", "agenda"); alterna("cmeus", "meus"); alterna("cniver", "niver");
+  kpisClientes(); listaClientes();
+}
+function kpisClientes() {
+  if (!$("ckpis")) return;
+  const h = hoje(), eu = EU, agenda = CLIENTES.filter(c => c.proximo_contato && c.proximo_contato <= h);
+  const atras = agenda.filter(c => c.proximo_contato < h).length, meus = agenda.filter(c => c.responsavel_id === eu).length;
+  $("ckpis").innerHTML = `
+    <div class="kpi"><small>Para contatar até hoje</small><b>${n(agenda.length)}</b><span>${atras ? n(atras) + " atrasado(s)" : "nenhum atrasado"}${meus ? " · " + n(meus) + " seu(s)" : ""}</span></div>
+    <div class="kpi"><small>Possíveis clientes</small><b>${n(CLIENTES.filter(c => c.situacao === "possivel").length)}</b><span>ainda não compraram</span></div>
+    <div class="kpi"><small>Clientes</small><b>${n(CLIENTES.filter(c => c.situacao !== "possivel").length)}</b><span>já compraram</span></div>
+    <div class="kpi"><small>Você acompanha</small><b>${n(CLIENTES.filter(c => c.responsavel_id === eu).length)}</b><span>cliente(s) e possíveis</span></div>`;
 }
 function listaClientes() {
-  const t = FC.q.trim(), mes = new Date().getMonth() + 1;
-  const l = CLIENTES.filter(c => (!t || pontoCliente(c, t))
-    && (!FC.niver || c.aniversario_mes === mes)).sort((a, b) => FC.niver ? a.aniversario_dia - b.aniversario_dia : a.nome.localeCompare(b.nome, "pt-BR"));
+  const t = FC.q.trim(), mes = new Date().getMonth() + 1, h = hoje(), eu = EU;
+  const l = CLIENTES.filter(c => (!t || pontoCliente(c, t)) && (!FC.sit || c.situacao === FC.sit) && (!FC.meus || c.responsavel_id === eu)
+    && (!FC.agenda || (c.proximo_contato && c.proximo_contato <= h)) && (!FC.niver || c.aniversario_mes === mes))
+    .sort((a, b) => FC.agenda ? a.proximo_contato.localeCompare(b.proximo_contato) || a.nome.localeCompare(b.nome, "pt-BR")
+      : FC.niver ? a.aniversario_dia - b.aniversario_dia : a.nome.localeCompare(b.nome, "pt-BR"));
   $("clista").innerHTML = l.length ? l.slice(0, 500).map(c => {
-    const vs = VENDAS.filter(v => v.cliente_id === c.id), tot = vs.reduce((s, v) => s + Number(v.valor_total), 0), ult = vs.map(v => v.data).sort().pop();
-    return `<tr class="crow" data-c="${c.id}" style="cursor:pointer"><td><b>${esc(c.nome)}</b>${c.observacoes ? `<br><span class="mut">${esc(c.observacoes)}</span>` : ""}</td>
+    const cp = comprasDe(c.id), sub = [c.interesses, c.observacoes, niver(c) && "aniversário " + niver(c)].filter(Boolean).join(" · ");
+    return `<tr class="crow" data-c="${c.id}" style="cursor:pointer"><td><b>${esc(c.nome)}</b>${sitTag(c)}${sub ? `<br><span class="mut">${esc(sub)}</span>` : ""}</td>
       <td>${c.telefone ? `<a href="https://wa.me/55${esc(c.telefone)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(fone(c.telefone))}</a>` : "—"}</td>
-      <td>${niver(c) || "—"}</td><td class="num">${n(vs.length)}</td><td class="num">${vs.length ? brl(tot) : "—"}</td><td>${ult ? dataBR(ult) : "—"}</td></tr>`;
-  }).join("") : `<tr><td colspan="6" class="mut">${CLIENTES.length ? "Nenhum cliente com esse filtro." : "Nenhum cliente ainda. Eles entram aqui ao registrar a venda ou em “+ Novo cliente”."}</td></tr>`;
-  document.querySelectorAll(".crow").forEach(r => r.onclick = () => editarCliente(cliente(r.dataset.c), () => telaClientes()));
+      <td>${proxTxt(c)}</td><td>${c.ultimo_contato ? dataBR(new Date(c.ultimo_contato).toLocaleDateString("en-CA", { timeZone: TZ })) : "—"}</td><td>${esc(c.responsavel_nome || "—")}</td>
+      <td class="num">${n(cp.n)}${cp.ult ? `<br><span class="mut">últ. ${dataBR(cp.ult)}</span>` : ""}</td><td class="num">${cp.n ? brl(cp.tot) : "—"}</td></tr>`;
+  }).join("") : `<tr><td colspan="7" class="mut">${CLIENTES.length ? "Nenhum cliente com esse filtro." : "Nenhum cliente ainda. Eles entram aqui ao registrar a venda ou em “+ Novo cliente”."}</td></tr>`;
+  document.querySelectorAll(".crow").forEach(r => r.onclick = () => fichaCliente(r.dataset.c));
 }
 
 // ---------------------------------------------------------------- comissões por mês (só o Dono; as vendedoras ainda não veem)
