@@ -1529,9 +1529,29 @@ insert into lin_vd values ('vpos', lin_venda_registrar(jsonb_build_object('loja_
   'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000003', 'quantidade', 1, 'valor_unitario', 359)),
   'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 359))))::text);
 select pg_temp.ok((select situacao = 'cliente' from lin_clientes where id = (select v from lin_vd where k = 'pos')::uuid), 'linum crm: possível cliente que compra vira cliente');
+select pg_temp.ok((select resultado = 'comprou' and canal = 'loja' and por = '00000000-0000-0000-0000-00000000000c' and texto = 'Comprou na Ipanema — venda nº ' || (select v from lin_vd where k = 'vpos') || ': CAL01 Calça Areia Cru G'
+   and proximo_contato is null from lin_contatos where venda_id = (select v from lin_vd where k = 'vpos')::bigint),
+  'linum crm: a venda entra sozinha no histórico, com loja, nº e peças, sem o valor (pós-venda não marcado: já havia contato antes)');
+select pg_temp.ok((select proximo_contato = current_date + 3 from lin_clientes where id = (select v from lin_vd where k = 'pos')::uuid),
+  'linum crm: contato já marcado antes do pós-venda continua');
+-- cliente sem nada marcado: a venda marca o pós-venda em 7 dias
+insert into lin_vd values ('cli7', lin_cliente_salvar('{"nome":"Sônia Sete"}')::text);
+insert into lin_vd values ('v7', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'ipa'), 'cliente_id', (select v from lin_vd where k = 'cli7'),
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000003', 'quantidade', 1, 'valor_unitario', 1234.5)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 1234.5))))::text);
+select pg_temp.ok((select proximo_contato = (select data from lin_vendas where id = (select v from lin_vd where k = 'v7')::bigint) + 7 and ultimo_contato is not null
+   from lin_clientes where id = (select v from lin_vd where k = 'cli7')::uuid)
+  and (select texto like '%Pós-venda marcado para%' and texto not like '%R$%' and proximo_contato is not null from lin_contatos where venda_id = (select v from lin_vd where k = 'v7')::bigint),
+  'linum crm: venda marca o pós-venda em 7 dias (sem valor no texto)');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';   -- Dono cancela
+select lin_venda_cancelar((select v from lin_vd where k = 'v7')::bigint, 'Lançada por engano');
+select pg_temp.ok((select count(*) = 1 from lin_contatos where venda_id = (select v from lin_vd where k = 'v7')::bigint and resultado = 'outro' and texto like 'Venda nº % cancelada. Motivo: Lançada por engano'),
+  'linum crm: cancelamento da venda entra no histórico com o motivo');
+select pg_temp.ok((select proximo_contato is null from lin_clientes where id = (select v from lin_vd where k = 'cli7')::uuid), 'linum crm: venda cancelada tira o pós-venda que tinha marcado');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
 -- a equipe toda vê o histórico; quem não é da Linum não vê
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';   -- Estoque
-select pg_temp.ok((select count(*) = 1 from lin_contatos where cliente_id = (select v from lin_vd where k = 'pos')::uuid), 'linum crm: outra pessoa da equipe vê o histórico do contato');
+select pg_temp.ok((select count(*) = 2 from lin_contatos where cliente_id = (select v from lin_vd where k = 'pos')::uuid), 'linum crm: outra pessoa da equipe vê o histórico (contato + venda)');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
 select pg_temp.ok((select count(*) = 0 from lin_contatos), 'linum crm: login fora da Linum não vê contatos');
 reset role;

@@ -45,6 +45,7 @@ window.NERVIA_VERSOES = {
     ["1.0", "Lançamento: contas e licenças de cada unidade, mudanças entre exportações e licenças pagas sem uso."],
   ],
   "linum": [
+    ["1.10", "A venda entra sozinha no acompanhamento da cliente: cada compra aparece no histórico de contatos (loja, número e peças; o valor, só o Dono vê) e marca o contato de pós-venda para 7 dias depois, para perguntar se ela gostou (se já houver contato marcado antes, ele fica). Venda cancelada também aparece no histórico e tira o pós-venda que tinha marcado."],
     ["1.9", "Visita sem contato: quando alguém entra, olha e sai sem comprar e sem deixar contato, a vendedora registra por que não levou (pode marcar mais de um motivo; em \"Outro\", escreve qual), o que faltou (tamanho, cor) e as peças que olhou, sem dados da pessoa. O período mostra a conversão, os motivos e as peças mais olhadas sem venda."],
     ["1.8", "CRM de clientes: cada cliente ou possível cliente (quem ainda não comprou) tem uma ficha com o histórico de contatos (WhatsApp, ligação, Instagram, na loja), o resultado de cada um e a data do próximo contato. A aba Clientes mostra quem está para contatar hoje ou atrasado, quem cada pessoa acompanha, como a cliente conheceu a Linum e os interesses dela. Quem compra vira cliente sozinho."],
     ["1.7", "Relatório de comissões por mês (só o Dono): quanto cada pessoa vendeu e recebe de comissão no mês, com as vendas de cada uma, filtro por loja, os últimos 12 meses lado a lado, CSV e impressão. As vendedoras ainda não veem este relatório."],

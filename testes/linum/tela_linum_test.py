@@ -456,10 +456,10 @@ try:
         pg.select_option("#ctcanal", "whatsapp"); pg.select_option("#ctres", "vai_a_loja"); pg.click('[data-dias="3"]')
         pg.screenshot(path=os.path.join(SAIDA, "linum_crm_ficha.png"), full_page=True)
         pg.click("#ctok"); pg.wait_for_timeout(1000)
-        ok(psql("select canal || ' ' || resultado || ' ' || por_nome || ' ' || (proximo_contato - (now() at time zone 'America/Sao_Paulo')::date) from lin_contatos", saida=True) == "whatsapp vai_a_loja Vera Vendedora 3"
+        ok(psql("select canal || ' ' || resultado || ' ' || por_nome || ' ' || (proximo_contato - (now() at time zone 'America/Sao_Paulo')::date) from lin_contatos where venda_id is null", saida=True) == "whatsapp vai_a_loja Vera Vendedora 3"
            and psql("select (proximo_contato - (now() at time zone 'America/Sao_Paulo')::date) || ' ' || (ultimo_contato is not null) from lin_clientes where nome = 'Bruna Possível'", saida=True) == "3 true",
            "contato gravado e próximo contato da cliente em 3 dias")
-        ok("Chamei para ver a coleção nova" in pg.text_content("#cthist") and "Vai à loja" in pg.text_content("#cthist") and pg.locator(".ctitem").count() == 1, "histórico mostra o contato")
+        ok("Chamei para ver a coleção nova" in pg.text_content("#cthist") and "Vai à loja" in pg.text_content("#cthist") and pg.locator(".ctitem").count() == 1, "histórico mostra o contato (Bruna não comprou: sem registro de venda)")
         ok(psql("select count(*) from auditoria where acao = 'linum_contato_registrado' and detalhes->>'texto' is null", saida=True) == "1", "contato na auditoria (sem o texto)")
         pg.click("#fcx")
         pg.click("#cagenda"); pg.wait_for_timeout(200)
@@ -496,7 +496,19 @@ try:
         pg, erros = entrar(b, "dono"); abrir(pg)
         pg.click("#abaClientes"); pg.wait_for_selector("#clista .crow"); pg.click('#clista .crow:has-text("Bruna Possível")'); pg.wait_for_selector("#dlg[open] #cthist")
         ok("Vera Vendedora" in pg.text_content("#cthist"), "o Dono vê o histórico registrado pela vendedora")
+        pg.click("#fcx"); pg.click('#clista .crow:has-text("Carmen Fictícia")'); pg.wait_for_selector("#dlg[open] #cthist")
+        hist = pg.text_content("#cthist").replace("\xa0", " ")
+        ok("registro automático da venda" in hist and "Comprou na Ipanema — venda nº" in hist and "Cancelada" in hist and "Cliente desistiu da compra" in hist,
+           "a venda e o cancelamento entram sozinhos no histórico da cliente")
         pg.click("#fcx")
+        pg.click('#clista .crow:has-text("Carmen Ficticia")'); pg.wait_for_selector("#dlg[open] #cthist")   # a outra Carmen (sem acento), da venda da Gávea
+        hist2 = pg.text_content("#cthist").replace("\xa0", " ")
+        ok("Comprou na Gávea" in hist2 and "R$" in hist2, "o Dono vê o valor da venda no histórico")
+        pg.click("#fcx")
+        pg2, erros2 = entrar(b, "vendedora"); abrir(pg2)
+        pg2.click("#abaClientes"); pg2.wait_for_selector("#clista .crow"); pg2.click('#clista .crow:has-text("Carmen Fictícia")'); pg2.wait_for_selector("#dlg[open] #cthist")
+        ok("Comprou na Ipanema" in pg2.text_content("#cthist") and "R$" not in pg2.text_content("#cthist"), "vendedora vê a compra no histórico sem o valor")
+        ok(not erros2, "sem erros de JavaScript (histórico da vendedora)")
         pg.click("#abaVendas"); pg.wait_for_selector("#vvisita")
         ok(pg.locator("#visitas .visrow").count() == 1 and "Vera Vendedora" in pg.text_content("#visitas"), "o Dono vê a visita registrada pela vendedora")
         ok(not erros, "sem erros de JavaScript (CRM do Dono)")
@@ -514,7 +526,7 @@ try:
             abrir_ajuda = pg.goto(f"http://127.0.0.1:{PORTA_SITE}/apps/linum/ajuda/{pagina}.html")
             ok(abrir_ajuda.ok and "Sistema Linum" in pg.title() and pg.locator('script[src="/marca-dagua.js"][data-tipo="doc"]').count() == 1, f"ajuda: {pagina} com marca d'água")
         pg.goto(f"http://127.0.0.1:{PORTA_SITE}/ajuda/novidades.html?app=linum&nome=Sistema%20Linum"); pg.wait_for_timeout(400)
-        ok("1.9" in pg.text_content("body"), "novidades do app (versão 1.9)")
+        ok("1.10" in pg.text_content("body"), "novidades do app (versão 1.10)")
         ok(psql("select mapa_url from apps where id = 'linum'", saida=True) == "/apps/linum/ajuda/mapa.html", "botão Mapa ligado no cadastro do app")
         b.close()
     print("TODOS OS TESTES DE TELA DO SISTEMA LINUM OK")
