@@ -1647,7 +1647,7 @@ insert into lin_pd select 'r1', id::text from lin_rolos where codigo like '%-001
 set role authenticated;
 -- ficha: 4 Calça Cru G (2,5 m cada = 10 m)
 select pg_temp.erro2($$select lin_ordem_criar(jsonb_build_object('itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 2))))$$,
-  'Falta o tecido', 'linum produção: peça sem metragem não entra na ficha');
+  'Falta a metragem', 'linum produção: peça sem metragem não entra na ficha');
 insert into lin_pd select 'f', lin_ordem_criar(jsonb_build_object('molde', 'Molde calça reta', 'loja_destino_id', (select v from lin_ids where k = 'gav'),
   'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000003', 'quantidade', 4))))::text;
 reset role;
@@ -1730,24 +1730,28 @@ set role authenticated;
 select pg_temp.erro2($$select lin_rolos_importar_nfe(jsonb_build_object('chave', '33261012345678000190550010000012341000012345', 'numero', '1234',
   'itens', jsonb_build_array(jsonb_build_object('item', 2, 'tecido', 'Malha de linho', 'unidade', 'kg', 'rolos', 1, 'total', 12.5))))$$,
   'já foi registrado', 'linum nfe: o mesmo item da mesma nota não entra duas vezes');
-set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';   -- Dono: peça em quilos
-select lin_consumo_salvar(jsonb_build_object('produto_id', '10000000-0000-0000-0000-000000000001', 'consumo_metros', 0.4, 'consumo_unidade', 'kg'));
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';   -- Dono: a peça é em metros; o rolo de malha foi comprado por quilo
+select lin_consumo_salvar(jsonb_build_object('produto_id', '10000000-0000-0000-0000-000000000001', 'consumo_metros', 0.4));
 insert into lin_pd select 'fk', lin_ordem_criar(jsonb_build_object('itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 5))))::text;
 reset role;
 insert into lin_pd select 'itk', id::text from lin_ordem_itens where ordem_id = (select v from lin_pd where k = 'fk')::bigint;
 insert into lin_pd select 'rkg', id::text from lin_rolos where unidade = 'kg';
 insert into lin_pd select 'rm', id::text from lin_rolos where nfe_item = 1 order by codigo limit 1;
-select pg_temp.ok((select unidade = 'kg' and consumo = 0.4 from lin_ordem_itens where id = (select v from lin_pd where k = 'itk')::bigint), 'linum kg: a ficha copia a unidade da peça');
 set role authenticated;
 select pg_temp.erro2($$select lin_envio_criar(jsonb_build_object('ordem_id', (select v from lin_pd where k = 'fk'), 'etapa', 'corte', 'parceiro_id', (select v from lin_pd where k = 'cort'),
   'itens', jsonb_build_array(jsonb_build_object('ordem_item_id', (select v from lin_pd where k = 'itk'), 'quantidade', 5)),
-  'rolos', jsonb_build_array(jsonb_build_object('rolo_id', (select v from lin_pd where k = 'rm'), 'metros', 2))))$$,
-  'outra unidade', 'linum kg: peça em quilos não sai de rolo em metros');
+  'rolos', jsonb_build_array(jsonb_build_object('rolo_id', (select v from lin_pd where k = 'rkg'), 'metros', 2))))$$,
+  'rende 1 kg', 'linum kg: rolo comprado por quilo sem rendimento não vai para o corte');
+select pg_temp.erro2($$select lin_rolo_rendimento((select v from lin_pd where k = 'rm')::uuid, 4)$$, 'só vale para rolo comprado por quilo', 'linum kg: rendimento só em rolo por quilo');
+select lin_rolo_rendimento((select v from lin_pd where k = 'rkg')::uuid, 4);
 select lin_envio_criar(jsonb_build_object('ordem_id', (select v from lin_pd where k = 'fk'), 'etapa', 'corte', 'parceiro_id', (select v from lin_pd where k = 'cort'),
   'itens', jsonb_build_array(jsonb_build_object('ordem_item_id', (select v from lin_pd where k = 'itk'), 'quantidade', 5)),
   'rolos', jsonb_build_array(jsonb_build_object('rolo_id', (select v from lin_pd where k = 'rkg'), 'metros', 2))));
 reset role;
-select pg_temp.ok((select saldo = 10.5 from lin_rolos where id = (select v from lin_pd where k = 'rkg')::uuid), 'linum kg: 5 peças × 0,4 kg saem do rolo de malha');
+select pg_temp.ok((select saldo = 12 from lin_rolos where id = (select v from lin_pd where k = 'rkg')::uuid)
+  and (select metros = 2 from lin_envio_rolos where rolo_id = (select v from lin_pd where k = 'rkg')::uuid)
+  and (select count(*) = 1 from auditoria where acao = 'linum_rolo_rendimento'),
+  'linum kg: 5 peças × 0,4 m = 2 m ÷ 4 m/kg = 0,5 kg saem do rolo de malha (rendimento na auditoria)');
 set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
 insert into lin_pd values ('ps', lin_parceiro_salvar(jsonb_build_object('id', (select v from lin_pd where k = 'cost'), 'nome', 'Maria Costureira', 'tipo', 'costureira', 'preco_peca', 999))::text);

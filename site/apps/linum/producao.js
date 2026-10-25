@@ -1,4 +1,5 @@
-// Sistema Linum — Produção (versão 2.1): rolos de tecido (metros ou quilos; compra pelo XML da NF-e), fichas de produção e as etapas corte → costura → lavagem →
+// Sistema Linum — Produção (versão 2.1): rolos de tecido (comprados por metro ou por quilo; compra pelo XML da NF-e; a peça é
+// sempre em metros e o rolo por quilo usa o rendimento em metros por kg), fichas de produção e as etapas corte → costura → lavagem →
 // passadoria → estoque. Usa os ajudantes do index.html ($, esc, sb, checar, msg, brl, n, dataBR, hoje, quando, numV, decBR…).
 // Tudo vem da lin_producao_ler(): sem a permissão "Valores da produção" o servidor nem manda valor pago, preço por peça e custo.
 const ETAPAS = ["corte", "costura", "lavagem", "passadoria"];
@@ -13,6 +14,8 @@ const UNID = { m: "metros", kg: "quilos" };
 // soma por unidade: [{u, q}] → "51,5 m · 12,5 kg"
 const porUnid = l => { const t = {}; l.forEach(([u, q]) => t[u || "m"] = (t[u || "m"] || 0) + Number(q || 0)); return Object.entries(t).filter(([, q]) => q).map(([u, q]) => met(+q.toFixed(3), u)).join(" · ") || "0 m"; };
 const unRolo = id => (PD.rolos.find(r => r.id === id) || {}).unidade || "m";
+// quantos metros o rolo ainda dá: o saldo (m) ou saldo × rendimento (kg); null = rolo por quilo sem rendimento
+const metrosRolo = r => r.unidade === "kg" ? (r.rendimento ? Number(r.saldo) * Number(r.rendimento) : null) : Number(r.saldo);
 const pecaTxtP = i => [i.referencia, i.descricao, "—", [i.cor, i.tamanho, i.edicao].filter(Boolean).join(" ")].join(" ");
 const valores = () => PD && PD.valores;
 
@@ -32,7 +35,7 @@ const atrasado = e => e.status === "aberto" && e.prazo && e.prazo < hoje();
 async function telaProducao() {
   $("tela").innerHTML = '<div class="card">Carregando…</div>';
   try { await carregarProducao(); } catch (e) { $("tela").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; return; }
-  const abas = [["painel", "Painel"], ["fichas", "Fichas"], ["rolos", "Rolos de tecido"], ["parceiros", "Parceiros"], ["metragem", "Tecido por peça"]];
+  const abas = [["painel", "Painel"], ["fichas", "Fichas"], ["rolos", "Rolos de tecido"], ["parceiros", "Parceiros"], ["metragem", "Metragem por peça"]];
   $("tela").innerHTML = `<div class="cabtela"><h2>Produção</h2><span class="mut">${valores() ? "com valores" : "sem valores (peça a permissão à Nervia)"}</span></div>
     <div class="filtros" id="pdabas">${abas.map(([k, t]) => `<button type="button" class="pilula ${FPR.aba === k ? "on" : ""}" data-pa="${k}">${t}</button>`).join("")}</div>
     <div id="pdtela"></div>`;
@@ -48,7 +51,8 @@ function pdPainel() {
   const prontas = PD.ordens.filter(o => o.status === "aberta").reduce((t, o) => t + o.itens.reduce((u, i) => u + i.disp.estoque, 0), 0);
   const grupos = {}; linho.forEach(r => { const k = `${r.tecido} · ${r.cor || "sem cor"}`; grupos[k] = grupos[k] || { m: 0, n: 0, u: r.unidade }; grupos[k].m += Number(r.saldo); grupos[k].n++; });
   FPR.mesPag = FPR.mesPag || hoje().slice(0, 7);
-  $("pdtela").innerHTML = `
+  const semRend = PD.rolos.filter(r => r.unidade === "kg" && !r.rendimento && Number(r.saldo) > 0);
+  $("pdtela").innerHTML = `${semRend.length ? `<div class="msg info" id="pdrend"><b>Falta o rendimento</b> (quantos metros dá 1 kg) de ${semRend.length} rolo(s) comprado(s) por quilo: ${esc(semRend.map(r => r.codigo).join(", "))}. Sem ele o rolo não vai para o corte — informe em Rolos de tecido → rolo.</div>` : ""}
     <div class="kpis">
       <div class="kpi"><small>Tecido em estoque</small><b>${porUnid(linho.map(r => [r.unidade, r.saldo]))}</b><span>${n(linho.length)} rolo(s) com saldo</span></div>
       <div class="kpi"><small>Peças com parceiros</small><b>${n(fora)}</b><span>${n(abertos.length)} remessa(s) em aberto</span></div>
@@ -85,10 +89,10 @@ function pdFichas() {
     const prontas = o.itens.reduce((t, i) => t + i.disp.estoque, 0), entr = o.itens.reduce((t, i) => t + Number(i.entraram), 0);
     return [...ETAPAS.filter(e => fora[e]).map(e => `${fora[e]} no ${ETAPA_TXT[e].toLowerCase()}`), prontas ? `${prontas} prontas` : "", entr ? `${entr} no estoque` : ""].filter(Boolean).join(" · ") || "aguardando corte"; };
   $("pdtela").innerHTML = `<div class="cabtela"><button type="button" class="pilula ${FPR.todas ? "on" : ""}" id="pdtodas">Mostrar concluídas e canceladas</button><button class="bt pri" id="pdnova">+ Nova ficha</button></div>
-    <div class="card"><div class="tw"><table><thead><tr><th>Nº</th><th>Criada</th><th>Peças</th><th class="num">Qtd</th><th class="num">Tecido</th><th>Situação</th></tr></thead><tbody id="pdfichas">
+    <div class="card"><div class="tw"><table><thead><tr><th>Nº</th><th>Criada</th><th>Peças</th><th class="num">Qtd</th><th class="num">Metros</th><th>Situação</th></tr></thead><tbody id="pdfichas">
     ${l.length ? l.map(o => `<tr class="pdfrow" data-o="${o.id}" style="cursor:pointer"><td><b>${o.id}</b></td><td>${dataBR(new Date(o.criada_em).toLocaleDateString("en-CA", { timeZone: TZ }))}</td>
       <td>${esc([...new Set(o.itens.map(i => i.referencia + " " + i.descricao))].join(", "))}</td><td class="num">${n(o.itens.reduce((t, i) => t + i.quantidade, 0))}</td>
-      <td class="num">${porUnid(o.itens.map(i => [i.unidade, i.quantidade * Number(i.consumo)]))}</td>
+      <td class="num">${met(o.itens.reduce((t, i) => t + i.quantidade * Number(i.consumo), 0))}</td>
       <td>${o.status === "aberta" ? esc(etapaTxt(o)) : `<span class="tag">${o.status === "concluida" ? "concluída" : "cancelada"}</span>`}</td></tr>`).join("")
       : `<tr><td colspan="6" class="mut">${PD.ordens.length ? "Nenhuma ficha aberta." : "Nenhuma ficha ainda: + Nova ficha monta a primeira (o que o cortador vai cortar)."}</td></tr>`}</tbody></table></div></div>`;
   $("pdtodas").onclick = () => { FPR.todas = !FPR.todas; pdFichas(); };
@@ -103,30 +107,41 @@ function novaFicha() {
     <div class="caixa"><h4>Peças</h4><input id="nfq" type="search" placeholder="Referência ou nome da peça" autocomplete="off"><div id="nfres"></div><div id="nfitens" class="campo"></div></div>
     <div class="campo grade3"><div><label for="nfprazo">Prazo para ficar pronta</label><input type="date" id="nfprazo" min="${hoje()}"></div>
       <div><label for="nfloja">Loja que recebe</label><select id="nfloja"><option value="">Escolher depois</option>${PD.lojas.map(l => `<option value="${l.id}">${esc(l.nome)}</option>`).join("")}</select></div>
-      <div><label>Tecido necessário</label><div id="nftot" style="font-size:18px;font-weight:700;padding-top:4px">0 m</div></div></div>
+      <div><label>Linho necessário</label><div id="nftot" style="font-size:18px;font-weight:700;padding-top:4px">0 m</div></div></div>
     <div class="campo"><label for="nfmolde">Molde e instruções para o cortador</label><textarea id="nfmolde" rows="2" placeholder="Ex.: molde calça reta 2025, cortar no fio, bolso faca"></textarea></div>
     <div class="campo"><label for="nfobs">Observação</label><input id="nfobs" maxlength="300"></div>
     <div id="nferr"></div><div class="acoes"><button type="button" class="bt" id="nfx">Cancelar</button><button type="button" class="bt pri" id="nfok">Criar ficha</button></div>`;
   const desenhar = () => {
-    $("nfitens").innerHTML = NF.itens.length ? `<div class="tw"><table><thead><tr><th>Peça</th><th class="num">Qtd</th><th class="num">Tecido por peça</th><th class="num">Total</th><th></th></tr></thead><tbody>
+    $("nfitens").innerHTML = NF.itens.length ? `<div class="tw"><table><thead><tr><th>Peça</th><th class="num">Qtd</th><th class="num">Metros por peça</th><th class="num">Total</th><th></th></tr></thead><tbody>
       ${NF.itens.map((it, i) => `<tr><td><b>${esc(it.ref)}</b> ${esc(it.desc)}<br><span class="mut">${esc(it.var)}</span></td>
         <td class="num"><input data-i="${i}" data-k="q" type="number" min="1" value="${it.q}" style="width:70px"></td>
-        <td class="num"><input data-i="${i}" data-k="c" inputmode="decimal" value="${esc(it.c)}" placeholder="${UNID[it.u]}" style="width:80px"> ${it.u}</td>
+        <td class="num"><input data-i="${i}" data-k="c" inputmode="decimal" value="${esc(it.c)}" placeholder="metros" style="width:80px"><br><button type="button" class="lnk ${numV(it.c) && numV(it.c) !== Number(it.cad) ? "" : "oculto"}" data-atu="${i}" title="Grava esta metragem no cadastro da peça">Atualizar na peça</button></td>
         <td class="num" data-tot="${i}"></td><td><button type="button" class="lnk perigo" data-rm="${i}">×</button></td></tr>`).join("")}</tbody></table></div>` : '<div class="mut">Procure a peça acima.</div>';
-    $("nfitens").querySelectorAll("input[data-i]").forEach(inp => inp.oninput = () => { NF.itens[inp.dataset.i][inp.dataset.k] = inp.value; totais(); });
+    $("nfitens").querySelectorAll("input[data-i]").forEach(inp => inp.oninput = () => { const it = NF.itens[inp.dataset.i]; it[inp.dataset.k] = inp.value; totais();
+      const b = f.querySelector(`[data-atu="${inp.dataset.i}"]`); if (b) b.classList.toggle("oculto", !(numV(it.c) && numV(it.c) !== Number(it.cad))); });
+    // grava a metragem digitada no cadastro: no tamanho, se ele já tinha a sua; senão, na peça (todos os tamanhos sem valor próprio)
+    $("nfitens").querySelectorAll("[data-atu]").forEach(b => b.onclick = async () => {
+      const it = NF.itens[b.dataset.atu], p = PD.produtos.find(x => x.id === it.pid), val = numBR(it.c);
+      try {
+        checar(await sb.rpc("lin_consumo_salvar", { p: it.vprop ? { produto_id: it.pid, consumo_metros: p.consumo, variantes: { [it.vid]: val } } : { produto_id: it.pid, consumo_metros: val, variantes: {} } }));
+        if (it.vprop) p.variantes.find(v => v.id === it.vid).consumo = Number(val); else p.consumo = Number(val);
+        NF.itens.filter(x => x.pid === it.pid && (x.vid === it.vid || (!it.vprop && !x.vprop))).forEach(x => x.cad = Number(val));
+        b.classList.add("oculto"); msg("ok", `Metragem de ${it.ref} ${it.vprop ? it.var : ""} atualizada no cadastro: ${decBR(val)} m por peça.`);
+      } catch (e) { msg("err", e.message); }
+    });
     $("nfitens").querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { NF.itens.splice(+b.dataset.rm, 1); desenhar(); });
     totais();
   };
-  const totais = () => { NF.itens.forEach((it, i) => { const el = f.querySelector(`[data-tot="${i}"]`); if (el) el.textContent = met((Number(it.q) || 0) * numV(it.c), it.u); }); $("nftot").textContent = porUnid(NF.itens.map(it => [it.u, (Number(it.q) || 0) * numV(it.c)])); };
+  const totais = () => { let t = 0; NF.itens.forEach((it, i) => { const x = (Number(it.q) || 0) * numV(it.c); t += x; const el = f.querySelector(`[data-tot="${i}"]`); if (el) el.textContent = met(x); }); $("nftot").textContent = met(+t.toFixed(2)); };
   $("nfq").oninput = () => {
     const t = $("nfq").value.trim().toLowerCase();
     const l = t.length < 2 ? [] : PD.produtos.filter(p => p.referencia.toLowerCase().includes(t) || p.descricao.toLowerCase().includes(t)).slice(0, 8);
-    $("nfres").innerHTML = l.map(p => `<div class="caixa"><b>${esc(p.referencia)}</b> ${esc(p.descricao)} <span class="mut">· ${p.consumo ? met(p.consumo, p.unidade) + " por peça" : "sem tecido por peça cadastrado"}</span>
+    $("nfres").innerHTML = l.map(p => `<div class="caixa"><b>${esc(p.referencia)}</b> ${esc(p.descricao)} <span class="mut">· ${p.consumo ? met(p.consumo) + " por peça" : "sem metragem cadastrada"}</span>
       <div class="filtros" style="margin:6px 0 0">${p.variantes.length ? p.variantes.map(v => `<button type="button" class="pilula" data-p="${p.id}" data-v="${v.id}">+ ${esc([v.cor, v.tamanho, v.edicao].filter(Boolean).join(" "))}</button>`).join("")
         : '<span class="mut">Sem cores e tamanhos cadastrados (aba Produtos).</span>'}</div></div>`).join("") || (t.length >= 2 ? '<div class="mut">Nenhuma peça encontrada.</div>' : "");
     $("nfres").querySelectorAll("[data-v]").forEach(b => b.onclick = () => {
       const p = PD.produtos.find(x => x.id === b.dataset.p), v = p.variantes.find(x => x.id === b.dataset.v);
-      if (!NF.itens.some(i => i.vid === v.id)) NF.itens.push({ vid: v.id, ref: p.referencia, desc: p.descricao, var: [v.cor, v.tamanho, v.edicao].filter(Boolean).join(" "), q: "1", c: decBR(v.consumo || p.consumo || ""), u: p.unidade || "m" });
+      if (!NF.itens.some(i => i.vid === v.id)) NF.itens.push({ vid: v.id, ref: p.referencia, desc: p.descricao, var: [v.cor, v.tamanho, v.edicao].filter(Boolean).join(" "), q: "1", c: decBR(v.consumo || p.consumo || ""), cad: v.consumo || p.consumo || null, pid: p.id, vprop: !!v.consumo });
       desenhar();
     });
   };
@@ -153,13 +168,13 @@ function verFicha(id) {
     ${o.motivo_encerramento ? `<div class="msg info">${o.status === "cancelada" ? "Cancelada" : "Encerrada"} por ${esc(o.encerrada_nome)}: ${esc(o.motivo_encerramento)}</div>` : ""}
     <div class="tw" style="margin-top:8px"><table><thead><tr><th>Peça</th><th class="num">Pedidas</th><th class="num">Cortadas</th><th class="num">Costuradas</th><th class="num">Lavadas</th><th class="num">Passadas</th><th class="num">No estoque</th><th class="num">Perdas</th>${valores() ? '<th class="num">Custo/peça</th>' : ""}</tr></thead><tbody id="fitens">
       ${o.itens.map(i => { const s = situacaoItem(o, i); const c = e => `${n(s.boas[e])}${s.fora[e] ? ` <span class="mut">(+${s.fora[e]} fora)</span>` : ""}`;
-        return `<tr><td><b>${esc(i.referencia)}</b> ${esc(i.descricao)}<br><span class="mut">${esc([i.cor, i.tamanho, i.edicao].filter(Boolean).join(" "))} · ${met(i.consumo, i.unidade)} por peça</span></td>
+        return `<tr><td><b>${esc(i.referencia)}</b> ${esc(i.descricao)}<br><span class="mut">${esc([i.cor, i.tamanho, i.edicao].filter(Boolean).join(" "))} · ${met(i.consumo)} por peça</span></td>
           <td class="num">${n(i.quantidade)}</td><td class="num">${c("corte")}</td><td class="num">${c("costura")}</td><td class="num">${c("lavagem")}</td><td class="num">${c("passadoria")}</td>
           <td class="num">${n(i.entraram)}</td><td class="num">${s.perdas ? `<b style="color:var(--crit)">${n(s.perdas)}</b>` : "0"}</td>${valores() ? `<td class="num">${i.custo != null && Number(i.custo) ? brl(i.custo) : "—"}</td>` : ""}</tr>`; }).join("")}
     </tbody></table></div>
     <h2 style="font-size:15px;margin:14px 0 4px">Remessas</h2>
     <div id="fenvios">${o.envios.length ? o.envios.map(e => `<div class="vlin envrow"><span><b>${ETAPA_TXT[e.etapa]}</b> · ${esc(e.parceiro_nome)} · ${n((e.itens || []).reduce((t, x) => t + x.enviadas, 0))} peça(s) em ${quando(e.enviado_em)}
-        ${e.prazo ? ` · prazo ${dataBR(e.prazo)}` : ""}${valores() ? ` · ${brl(e.preco_peca)}/peça` : ""}${(e.rolos || []).length ? ` · tecido: ${esc(e.rolos.map(r => r.codigo + " " + met(r.metros, unRolo(r.rolo_id))).join(", "))}` : ""}
+        ${e.prazo ? ` · prazo ${dataBR(e.prazo)}` : ""}${valores() ? ` · ${brl(e.preco_peca)}/peça` : ""}${(e.rolos || []).length ? ` · tecido: ${esc(e.rolos.map(r => r.codigo + " " + met(r.metros)).join(", "))}` : ""}
         ${e.status === "aberto" ? (atrasado(e) ? ' <b style="color:var(--crit)">· atrasado</b>' : ` · <b>${n(pecasFora(e))} com o parceiro</b>`) : ' · <span class="tag">recebido</span>'}</span>
         <span class="acs">${e.status === "aberto" && aberta ? `<button type="button" class="lnk" data-rec="${e.id}">Receber e conferir</button>` : ""}${aberta ? `<button type="button" class="lnk" data-zap="${e.id}">WhatsApp</button>` : ""}</span></div>`).join("")
       : '<div class="mut">Nada enviado ainda.</div>'}</div>
@@ -192,9 +207,9 @@ function imprimirFicha(o) {
     <style>body{font:14px system-ui,sans-serif;margin:24px;color:#111}h1{font-size:20px;margin:0 0 4px}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #999;padding:6px;text-align:left}td.n{text-align:right}.mut{color:#555}</style></head><body>
     <h1>LINUM · Ficha de produção nº ${o.id}</h1><div class="mut">${dataBR(new Date(o.criada_em).toLocaleDateString("en-CA", { timeZone: TZ }))}${o.prazo ? ` · prazo ${dataBR(o.prazo)}` : ""}</div>
     ${o.molde ? `<p><b>Molde e instruções:</b> ${esc(o.molde)}</p>` : ""}${o.observacao ? `<p><b>Obs.:</b> ${esc(o.observacao)}</p>` : ""}
-    <table><thead><tr><th>Referência</th><th>Peça</th><th>Cor</th><th>Tamanho</th><th>Edição</th><th>Qtd</th><th>Tecido/peça</th><th>Tecido</th></tr></thead><tbody>
-    ${o.itens.map(i => `<tr><td>${esc(i.referencia)}</td><td>${esc(i.descricao)}</td><td>${esc(i.cor)}</td><td>${esc(i.tamanho)}</td><td>${esc(i.edicao)}</td><td class="n">${i.quantidade}</td><td class="n">${met(i.consumo, i.unidade)}</td><td class="n">${met(+(i.quantidade * i.consumo).toFixed(2), i.unidade)}</td></tr>`).join("")}
-    <tr><td colspan="5"><b>Total</b></td><td class="n"><b>${o.itens.reduce((t, i) => t + i.quantidade, 0)}</b></td><td></td><td class="n"><b>${porUnid(o.itens.map(i => [i.unidade, i.quantidade * i.consumo]))}</b></td></tr></tbody></table>
+    <table><thead><tr><th>Referência</th><th>Peça</th><th>Cor</th><th>Tamanho</th><th>Edição</th><th>Qtd</th><th>Metros/peça</th><th>Metros</th></tr></thead><tbody>
+    ${o.itens.map(i => `<tr><td>${esc(i.referencia)}</td><td>${esc(i.descricao)}</td><td>${esc(i.cor)}</td><td>${esc(i.tamanho)}</td><td>${esc(i.edicao)}</td><td class="n">${i.quantidade}</td><td class="n">${decBR(i.consumo)}</td><td class="n">${decBR(+(i.quantidade * i.consumo).toFixed(2))}</td></tr>`).join("")}
+    <tr><td colspan="5"><b>Total</b></td><td class="n"><b>${o.itens.reduce((t, i) => t + i.quantidade, 0)}</b></td><td></td><td class="n"><b>${decBR(+o.itens.reduce((t, i) => t + i.quantidade * i.consumo, 0).toFixed(2))}</b></td></tr></tbody></table>
     <p style="margin-top:30px">Cortador: ______________________________ &nbsp; Recebido em: ____/____/______</p></body></html>`);
   w.document.close(); w.focus(); w.print();
 }
@@ -212,16 +227,14 @@ function enviar(o, etapa) {
     ${valores() ? `<div class="campo"><label for="envpreco">Preço por peça nesta remessa (R$)</label><input id="envpreco" inputmode="decimal" style="width:120px" placeholder="o do cadastro"></div>` : ""}
     <div class="caixa"><h4>Peças</h4>${itens.map(i => `<div class="vlin"><span>${esc(i.referencia)} ${esc([i.cor, i.tamanho, i.edicao].filter(Boolean).join(" "))} <span class="mut">· ${n(i.disp[etapa])} disponível(is)</span></span>
       <input type="number" min="0" max="${i.disp[etapa]}" value="${i.disp[etapa]}" data-env-i="${i.id}" style="width:80px" aria-label="Quantidade"></div>`).join("")}</div>
-    ${etapa === "corte" ? `<div class="caixa"><h4>Tecido: precisa de <span id="envprec"></span></h4>${rolos.length ? rolos.map(r => `<div class="vlin"><span><b>${esc(r.codigo)}</b> ${esc(r.tecido)} ${esc(r.cor)} <span class="mut">· saldo ${met(r.saldo, r.unidade)}</span></span>
-      <input inputmode="decimal" data-rolo="${r.id}" data-saldo="${r.saldo}" data-un="${r.unidade}" placeholder="${UNID[r.unidade]}" style="width:90px" aria-label="Quantidade do rolo ${esc(r.codigo)}"></div>`).join("") : '<div class="msg err">Nenhum rolo com saldo: registre a compra em Rolos de tecido.</div>'}</div>` : ""}
+    ${etapa === "corte" ? `<div class="caixa"><h4>Tecido: precisa de <span id="envprec"></span></h4>${rolos.length ? rolos.map(r => `<div class="vlin"><span><b>${esc(r.codigo)}</b> ${esc(r.tecido)} ${esc(r.cor)} <span class="mut">· saldo ${met(r.saldo, r.unidade)}${r.unidade === "kg" ? (r.rendimento ? ` ≈ ${met(+metrosRolo(r).toFixed(2))} (${decBR(r.rendimento)} m/kg)` : " · sem rendimento: informe em Rolos de tecido") : ""}</span></span>
+      <input inputmode="decimal" data-rolo="${r.id}" data-cap="${metrosRolo(r) ?? 0}" placeholder="metros" style="width:90px" aria-label="Metros do rolo ${esc(r.codigo)}" ${metrosRolo(r) == null ? "disabled" : ""}></div>`).join("") : '<div class="msg err">Nenhum rolo com saldo: registre a compra em Rolos de tecido.</div>'}</div>` : ""}
     <div class="campo"><label for="envobs">Observação</label><input id="envobs" maxlength="300"></div>
     <div id="enverr"></div><div class="acoes"><button type="button" class="bt" id="envx">Cancelar</button><button type="button" class="bt pri" id="envok">Enviar</button></div>`;
-  const precisa = u => itens.filter(i => (i.unidade || "m") === u).reduce((t, i) => t + (Number(f.querySelector(`[data-env-i="${i.id}"]`).value) || 0) * Number(i.consumo), 0);
-  const preencher = () => {   // distribui o tecido de cada unidade pelos rolos dela, na ordem, até o saldo de cada um
-    if (etapa !== "corte") return;
-    $("envprec").textContent = porUnid(["m", "kg"].map(u => [u, precisa(u)]));
-    ["m", "kg"].forEach(u => { let falta = precisa(u);
-      f.querySelectorAll(`[data-rolo][data-un="${u}"]`).forEach(inp => { const x = Math.min(falta, Number(inp.dataset.saldo)); inp.value = x > 0 ? decBR(+x.toFixed(2)) : ""; falta -= Math.max(x, 0); }); });
+  const precisa = () => itens.reduce((t, i) => t + (Number(f.querySelector(`[data-env-i="${i.id}"]`).value) || 0) * Number(i.consumo), 0);
+  const preencher = () => {   // distribui os metros pelos rolos, na ordem, até o que cada um ainda dá (rolo por quilo: saldo × rendimento)
+    if (etapa !== "corte") return; let falta = precisa(); $("envprec").textContent = met(+falta.toFixed(2));
+    f.querySelectorAll("[data-rolo]:not([disabled])").forEach(inp => { const x = Math.min(falta, Number(inp.dataset.cap)); inp.value = x > 0 ? decBR(+x.toFixed(2)) : ""; falta -= Math.max(x, 0); });
   };
   f.querySelectorAll("[data-env-i]").forEach(inp => inp.oninput = preencher);
   preencher();
@@ -250,7 +263,7 @@ function receber(o, e) {
         <td class="num"><input type="number" min="0" max="${r}" value="${r}" data-rb="${x.ordem_item_id}" style="width:70px" aria-label="Boas"></td>
         <td class="num"><input type="number" min="0" max="${r}" value="0" data-rp="${x.ordem_item_id}" style="width:70px" aria-label="Perdas"></td>
         <td><input data-rm="${x.ordem_item_id}" placeholder="Ex.: mancha, corte errado" aria-label="Motivo"></td></tr>`; }).join("")}</tbody></table></div>
-    ${e.etapa === "corte" && (e.rolos || []).length ? `<div class="caixa"><h4>Sobra de tecido que voltou</h4>${e.rolos.map(r => `<div class="vlin"><span>${esc(r.codigo)} <span class="mut">· saíram ${met(r.metros, unRolo(r.rolo_id))}</span></span><input inputmode="decimal" data-sobra="${r.rolo_id}" placeholder="${UNID[unRolo(r.rolo_id)]}" style="width:90px" aria-label="Sobra ${esc(r.codigo)}"></div>`).join("")}</div>` : ""}
+    ${e.etapa === "corte" && (e.rolos || []).length ? `<div class="caixa"><h4>Sobra de tecido que voltou</h4>${e.rolos.map(r => `<div class="vlin"><span>${esc(r.codigo)} <span class="mut">· usados ${met(r.metros)} · sobra em ${UNID[unRolo(r.rolo_id)]}</span></span><input inputmode="decimal" data-sobra="${r.rolo_id}" placeholder="${UNID[unRolo(r.rolo_id)]}" style="width:90px" aria-label="Sobra ${esc(r.codigo)}"></div>`).join("")}</div>` : ""}
     <div class="campo"><label for="recobs">Observação da conferência</label><input id="recobs" maxlength="300"></div>
     <div id="recerr"></div><div class="acoes"><button type="button" class="bt" id="recx">Cancelar</button><button type="button" class="bt pri" id="recok">Registrar conferência</button></div>`;
   $("recx").onclick = () => $("dlg2").close();
@@ -290,7 +303,7 @@ function pdRolos() {
   $("pdtela").innerHTML = `<div class="cabtela"><button type="button" class="pilula ${FPR.comSaldo ? "on" : ""}" id="pdsaldo">Só rolos com saldo</button><span style="display:flex;gap:8px;flex-wrap:wrap"><label class="bt" for="pdxml" style="cursor:pointer;margin:0;text-transform:none;letter-spacing:0;font-size:inherit">Importar XML da nota</label><input type="file" id="pdxml" accept=".xml,text/xml" class="oculto"><button class="bt pri" id="pdcompra">+ Registrar compra</button></span></div>
     <div class="card"><div class="tw"><table><thead><tr><th>Rolo</th><th>Tecido</th><th>Cor</th><th>Compra</th><th>Fornecedor</th><th class="num">Comprado</th><th class="num">Saldo</th>${valores() ? '<th class="num">Valor pago</th><th class="num">R$ por m/kg</th>' : ""}</tr></thead><tbody id="pdrolos">
     ${l.length ? l.map(r => `<tr class="rlrow" data-r="${r.id}" style="cursor:pointer"><td><b>${esc(r.codigo)}</b></td><td>${esc(r.tecido)}</td><td>${esc(r.cor) || "—"}</td><td>${dataBR(r.data_compra)}</td><td>${esc(r.fornecedor) || "—"}</td>
-      <td class="num">${met(r.metros_iniciais, r.unidade)}</td><td class="num"><b>${met(r.saldo, r.unidade)}</b></td>${valores() ? `<td class="num">${brl(r.valor_pago)}</td><td class="num">${brl(r.valor_pago / r.metros_iniciais)}</td>` : ""}</tr>`).join("")
+      <td class="num">${met(r.metros_iniciais, r.unidade)}</td><td class="num"><b>${met(r.saldo, r.unidade)}</b>${r.unidade === "kg" ? `<br><span class="mut">${r.rendimento ? "≈ " + met(+metrosRolo(r).toFixed(2)) : "sem rendimento"}</span>` : ""}</td>${valores() ? `<td class="num">${brl(r.valor_pago)}</td><td class="num">${brl(r.valor_pago / r.metros_iniciais)}</td>` : ""}</tr>`).join("")
       : `<tr><td colspan="9" class="mut">${PD.rolos.length ? "Nenhum rolo com saldo." : "Nenhum rolo ainda: registre a compra."}</td></tr>`}</tbody></table></div></div>`;
   $("pdsaldo").onclick = () => { FPR.comSaldo = !FPR.comSaldo; pdRolos(); };
   $("pdcompra").onclick = comprarRolos;
@@ -301,16 +314,18 @@ function comprarRolos() {
   const f = $("dlg2f");
   f.innerHTML = `<h3>Compra de rolos de tecido</h3><div class="mut">Rolos iguais (mesmo tecido, cor e tamanho) podem ser registrados juntos: cada um ganha o seu código. Com o XML da nota é mais rápido: "Importar XML da nota".</div>
     <div class="campo grade2"><div><label for="rctec">Tecido</label><input id="rctec" placeholder="Ex.: linho puro, linho misto"></div><div><label for="rccor">Cor</label><input id="rccor"></div></div>
-    <div class="campo grade3"><div><label for="rcun">Unidade</label><select id="rcun"><option value="m">Metros</option><option value="kg">Quilos</option></select></div><div><label for="rcqtd">Quantos rolos</label><input id="rcqtd" type="number" min="1" value="1"></div><div><label for="rcmet">Metros ou quilos de cada rolo</label><input id="rcmet" inputmode="decimal"></div></div>
+    <div class="campo grade3"><div><label for="rcun">Comprado por</label><select id="rcun"><option value="m">Metro</option><option value="kg">Quilo</option></select></div><div><label for="rcqtd">Quantos rolos</label><input id="rcqtd" type="number" min="1" value="1"></div><div><label for="rcmet">Metros ou quilos de cada rolo</label><input id="rcmet" inputmode="decimal"></div></div>
     <div class="campo grade3">
       <div><label for="rcdata">Data da compra</label><input id="rcdata" type="date" value="${hoje()}" max="${hoje()}"></div>
       <div><label for="rcforn">Fornecedor</label><input id="rcforn"></div><div><label for="rcnota">Nota fiscal</label><input id="rcnota"></div></div>
+    <div class="campo oculto" id="rcrendc"><label for="rcrend">Rendimento: quantos metros dá 1 kg (pode informar depois)</label><input id="rcrend" inputmode="decimal" style="width:120px"></div>
     ${valores() ? `<div class="campo"><label for="rcvalor">Valor pago (total da compra, R$)</label><input id="rcvalor" inputmode="decimal" style="width:160px"></div>` : ""}
     <div id="rcerr"></div><div class="acoes"><button type="button" class="bt" id="rcx">Cancelar</button><button type="button" class="bt pri" id="rcok">Registrar compra</button></div>`;
   $("rcx").onclick = () => $("dlg2").close();
+  $("rcun").onchange = () => $("rcrendc").classList.toggle("oculto", $("rcun").value !== "kg");
   $("rcok").onclick = async () => {
     try {
-      const r = checar(await sb.rpc("lin_rolo_comprar", { p: { unidade: $("rcun").value, tecido: $("rctec").value, cor: $("rccor").value, quantidade: $("rcqtd").value, metros: numBR($("rcmet").value),
+      const r = checar(await sb.rpc("lin_rolo_comprar", { p: { unidade: $("rcun").value, rendimento: numBR($("rcrend").value), tecido: $("rctec").value, cor: $("rccor").value, quantidade: $("rcqtd").value, metros: numBR($("rcmet").value),
         data_compra: $("rcdata").value, fornecedor: $("rcforn").value, nota: $("rcnota").value, valor_pago: $("rcvalor") ? numBR($("rcvalor").value) : "" } }));
       $("dlg2").close(); msg("ok", `Rolo(s) ${r.map(x => x.codigo).join(", ")} registrado(s).`); FPR.aba = "rolos"; await telaProducao();
     } catch (e) { $("rcerr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
@@ -322,13 +337,20 @@ async function verRolo(id) {
   try { h = checar(await sb.rpc("lin_rolo_historico", { p_rolo: id })) || []; } catch (e) { return msg("err", e.message); }
   const TIPO = { compra: "Compra", corte: "Corte", sobra: "Sobra do corte", ajuste: "Ajuste" };
   f.innerHTML = `<h3>Rolo ${esc(r.codigo)}</h3><div class="mut">${esc(r.tecido)} ${esc(r.cor)} · comprado em ${dataBR(r.data_compra)}${r.fornecedor ? " de " + esc(r.fornecedor) : ""}${r.nota ? " · NF " + esc(r.nota) : ""}</div>
-    <div class="kpis" style="margin-top:8px"><div class="kpi"><small>Saldo</small><b>${met(r.saldo, r.unidade)}</b><span>de ${met(r.metros_iniciais, r.unidade)}</span></div>${valores() ? `<div class="kpi"><small>Valor pago</small><b>${brl(r.valor_pago)}</b><span>${brl(r.valor_pago / r.metros_iniciais)} por ${r.unidade === "kg" ? "quilo" : "metro"}</span></div>` : ""}</div>
+    <div class="kpis" style="margin-top:8px"><div class="kpi"><small>Saldo</small><b>${met(r.saldo, r.unidade)}</b><span>de ${met(r.metros_iniciais, r.unidade)}</span></div>${valores() ? `<div class="kpi"><small>Valor pago</small><b>${brl(r.valor_pago)}</b><span>${brl(r.valor_pago / r.metros_iniciais)} por ${r.unidade === "kg" ? "quilo" : "metro"}${r.unidade === "kg" && r.rendimento ? ` · ${brl(r.valor_pago / (r.metros_iniciais * r.rendimento))} por metro` : ""}</span></div>` : ""}${r.unidade === "kg" ? `<div class="kpi"><small>Rendimento</small><b>${r.rendimento ? decBR(r.rendimento) + " m/kg" : "—"}</b><span>${r.rendimento ? "≈ " + met(+metrosRolo(r).toFixed(2)) + " no saldo" : "falta informar"}</span></div>` : ""}</div>
     <div class="tw"><table><thead><tr><th>Quando</th><th>O quê</th><th class="num">${r.unidade === "kg" ? "Quilos" : "Metros"}</th><th class="num">Saldo</th><th>Quem</th></tr></thead><tbody>
     ${h.map(m => `<tr><td>${quando(m.em)}</td><td>${TIPO[m.tipo]}${m.motivo ? `<br><span class="mut">${esc(m.motivo)}</span>` : ""}</td><td class="num">${Number(m.metros) > 0 ? "+" : ""}${decBR(m.metros)}</td><td class="num">${met(m.saldo_depois, r.unidade)}</td><td>${esc(m.por_nome)}</td></tr>`).join("")}</tbody></table></div>
+    ${r.unidade === "kg" ? `<div class="caixa"><h4>Rendimento (metros por kg)</h4><div class="mut">Comprado por quilo: a peça é medida em metros, então o corte usa este rendimento para baixar o rolo.</div>
+      <div class="filtros" style="margin:6px 0 0;align-items:center"><input id="rrend" inputmode="decimal" value="${esc(decBR(r.rendimento || ""))}" placeholder="metros por kg" style="flex:0 1 140px"><button type="button" class="bt" id="rrendok">Salvar rendimento</button></div><div id="rrenderr"></div></div>` : ""}
     <div class="caixa"><h4>Ajustar o saldo</h4><div class="mut">Depois de medir o rolo, de um retalho perdido ou quando o rolo acabar.</div>
       <div class="filtros" style="margin:6px 0 0;align-items:center"><input id="rajs" inputmode="decimal" placeholder="saldo real (${r.unidade})" style="flex:0 1 140px"><input id="rajm" placeholder="Motivo"><button type="button" class="bt" id="rajok">Ajustar</button></div><div id="rajerr"></div></div>
     <div class="acoes"><button type="button" class="bt" id="rlx">Fechar</button></div>`;
   $("rlx").onclick = () => $("dlg").close();
+  if ($("rrendok")) $("rrendok").onclick = async () => {
+    try { checar(await sb.rpc("lin_rolo_rendimento", { p_rolo: id, p_rendimento: numBR($("rrend").value) === "" ? null : Number(numBR($("rrend").value)) }));
+      await carregarProducao(); msg("ok", "Rendimento salvo."); verRolo(id); pdRolos(); }
+    catch (e) { $("rrenderr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+  };
   $("rajok").onclick = async () => {
     try { checar(await sb.rpc("lin_rolo_ajustar", { p_rolo: id, p_saldo: numBR($("rajs").value) === "" ? null : Number(numBR($("rajs").value)), p_motivo: $("rajm").value }));
       await carregarProducao(); msg("ok", "Saldo ajustado."); verRolo(id); pdRolos(); }
@@ -370,21 +392,21 @@ function editarParceiro(p) {
 
 // ---------------------------------------------------------------- metragem por peça
 function pdMetragem() {
-  $("pdtela").innerHTML = `<div class="card"><p class="mut">Quanto tecido cada peça gasta, em metros ou em quilos (a unidade vale para todos os tamanhos e precisa ser a mesma dos rolos usados no corte). Se um tamanho gasta diferente, informe no tamanho; vazio = usa o da peça. A ficha copia o valor do momento (mudar aqui não muda fichas já feitas).</p>
+  $("pdtela").innerHTML = `<div class="card"><p class="mut">Quantos metros de tecido cada peça gasta (a peça é sempre medida em metros, mesmo quando o tecido é comprado por quilo). Se um tamanho gasta diferente, informe no tamanho; vazio = usa a da peça. A ficha copia a metragem do momento, e na própria ficha dá para trocar e "Atualizar na peça".</p>
     <input id="mtq" type="search" placeholder="Procurar peça" style="margin-bottom:8px"><div id="mtlista"></div></div>`;
   const lista = () => {
     const t = $("mtq").value.trim().toLowerCase();
     const l = PD.produtos.filter(p => !t || p.referencia.toLowerCase().includes(t) || p.descricao.toLowerCase().includes(t)).slice(0, 60);
     $("mtlista").innerHTML = l.map(p => `<div class="caixa mtprod" data-p="${p.id}"><div class="vlin"><span><b>${esc(p.referencia)}</b> ${esc(p.descricao)}</span>
-        <span class="acs"><input inputmode="decimal" data-mt="${p.id}" value="${esc(decBR(p.consumo || ""))}" placeholder="por peça" style="width:90px" aria-label="Tecido por peça de ${esc(p.referencia)}"><select data-mtu="${p.id}" style="width:auto" aria-label="Unidade"><option value="m" ${p.unidade !== "kg" ? "selected" : ""}>metros</option><option value="kg" ${p.unidade === "kg" ? "selected" : ""}>quilos</option></select><button type="button" class="lnk" data-mtok="${p.id}">Salvar</button></span></div>
+        <span class="acs"><input inputmode="decimal" data-mt="${p.id}" value="${esc(decBR(p.consumo || ""))}" placeholder="metros" style="width:90px" aria-label="Metros por peça de ${esc(p.referencia)}"><button type="button" class="lnk" data-mtok="${p.id}">Salvar</button></span></div>
       ${p.variantes.length ? `<details><summary class="mut">Por tamanho (${p.variantes.filter(v => v.consumo).length} diferente(s))</summary>${p.variantes.map(v => `<div class="vlin"><span>${esc([v.cor, v.tamanho, v.edicao].filter(Boolean).join(" "))}</span>
         <input inputmode="decimal" data-mtv="${v.id}" value="${esc(decBR(v.consumo || ""))}" placeholder="igual à peça" style="width:110px"></div>`).join("")}</details>` : ""}</div>`).join("")
       || '<div class="mut">Nenhuma peça.</div>';
     document.querySelectorAll("[data-mtok]").forEach(b => b.onclick = async () => {
       const box = b.closest(".mtprod"), vs = {};
       box.querySelectorAll("[data-mtv]").forEach(inp => vs[inp.dataset.mtv] = numBR(inp.value));
-      try { checar(await sb.rpc("lin_consumo_salvar", { p: { produto_id: b.dataset.mtok, consumo_metros: numBR(box.querySelector("[data-mt]").value), consumo_unidade: box.querySelector("[data-mtu]").value, variantes: vs } }));
-        await carregarProducao(); msg("ok", "Tecido por peça salvo."); }
+      try { checar(await sb.rpc("lin_consumo_salvar", { p: { produto_id: b.dataset.mtok, consumo_metros: numBR(box.querySelector("[data-mt]").value), variantes: vs } }));
+        await carregarProducao(); msg("ok", "Metragem salva."); }
       catch (e) { msg("err", e.message); }
     });
   };
@@ -420,13 +442,13 @@ function importarXml(xml) {
   const f = $("dlgf"); $("dlg").classList.add("largo");
   f.innerHTML = `<h3>Importar nota nº ${esc(nf.numero)}</h3>
     <div class="mut">${esc(nf.fornecedor)}${nf.cnpj ? " · CNPJ " + esc(nf.cnpj) : ""} · emitida em ${dataBR(nf.data)} · chave ${esc(nf.chave)}</div>
-    <div class="msg info">Marque os itens que são tecido, confira a <b>cor</b> e informe <b>quantos rolos</b> vieram em cada item (a nota não diz): a quantidade é dividida igualmente entre eles${valores() ? ", assim como o valor" : ""}.</div>
-    <div class="tw"><table><thead><tr><th></th><th>Item da nota</th><th>Tecido</th><th>Cor</th><th>Unidade</th><th class="num">Quantidade</th><th class="num">Rolos</th>${valores() ? '<th class="num">Valor</th>' : ""}</tr></thead><tbody>
+    <div class="msg info">Marque os itens que são tecido, confira a <b>cor</b> e informe <b>quantos rolos</b> vieram em cada item (a nota não diz): a quantidade é dividida igualmente entre eles${valores() ? ", assim como o valor" : ""}. Tecido comprado por quilo precisa depois do rendimento (metros por kg) para ir ao corte.</div>
+    <div class="tw"><table><thead><tr><th></th><th>Item da nota</th><th>Tecido</th><th>Cor</th><th>Comprado por</th><th class="num">Quantidade</th><th class="num">Rolos</th>${valores() ? '<th class="num">Valor</th>' : ""}</tr></thead><tbody>
     ${nf.itens.map((it, k) => { const un = UN_NFE(it.uCom), feito = ja.has(it.item);
       return `<tr class="nfrow"><td><input type="checkbox" data-nfi="${k}" ${feito || !un ? "" : "checked"} ${feito ? "disabled" : ""} aria-label="Importar item ${it.item}"></td>
         <td>${it.item}. ${esc(it.xProd)}<br><span class="mut">${esc(it.qCom.toLocaleString("pt-BR"))} ${esc(it.uCom)}${feito ? " · já importado" : !un ? " · unidade não reconhecida: confira" : ""}</span></td>
         <td><input data-nft="${k}" value="${esc(it.xProd)}"></td><td><input data-nfc="${k}" placeholder="ex.: Cru" style="width:100px"></td>
-        <td><select data-nfu="${k}" style="width:auto"><option value="m" ${un !== "kg" ? "selected" : ""}>metros</option><option value="kg" ${un === "kg" ? "selected" : ""}>quilos</option></select></td>
+        <td><select data-nfu="${k}" style="width:auto"><option value="m" ${un !== "kg" ? "selected" : ""}>metro</option><option value="kg" ${un === "kg" ? "selected" : ""}>quilo</option></select></td>
         <td class="num"><input data-nfq="${k}" inputmode="decimal" value="${esc(decBR(it.qCom))}" style="width:80px"></td>
         <td class="num"><input data-nfr="${k}" type="number" min="1" max="50" value="1" style="width:60px"></td>
         ${valores() ? `<td class="num">${brl(it.valor)}</td>` : ""}</tr>`; }).join("")}</tbody></table></div>

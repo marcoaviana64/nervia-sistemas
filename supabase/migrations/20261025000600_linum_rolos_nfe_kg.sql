@@ -1,38 +1,35 @@
 -- Sistema Linum — Produção 2.1 (pedido do Marco em 25/10/2026): "para atualizar as compras dos rolos de linho, ler o XML
 -- da nota e importar os dados; e há tecidos que são por quilo".
---   * Rolo em metros OU em quilos (lin_rolos.unidade); a peça diz em que unidade gasta o tecido (lin_produtos.consumo_unidade,
---     vale para todos os tamanhos) e a ficha copia a unidade (lin_ordem_itens.unidade). No corte, cada unidade das peças
---     precisa de rolo da mesma unidade; o custo do tecido usa só rolos da unidade da peça. As colunas continuam
---     metros_iniciais / saldo / consumo_metros (agora "quantidade na unidade").
+--   * O QUILO É SÓ A UNIDADE DA COMPRA (decisão do Marco): a peça é sempre medida em metros. lin_rolos.unidade = como o rolo
+--     foi comprado ('m' ou 'kg'); metros_iniciais / saldo ficam NESSA unidade. Rolo por quilo tem lin_rolos.rendimento =
+--     quantos metros dá 1 kg (o Marco ainda vai levantar a proporção): sem rendimento o rolo não vai para o corte; no corte
+--     baixa metros ÷ rendimento; o custo por metro = valor ÷ (quilos × rendimento).
 --   * Importar a NF-e de compra: o navegador lê o XML (layout 4.00 da NF-e: infNFe@Id = chave, ide/nNF, ide/dhEmi,
 --     emit/xNome, det@nItem/prod: xProd, uCom, qCom, vProd, vDesc, vFrete, vSeg, vOutro; imposto/IPI/vIPI, ICMS vICMSST);
---     a Nervia/Linum confere a cor e quantos rolos veio cada item (a nota não diz) e grava pela lin_rolos_importar_nfe
+--     a pessoa confere a cor e quantos rolos veio cada item (a nota não diz) e grava pela lin_rolos_importar_nfe
 --     (tudo ou nada). O mesmo item da mesma nota (chave + nº do item) não entra duas vezes.
 
 alter table public.lin_rolos add column if not exists unidade text not null default 'm';
 alter table public.lin_rolos drop constraint if exists lin_rolos_unidade;
 alter table public.lin_rolos add constraint lin_rolos_unidade check (unidade in ('m', 'kg'));
+alter table public.lin_rolos add column if not exists rendimento numeric(8,3) check (rendimento is null or (rendimento > 0 and rendimento <= 100));
 alter table public.lin_rolos add column if not exists nfe_chave text check (nfe_chave is null or nfe_chave ~ '^[0-9]{44}$');
 alter table public.lin_rolos add column if not exists nfe_item int;
 create index if not exists lin_rolos_nfe on public.lin_rolos (nfe_chave, nfe_item) where nfe_chave is not null;
-alter table public.lin_produtos add column if not exists consumo_unidade text not null default 'm';
-alter table public.lin_produtos drop constraint if exists lin_produtos_consumo_unidade;
-alter table public.lin_produtos add constraint lin_produtos_consumo_unidade check (consumo_unidade in ('m', 'kg'));
-alter table public.lin_ordem_itens add column if not exists unidade text not null default 'm';
-alter table public.lin_ordem_itens drop constraint if exists lin_ordem_itens_unidade;
-alter table public.lin_ordem_itens add constraint lin_ordem_itens_unidade check (unidade in ('m', 'kg'));
 
 create or replace function public.lin_rolo_comprar(p jsonb) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare v_un text := coalesce(nullif(p ->> 'unidade', ''), 'm'); v_chave text := nullif(regexp_replace(coalesce(p ->> 'nfe_chave', ''), '\D', '', 'g'), '');
-        v_item int := nullif(p ->> 'nfe_item', '')::int; v_qtd int := coalesce(nullif(p ->> 'quantidade', '')::int, 1); v_metros numeric := nullif(p ->> 'metros', '')::numeric;
+        v_item int := nullif(p ->> 'nfe_item', '')::int; v_rend numeric := nullif(p ->> 'rendimento', '')::numeric; v_qtd int := coalesce(nullif(p ->> 'quantidade', '')::int, 1); v_metros numeric := nullif(p ->> 'metros', '')::numeric;
         v_tecido text := public._lin_txt(p, 'tecido'); v_valor numeric := 0; v_ano int; v_n int; v_id uuid; v_ids jsonb := '[]'; v_cod text;
         v_data date := coalesce(nullif(p ->> 'data_compra', '')::date, (now() at time zone 'America/Sao_Paulo')::date);
 begin
   if not public.lin_pode('producao') then raise exception 'Seu login não tem a permissão Produção'; end if;
   if v_tecido is null then raise exception 'Informe o tecido (ex.: linho puro, linho misto)'; end if;
-  if v_un not in ('m', 'kg') then raise exception 'Unidade do tecido: metros ou quilos'; end if;
+  if v_un not in ('m', 'kg') then raise exception 'Unidade da compra: metros ou quilos'; end if;
   if v_metros is null or v_metros <= 0 or v_metros > 2000 then raise exception 'Informe quantos % tem cada rolo', case v_un when 'kg' then 'quilos' else 'metros' end; end if;
+  if v_un = 'm' then v_rend := null; end if;
+  if v_rend is not null and (v_rend <= 0 or v_rend > 100) then raise exception 'Rendimento: quantos metros dá 1 kg (entre 0,01 e 100)'; end if;
   if v_chave is not null and length(v_chave) <> 44 then raise exception 'Chave da nota inválida (44 dígitos)'; end if;
   -- o mesmo item da mesma nota não entra duas vezes
   if v_chave is not null and exists (select 1 from public.lin_rolos where nfe_chave = v_chave and nfe_item is not distinct from v_item) then
@@ -48,16 +45,16 @@ begin
     insert into public.lin_rolo_codigos (ano, ultimo) values (v_ano, 1)
     on conflict (ano) do update set ultimo = lin_rolo_codigos.ultimo + 1 returning ultimo into v_n;
     v_cod := 'R-' || v_ano || '-' || lpad(v_n::text, 3, '0');
-    insert into public.lin_rolos (codigo, fornecedor, tecido, cor, metros_iniciais, saldo, valor_pago, data_compra, nota, observacoes, criado_por, criado_nome, unidade, nfe_chave, nfe_item)
+    insert into public.lin_rolos (codigo, fornecedor, tecido, cor, metros_iniciais, saldo, valor_pago, data_compra, nota, observacoes, criado_por, criado_nome, unidade, rendimento, nfe_chave, nfe_item)
     values (v_cod, coalesce(public._lin_txt(p, 'fornecedor'), ''), v_tecido, coalesce(public._lin_txt(p, 'cor'), ''), v_metros, 0,
             round(v_valor / v_qtd, 2), v_data, coalesce(public._lin_txt(p, 'nota'), ''), coalesce(public._lin_txt(p, 'observacoes'), ''),
-            auth.uid(), public._lin_nome(), v_un, v_chave, v_item)
+            auth.uid(), public._lin_nome(), v_un, v_rend, v_chave, v_item)
     returning id into v_id;
     perform public._lin_rolo_mov(v_id, 'compra', v_metros, null, null, 'Compra');
     v_ids := v_ids || jsonb_build_object('id', v_id, 'codigo', v_cod);
   end loop;
   perform public._lin_auditar('linum_rolo_comprado', null, jsonb_build_object('rolos', v_ids, 'tecido', v_tecido, 'cor', p ->> 'cor',
-    'unidade', v_un, 'quantidade_cada', v_metros, 'nfe_chave', v_chave, 'nfe_item', v_item, 'fornecedor', p ->> 'fornecedor', 'valor_pago', v_valor, 'nota', p ->> 'nota'));
+    'unidade', v_un, 'quantidade_cada', v_metros, 'rendimento', v_rend, 'nfe_chave', v_chave, 'nfe_item', v_item, 'fornecedor', p ->> 'fornecedor', 'valor_pago', v_valor, 'nota', p ->> 'nota'));
   return v_ids;
 end $$;
 
@@ -76,65 +73,11 @@ begin
     'saldo_antes', v_antes, 'saldo', p_saldo, 'motivo', trim(p_motivo)));
 end $$;
 
-create or replace function public.lin_consumo_salvar(p jsonb) returns void
-language plpgsql security definer set search_path = public as $$
-declare v_un text := coalesce(nullif(p ->> 'consumo_unidade', ''), 'm'); v_prod uuid := nullif(p ->> 'produto_id', '')::uuid; v_cons numeric := nullif(p ->> 'consumo_metros', '')::numeric;
-        v_antes jsonb; k text; val text;
-begin
-  if not public.lin_pode('producao') then raise exception 'Seu login não tem a permissão Produção'; end if;
-  if not exists (select 1 from public.lin_produtos where id = v_prod) then raise exception 'Produto não encontrado'; end if;
-  if v_un not in ('m', 'kg') then raise exception 'Unidade do tecido: metros ou quilos'; end if;
-  if v_cons is not null and (v_cons <= 0 or v_cons > 50) then raise exception 'Tecido por peça: entre 0,01 e 50'; end if;
-  select jsonb_build_object('produto', p0.consumo_metros, 'unidade', p0.consumo_unidade, 'variantes', coalesce((select jsonb_object_agg(v.id, v.consumo_metros) from public.lin_variantes v
-           where v.produto_id = v_prod and v.consumo_metros is not null), '{}')) into v_antes from public.lin_produtos p0 where p0.id = v_prod;
-  update public.lin_produtos set consumo_metros = v_cons, consumo_unidade = v_un, atualizado_em = now() where id = v_prod;
-  for k, val in select * from jsonb_each_text(coalesce(p -> 'variantes', '{}')) loop
-    if nullif(val, '')::numeric is not null and (val::numeric <= 0 or val::numeric > 50) then raise exception 'Tecido por peça: entre 0,01 e 50'; end if;
-    update public.lin_variantes set consumo_metros = nullif(val, '')::numeric where id = k::uuid and produto_id = v_prod;
-  end loop;
-  perform public._lin_auditar('linum_consumo_alterado', null, jsonb_build_object('produto_id', v_prod,
-    'produto', (select referencia || ' ' || descricao from public.lin_produtos where id = v_prod), 'antes', v_antes,
-    'depois', jsonb_build_object('produto', v_cons, 'unidade', v_un, 'variantes', coalesce(p -> 'variantes', '{}'))));
-end $$;
-
-create or replace function public.lin_ordem_criar(p jsonb) returns bigint
-language plpgsql security definer set search_path = public as $$
-declare v_id bigint; it jsonb; v_var uuid; v_qtd int; v_cons numeric; v_n int := 0; v_metros numeric := 0;
-begin
-  if not public.lin_pode('producao') then raise exception 'Seu login não tem a permissão Produção'; end if;
-  if jsonb_array_length(coalesce(p -> 'itens', '[]')) = 0 then raise exception 'Coloque pelo menos uma peça na ficha'; end if;
-  if nullif(p ->> 'loja_destino_id', '') is not null and not exists (select 1 from public.lin_lojas where id = (p ->> 'loja_destino_id')::uuid) then
-    raise exception 'Loja não encontrada';
-  end if;
-  insert into public.lin_ordens (criado_por, criado_nome, prazo, loja_destino_id, molde, observacao)
-  values (auth.uid(), public._lin_nome(), nullif(p ->> 'prazo', '')::date, nullif(p ->> 'loja_destino_id', '')::uuid,
-          coalesce(public._lin_txt(p, 'molde'), ''), coalesce(public._lin_txt(p, 'observacao'), ''))
-  returning id into v_id;
-  for it in select * from jsonb_array_elements(p -> 'itens') loop
-    v_var := nullif(it ->> 'variante_id', '')::uuid; v_qtd := nullif(it ->> 'quantidade', '')::int;
-    if v_qtd is null or v_qtd < 1 or v_qtd > 5000 then raise exception 'Quantidade de cada peça: de 1 a 5000'; end if;
-    v_cons := coalesce(nullif(it ->> 'consumo', '')::numeric, public._lin_consumo(v_var));
-    if v_cons is null then
-      raise exception 'Falta o tecido por peça de % (informe na ficha ou em Produção → Tecido por peça)',
-        (select pr.referencia || ' ' || v.cor || ' ' || v.tamanho from public.lin_variantes v join public.lin_produtos pr on pr.id = v.produto_id where v.id = v_var);
-    end if;
-    if v_cons <= 0 or v_cons > 50 then raise exception 'Tecido por peça: entre 0,01 e 50'; end if;
-    insert into public.lin_ordem_itens (ordem_id, variante_id, referencia, descricao, cor, tamanho, edicao, quantidade, consumo, unidade)
-    select v_id, v.id, pr.referencia, pr.descricao, v.cor, v.tamanho, v.edicao, v_qtd, v_cons, pr.consumo_unidade
-      from public.lin_variantes v join public.lin_produtos pr on pr.id = v.produto_id where v.id = v_var;
-    if not found then raise exception 'Peça não encontrada'; end if;
-    v_n := v_n + v_qtd;
-  end loop;
-  perform public._lin_auditar('linum_producao_ficha_criada', null, jsonb_build_object('ficha', v_id, 'pecas', v_n, 'tecido', (select jsonb_object_agg(unidade, total) from (select unidade, sum(quantidade * consumo) total from public.lin_ordem_itens where ordem_id = v_id group by unidade) t),
-    'itens', (select jsonb_agg(jsonb_build_object('peca', referencia || ' ' || cor || ' ' || tamanho, 'quantidade', quantidade)) from public.lin_ordem_itens where ordem_id = v_id)));
-  return v_id;
-end $$;
-
 create or replace function public.lin_envio_criar(p jsonb) returns bigint
 language plpgsql security definer set search_path = public as $$
 declare v_ordem bigint := nullif(p ->> 'ordem_id', '')::bigint; v_etapa text := coalesce(p ->> 'etapa', ''); v_parc uuid := nullif(p ->> 'parceiro_id', '')::uuid;
         v_ptipo text; v_pnome text; v_preco numeric; v_id bigint; it jsonb; r jsonb; v_item bigint; v_qtd int; v_disp int; v_n int := 0; v_metros numeric := 0; v_status text;
-        v_precisa numeric := 0;
+        v_precisa numeric := 0; v_run text; v_rrend numeric; v_rcod text;
 begin
   if not public.lin_pode('producao') then raise exception 'Seu login não tem a permissão Produção'; end if;
   select status into v_status from public.lin_ordens where id = v_ordem for update;
@@ -171,23 +114,19 @@ begin
   if v_etapa = 'corte' then
     for r in select * from jsonb_array_elements(coalesce(p -> 'rolos', '[]')) loop
       if coalesce(nullif(r ->> 'metros', '')::numeric, 0) <= 0 then continue; end if;
+      -- a peça é sempre em metros; rolo comprado por quilo baixa metros ÷ rendimento (metros por kg)
+      select unidade, rendimento, codigo into v_run, v_rrend, v_rcod from public.lin_rolos where id = (r ->> 'rolo_id')::uuid;
+      if v_run is null then raise exception 'Rolo não encontrado'; end if;
+      if v_run = 'kg' and v_rrend is null then
+        raise exception 'O rolo % foi comprado por quilo: informe antes quantos metros rende 1 kg (Rolos de tecido → rolo → Rendimento)', v_rcod;
+      end if;
       insert into public.lin_envio_rolos (envio_id, rolo_id, metros) values (v_id, (r ->> 'rolo_id')::uuid, (r ->> 'metros')::numeric);
-      perform public._lin_rolo_mov((r ->> 'rolo_id')::uuid, 'corte', -(r ->> 'metros')::numeric, v_ordem, v_id, 'Ficha nº ' || v_ordem || ' para ' || v_pnome);
+      perform public._lin_rolo_mov((r ->> 'rolo_id')::uuid, 'corte',
+        -(case when v_run = 'kg' then round((r ->> 'metros')::numeric / v_rrend, 2) else (r ->> 'metros')::numeric end),
+        v_ordem, v_id, 'Ficha nº ' || v_ordem || ' para ' || v_pnome || case when v_run = 'kg' then ' (' || (r ->> 'metros') || ' m ÷ ' || v_rrend || ' m/kg)' else '' end);
       v_metros := v_metros + (r ->> 'metros')::numeric;
     end loop;
-    if v_metros = 0 then raise exception 'Escolha de que rolo sai o tecido'; end if;
-    -- cada unidade (metros, quilos) das peças precisa de rolo da mesma unidade; rolo de outra unidade não serve
-    if exists (select 1 from public.lin_envio_rolos er join public.lin_rolos r on r.id = er.rolo_id where er.envio_id = v_id
-                and r.unidade not in (select i.unidade from public.lin_envio_itens ei join public.lin_ordem_itens i on i.id = ei.ordem_item_id where ei.envio_id = v_id)) then
-      raise exception 'Rolo de outra unidade: estas peças não usam tecido por %', (select case r.unidade when 'kg' then 'quilo' else 'metro' end from public.lin_envio_rolos er join public.lin_rolos r on r.id = er.rolo_id
-        where er.envio_id = v_id and r.unidade not in (select i.unidade from public.lin_envio_itens ei join public.lin_ordem_itens i on i.id = ei.ordem_item_id where ei.envio_id = v_id) limit 1);
-    end if;
-    if exists (select 1 from public.lin_envio_itens ei join public.lin_ordem_itens i on i.id = ei.ordem_item_id where ei.envio_id = v_id
-                and not exists (select 1 from public.lin_envio_rolos er join public.lin_rolos r on r.id = er.rolo_id where er.envio_id = v_id and r.unidade = i.unidade)) then
-      raise exception 'Faltou escolher rolo de tecido por % para as peças desta remessa', (select case i.unidade when 'kg' then 'quilo' else 'metro' end
-        from public.lin_envio_itens ei join public.lin_ordem_itens i on i.id = ei.ordem_item_id where ei.envio_id = v_id
-         and not exists (select 1 from public.lin_envio_rolos er join public.lin_rolos r on r.id = er.rolo_id where er.envio_id = v_id and r.unidade = i.unidade) limit 1);
-    end if;
+    if v_metros = 0 then raise exception 'Escolha de que rolo sai o tecido (precisa de % m)', round(v_precisa, 2); end if;
   end if;
   perform public._lin_auditar('linum_producao_enviada', null, jsonb_build_object('ficha', v_ordem, 'remessa', v_id, 'etapa', v_etapa,
     'parceiro', v_pnome, 'pecas', v_n, 'metros', nullif(v_metros, 0), 'preco_peca', v_preco));
@@ -198,9 +137,9 @@ create or replace function public._lin_custo_item(p_item bigint) returns numeric
 language sql stable security definer set search_path = public as $$
   with i as (select * from public.lin_ordem_itens where id = p_item),
   linho as (
-    select sum(er.metros * r.valor_pago / r.metros_iniciais) / nullif(sum(er.metros), 0) as por_metro
+    select sum(er.metros * r.valor_pago / (r.metros_iniciais * case when r.unidade = 'kg' then r.rendimento else 1 end)) / nullif(sum(er.metros), 0) as por_metro
       from public.lin_envio_rolos er join public.lin_envios e on e.id = er.envio_id join public.lin_rolos r on r.id = er.rolo_id
-     where e.ordem_id = (select ordem_id from i) and r.unidade = (select unidade from i)
+     where e.ordem_id = (select ordem_id from i)
   ),
   etapas as (
     select e.etapa, sum(ei.recebidas * e.preco_peca) / nullif(sum(ei.recebidas), 0) as preco
@@ -260,7 +199,7 @@ begin
     'parceiros', coalesce((select jsonb_agg(case when v_val then to_jsonb(x) else to_jsonb(x) - 'preco_peca' end order by x.tipo, x.nome) from public.lin_parceiros x), '[]'),
     'rolos', coalesce((select jsonb_agg(case when v_val then to_jsonb(r) - 'origem' - 'nfe_chave' else to_jsonb(r) - 'origem' - 'nfe_chave' - 'valor_pago' end order by r.saldo = 0, r.data_compra desc, r.codigo desc)
                        from public.lin_rolos r), '[]'),
-    'produtos', coalesce((select jsonb_agg(jsonb_build_object('id', p.id, 'referencia', p.referencia, 'descricao', p.descricao, 'consumo', p.consumo_metros, 'unidade', p.consumo_unidade,
+    'produtos', coalesce((select jsonb_agg(jsonb_build_object('id', p.id, 'referencia', p.referencia, 'descricao', p.descricao, 'consumo', p.consumo_metros,
                    'variantes', coalesce((select jsonb_agg(jsonb_build_object('id', v.id, 'cor', v.cor, 'tamanho', v.tamanho, 'edicao', v.edicao, 'consumo', v.consumo_metros)
                                           order by v.cor, v.tamanho) from public.lin_variantes v where v.produto_id = p.id and v.ativo), '[]'))
                  order by p.descricao, p.referencia) from public.lin_produtos p where p.ativo), '[]'),
@@ -280,6 +219,20 @@ begin
         'entradas', coalesce((select jsonb_agg((case when v_val then to_jsonb(en) else to_jsonb(en) - 'custo_unitario' end) order by en.em)
                   from public.lin_ordem_entradas en join public.lin_ordem_itens i on i.id = en.ordem_item_id where i.ordem_id = o.id), '[]'))
       order by o.id desc) from public.lin_ordens o), '[]'));
+end $$;
+
+-- rendimento do rolo comprado por quilo (metros por kg); pode ser informado ou corrigido depois (vale para os próximos cortes)
+create or replace function public.lin_rolo_rendimento(p_rolo uuid, p_rendimento numeric) returns void
+language plpgsql security definer set search_path = public as $$
+declare v record;
+begin
+  if not public.lin_pode('producao') then raise exception 'Seu login não tem a permissão Produção'; end if;
+  select * into v from public.lin_rolos where id = p_rolo for update;
+  if v.id is null then raise exception 'Rolo não encontrado'; end if;
+  if v.unidade <> 'kg' then raise exception 'Rendimento só vale para rolo comprado por quilo'; end if;
+  if p_rendimento is null or p_rendimento <= 0 or p_rendimento > 100 then raise exception 'Rendimento: quantos metros dá 1 kg (entre 0,01 e 100)'; end if;
+  update public.lin_rolos set rendimento = p_rendimento where id = p_rolo;
+  perform public._lin_auditar('linum_rolo_rendimento', null, jsonb_build_object('rolo', v.codigo, 'antes', v.rendimento, 'rendimento', p_rendimento));
 end $$;
 
 -- importa os itens de uma NF-e de compra: p = {chave, numero, fornecedor, data, itens:[{item, tecido, cor, unidade, rolos, total, valor}]}
@@ -303,5 +256,9 @@ begin
   if v_n = 0 then raise exception 'Marque pelo menos um item da nota'; end if;
   return v_res;
 end $$;
-revoke execute on function public.lin_rolos_importar_nfe(jsonb) from public, anon;
-grant execute on function public.lin_rolos_importar_nfe(jsonb) to authenticated;
+do $$ declare f text; begin
+  foreach f in array array['lin_rolo_rendimento(uuid, numeric)', 'lin_rolos_importar_nfe(jsonb)'] loop
+    execute format('revoke execute on function public.%s from public, anon', f);
+    execute format('grant execute on function public.%s to authenticated', f);
+  end loop;
+end $$;
