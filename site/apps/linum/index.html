@@ -8,6 +8,7 @@
 <script src="/config.js"></script>
 <script src="/versoes.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<script src="producao.js"></script>
 <style>
 /* Sistema Linum (app "linum", tabelas lin_): o sistema da LINUM Roupas de Linho trazido do Lovable para a Plataforma.
    Produtos, estoque das lojas, vendas (boleta) e clientes. Dono: tudo; Estoque: cadastra e movimenta sem custo;
@@ -124,6 +125,7 @@ td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-n
       <button class="aba oculto" data-v="vendas" id="abaVendas">Vendas</button>
       <button class="aba oculto" data-v="clientes" id="abaClientes">Clientes</button>
       <button class="aba oculto" data-v="ranking" id="abaRanking">Ranking</button>
+      <button class="aba oculto" data-v="producao" id="abaProducao">Produção</button>
       <button class="aba oculto" data-v="comissoes" id="abaComissoes">Comissões</button>
       <button class="aba oculto" data-v="equipe" id="abaEquipe">Equipe</button>
       <div class="dir" id="quem"></div>
@@ -179,10 +181,11 @@ async function iniciar() {
     const p = checar(await sb.from("perfis").select("admin").eq("user_id", session.user.id).maybeSingle());
     ADMIN = !!(p && p.admin);
     await carregar();
+    PERM = checar(await sb.rpc("lin_minhas_permissoes")) || PERM;
     $("abaEquipe").classList.toggle("oculto", !ADMIN);
     $("abaProdutos").classList.toggle("oculto", !controla());
     $("abaVendas").classList.toggle("oculto", !vende()); $("abaClientes").classList.toggle("oculto", !vende());
-    $("abaComissoes").classList.toggle("oculto", !dono()); $("abaRanking").classList.toggle("oculto", !vende());
+    $("abaComissoes").classList.toggle("oculto", !dono()); $("abaRanking").classList.toggle("oculto", !vende()); $("abaProducao").classList.toggle("oculto", !PERM.producao);
     $("quem").textContent = ADMIN ? "Equipe Nervia (Dono)" : dono() ? "Dono" : controla() ? "Estoque · sem custos" : "Vendedora" + (MINHA_LOJA ? " · " + loja(MINHA_LOJA).nome : "");
     $("aviso").classList.add("oculto"); $("app").classList.remove("oculto");
     render();
@@ -202,6 +205,7 @@ function render() {
   if (VISTA === "clientes" && vende()) return telaClientes();
   if (VISTA === "comissoes" && dono()) return telaComissoes();
   if (VISTA === "ranking" && vende()) return telaRanking();
+  if (VISTA === "producao" && PERM.producao) return telaProducao();
   telaEstoque();
 }
 
@@ -1336,12 +1340,14 @@ async function telaEquipe() {
   try { EQUIPE = checar(await sb.rpc("lin_equipe")) || []; } catch (e) { $("tela").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; return; }
   const opLoja = sel => `<option value="">—</option>` + LOJAS.map(l => `<option value="${l.id}" ${l.id === sel ? "selected" : ""}>${esc(l.nome)}</option>`).join("");
   $("tela").innerHTML = `<div class="card"><h2>Equipe da Linum</h2>
-    <p class="mut">Aparecem aqui os logins com o app <b>Sistema Linum</b> liberado na Área do Cliente (Administração → Logins). Dono: tudo, inclusive preço de custo. Estoque: cadastra peças, altera o preço de venda e movimenta o estoque, sem ver nem alterar custo. Vendedora: consulta o estoque, sem preço de custo. <b>Todos vendem</b>, em qualquer loja (a loja principal vem marcada na venda), e cada um vê só as próprias vendas; o Dono vê as de todos. <b>Comissão (%)</b>: sobre o valor pago de cada venda da pessoa; 0 = sem comissão. Mudar o % não altera as vendas já feitas. Todas as ações ficam na auditoria. Sem papel: o login não entra no app.</p>
-    ${EQUIPE.length ? `<div class="tw"><table><thead><tr><th>Login</th><th>Papel</th><th>Loja principal</th><th>Comissão (%)</th><th></th></tr></thead><tbody>
+    <p class="mut">Aparecem aqui os logins com o app <b>Sistema Linum</b> liberado na Área do Cliente (Administração → Logins). Dono: tudo, inclusive preço de custo. Estoque: cadastra peças, altera o preço de venda e movimenta o estoque, sem ver nem alterar custo. Vendedora: consulta o estoque, sem preço de custo. <b>Todos vendem</b>, em qualquer loja (a loja principal vem marcada na venda), e cada um vê só as próprias vendas; o Dono vê as de todos. <b>Comissão (%)</b>: sobre o valor pago de cada venda da pessoa; 0 = sem comissão. Mudar o % não altera as vendas já feitas. <b>Permissões</b> somam ao papel: <b>Produção</b> opera rolos, fichas e etapas; <b>Valores da produção</b> mostra também o valor pago no linho, o preço por peça dos parceiros e o custo das peças (o Dono já tem as duas). Todas as ações ficam na auditoria. Sem papel: o login não entra no app.</p>
+    ${EQUIPE.length ? `<div class="tw"><table><thead><tr><th>Login</th><th>Papel</th><th>Loja principal</th><th>Comissão (%)</th><th>Permissões</th><th></th></tr></thead><tbody>
       ${EQUIPE.map((u, i) => `<tr><td><b>${esc(u.nome || u.email)}</b><br><span class="mut">${esc(u.email)}</span></td>
         <td><select data-i="${i}" class="eq-papel"><option value="">Sem papel</option><option value="dono" ${u.papel === "dono" ? "selected" : ""}>Dono</option><option value="estoque" ${u.papel === "estoque" ? "selected" : ""}>Estoque</option><option value="vendedora" ${u.papel === "vendedora" ? "selected" : ""}>Vendedora</option></select></td>
         <td><select data-i="${i}" class="eq-loja">${opLoja(u.loja_id)}</select></td>
         <td><input data-i="${i}" class="eq-comissao" inputmode="decimal" value="${esc(u.comissao_pct != null ? decBR(Number(u.comissao_pct)) : "0")}" style="width:80px" aria-label="Comissão em %"></td>
+        <td>${u.papel === "dono" ? '<span class="mut">todas</span>' : `<label class="chk"><input type="checkbox" class="eq-prod" data-i="${i}" ${(u.permissoes || []).includes("producao") ? "checked" : ""}> Produção</label>
+          <label class="chk"><input type="checkbox" class="eq-val" data-i="${i}" ${(u.permissoes || []).includes("producao_valores") ? "checked" : ""}> Valores da produção</label>`}</td>
         <td><button class="bt pri eq-salvar" data-i="${i}">Salvar</button></td></tr>`).join("")}
       </tbody></table></div>` : '<div class="vazio">Nenhum login com o app liberado ainda.</div>'}</div>`;
   document.querySelectorAll(".eq-salvar").forEach(b => b.onclick = async () => {
@@ -1349,7 +1355,13 @@ async function telaEquipe() {
     const papel = document.querySelector(`.eq-papel[data-i="${i}"]`).value, lj = document.querySelector(`.eq-loja[data-i="${i}"]`).value || null;
     const cm = numBR(document.querySelector(`.eq-comissao[data-i="${i}"]`).value) || 0;
     b.disabled = true;
-    try { checar(await sb.rpc("lin_membro_salvar", { p_user: u.user_id, p_papel: papel, p_loja: lj, p_comissao: Number(cm) })); msg("ok", `Papel de ${u.nome || u.email} salvo.`); await telaEquipe(); }
+    const prod = document.querySelector(`.eq-prod[data-i="${i}"]`), val = document.querySelector(`.eq-val[data-i="${i}"]`);
+    const perms = [prod && prod.checked ? "producao" : "", val && val.checked ? "producao_valores" : ""].filter(Boolean);
+    try {
+      checar(await sb.rpc("lin_membro_salvar", { p_user: u.user_id, p_papel: papel, p_loja: lj, p_comissao: Number(cm) }));
+      if (papel && papel !== "dono" && prod && perms.join() !== [...(u.permissoes || [])].sort().join()) checar(await sb.rpc("lin_membro_permissoes", { p_user: u.user_id, p_permissoes: perms }));
+      msg("ok", `Papel de ${u.nome || u.email} salvo.`); await telaEquipe();
+    }
     catch (e) { msg("err", e.message); b.disabled = false; }
   });
 }

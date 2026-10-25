@@ -1614,5 +1614,120 @@ select pg_temp.erro2($$select lin_ranking(current_date, current_date)$$, 'não t
 reset role;
 select pg_temp.ok((select count(*) = 1 from auditoria where acao = 'linum_nota_vendedora_dada') and (select count(*) = 1 from auditoria where acao = 'linum_nota_vendedora_alterada' and (detalhes->>'antes')::int = 3),
   'linum ranking: nota dada e alterada na auditoria (com o antes)');
+-- produção: permissões, rolos, ficha, etapas, estoque e valores escondidos
+create temp table lin_pd (k text primary key, v text); grant all on lin_pd to authenticated;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';   -- Estoque, ainda sem a permissão Produção
+select pg_temp.erro2($$select lin_producao_ler()$$, 'permissão Produção', 'linum produção: papel Estoque sozinho não vê a produção');
+select pg_temp.erro2($$select lin_membro_permissoes('00000000-0000-0000-0000-00000000000d', array['producao'])$$, 'Somente a equipe Nervia', 'linum produção: só a Nervia dá permissão');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';   -- equipe Nervia
+select pg_temp.erro2($$select lin_membro_permissoes('00000000-0000-0000-0000-00000000000d', array['caixa'])$$, 'Permissão inválida', 'linum produção: permissão desconhecida recusada');
+select pg_temp.erro2($$select lin_membro_permissoes('00000000-0000-0000-0000-00000000000b', array['producao'])$$, 'já tem todas', 'linum produção: Dono já tem tudo');
+select lin_membro_permissoes('00000000-0000-0000-0000-00000000000d', array['producao']);
+select lin_membro_permissoes('00000000-0000-0000-0000-00000000000c', array['producao_valores']);
+select pg_temp.ok((select permissoes = array['producao', 'producao_valores'] from lin_membros where user_id = '00000000-0000-0000-0000-00000000000c')
+  and (select e->'permissoes' = '["producao"]' from jsonb_array_elements(lin_equipe()) e where e->>'user_id' = '00000000-0000-0000-0000-00000000000d'),
+  'linum produção: valores vêm junto com produção; a equipe mostra as permissões');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';   -- Dono cadastra parceiros, metragem e rolos
+insert into lin_pd values ('cort', lin_parceiro_salvar('{"nome":"Carlos Cortador","tipo":"cortador","telefone":"21977776666","preco_peca":"8"}')::text);
+insert into lin_pd values ('cost', lin_parceiro_salvar('{"nome":"Maria Costureira","tipo":"costureira","preco_peca":"25"}')::text);
+insert into lin_pd values ('lav',  lin_parceiro_salvar('{"nome":"Lavanderia Azul","tipo":"lavanderia","preco_peca":"5"}')::text);
+insert into lin_pd values ('pass', lin_parceiro_salvar('{"nome":"Passadeira Rosa","tipo":"passadoria","preco_peca":"3"}')::text);
+select lin_consumo_salvar(jsonb_build_object('produto_id', '10000000-0000-0000-0000-000000000002', 'consumo_metros', 2.0,
+  'variantes', jsonb_build_object('20000000-0000-0000-0000-000000000003', 2.5)));
+select pg_temp.ok((select consumo_metros = 2.5 from lin_variantes where id = '20000000-0000-0000-0000-000000000003') and (select consumo_metros = 2 from lin_produtos where id = '10000000-0000-0000-0000-000000000002'), 'linum produção: metragem do produto e do tamanho gravadas');
+select pg_temp.erro2($$select lin_rolo_comprar('{"tecido":"Linho puro","metros":"0"}')$$, 'metros', 'linum produção: rolo sem metros recusado');
+insert into lin_pd select 'rolos', lin_rolo_comprar('{"tecido":"Linho puro","cor":"Cru","metros":"30","quantidade":"2","valor_pago":"1200","fornecedor":"Tecelagem Exemplo"}')::text;
+reset role;
+select pg_temp.ok((select count(*) = 2 and min(codigo) like 'R-____-001' and sum(saldo) = 60 and sum(valor_pago) = 1200 from lin_rolos),
+  'linum produção: compra de 2 rolos de 30 m (códigos R-ano-001/002, valor dividido)');
+set role authenticated;
+reset role;
+insert into lin_pd select 'r1', id::text from lin_rolos where codigo like '%-001';
+set role authenticated;
+-- ficha: 4 Calça Cru G (2,5 m cada = 10 m)
+select pg_temp.erro2($$select lin_ordem_criar(jsonb_build_object('itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 2))))$$,
+  'Falta a metragem', 'linum produção: peça sem metragem não entra na ficha');
+insert into lin_pd select 'f', lin_ordem_criar(jsonb_build_object('molde', 'Molde calça reta', 'loja_destino_id', (select v from lin_ids where k = 'gav'),
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000003', 'quantidade', 4))))::text;
+reset role;
+insert into lin_pd select 'it', id::text from lin_ordem_itens where ordem_id = (select v from lin_pd where k = 'f')::bigint;
+set role authenticated;
+select pg_temp.erro2($$select lin_envio_criar(jsonb_build_object('ordem_id', (select v from lin_pd where k = 'f'), 'etapa', 'corte', 'parceiro_id', (select v from lin_pd where k = 'cost'),
+  'itens', jsonb_build_array(jsonb_build_object('ordem_item_id', (select v from lin_pd where k = 'it'), 'quantidade', 4)), 'rolos', jsonb_build_array(jsonb_build_object('rolo_id', (select v from lin_pd where k = 'r1'), 'metros', 10))))$$,
+  'não é de corte', 'linum produção: costureira não recebe corte');
+select pg_temp.erro2($$select lin_envio_criar(jsonb_build_object('ordem_id', (select v from lin_pd where k = 'f'), 'etapa', 'costura', 'parceiro_id', (select v from lin_pd where k = 'cost'),
+  'itens', jsonb_build_array(jsonb_build_object('ordem_item_id', (select v from lin_pd where k = 'it'), 'quantidade', 1))))$$,
+  'disponíveis para costura', 'linum produção: não vai para a costura antes do corte');
+select pg_temp.erro2($$select lin_envio_criar(jsonb_build_object('ordem_id', (select v from lin_pd where k = 'f'), 'etapa', 'corte', 'parceiro_id', (select v from lin_pd where k = 'cort'),
+  'itens', jsonb_build_array(jsonb_build_object('ordem_item_id', (select v from lin_pd where k = 'it'), 'quantidade', 4)), 'rolos', jsonb_build_array(jsonb_build_object('rolo_id', (select v from lin_pd where k = 'r1'), 'metros', 31))))$$,
+  'metragem suficiente', 'linum produção: rolo sem saldo recusado');
+insert into lin_pd select 'ec', lin_envio_criar(jsonb_build_object('ordem_id', (select v from lin_pd where k = 'f'), 'etapa', 'corte', 'parceiro_id', (select v from lin_pd where k = 'cort'),
+  'itens', jsonb_build_array(jsonb_build_object('ordem_item_id', (select v from lin_pd where k = 'it'), 'quantidade', 4)),
+  'rolos', jsonb_build_array(jsonb_build_object('rolo_id', (select v from lin_pd where k = 'r1'), 'metros', 10))))::text;
+reset role;
+select pg_temp.ok((select saldo = 20 from lin_rolos where id = (select v from lin_pd where k = 'r1')::uuid), 'linum produção: o linho sai do rolo no envio ao corte');
+set role authenticated;
+select pg_temp.erro2($$select lin_envio_receber(jsonb_build_object('envio_id', (select v from lin_pd where k = 'ec'), 'itens', jsonb_build_array(jsonb_build_object('ordem_item_id', (select v from lin_pd where k = 'it'), 'recebidas', 3, 'perdas', 1))))$$,
+  'motivo', 'linum produção: perda exige motivo');
+select lin_envio_receber(jsonb_build_object('envio_id', (select v from lin_pd where k = 'ec'), 'itens', jsonb_build_array(jsonb_build_object('ordem_item_id', (select v from lin_pd where k = 'it'), 'recebidas', 3, 'perdas', 1, 'motivo', 'corte errado')),
+  'sobra', jsonb_build_array(jsonb_build_object('rolo_id', (select v from lin_pd where k = 'r1'), 'metros', 1.5))));
+reset role;
+select pg_temp.ok((select status = 'recebido' from lin_envios where id = (select v from lin_pd where k = 'ec')::bigint)
+  and (select saldo = 21.5 from lin_rolos where id = (select v from lin_pd where k = 'r1')::uuid)
+  and _lin_disponivel((select v from lin_pd where k = 'it')::bigint, 'costura') = 3,
+  'linum produção: conferência do corte (3 boas, 1 perdida, sobra volta ao rolo)');
+set role authenticated;
+-- costura dividida em duas remessas; recebimento parcial
+insert into lin_pd select 'es', lin_envio_criar(jsonb_build_object('ordem_id', (select v from lin_pd where k = 'f'), 'etapa', 'costura', 'parceiro_id', (select v from lin_pd where k = 'cost'),
+  'itens', jsonb_build_array(jsonb_build_object('ordem_item_id', (select v from lin_pd where k = 'it'), 'quantidade', 3))))::text;
+select lin_envio_receber(jsonb_build_object('envio_id', (select v from lin_pd where k = 'es'), 'itens', jsonb_build_array(jsonb_build_object('ordem_item_id', (select v from lin_pd where k = 'it'), 'recebidas', 2))));
+reset role;
+select pg_temp.ok((select status = 'aberto' from lin_envios where id = (select v from lin_pd where k = 'es')::bigint), 'linum produção: recebimento parcial deixa a remessa aberta');
+set role authenticated;
+select pg_temp.erro2($$select lin_envio_receber(jsonb_build_object('envio_id', (select v from lin_pd where k = 'es'), 'itens', jsonb_build_array(jsonb_build_object('ordem_item_id', (select v from lin_pd where k = 'it'), 'recebidas', 2))))$$,
+  'já voltaram', 'linum produção: não recebe mais do que foi');
+select lin_envio_receber(jsonb_build_object('envio_id', (select v from lin_pd where k = 'es'), 'itens', jsonb_build_array(jsonb_build_object('ordem_item_id', (select v from lin_pd where k = 'it'), 'recebidas', 1))));
+insert into lin_pd select 'el', lin_envio_criar(jsonb_build_object('ordem_id', (select v from lin_pd where k = 'f'), 'etapa', 'lavagem', 'parceiro_id', (select v from lin_pd where k = 'lav'),
+  'itens', jsonb_build_array(jsonb_build_object('ordem_item_id', (select v from lin_pd where k = 'it'), 'quantidade', 3))))::text;
+select lin_envio_receber(jsonb_build_object('envio_id', (select v from lin_pd where k = 'el'), 'itens', jsonb_build_array(jsonb_build_object('ordem_item_id', (select v from lin_pd where k = 'it'), 'recebidas', 3))));
+insert into lin_pd select 'ep', lin_envio_criar(jsonb_build_object('ordem_id', (select v from lin_pd where k = 'f'), 'etapa', 'passadoria', 'parceiro_id', (select v from lin_pd where k = 'pass'),
+  'itens', jsonb_build_array(jsonb_build_object('ordem_item_id', (select v from lin_pd where k = 'it'), 'quantidade', 3))))::text;
+select lin_envio_receber(jsonb_build_object('envio_id', (select v from lin_pd where k = 'ep'), 'itens', jsonb_build_array(jsonb_build_object('ordem_item_id', (select v from lin_pd where k = 'it'), 'recebidas', 3))));
+reset role;
+create temp table lin_pd_est as select coalesce((select quantidade from lin_estoque where variante_id = '20000000-0000-0000-0000-000000000003' and loja_id = (select v from lin_ids where k = 'gav')), 0) q;
+set role authenticated;
+select pg_temp.erro2($$select lin_ordem_entrada(jsonb_build_object('ordem_id', (select v from lin_pd where k = 'f'), 'loja_id', (select v from lin_ids where k = 'gav'),
+  'itens', jsonb_build_array(jsonb_build_object('ordem_item_id', (select v from lin_pd where k = 'it'), 'quantidade', 4))))$$, 'Só há 3', 'linum produção: só entra no estoque o que ficou pronto');
+select lin_ordem_entrada(jsonb_build_object('ordem_id', (select v from lin_pd where k = 'f'), 'loja_id', (select v from lin_ids where k = 'gav'),
+  'itens', jsonb_build_array(jsonb_build_object('ordem_item_id', (select v from lin_pd where k = 'it'), 'quantidade', 3))));
+-- custo: linho 600/30 = 20 por metro × 2,5 = 50 + corte 8 + costura 25 + lavagem 5 + passadoria 3 = 91
+reset role;
+select pg_temp.ok((select quantidade from lin_estoque where variante_id = '20000000-0000-0000-0000-000000000003' and loja_id = (select v from lin_ids where k = 'gav')) = (select q from lin_pd_est) + 3
+  and (select count(*) = 1 from lin_movimentos where tipo = 'producao' and quantidade = 3)
+  and (select custo_unitario = 91 from lin_ordem_entradas)
+  and (select status = 'concluida' from lin_ordens where id = (select v from lin_pd where k = 'f')::bigint),
+  'linum produção: 3 peças entram no estoque da Gávea com custo de R$ 91 e a ficha fica concluída (1 perdida no corte)');
+set role authenticated;
+-- valores escondidos de quem só tem Produção
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+select pg_temp.ok((select not (r->>'valores')::boolean and not (r->'parceiros'->0 ? 'preco_peca') and not (r->'rolos'->0 ? 'valor_pago')
+    and (r->'ordens'->0->'itens'->0->>'custo') is null and not (r->'ordens'->0->'envios'->0 ? 'preco_peca') and not (r->'ordens'->0->'entradas'->0 ? 'custo_unitario')
+    and jsonb_array_length(r->'ordens') = 1 from (select lin_producao_ler() r) x),
+  'linum produção: quem só tem Produção opera sem ver valor do linho, preço por peça nem custo');
+select pg_temp.erro2('select * from lin_rolos', 'permission', 'linum produção: tabelas não são lidas direto pela tela');
+insert into lin_pd values ('ps', lin_parceiro_salvar(jsonb_build_object('id', (select v from lin_pd where k = 'cost'), 'nome', 'Maria Costureira', 'tipo', 'costureira', 'preco_peca', 999))::text);
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora com valores
+select pg_temp.ok((select (r->>'valores')::boolean and (r->'ordens'->0->'itens'->0->>'custo')::numeric = 91
+    and (select (p->>'preco_peca')::numeric = 25 from jsonb_array_elements(r->'parceiros') p where p->>'nome' = 'Maria Costureira') from (select lin_producao_ler() r) x),
+  'linum produção: com Valores vê o custo; quem não tem valores não muda o preço por peça');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
+select pg_temp.erro2($$select lin_producao_ler()$$, 'permissão Produção', 'linum produção: login fora da Linum não vê');
+reset role;
+select pg_temp.erro2($$delete from lin_rolo_movs$$, 'não pode ser alterado', 'linum produção: histórico do rolo é somente inclusão');
+select pg_temp.ok((select count(distinct acao) >= 6 from auditoria where acao in ('linum_rolo_comprado', 'linum_parceiro_criado', 'linum_consumo_alterado', 'linum_producao_ficha_criada',
+  'linum_producao_enviada', 'linum_producao_recebida', 'linum_producao_estoque')) and (select count(*) >= 2 from auditoria where acao = 'linum_papel_definido' and detalhes ? 'permissoes'),
+  'linum produção: tudo na auditoria (inclusive as permissões)');
+
 reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'

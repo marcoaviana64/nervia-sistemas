@@ -29,6 +29,7 @@
     <li><a href="#clientes">7. Clientes e acompanhamento</a></li>
     <li><a href="#comissoes">7a. Comissões do mês (Dono)</a></li>
     <li><a href="#ranking">7b. Ranking das vendedoras</a></li>
+    <li><a href="#producao">7c. Produção: rolos, fichas e etapas</a></li>
     <li><a href="#problemas">8. Mensagens e o que fazer</a></li>
   </ul>
 
@@ -80,7 +81,7 @@
   <ol>
     <li>Crie o login na Área do Cliente → Administração → Logins e marque o app <b>Sistema Linum</b>.</li>
     <li>No app, abra <b>Equipe</b>. Aparecem os logins com o app liberado.</li>
-    <li>Escolha o <b>Papel</b>: <b>Dono</b> (tudo, inclusive preço de custo), <b>Estoque</b> (cadastra peças, altera o preço de venda e movimenta o estoque, sem ver nem alterar custo) ou <b>Vendedora</b> (consulta o estoque). Todos vendem, em qualquer loja, e veem só as próprias vendas; o Dono vê as de todos. Informe a <b>Loja principal</b> (opcional, vem marcada na venda) e a <b>Comissão (%)</b> sobre o valor pago das vendas da pessoa (0 = sem comissão). Clique em <b>Salvar</b>. A troca fica na auditoria.</li>
+    <li>Escolha o <b>Papel</b>: <b>Dono</b> (tudo, inclusive preço de custo), <b>Estoque</b> (cadastra peças, altera o preço de venda e movimenta o estoque, sem ver nem alterar custo) ou <b>Vendedora</b> (consulta o estoque). Todos vendem, em qualquer loja, e veem só as próprias vendas; o Dono vê as de todos. Informe a <b>Loja principal</b> (opcional, vem marcada na venda) e a <b>Comissão (%)</b> sobre o valor pago das vendas da pessoa (0 = sem comissão). Marque as <b>Permissões</b>, que somam ao papel: <b>Produção</b> (rolos, fichas e etapas) e <b>Valores da produção</b> (valor pago no linho, preço por peça e custo das peças; marca junto a Produção). O Dono já tem as duas. Clique em <b>Salvar</b>. A troca fica na auditoria.</li>
     <li>Para tirar alguém do app, escolha <b>Sem papel</b> ou retire o app do login na Área do Cliente.</li>
   </ol>
 
@@ -171,6 +172,22 @@
     <li>Todas veem a classificação e as notas de todas. Valores em reais, número de vendas e o comentário da Dona: o Dono vê de todas; cada vendedora vê só os seus.</li>
   </ol>
 
+  <h2 id="producao">7c. Produção: rolos, fichas e etapas</h2>
+  <p>Aba <b>Produção</b> (Dono e quem tem a permissão Produção). O caminho de uma peça: <b>linho → corte → conferência → costura → conferência → lavagem → passadoria → estoque</b>. Quem não tem a permissão <b>Valores da produção</b> usa tudo igual, mas não vê valor pago, preço por peça nem custo.</p>
+  <ol>
+    <li><b>Parceiros</b>: cadastre os cortadores, costureiras, a lavanderia e a passadoria, com telefone (para o WhatsApp) e o <b>preço por peça</b> (só quem tem Valores).</li>
+    <li><b>Metragem por peça</b>: informe quantos metros de linho cada peça gasta. Se um tamanho gasta diferente, abra "Por tamanho" e informe nele.</li>
+    <li><b>Rolos de linho → + Registrar compra</b>: tecido, cor, quantos rolos e os metros de cada um, data, fornecedor, nota e o valor pago (total da compra; o sistema divide entre os rolos). Cada rolo ganha um código (R-2026-001…). Clique no rolo para ver o histórico do saldo e, se precisar, <b>Ajustar o saldo</b> com o motivo.</li>
+    <li><b>Fichas → + Nova ficha</b>: procure a peça, clique nas cores e tamanhos e informe as quantidades (pode pôr várias peças na mesma ficha). A metragem vem do cadastro e pode ser trocada só nesta ficha. Informe o prazo, a loja que vai receber e o molde e as instruções para o cortador. O total de linho aparece embaixo. <b>Imprimir ficha</b> gera a folha para o cortador.</li>
+    <li><b>Enviar para corte</b>: escolha o cortador, o prazo e de que rolo sai o linho — o sistema já preenche a metragem no rolo mais antigo e passa para o seguinte se o primeiro não tiver saldo. O linho sai do rolo nesse momento. <b>WhatsApp</b> manda ao parceiro a lista das peças.</li>
+    <li>Quando as peças voltarem, <b>Receber e conferir</b>: informe quantas vieram boas e quantas perdidas ou com defeito (com o motivo). Pode receber só uma parte; o resto continua com o parceiro. No corte, informe a sobra de linho que voltou: ela entra de novo no rolo.</li>
+    <li>Repita para <b>costura</b>, <b>lavagem</b> e <b>passadoria</b>. Os botões mostram quantas peças estão disponíveis para cada etapa; as peças podem ser divididas entre parceiros (ex.: 8 para uma costureira e 6 para outra).</li>
+    <li><b>Dar entrada no estoque</b>: as peças que voltaram boas da passadoria entram no estoque da loja escolhida (aparece no histórico como "produção"). Quando todas as peças entram ou se perdem, a ficha fica <b>concluída</b>.</li>
+    <li><b>Encerrar ficha</b> (com motivo): sem nada enviado, cancela; depois de enviada, encerra o que não vai mais ser feito. Antes, receba as remessas que estão com parceiros.</li>
+    <li><b>Painel</b>: linho em estoque, peças com cada parceiro (com prazo; atrasadas em vermelho), prontas para o estoque e linho por tecido e cor. Com Valores: <b>A pagar aos parceiros</b> no mês (peças recebidas boas × preço por peça) e o <b>custo por peça</b> na ficha (linho pelo preço por metro do rolo + o preço de cada etapa).</li>
+    <li>Tudo fica no registro de auditoria: compras e ajustes de rolo, parceiros, metragem, fichas, envios, conferências e entradas no estoque.</li>
+  </ol>
+
   <h2 id="registro">Registro de auditoria</h2>
   <p>Toda entrada, saída, transferência e ajuste de estoque, todo cadastro ou alteração de peça, cor, tamanho e peça especial, desativação, exclusão e troca de papel fica gravado no registro de auditoria da Nervia: o que foi feito, em qual peça e loja, por quem, com qual papel, data e hora. Ninguém altera nem apaga. Quando quem fez é o Estoque, o registro não guarda custo.</p>
 
@@ -191,6 +208,11 @@
     <tr><td>Você só registra as próprias vendas</td><td>Venda de outra pessoa: o Dono lança, escolhendo quem vendeu.</td></tr>
     <tr><td>Este CPF já é do cliente …</td><td>O cliente já está cadastrado: escolha-o na busca.</td></tr>
     <tr><td>Escolha o resultado do contato · Escreva o que foi conversado</td><td>No Registrar contato, escolha o resultado e escreva pelo menos uma frase.</td></tr>
+    <tr><td>Seu login não tem a permissão Produção</td><td>Peça à Nervia para marcar a permissão Produção na aba Equipe.</td></tr>
+    <tr><td>Falta a metragem por peça de …</td><td>Informe os metros em Produção → Metragem por peça (ou na própria ficha).</td></tr>
+    <tr><td>O rolo … não tem metragem suficiente</td><td>Use outro rolo para o restante ou ajuste o saldo do rolo se ele foi medido.</td></tr>
+    <tr><td>Só há N peça(s) … disponíveis para …</td><td>A etapa anterior ainda não devolveu essas peças: receba a remessa antes.</td></tr>
+    <tr><td>Escreva o motivo das peças perdidas ou com defeito</td><td>Na conferência, escreva o motivo na linha da peça perdida.</td></tr>
     <tr><td>A nota vai de 1 a 5</td><td>Ao dar a nota da Dona, clique numa das estrelas antes de salvar.</td></tr>
     <tr><td>Escolha por que não levou (pode marcar mais de um)</td><td>Na visita sem contato, marque pelo menos um motivo.</td></tr>
     <tr><td>Escreva qual foi o outro motivo</td><td>Com Outro marcado, escreva o motivo no campo embaixo dos botões (ou desmarque Outro).</td></tr>
