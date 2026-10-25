@@ -545,6 +545,7 @@ try:
         pg, erros = entrar(b, "dono"); abrir(pg)
         pg.click("#abaProducao"); pg.wait_for_selector("#pdabas")
         ok("com valores" in pg.text_content(".cabtela"), "Dono vê a produção com valores")
+        ok(pg.get_attribute("#pdmapa", "href") == "ajuda/mapa-producao.html", "botão Mapa da produção na aba")
         pg.click('[data-pa="parceiros"]'); pg.wait_for_selector("#pdnovop")
         for nome, tipo, preco in (("Carlos Cortador", "cortador", "8,00"), ("Maria Costureira", "costureira", "25,00"), ("Lavanderia Azul", "lavanderia", "5,00"), ("Passadeira Rosa", "passadoria", "3,00")):
             pg.click("#pdnovop"); pg.wait_for_selector("#dlg2[open] #ppok")
@@ -562,7 +563,12 @@ try:
         pg.click('[data-pa="fichas"]'); pg.wait_for_selector("#pdnova"); pg.click("#pdnova"); pg.wait_for_selector("#dlg[open] #nfq")
         pg.fill("#nfq", "cal-are"); pg.wait_for_timeout(150); pg.click(f'#nfres [data-v="{V_CRU_38}"]'); pg.wait_for_timeout(100)
         pg.fill('#nfitens [data-k="q"]', "4"); pg.wait_for_timeout(100)
-        ok(pg.input_value('#nfitens [data-k="c"]') == "2,5" and "10 m" in pg.text_content("#nftot"), "ficha: 4 peças × 2,5 m = 10 m de linho")
+        ok(pg.input_value('#nfitens [data-k="c"]') == "2,5" and "10 m" in pg.text_content("#nftot") and not pg.is_visible("[data-atu]"), "ficha: 4 peças × 2,5 m = 10 m de linho (metragem do cadastro)")
+        pg.fill('#nfitens [data-k="c"]', "2,6"); pg.wait_for_timeout(100)
+        ok(pg.is_visible("[data-atu]") and "10,4 m" in pg.text_content("#nftot"), "metragem trocada na ficha: aparece Atualizar na peça")
+        pg.click("[data-atu]"); pg.wait_for_timeout(700)
+        ok(float(psql("select consumo_metros from lin_produtos where referencia = 'CAL-ARE'", saida=True)) == 2.6 and not pg.is_visible("[data-atu]"), "Atualizar na peça grava a nova metragem no cadastro")
+        pg.fill('#nfitens [data-k="c"]', "2,5"); pg.wait_for_timeout(100)
         pg.select_option("#nfloja", label="Gávea"); pg.fill("#nfmolde", "Molde calça reta")
         pg.click("#nfok"); pg.wait_for_selector("#dlg[open] #fitens")
         ficha = psql("select max(id) from lin_ordens", saida=True)
@@ -589,7 +595,34 @@ try:
         ok(qtd_banco(V_CRU_38, "Gávea") == antes + 3 and "concluída" in pg.text_content("#dlgf")
            and psql("select count(*) from lin_movimentos where tipo = 'producao'", saida=True) == "1", "3 peças entram no estoque da Gávea e a ficha fica concluída")
         pg.screenshot(path=os.path.join(SAIDA, "linum_producao_ficha.png"), full_page=True)
-        pg.click("#fx"); pg.click('[data-pa="painel"]'); pg.wait_for_selector("#pdtela .kpis")
+        # compra pelo XML da NF-e (nota fictícia: linho em metros, malha em quilos e um item que não é tecido)
+        pg.click("#fx"); pg.click('[data-pa="rolos"]'); pg.wait_for_selector("#pdxml", state="attached")
+        xml = ('<?xml version="1.0" encoding="UTF-8"?><nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><NFe><infNFe Id="NFe33261012345678000190550010000012341000012345" versao="4.00">'
+               '<ide><nNF>1234</nNF><dhEmi>2026-10-20T10:00:00-03:00</dhEmi></ide><emit><CNPJ>12345678000190</CNPJ><xNome>Tecelagem Ficticia Ltda</xNome></emit>'
+               '<det nItem="1"><prod><xProd>LINHO MISTO AREIA 1,40M</xProd><uCom>MT</uCom><qCom>61.0000</qCom><vProd>850.00</vProd><vFrete>50.00</vFrete></prod><imposto><IPI><IPITrib><vIPI>0.00</vIPI></IPITrib></IPI></imposto></det>'
+               '<det nItem="2"><prod><xProd>MALHA DE LINHO CRU</xProd><uCom>KG</uCom><qCom>12.5000</qCom><vProd>500.00</vProd><vDesc>20.00</vDesc></prod><imposto/></det>'
+               '<det nItem="3"><prod><xProd>ETIQUETA BORDADA</xProd><uCom>UN</uCom><qCom>100</qCom><vProd>80.00</vProd></prod><imposto/></det>'
+               '</infNFe></NFe></nfeProc>')
+        pg.set_input_files("#pdxml", files=[{"name": "nota.xml", "mimeType": "text/xml", "buffer": xml.encode()}]); pg.wait_for_selector("#dlg[open] #nfeok")
+        dlg = pg.text_content("#dlgf").replace("\xa0", " ")
+        ok("Tecelagem Ficticia Ltda" in dlg and "nº 1234" in dlg and "R$ 900,00" in dlg and "R$ 480,00" in dlg and "unidade não reconhecida" in dlg,
+           "XML lido: fornecedor, número, valor de cada item (com frete e desconto) e o item sem unidade de tecido avisado")
+        ok(pg.is_checked('[data-nfi="0"]') and pg.is_checked('[data-nfi="1"]') and not pg.is_checked('[data-nfi="2"]') and pg.input_value('[data-nfu="1"]') == "kg",
+           "itens de tecido marcados, o resto desmarcado; quilos reconhecido")
+        pg.fill('[data-nfr="0"]', "2"); pg.fill('[data-nfc="0"]', "Areia"); pg.fill('[data-nfc="1"]', "Cru")
+        pg.screenshot(path=os.path.join(SAIDA, "linum_producao_xml.png"), full_page=True)
+        pg.click("#nfeok"); pg.wait_for_timeout(900)
+        ok(psql("select string_agg(unidade || ':' || metros_iniciais || ':' || valor_pago, ',' order by codigo) from lin_rolos where nota = '1234'", saida=True) == "m:30.50:450.00,m:30.50:450.00,kg:12.50:480.00"
+           and "kg" in pg.text_content("#pdrolos") and "sem rendimento" in pg.text_content("#pdrolos"), "nota importada: 2 rolos de 30,5 m e 1 de 12,5 kg (sem rendimento), valor dividido")
+        pg.set_input_files("#pdxml", files=[{"name": "nota.xml", "mimeType": "text/xml", "buffer": xml.encode()}]); pg.wait_for_selector("#dlg[open] #nfeok")
+        ok("já importado" in pg.text_content("#dlgf") and pg.is_disabled('[data-nfi="0"]'), "a mesma nota de novo: itens já importados ficam travados")
+        pg.click("#nfex")
+        pg.click('[data-pa="painel"]'); pg.wait_for_selector("#pdtela .kpis")
+        ok(pg.is_visible("#pdrend") and "Falta o rendimento" in pg.text_content("#pdrend"), "painel lembra o rendimento que falta no rolo comprado por quilo")
+        pg.click('[data-pa="rolos"]'); pg.wait_for_selector(".rlrow"); pg.click('.rlrow:has-text("kg")'); pg.wait_for_selector("#dlg[open] #rrendok")
+        pg.fill("#rrend", "4"); pg.click("#rrendok"); pg.wait_for_timeout(700)
+        ok(psql("select rendimento from lin_rolos where unidade = 'kg'", saida=True) == "4.000" and "50 m" in pg.text_content("#dlgf"), "rendimento salvo: 12,5 kg × 4 m/kg ≈ 50 m")
+        pg.click("#rlx"); pg.click('[data-pa="painel"]'); pg.wait_for_selector("#pdtela .kpis")
         ok("Maria Costureira" in pg.text_content("#pdpagl") and "R$ 75,00" in pg.text_content("#pdpagl").replace("\xa0", " "), "a pagar no mês: costureira 3 × R$ 25,00")
         pg.screenshot(path=os.path.join(SAIDA, "linum_producao_painel.png"), full_page=True)
         ok(not erros, "sem erros de JavaScript (produção do Dono)")
@@ -619,11 +652,11 @@ try:
         ok(fr.evaluate("document.documentElement.classList.contains('embutido')") and not fr.is_visible(".topo"), "dentro da Área do Cliente esconde o próprio topo")
         pg, erros = entrar(b, "outro"); abrir(pg)
         ok("não tem acesso" in pg.text_content("#aviso") and not pg.is_visible("#app"), "login sem o app não vê o estoque")
-        for pagina in ("cartao", "manual", "mapa"):
+        for pagina in ("cartao", "manual", "mapa", "mapa-producao"):
             abrir_ajuda = pg.goto(f"http://127.0.0.1:{PORTA_SITE}/apps/linum/ajuda/{pagina}.html")
             ok(abrir_ajuda.ok and "Sistema Linum" in pg.title() and pg.locator('script[src="/marca-dagua.js"][data-tipo="doc"]').count() == 1, f"ajuda: {pagina} com marca d'água")
         pg.goto(f"http://127.0.0.1:{PORTA_SITE}/ajuda/novidades.html?app=linum&nome=Sistema%20Linum"); pg.wait_for_timeout(400)
-        ok("2.0" in pg.text_content("body"), "novidades do app (versão 2.0)")
+        ok("2.1" in pg.text_content("body"), "novidades do app (versão 2.1)")
         ok(psql("select mapa_url from apps where id = 'linum'", saida=True) == "/apps/linum/ajuda/mapa.html", "botão Mapa ligado no cadastro do app")
         b.close()
     print("TODOS OS TESTES DE TELA DO SISTEMA LINUM OK")
