@@ -65,7 +65,17 @@ async function iniciar() {
   const NOMES = { ignoradas_fora_do_prazo: "Notas ignoradas (fora do prazo)", tpEvento: "Código do evento", login: "Login afetado", signatario: "Signatário",
     assinado_em: "Assinado em", situacao: "Situação", situacao_anterior: "Situação anterior", titular: "Titular do certificado", validade: "Validade",
     cert_cnpj: "CNPJ do certificado", erro: "Erro", motivo: "Motivo", apps: "Aplicativos", cnpjs: "Empresas (CNPJ)", admin: "Administrador" };
-  const outros = Object.entries(d).filter(([k, v]) => !["notas", "arquivos", "chaves", "evento", "login_id"].includes(k) && v !== null && v !== "")
+  // "antes" e "depois": uma linha por campo que mudou (registros antigos guardavam a linha inteira)
+  const valor = v => v === null || v === undefined || v === "" ? "(vazio)" : v === true ? "sim" : v === false ? "não" : typeof v === "object" ? JSON.stringify(v) : String(v);
+  let mudHtml = "";
+  const temDif = d.antes && d.depois && typeof d.antes === "object" && typeof d.depois === "object" && !Array.isArray(d.antes) && !Array.isArray(d.depois);
+  if (temDif) {
+    const campos = [...new Set([...Object.keys(d.antes), ...Object.keys(d.depois)])].filter(k => JSON.stringify(d.antes[k] ?? null) !== JSON.stringify(d.depois[k] ?? null));
+    mudHtml = `<h2>O que mudou</h2>` + (campos.length
+      ? `<table class="notas"><tr><th>Campo</th><th>Antes</th><th>Depois</th></tr>${campos.map(k => `<tr><td>${esc(k.replace(/_/g, " "))}</td><td>${esc(valor(d.antes[k]))}</td><td>${esc(valor(d.depois[k]))}</td></tr>`).join("")}</table>`
+      : `<div style="font-size:9pt">Nenhum campo mudou: o registro foi salvo sem alteração (por exemplo, ao acrescentar cores ou tamanhos, que têm registro próprio).</div>`);
+  }
+  const outros = Object.entries(d).filter(([k, v]) => !["notas", "arquivos", "chaves", "evento", "login_id"].includes(k) && !(temDif && (k === "antes" || k === "depois")) && v !== null && v !== "")
     .map(([k, v]) => linha(esc(NOMES[k] || k.replace(/_/g, " ")), esc(Array.isArray(v) ? v.join(", ") : typeof v === "object" ? JSON.stringify(v) : v === true ? "sim" : v === false ? "não" : v))).join("");
   document.title = `Comprovante nº ${r.id} · ${A.rotulo(r.acao)}`;
   document.getElementById("saida").innerHTML = `<div class="folha">
@@ -83,6 +93,7 @@ async function iniciar() {
       ${linha("Resumo", esc(A.resumo(r)))}
       ${outros}
     </table>
+    ${mudHtml}
     ${notasHtml}
     ${arquivos ? `<h2>Arquivos oficiais</h2><div class="arq">${arquivos}</div><div style="font-size:8.5pt;color:#555">XML do evento assinado com o certificado da empresa e resposta da SEFAZ, guardados no momento do envio.</div>` : ""}
     <div class="rod">Registro nº ${r.id} gravado automaticamente pela Plataforma Nervia em ${esc(A.dataHora(r.quando))}. O registro de auditoria é somente inclusão: não pode ser alterado nem apagado, nem pela equipe Nervia.

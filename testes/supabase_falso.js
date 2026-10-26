@@ -47,6 +47,11 @@
         acao: "certificado_cadastrado", cnpj: "11111111000111", ip: "200.1.2.4", navegador: "Mozilla/5.0", detalhes: { titular: "NERVIA", validade: "2027-08-10T00:00:00Z" } },
       { id: 3, quando: "2026-10-14T19:00:00-03:00", user_id: "u-admin", email: "marco@nervia.com.br", nome: "Marco", papel: "admin",
         acao: "login_criado", cnpj: null, detalhes: { login: "financeiro@linum.com.br", apps: ["notas"], cnpjs: ["22222222000122"] } },
+      { id: 4, quando: "2026-10-14T18:00:00-03:00", user_id: "u-cli", email: "estoque@linum.com.br", nome: "Estoque", papel: "cliente",
+        acao: "linum_produto_alterado", cnpj: null, detalhes: { referencia: "A13", papel_linum: "estoque",
+          antes: { id: "p1", descricao: "Bata", preco_venda: 218.43 }, depois: { id: "p1", descricao: "Bata", preco_venda: 218.43 } } },
+      { id: 5, quando: "2026-10-14T17:00:00-03:00", user_id: "u-cli", email: "estoque@linum.com.br", nome: "Estoque", papel: "cliente",
+        acao: "linum_rolo_alterado", cnpj: null, detalhes: { rolo: "R-2026-010", papel_linum: "dono", antes: { cor: "" }, depois: { cor: "Natural" } } },
     ],
   };
   // acessos do site: 3 visitantes nos últimos dias (RJ, SP e exterior) + um antigo sem IP (anonimizado)

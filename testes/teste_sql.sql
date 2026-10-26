@@ -1082,6 +1082,7 @@ select pg_temp.erro2($$select lin_produto_salvar('{"referencia":"sai01","descric
 select pg_temp.erro2($$select lin_produto_salvar('{"referencia":"X1","descricao":" "}')$$, 'Informe a descrição', 'linum produtos: descrição obrigatória');
 select pg_temp.erro2($$select lin_produto_salvar('{"referencia":"X1","descricao":"X","preco_venda":"-1"}')$$, 'não pode ser negativo', 'linum produtos: preço negativo recusado');
 select lin_produto_salvar(jsonb_build_object('id', (select v from lin_p where k = 'saia'), 'referencia', 'SAI01', 'descricao', 'Saia Duna Longa', 'preco_venda', '319', 'ativo', true));
+select lin_produto_salvar(jsonb_build_object('id', (select v from lin_p where k = 'saia'), 'referencia', 'SAI01', 'descricao', 'Saia Duna Longa', 'preco_venda', '319', 'ativo', true));   -- salvo de novo sem mudança
 select pg_temp.ok((select descricao = 'Saia Duna Longa' and preco_venda = 319 and preco_custo is null and codigo_barras like '%0000236' from lin_produtos where id = (select v from lin_p where k = 'saia')),
   'linum produtos: edição salva e o código de barras não muda');
 reset role;
@@ -1182,6 +1183,11 @@ select pg_temp.ok((select count(*) >= 1 from auditoria where acao = 'linum_varia
   'linum auditoria: cadastro de variações, peça especial, desativar e alterações no log (sem custo quando é o Estoque)');
 select pg_temp.ok((select count(*) >= 1 from auditoria where acao = 'linum_produto_alterado' and detalhes->>'papel_linum' = 'dono' and position('preco_custo' in detalhes::text) > 0),
   'linum auditoria: alteração do Dono guarda o custo antes/depois');
+select pg_temp.ok((select count(*) = 0 from auditoria where acao like 'linum_%' and jsonb_typeof(detalhes->'antes') = 'object' and (detalhes->'antes' = detalhes->'depois' or detalhes->'antes' ? 'id'))
+  and (select (select array_agg(k order by k) from jsonb_object_keys(detalhes->'antes') k) = '{categoria,descricao,fornecedor,preco_custo,preco_venda}' and detalhes->>'referencia' = 'SAI01'
+       from auditoria where acao = 'linum_produto_alterado' and detalhes->>'referencia' = 'SAI01' order by id limit 1)
+  and (select count(*) = 1 from auditoria where acao = 'linum_produto_alterado' and detalhes->'depois'->>'descricao' = 'Saia Duna Longa'),
+  'linum auditoria: antes/depois só com os campos que mudaram; salvar sem mudança não registra alteração');
 select pg_temp.ok((select count(*) >= 3 from auditoria where acao like 'linum_estoque_%' and detalhes->>'papel_linum' = 'dono'), 'linum auditoria: movimentações do Dono também no log');
 -- vendedora continua só consultando
 set role authenticated;
