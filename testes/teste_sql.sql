@@ -1762,6 +1762,29 @@ select pg_temp.ok((select (r->>'valores')::boolean and (select (oo->'itens'->0->
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
 select pg_temp.erro2($$select lin_producao_ler()$$, 'permissão Produção', 'linum produção: login fora da Linum não vê');
 reset role;
+-- 2.2: editar os dados dos rolos (cor que a nota não traz), vários de uma vez; valor só com Valores
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';   -- Estoque com Produção, sem valores
+select pg_temp.erro2($$select lin_rolos_editar(jsonb_build_object('rolos', jsonb_build_array(jsonb_build_object('id', (select v from lin_pd where k = 'rm'), 'valor_pago', 10))))$$,
+  'Valores da produção', 'linum rolo: sem Valores não altera o valor pago');
+select pg_temp.erro2($$select lin_rolos_editar(jsonb_build_object('rolos', jsonb_build_array(jsonb_build_object('id', (select v from lin_pd where k = 'rm'), 'tecido', ' '))))$$,
+  'informe o tecido', 'linum rolo: tecido vazio recusado');
+select pg_temp.erro2($$select lin_rolos_editar(jsonb_build_object('rolos', jsonb_build_array(jsonb_build_object('id', (select v from lin_pd where k = 'rm'), 'data_compra', current_date + 5))))$$,
+  'futuro', 'linum rolo: data da compra no futuro recusada');
+select pg_temp.ok(lin_rolos_editar(jsonb_build_object('rolos', jsonb_build_array(
+    jsonb_build_object('id', (select v from lin_pd where k = 'rm'), 'cor', 'Natural', 'tecido', 'Linho misto'),
+    jsonb_build_object('id', (select v from lin_pd where k = 'rkg'), 'cor', 'Cru')))) = 1,
+  'linum rolo: só conta o rolo que mudou (o de malha já era Cru)');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
+select pg_temp.erro2($$select lin_rolos_editar(jsonb_build_object('rolos', jsonb_build_array(jsonb_build_object('id', (select v from lin_pd where k = 'rm'), 'cor', 'X'))))$$,
+  'permissão Produção', 'linum rolo: login fora da Linum não edita');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';   -- Dono altera o valor
+select lin_rolos_editar(jsonb_build_object('rolos', jsonb_build_array(jsonb_build_object('id', (select v from lin_pd where k = 'rm'), 'valor_pago', '450,50', 'observacoes', 'conferido'))));
+reset role;
+select pg_temp.ok((select cor = 'Natural' and tecido = 'Linho misto' and valor_pago = 450.50 and observacoes = 'conferido' and saldo = 30.5 from lin_rolos where id = (select v from lin_pd where k = 'rm')::uuid)
+  and (select count(*) = 2 from auditoria where acao = 'linum_rolo_alterado')
+  and (select detalhes->'antes'->>'cor' = 'Areia' and detalhes->'depois'->>'cor' = 'Natural' and not (detalhes->'depois' ? 'tecido') from auditoria where acao = 'linum_rolo_alterado' order by id limit 1),
+  'linum rolo: cor, valor e observação gravados sem mexer no saldo; auditoria só com o que mudou (antes e depois)');
 select pg_temp.erro2($$delete from lin_rolo_movs$$, 'não pode ser alterado', 'linum produção: histórico do rolo é somente inclusão');
 select pg_temp.ok((select count(distinct acao) >= 6 from auditoria where acao in ('linum_rolo_comprado', 'linum_parceiro_criado', 'linum_consumo_alterado', 'linum_producao_ficha_criada',
   'linum_producao_enviada', 'linum_producao_recebida', 'linum_producao_estoque')) and (select count(*) >= 2 from auditoria where acao = 'linum_papel_definido' and detalhes ? 'permissoes'),
