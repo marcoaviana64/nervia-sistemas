@@ -622,16 +622,21 @@ try:
         pg.click("#nfex")
         # 2.2: preencher as cores que faltam e editar o rolo
         pg.click("#pdcores"); pg.wait_for_selector("#dlg[open] #pcok")
-        ok(pg.locator("[data-pcc]").count() == 2 and pg.input_value("[data-pcc] >> nth=0") == "Areia" and pg.input_value("[data-pct] >> nth=0") == "LINHO MISTO 1,40M",
-           "Preencher cores: os 2 rolos sem cor, com a cor sugerida pela descrição")
+        lm = pg.locator('#dlgf tr:has-text("LINHO MISTO AREIA")')
+        ok(lm.count() == 2 and lm.first.locator("[data-pcc]").input_value() == "Areia" and lm.first.locator("[data-pct]").input_value() == "LINHO MISTO 1,40M"
+           and pg.input_value('#dlgf tr:has-text("Linho puro") [data-pcx]') == "100% Linho" and pg.input_value('#dlgf tr:has-text("MALHA DE LINHO") [data-pcx]') == "",
+           "Preencher cor e composição: rolos sem cor ou sem composição, com a sugestão pela descrição (Linho puro = 100% Linho)")
+        lm.first.locator("[data-pcx]").fill("55% Linho 45% Algodão"); lm.nth(1).locator("[data-pcx]").fill("55% Linho 45% Algodão")
         pg.click("#pcok"); pg.wait_for_timeout(900)
-        ok(psql("select string_agg(tecido || '|' || cor, ',') from lin_rolos where nota = '1234' and unidade = 'm'", saida=True) == "LINHO MISTO 1,40M|Areia,LINHO MISTO 1,40M|Areia"
-           and pg.locator("#pdcores").count() == 0, "cores gravadas de uma vez; o botão some quando nenhum rolo fica sem cor")
+        ok(psql("select string_agg(tecido || '|' || cor || '|' || composicao, ',') from lin_rolos where nota = '1234' and unidade = 'm'", saida=True) == "LINHO MISTO 1,40M|Areia|55% Linho 45% Algodão,LINHO MISTO 1,40M|Areia|55% Linho 45% Algodão"
+           and psql("select string_agg(distinct composicao, ',') from lin_rolos where tecido = 'Linho puro'", saida=True) == "100% Linho"
+           and "100% Linho" in pg.text_content("#pdrolos"), "cor e composição gravadas de uma vez; composição na lista de rolos")
         pg.click('.rlrow:has-text("MALHA DE LINHO")'); pg.wait_for_selector("#dlg[open] #rled"); pg.click("#rled"); pg.wait_for_selector("#dlg2[open] #reok")
         ok(pg.input_value("#recor") == "Cru" and pg.input_value("#revalor") == "480,00", "Editar dados do rolo: dados atuais e valor (Dono)")
-        pg.fill("#recor", "Natural"); pg.fill("#reobs", "Rolo conferido"); pg.click("#reok"); pg.wait_for_timeout(900)
-        ok(psql("select cor || '|' || observacoes || '|' || saldo from lin_rolos where unidade = 'kg'", saida=True) == "Natural|Rolo conferido|12.50"
-           and "Rolo conferido" in pg.text_content("#dlgf") and psql("select count(*) from auditoria where acao = 'linum_rolo_alterado'", saida=True) == "3",
+        pg.fill("#recor", "Natural"); pg.fill("#recomp", "100% Linho"); pg.fill("#reobs", "Rolo conferido"); pg.click("#reok"); pg.wait_for_timeout(900)
+        ok(psql("select cor || '|' || composicao || '|' || observacoes || '|' || saldo from lin_rolos where unidade = 'kg'", saida=True) == "Natural|100% Linho|Rolo conferido|12.50"
+           and pg.locator("#pdcores").count() == 0
+           and "Rolo conferido" in pg.text_content("#dlgf") and psql("select count(*) from auditoria where acao = 'linum_rolo_alterado'", saida=True) == "5",
            "rolo editado (cor e observação), saldo igual, auditoria por rolo")
         pg.click("#rlx")
         pg.click('[data-pa="painel"]'); pg.wait_for_selector("#pdtela .kpis")
@@ -673,7 +678,7 @@ try:
             abrir_ajuda = pg.goto(f"http://127.0.0.1:{PORTA_SITE}/apps/linum/ajuda/{pagina}.html")
             ok(abrir_ajuda.ok and "Sistema Linum" in pg.title() and pg.locator('script[src="/marca-dagua.js"][data-tipo="doc"]').count() == 1, f"ajuda: {pagina} com marca d'água")
         pg.goto(f"http://127.0.0.1:{PORTA_SITE}/ajuda/novidades.html?app=linum&nome=Sistema%20Linum"); pg.wait_for_timeout(400)
-        ok("2.2" in pg.text_content("body"), "novidades do app (versão 2.2)")
+        ok("2.3" in pg.text_content("body"), "novidades do app (versão 2.3)")
         ok(psql("select mapa_url from apps where id = 'linum'", saida=True) == "/apps/linum/ajuda/mapa.html", "botão Mapa ligado no cadastro do app")
         b.close()
     print("TODOS OS TESTES DE TELA DO SISTEMA LINUM OK")

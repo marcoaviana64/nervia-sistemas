@@ -207,7 +207,7 @@ with sync_playwright() as p:
     assert adm.locator("#nEmpresas, .chips input").count() == 0, "admin não tem lista de empresas"
     pg.screenshot(path=f"{SAIDA}/portal_admin.png")
     pg.click("#abaAud"); pg.wait_for_selector("table.aud")
-    assert pg.locator("table.aud tr").count() == 4 and "Ciência da Operação (SEFAZ)" in pg.inner_text("table.aud")
+    assert pg.locator("table.aud tr").count() == 6 and "Ciência da Operação (SEFAZ)" in pg.inner_text("table.aud")
     pg.fill("#audQ", "login criado"); assert pg.locator("table.aud tr").count() == 2
     pg.screenshot(path=f"{SAIDA}/portal_auditoria.png")
     # acessos do site (só admin); entrar como admin marca este navegador para não ser contado
@@ -232,6 +232,14 @@ with sync_playwright() as p:
     tc = cp.inner_text(".folha")
     assert "Comprovante de registro nº 1" in tc and "891260000123456" in tc and "200.1.2.3" in tc and "Financeiro Linum" in tc, tc[:500]
     cp.screenshot(path=f"{SAIDA}/comprovante.png", full_page=True); cp.close()
+    for i, esperado in ((4, "Nenhum campo mudou"), (5, "Natural")):
+        cp = b.new_page(); cp.route("**/supabase-js@*/**", lambda r: r.fulfill(body=FALSO, content_type="text/javascript"))
+        cp.route("**/config.js", lambda r: r.fulfill(body=CONFIG, content_type="text/javascript"))
+        cp.goto(f"http://127.0.0.1:8811/cliente/comprovante.html?id={i}&papel=admin"); cp.wait_for_selector(".folha")
+        tc = cp.inner_text(".folha")
+        assert "O que mudou" in tc and esperado in tc and '"id"' not in tc, tc[:800]
+        if i == 5: assert "(vazio)" in tc
+        cp.screenshot(path=f"{SAIDA}/comprovante_mudou_{i}.png", full_page=True); cp.close()
     pg.click("#abaApps"); pg.wait_for_selector("text=Novo aplicativo")
     nv = pg.locator(".cartao").last
     nv.locator(".fId").fill("relatorios"); nv.locator(".fNome").fill("Relatórios"); nv.locator(".fUrl").fill("/apps/relatorios/")

@@ -1082,6 +1082,7 @@ select pg_temp.erro2($$select lin_produto_salvar('{"referencia":"sai01","descric
 select pg_temp.erro2($$select lin_produto_salvar('{"referencia":"X1","descricao":" "}')$$, 'Informe a descrição', 'linum produtos: descrição obrigatória');
 select pg_temp.erro2($$select lin_produto_salvar('{"referencia":"X1","descricao":"X","preco_venda":"-1"}')$$, 'não pode ser negativo', 'linum produtos: preço negativo recusado');
 select lin_produto_salvar(jsonb_build_object('id', (select v from lin_p where k = 'saia'), 'referencia', 'SAI01', 'descricao', 'Saia Duna Longa', 'preco_venda', '319', 'ativo', true));
+select lin_produto_salvar(jsonb_build_object('id', (select v from lin_p where k = 'saia'), 'referencia', 'SAI01', 'descricao', 'Saia Duna Longa', 'preco_venda', '319', 'ativo', true));   -- salvo de novo sem mudança
 select pg_temp.ok((select descricao = 'Saia Duna Longa' and preco_venda = 319 and preco_custo is null and codigo_barras like '%0000236' from lin_produtos where id = (select v from lin_p where k = 'saia')),
   'linum produtos: edição salva e o código de barras não muda');
 reset role;
@@ -1182,6 +1183,11 @@ select pg_temp.ok((select count(*) >= 1 from auditoria where acao = 'linum_varia
   'linum auditoria: cadastro de variações, peça especial, desativar e alterações no log (sem custo quando é o Estoque)');
 select pg_temp.ok((select count(*) >= 1 from auditoria where acao = 'linum_produto_alterado' and detalhes->>'papel_linum' = 'dono' and position('preco_custo' in detalhes::text) > 0),
   'linum auditoria: alteração do Dono guarda o custo antes/depois');
+select pg_temp.ok((select count(*) = 0 from auditoria where acao like 'linum_%' and jsonb_typeof(detalhes->'antes') = 'object' and (detalhes->'antes' = detalhes->'depois' or detalhes->'antes' ? 'id'))
+  and (select (select array_agg(k order by k) from jsonb_object_keys(detalhes->'antes') k) = '{categoria,descricao,fornecedor,preco_custo,preco_venda}' and detalhes->>'referencia' = 'SAI01'
+       from auditoria where acao = 'linum_produto_alterado' and detalhes->>'referencia' = 'SAI01' order by id limit 1)
+  and (select count(*) = 1 from auditoria where acao = 'linum_produto_alterado' and detalhes->'depois'->>'descricao' = 'Saia Duna Longa'),
+  'linum auditoria: antes/depois só com os campos que mudaram; salvar sem mudança não registra alteração');
 select pg_temp.ok((select count(*) >= 3 from auditoria where acao like 'linum_estoque_%' and detalhes->>'papel_linum' = 'dono'), 'linum auditoria: movimentações do Dono também no log');
 -- vendedora continua só consultando
 set role authenticated;
@@ -1720,11 +1726,11 @@ select pg_temp.erro2('select * from lin_rolos', 'permission', 'linum produção:
 select pg_temp.erro2($$select lin_rolos_importar_nfe('{"chave":"123","itens":[]}')$$, '44 dígitos', 'linum nfe: chave inválida recusada');
 insert into lin_pd select 'nfe', lin_rolos_importar_nfe(jsonb_build_object('chave', '33261012345678000190550010000012341000012345', 'numero', '1234', 'fornecedor', 'Malharia Exemplo',
   'data', (now() at time zone 'America/Sao_Paulo')::date, 'itens', jsonb_build_array(
-    jsonb_build_object('item', 1, 'tecido', 'Linho misto', 'cor', 'Areia', 'unidade', 'm', 'rolos', 2, 'total', 61, 'valor', 900),
+    jsonb_build_object('item', 1, 'tecido', 'Linho misto', 'cor', 'Areia', 'composicao', '55% Linho 45% Algodão', 'unidade', 'm', 'rolos', 2, 'total', 61, 'valor', 900),
     jsonb_build_object('item', 2, 'tecido', 'Malha de linho', 'cor', 'Cru', 'unidade', 'kg', 'rolos', 1, 'total', 12.5, 'valor', 500))))::text;
 reset role;
 select pg_temp.ok((select count(*) = 3 and sum(saldo) filter (where unidade = 'm') = 61 and sum(saldo) filter (where unidade = 'kg') = 12.5
-    and bool_and(nota = '1234' and fornecedor = 'Malharia Exemplo' and nfe_chave like '3326%' and valor_pago = 0) from lin_rolos where nfe_chave is not null),
+    and (select count(*) = 2 from lin_rolos where composicao = '55% Linho 45% Algodão') and bool_and(nota = '1234' and fornecedor = 'Malharia Exemplo' and nfe_chave like '3326%' and valor_pago = 0) from lin_rolos where nfe_chave is not null),
   'linum nfe: 2 itens viram 3 rolos (2 × 30,5 m e 1 de 12,5 kg); sem a permissão de valores o valor não é gravado');
 set role authenticated;
 select pg_temp.erro2($$select lin_rolos_importar_nfe(jsonb_build_object('chave', '33261012345678000190550010000012341000012345', 'numero', '1234',
@@ -1773,8 +1779,9 @@ select pg_temp.erro2($$select lin_rolos_editar(jsonb_build_object('rolos', jsonb
   'futuro', 'linum rolo: data da compra no futuro recusada');
 select pg_temp.ok(lin_rolos_editar(jsonb_build_object('rolos', jsonb_build_array(
     jsonb_build_object('id', (select v from lin_pd where k = 'rm'), 'cor', 'Natural', 'tecido', 'Linho misto'),
-    jsonb_build_object('id', (select v from lin_pd where k = 'rkg'), 'cor', 'Cru')))) = 1,
-  'linum rolo: só conta o rolo que mudou (o de malha já era Cru)');
+    jsonb_build_object('id', (select v from lin_pd where k = 'rkg'), 'cor', 'Cru')))) = 1
+  and lin_rolos_editar(jsonb_build_object('rolos', jsonb_build_array(jsonb_build_object('id', (select v from lin_pd where k = 'rkg'), 'composicao', '100% Linho')))) = 1,
+  'linum rolo: só conta o rolo que mudou (o de malha já era Cru); composição editável');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
 select pg_temp.erro2($$select lin_rolos_editar(jsonb_build_object('rolos', jsonb_build_array(jsonb_build_object('id', (select v from lin_pd where k = 'rm'), 'cor', 'X'))))$$,
   'permissão Produção', 'linum rolo: login fora da Linum não edita');
@@ -1782,7 +1789,7 @@ set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';   -- Dono al
 select lin_rolos_editar(jsonb_build_object('rolos', jsonb_build_array(jsonb_build_object('id', (select v from lin_pd where k = 'rm'), 'valor_pago', '450,50', 'observacoes', 'conferido'))));
 reset role;
 select pg_temp.ok((select cor = 'Natural' and tecido = 'Linho misto' and valor_pago = 450.50 and observacoes = 'conferido' and saldo = 30.5 from lin_rolos where id = (select v from lin_pd where k = 'rm')::uuid)
-  and (select count(*) = 2 from auditoria where acao = 'linum_rolo_alterado')
+  and (select count(*) = 3 from auditoria where acao = 'linum_rolo_alterado') and (select composicao = '100% Linho' from lin_rolos where id = (select v from lin_pd where k = 'rkg')::uuid)
   and (select detalhes->'antes'->>'cor' = 'Areia' and detalhes->'depois'->>'cor' = 'Natural' and not (detalhes->'depois' ? 'tecido') from auditoria where acao = 'linum_rolo_alterado' order by id limit 1),
   'linum rolo: cor, valor e observação gravados sem mexer no saldo; auditoria só com o que mudou (antes e depois)');
 select pg_temp.erro2($$delete from lin_rolo_movs$$, 'não pode ser alterado', 'linum produção: histórico do rolo é somente inclusão');
