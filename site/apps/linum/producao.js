@@ -300,13 +300,14 @@ function entradaEstoque(o) {
 // ---------------------------------------------------------------- rolos
 function pdRolos() {
   const l = PD.rolos.filter(r => !FPR.comSaldo || Number(r.saldo) > 0);
-  $("pdtela").innerHTML = `<div class="cabtela"><button type="button" class="pilula ${FPR.comSaldo ? "on" : ""}" id="pdsaldo">Só rolos com saldo</button><span style="display:flex;gap:8px;flex-wrap:wrap"><label class="bt" for="pdxml" style="cursor:pointer;margin:0;text-transform:none;letter-spacing:0;font-size:inherit">Importar XML da nota</label><input type="file" id="pdxml" accept=".xml,text/xml" class="oculto"><button class="bt pri" id="pdcompra">+ Registrar compra</button></span></div>
+  $("pdtela").innerHTML = `<div class="cabtela"><button type="button" class="pilula ${FPR.comSaldo ? "on" : ""}" id="pdsaldo">Só rolos com saldo</button><span style="display:flex;gap:8px;flex-wrap:wrap">${PD.rolos.some(r => !r.cor) ? `<button type="button" class="bt" id="pdcores">Preencher cores (${PD.rolos.filter(r => !r.cor).length} sem cor)</button>` : ""}<label class="bt" for="pdxml" style="cursor:pointer;margin:0;text-transform:none;letter-spacing:0;font-size:inherit">Importar XML da nota</label><input type="file" id="pdxml" accept=".xml,text/xml" class="oculto"><button class="bt pri" id="pdcompra">+ Registrar compra</button></span></div>
     <div class="card"><div class="tw"><table><thead><tr><th>Rolo</th><th>Tecido</th><th>Cor</th><th>Compra</th><th>Fornecedor</th><th class="num">Comprado</th><th class="num">Saldo</th>${valores() ? '<th class="num">Valor pago</th><th class="num">R$ por m/kg</th>' : ""}</tr></thead><tbody id="pdrolos">
     ${l.length ? l.map(r => `<tr class="rlrow" data-r="${r.id}" style="cursor:pointer"><td><b>${esc(r.codigo)}</b></td><td>${esc(r.tecido)}</td><td>${esc(r.cor) || "—"}</td><td>${dataBR(r.data_compra)}</td><td>${esc(r.fornecedor) || "—"}</td>
       <td class="num">${met(r.metros_iniciais, r.unidade)}</td><td class="num"><b>${met(r.saldo, r.unidade)}</b>${r.unidade === "kg" ? `<br><span class="mut">${r.rendimento ? "≈ " + met(+metrosRolo(r).toFixed(2)) : "sem rendimento"}</span>` : ""}</td>${valores() ? `<td class="num">${brl(r.valor_pago)}</td><td class="num">${brl(r.valor_pago / r.metros_iniciais)}</td>` : ""}</tr>`).join("")
       : `<tr><td colspan="9" class="mut">${PD.rolos.length ? "Nenhum rolo com saldo." : "Nenhum rolo ainda: registre a compra."}</td></tr>`}</tbody></table></div></div>`;
   $("pdsaldo").onclick = () => { FPR.comSaldo = !FPR.comSaldo; pdRolos(); };
   $("pdcompra").onclick = comprarRolos;
+  if ($("pdcores")) $("pdcores").onclick = preencherCores;
   $("pdxml").onchange = e => { const arq = e.target.files[0]; e.target.value = ""; if (arq) arq.text().then(importarXml); };
   document.querySelectorAll(".rlrow").forEach(r => r.onclick = () => verRolo(r.dataset.r));
 }
@@ -337,6 +338,7 @@ async function verRolo(id) {
   try { h = checar(await sb.rpc("lin_rolo_historico", { p_rolo: id })) || []; } catch (e) { return msg("err", e.message); }
   const TIPO = { compra: "Compra", corte: "Corte", sobra: "Sobra do corte", ajuste: "Ajuste" };
   f.innerHTML = `<h3>Rolo ${esc(r.codigo)}</h3><div class="mut">${esc(r.tecido)} ${esc(r.cor)} · comprado em ${dataBR(r.data_compra)}${r.fornecedor ? " de " + esc(r.fornecedor) : ""}${r.nota ? " · NF " + esc(r.nota) : ""}</div>
+    ${r.observacoes ? `<div class="mut">${esc(r.observacoes)}</div>` : ""}<div style="margin-top:6px"><button type="button" class="bt" id="rled">Editar dados do rolo</button></div>
     <div class="kpis" style="margin-top:8px"><div class="kpi"><small>Saldo</small><b>${met(r.saldo, r.unidade)}</b><span>de ${met(r.metros_iniciais, r.unidade)}</span></div>${valores() ? `<div class="kpi"><small>Valor pago</small><b>${brl(r.valor_pago)}</b><span>${brl(r.valor_pago / r.metros_iniciais)} por ${r.unidade === "kg" ? "quilo" : "metro"}${r.unidade === "kg" && r.rendimento ? ` · ${brl(r.valor_pago / (r.metros_iniciais * r.rendimento))} por metro` : ""}</span></div>` : ""}${r.unidade === "kg" ? `<div class="kpi"><small>Rendimento</small><b>${r.rendimento ? decBR(r.rendimento) + " m/kg" : "—"}</b><span>${r.rendimento ? "≈ " + met(+metrosRolo(r).toFixed(2)) + " no saldo" : "falta informar"}</span></div>` : ""}</div>
     <div class="tw"><table><thead><tr><th>Quando</th><th>O quê</th><th class="num">${r.unidade === "kg" ? "Quilos" : "Metros"}</th><th class="num">Saldo</th><th>Quem</th></tr></thead><tbody>
     ${h.map(m => `<tr><td>${quando(m.em)}</td><td>${TIPO[m.tipo]}${m.motivo ? `<br><span class="mut">${esc(m.motivo)}</span>` : ""}</td><td class="num">${Number(m.metros) > 0 ? "+" : ""}${decBR(m.metros)}</td><td class="num">${met(m.saldo_depois, r.unidade)}</td><td>${esc(m.por_nome)}</td></tr>`).join("")}</tbody></table></div>
@@ -346,6 +348,7 @@ async function verRolo(id) {
       <div class="filtros" style="margin:6px 0 0;align-items:center"><input id="rajs" inputmode="decimal" placeholder="saldo real (${r.unidade})" style="flex:0 1 140px"><input id="rajm" placeholder="Motivo"><button type="button" class="bt" id="rajok">Ajustar</button></div><div id="rajerr"></div></div>
     <div class="acoes"><button type="button" class="bt" id="rlx">Fechar</button></div>`;
   $("rlx").onclick = () => $("dlg").close();
+  $("rled").onclick = () => editarRolo(r);
   if ($("rrendok")) $("rrendok").onclick = async () => {
     try { checar(await sb.rpc("lin_rolo_rendimento", { p_rolo: id, p_rendimento: numBR($("rrend").value) === "" ? null : Number(numBR($("rrend").value)) }));
       await carregarProducao(); msg("ok", "Rendimento salvo."); verRolo(id); pdRolos(); }
@@ -357,6 +360,51 @@ async function verRolo(id) {
     catch (e) { $("rajerr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
   };
   if (!$("dlg").open) $("dlg").showModal();
+}
+
+// corrige a descrição do rolo (tecido, cor, fornecedor, nota, data, observações; valor só com Valores). Saldo = "Ajustar o saldo".
+function editarRolo(r) {
+  const f = $("dlg2f"), sug = !r.cor ? corDaDescricao(r.tecido) : null;
+  f.innerHTML = `<h3>Editar o rolo ${esc(r.codigo)}</h3><div class="mut">Quantidade e saldo não mudam aqui: use "Ajustar o saldo".</div>
+    <div class="campo grade2"><div><label for="retec">Tecido</label><input id="retec" value="${esc(sug && sug.cor ? sug.tecido : r.tecido)}"></div>
+      <div><label for="recor">Cor</label><input id="recor" value="${esc(r.cor || (sug && sug.cor) || "")}"></div></div>
+    ${sug && sug.cor ? `<div class="msg info">Cor sugerida pela descrição da nota ("${esc(r.tecido)}"): confira antes de salvar.</div>` : ""}
+    <div class="campo grade3"><div><label for="redata">Data da compra</label><input id="redata" type="date" value="${esc(r.data_compra)}" max="${hoje()}"></div>
+      <div><label for="reforn">Fornecedor</label><input id="reforn" value="${esc(r.fornecedor)}"></div><div><label for="renota">Nota fiscal</label><input id="renota" value="${esc(r.nota)}"></div></div>
+    ${valores() ? `<div class="campo"><label for="revalor">Valor pago (R$)</label><input id="revalor" inputmode="decimal" value="${esc(moeda(r.valor_pago))}" style="width:160px"></div>` : ""}
+    <div class="campo"><label for="reobs">Observações</label><input id="reobs" value="${esc(r.observacoes)}"></div>
+    <div id="reerr"></div><div class="acoes"><button type="button" class="bt" id="rex">Cancelar</button><button type="button" class="bt pri" id="reok">Salvar</button></div>`;
+  $("rex").onclick = () => $("dlg2").close();
+  $("reok").onclick = async () => {
+    const d = { id: r.id, tecido: $("retec").value, cor: $("recor").value, data_compra: $("redata").value, fornecedor: $("reforn").value, nota: $("renota").value, observacoes: $("reobs").value };
+    if ($("revalor")) d.valor_pago = numBR($("revalor").value);
+    try { checar(await sb.rpc("lin_rolos_editar", { p: { rolos: [d] } }));
+      $("dlg2").close(); await carregarProducao(); msg("ok", `Rolo ${r.codigo} alterado.`); verRolo(r.id); pdRolos(); }
+    catch (e) { $("reerr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+  };
+  $("dlg2").showModal(); $("recor").focus();
+}
+// rolos sem cor: sugere tecido e cor pela descrição (a NF-e não tem campo de cor) e grava tudo de uma vez
+function preencherCores() {
+  const l = PD.rolos.filter(r => !r.cor), f = $("dlgf"); $("dlg").classList.add("largo");
+  f.innerHTML = `<h3>Preencher as cores dos rolos</h3>
+    <div class="msg info">A nota fiscal não tem campo de cor: a sugestão vem da descrição do item (a parte depois do nome do tecido). Confira, corrija ou deixe em branco.</div>
+    <div class="tw"><table><thead><tr><th>Rolo</th><th>Descrição atual</th><th>Tecido</th><th>Cor</th></tr></thead><tbody>
+    ${l.map(r => { const s = corDaDescricao(r.tecido);
+      return `<tr><td><b>${esc(r.codigo)}</b><br><span class="mut">${esc(r.fornecedor)}${r.nota ? " · NF " + esc(r.nota) : ""}</span></td><td class="mut">${esc(r.tecido)}</td>
+        <td><input data-pct="${r.id}" value="${esc(s.cor ? s.tecido : r.tecido)}"></td><td><input data-pcc="${r.id}" value="${esc(s.cor)}" placeholder="cor" style="width:130px"></td></tr>`; }).join("")}</tbody></table></div>
+    <div id="pcerr"></div><div class="acoes"><button type="button" class="bt" id="pcx">Cancelar</button><button type="button" class="bt pri" id="pcok">Salvar as cores</button></div>`;
+  $("pcx").onclick = () => $("dlg").close();
+  $("pcok").onclick = async () => {
+    const rolos = l.map(r => ({ id: r.id, tecido: f.querySelector(`[data-pct="${r.id}"]`).value, cor: f.querySelector(`[data-pcc="${r.id}"]`).value }))
+      .filter(x => x.cor.trim() || x.tecido.trim() !== PD.rolos.find(r => r.id === x.id).tecido);
+    if (!rolos.length) return $("dlg").close();
+    $("pcok").disabled = true;
+    try { const q = checar(await sb.rpc("lin_rolos_editar", { p: { rolos } }));
+      $("dlg").close(); msg("ok", `${q} rolo(s) alterado(s).`); FPR.aba = "rolos"; await telaProducao(); }
+    catch (e) { $("pcerr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; $("pcok").disabled = false; }
+  };
+  $("dlg").showModal();
 }
 
 // ---------------------------------------------------------------- parceiros
@@ -418,6 +466,20 @@ function pdMetragem() {
 // vFrete, vSeg, vOutro) e imposto (IPI/vIPI, ICMS vICMSST). Valor do item = vProd − vDesc + frete + seguro + outras + IPI + ST.
 const UN_NFE = u => { const x = String(u || "").trim().toUpperCase().replace(/\./g, "");
   return /^(KG|KGS|KILO|KILOS|QUILO|QUILOS|QUILOGRAMA)$/.test(x) ? "kg" : /^(M|MT|MTS|MTR|METRO|METROS|ML|MTL)$/.test(x) ? "m" : ""; };
+// a NF-e não tem campo de cor: procura a primeira palavra de cor na descrição ("PURO LINHO MYKONOS BRANCO OPTICO" →
+// tecido "PURO LINHO MYKONOS", cor "Branco Optico"); o resto da descrição a partir dela é a cor. Sem cor conhecida = vazio.
+const CORES = ["NATURAL", "CRU", "CRUA", "BRANCO", "BRANCA", "OFF", "OFFWHITE", "PRETO", "PRETA", "MARITIMO", "MARINHO", "AZUL", "CHOCO", "CHOCOLATE",
+  "MILITAR", "AREIA", "BEGE", "VERDE", "OLIVA", "ROSA", "ROSE", "VERMELHO", "VERMELHA", "CINZA", "GRAFITE", "CHUMBO", "CARAMELO", "TERRACOTA", "TELHA",
+  "MOSTARDA", "AMARELO", "AMARELA", "MARROM", "CAQUI", "KAKI", "CAMEL", "NUDE", "LILAS", "LAVANDA", "VINHO", "BORDO", "LARANJA", "CORAL", "CREME", "MARFIM",
+  "PEROLA", "GELO", "TABACO", "CAFE", "FENDI", "PETROLEO", "TURQUESA", "SALMAO", "MENTA", "PALHA", "LINHACA", "OURO", "DOURADO", "PRATA", "ESTAMPADO"];
+function corDaDescricao(txt) {
+  const t = String(txt || "").trim(), pal = t.split(/\s+/);
+  const norm = w => w.split(/[-/]/)[0].normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z]/g, "");
+  const i = pal.findIndex((w, k) => k > 0 && CORES.includes(norm(w)));
+  if (i < 1) return { tecido: t, cor: "" };
+  const resto = pal.slice(i), j = resto.findIndex(w => /\d/.test(w)), cor = j < 0 ? resto : resto.slice(0, j);   // "AREIA 1,40M": a largura fica no tecido
+  return { tecido: pal.slice(0, i).concat(j < 0 ? [] : resto.slice(j)).join(" "), cor: cor.join(" ").toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase()) };
+}
 function lerNfe(xml) {
   const d = new DOMParser().parseFromString(xml, "application/xml");
   if (d.getElementsByTagName("parsererror").length) throw new Error("O arquivo não é um XML válido.");
@@ -430,7 +492,8 @@ function lerNfe(xml) {
     const pr = det.getElementsByTagNameNS("*", "prod")[0], im = det.getElementsByTagNameNS("*", "imposto")[0];
     const v = t => Number(tag(pr, t) || 0);
     const ipi = im ? Number(tag(im.getElementsByTagNameNS("*", "IPI")[0], "vIPI") || 0) : 0, st = im ? Number(tag(im, "vICMSST") || 0) : 0;
-    return { item: Number(det.getAttribute("nItem")), xProd: tag(pr, "xProd"), uCom: tag(pr, "uCom"), qCom: Number(tag(pr, "qCom") || 0),
+    const ad = [...det.children].find(x => x.localName === "infAdProd");
+    return { item: Number(det.getAttribute("nItem")), xProd: tag(pr, "xProd"), infAdProd: ad ? ad.textContent.trim() : "", uCom: tag(pr, "uCom"), qCom: Number(tag(pr, "qCom") || 0),
              valor: +(v("vProd") - v("vDesc") + v("vFrete") + v("vSeg") + v("vOutro") + ipi + st).toFixed(2) };
   });
   return { chave, numero: tag(ide, "nNF"), data: (tag(ide, "dhEmi") || tag(ide, "dEmi")).slice(0, 10), fornecedor: tag(emit, "xNome"), cnpj: tag(emit, "CNPJ"), itens };
@@ -442,12 +505,13 @@ function importarXml(xml) {
   const f = $("dlgf"); $("dlg").classList.add("largo");
   f.innerHTML = `<h3>Importar nota nº ${esc(nf.numero)}</h3>
     <div class="mut">${esc(nf.fornecedor)}${nf.cnpj ? " · CNPJ " + esc(nf.cnpj) : ""} · emitida em ${dataBR(nf.data)} · chave ${esc(nf.chave)}</div>
-    <div class="msg info">Marque os itens que são tecido, confira a <b>cor</b> e informe <b>quantos rolos</b> vieram em cada item (a nota não diz): a quantidade é dividida igualmente entre eles${valores() ? ", assim como o valor" : ""}. Tecido comprado por quilo precisa depois do rendimento (metros por kg) para ir ao corte.</div>
+    <div class="msg info">Marque os itens que são tecido, confira a <b>cor</b> (a nota não tem campo de cor: a sugestão vem da descrição) e informe <b>quantos rolos</b> vieram em cada item (a nota não diz): a quantidade é dividida igualmente entre eles${valores() ? ", assim como o valor" : ""}. Tecido comprado por quilo precisa depois do rendimento (metros por kg) para ir ao corte.</div>
     <div class="tw"><table><thead><tr><th></th><th>Item da nota</th><th>Tecido</th><th>Cor</th><th>Comprado por</th><th class="num">Quantidade</th><th class="num">Rolos</th>${valores() ? '<th class="num">Valor</th>' : ""}</tr></thead><tbody>
-    ${nf.itens.map((it, k) => { const un = UN_NFE(it.uCom), feito = ja.has(it.item);
+    ${nf.itens.map((it, k) => { const un = UN_NFE(it.uCom), feito = ja.has(it.item), sg = corDaDescricao(it.xProd), sa = !sg.cor && it.infAdProd ? corDaDescricao("- " + it.infAdProd).cor.split(" ").slice(0, 2).join(" ") : "";
+      if (sa) sg.cor = sa, sg.tecido = it.xProd;
       return `<tr class="nfrow"><td><input type="checkbox" data-nfi="${k}" ${feito || !un ? "" : "checked"} ${feito ? "disabled" : ""} aria-label="Importar item ${it.item}"></td>
-        <td>${it.item}. ${esc(it.xProd)}<br><span class="mut">${esc(it.qCom.toLocaleString("pt-BR"))} ${esc(it.uCom)}${feito ? " · já importado" : !un ? " · unidade não reconhecida: confira" : ""}</span></td>
-        <td><input data-nft="${k}" value="${esc(it.xProd)}"></td><td><input data-nfc="${k}" placeholder="ex.: Cru" style="width:100px"></td>
+        <td>${it.item}. ${esc(it.xProd)}${it.infAdProd ? `<br><span class="mut">${esc(it.infAdProd.slice(0, 160))}</span>` : ""}<br><span class="mut">${esc(it.qCom.toLocaleString("pt-BR"))} ${esc(it.uCom)}${feito ? " · já importado" : !un ? " · unidade não reconhecida: confira" : ""}</span></td>
+        <td><input data-nft="${k}" value="${esc(sg.cor ? sg.tecido : it.xProd)}"></td><td><input data-nfc="${k}" value="${esc(sg.cor)}" placeholder="ex.: Cru" style="width:110px"></td>
         <td><select data-nfu="${k}" style="width:auto"><option value="m" ${un !== "kg" ? "selected" : ""}>metro</option><option value="kg" ${un === "kg" ? "selected" : ""}>quilo</option></select></td>
         <td class="num"><input data-nfq="${k}" inputmode="decimal" value="${esc(decBR(it.qCom))}" style="width:80px"></td>
         <td class="num"><input data-nfr="${k}" type="number" min="1" max="50" value="1" style="width:60px"></td>

@@ -609,7 +609,10 @@ try:
            "XML lido: fornecedor, número, valor de cada item (com frete e desconto) e o item sem unidade de tecido avisado")
         ok(pg.is_checked('[data-nfi="0"]') and pg.is_checked('[data-nfi="1"]') and not pg.is_checked('[data-nfi="2"]') and pg.input_value('[data-nfu="1"]') == "kg",
            "itens de tecido marcados, o resto desmarcado; quilos reconhecido")
-        pg.fill('[data-nfr="0"]', "2"); pg.fill('[data-nfc="0"]', "Areia"); pg.fill('[data-nfc="1"]', "Cru")
+        ok(pg.input_value('[data-nfc="0"]') == "Areia" and pg.input_value('[data-nft="0"]') == "LINHO MISTO 1,40M" and pg.input_value('[data-nfc="1"]') == "Cru"
+           and pg.input_value('[data-nft="1"]') == "MALHA DE LINHO", "cor sugerida pela descrição do item (a nota não tem campo de cor)")
+        # o item 1 entra sem cor, para preencher depois
+        pg.fill('[data-nfr="0"]', "2"); pg.fill('[data-nfc="0"]', ""); pg.fill('[data-nft="0"]', "LINHO MISTO AREIA 1,40M")
         pg.screenshot(path=os.path.join(SAIDA, "linum_producao_xml.png"), full_page=True)
         pg.click("#nfeok"); pg.wait_for_timeout(900)
         ok(psql("select string_agg(unidade || ':' || metros_iniciais || ':' || valor_pago, ',' order by codigo) from lin_rolos where nota = '1234'", saida=True) == "m:30.50:450.00,m:30.50:450.00,kg:12.50:480.00"
@@ -617,6 +620,20 @@ try:
         pg.set_input_files("#pdxml", files=[{"name": "nota.xml", "mimeType": "text/xml", "buffer": xml.encode()}]); pg.wait_for_selector("#dlg[open] #nfeok")
         ok("já importado" in pg.text_content("#dlgf") and pg.is_disabled('[data-nfi="0"]'), "a mesma nota de novo: itens já importados ficam travados")
         pg.click("#nfex")
+        # 2.2: preencher as cores que faltam e editar o rolo
+        pg.click("#pdcores"); pg.wait_for_selector("#dlg[open] #pcok")
+        ok(pg.locator("[data-pcc]").count() == 2 and pg.input_value("[data-pcc] >> nth=0") == "Areia" and pg.input_value("[data-pct] >> nth=0") == "LINHO MISTO 1,40M",
+           "Preencher cores: os 2 rolos sem cor, com a cor sugerida pela descrição")
+        pg.click("#pcok"); pg.wait_for_timeout(900)
+        ok(psql("select string_agg(tecido || '|' || cor, ',') from lin_rolos where nota = '1234' and unidade = 'm'", saida=True) == "LINHO MISTO 1,40M|Areia,LINHO MISTO 1,40M|Areia"
+           and pg.locator("#pdcores").count() == 0, "cores gravadas de uma vez; o botão some quando nenhum rolo fica sem cor")
+        pg.click('.rlrow:has-text("MALHA DE LINHO")'); pg.wait_for_selector("#dlg[open] #rled"); pg.click("#rled"); pg.wait_for_selector("#dlg2[open] #reok")
+        ok(pg.input_value("#recor") == "Cru" and pg.input_value("#revalor") == "480,00", "Editar dados do rolo: dados atuais e valor (Dono)")
+        pg.fill("#recor", "Natural"); pg.fill("#reobs", "Rolo conferido"); pg.click("#reok"); pg.wait_for_timeout(900)
+        ok(psql("select cor || '|' || observacoes || '|' || saldo from lin_rolos where unidade = 'kg'", saida=True) == "Natural|Rolo conferido|12.50"
+           and "Rolo conferido" in pg.text_content("#dlgf") and psql("select count(*) from auditoria where acao = 'linum_rolo_alterado'", saida=True) == "3",
+           "rolo editado (cor e observação), saldo igual, auditoria por rolo")
+        pg.click("#rlx")
         pg.click('[data-pa="painel"]'); pg.wait_for_selector("#pdtela .kpis")
         ok(pg.is_visible("#pdrend") and "Falta o rendimento" in pg.text_content("#pdrend"), "painel lembra o rendimento que falta no rolo comprado por quilo")
         pg.click('[data-pa="rolos"]'); pg.wait_for_selector(".rlrow"); pg.click('.rlrow:has-text("kg")'); pg.wait_for_selector("#dlg[open] #rrendok")
@@ -656,7 +673,7 @@ try:
             abrir_ajuda = pg.goto(f"http://127.0.0.1:{PORTA_SITE}/apps/linum/ajuda/{pagina}.html")
             ok(abrir_ajuda.ok and "Sistema Linum" in pg.title() and pg.locator('script[src="/marca-dagua.js"][data-tipo="doc"]').count() == 1, f"ajuda: {pagina} com marca d'água")
         pg.goto(f"http://127.0.0.1:{PORTA_SITE}/ajuda/novidades.html?app=linum&nome=Sistema%20Linum"); pg.wait_for_timeout(400)
-        ok("2.1" in pg.text_content("body"), "novidades do app (versão 2.1)")
+        ok("2.2" in pg.text_content("body"), "novidades do app (versão 2.2)")
         ok(psql("select mapa_url from apps where id = 'linum'", saida=True) == "/apps/linum/ajuda/mapa.html", "botão Mapa ligado no cadastro do app")
         b.close()
     print("TODOS OS TESTES DE TELA DO SISTEMA LINUM OK")
