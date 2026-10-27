@@ -191,7 +191,21 @@ async function iniciar() {
     render();
   } catch (e) { $("aviso").textContent = e.message.includes("não tem acesso") ? e.message : "Não foi possível carregar: " + e.message; }
 }
+// estoque sempre atual: recarrega ao voltar para a janela/aba (mais de 20 s depois da última leitura) e a cada 3 min
+// com a janela visível; a tela de Estoque é redesenhada se nenhuma janela de diálogo estiver aberta
+let ULTIMA_CARGA = 0;
+async function atualizarEstoque() {
+  if (document.hidden || !PAPEL || Date.now() - ULTIMA_CARGA < 20000) return;
+  try {
+    await carregar();
+    if (VISTA === "estoque" && !$("dlg").open && !$("dlg2").open) lista();
+  } catch (e) { /* sem rede: tenta de novo na próxima vez */ }
+}
+document.addEventListener("visibilitychange", atualizarEstoque);
+window.addEventListener("focus", atualizarEstoque);
+setInterval(atualizarEstoque, 180000);
 async function carregar() {
+  ULTIMA_CARGA = Date.now();
   const d = checar(await sb.rpc("lin_estoque_ler"));
   PAPEL = d.papel; LOJAS = d.lojas || []; PRODUTOS = d.produtos || []; MINHA_LOJA = d.minha_loja || null; MINHA_COMISSAO = Number(d.comissao_pct || 0);
   QTD = new Map((d.estoque || []).map(([v, l, q]) => [chave(v, l), q]));

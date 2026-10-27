@@ -682,6 +682,13 @@ try:
         ok(not erros, "sem erros de JavaScript (produção sem valores)")
         pg, erros = entrar(b, "vendedora"); abrir(pg)
         ok(not pg.is_visible("#abaProducao"), "vendedora sem permissão não vê a Produção")
+        # estoque mudou em outra janela (outra pessoa vendeu): ao voltar para esta, o estoque se atualiza sozinho
+        antes = qtd_banco(V_AZUL_P, "Gávea")
+        psql(f"update lin_estoque set quantidade = 42 where variante_id = '{V_AZUL_P}' and loja_id = (select id from lin_lojas where nome = 'Gávea')")
+        ok("42 un." not in pg.text_content("#lista"), "outra janela mudou o estoque: esta ainda mostra o antigo")
+        pg.evaluate("ULTIMA_CARGA = 0; document.dispatchEvent(new Event('visibilitychange'))"); pg.wait_for_timeout(800)
+        ok("42 un." in pg.text_content("#lista"), "ao voltar para a janela, o estoque é recarregado sozinho")
+        psql(f"update lin_estoque set quantidade = {antes} where variante_id = '{V_AZUL_P}' and loja_id = (select id from lin_lojas where nome = 'Gávea')")
 
         # ---------------------------------------------------------------- celular, iframe, ajuda e quem não tem acesso
         pg, erros = entrar(b, "vendedora", largura=390); abrir(pg)
