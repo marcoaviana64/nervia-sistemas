@@ -1282,7 +1282,7 @@ async function telaRanking() {
   let r;
   try { r = checar(await sb.rpc("lin_ranking", { p_de: de, p_ate: ate })); } catch (e) { $("tela").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; return; }
   const ps = r.participantes || [], lideres = ps.filter(p => p.posicao === 1), titulo = mes ? mesTxt(FRK.mes) : FRK.ano;
-  const det = p => p.valor == null ? "" : `<br><span class="mut">${brl(p.valor)} em ${n(p.n_vendas)} venda(s) · ${p.n_vendas ? n(Math.round(100 * p.com_cliente / p.n_vendas)) + "% com cliente" : "sem vendas"} · ${n(p.registros)} registro(s) no CRM${p.comentario ? ` · Dona: “${esc(p.comentario)}”` : ""}</span>`;
+  const det = p => p.valor == null ? "" : `<br><span class="mut">${brl(p.valor)} em ${n(p.n_vendas)} venda(s) · ${p.n_vendas ? n(Math.round(100 * p.com_cliente / p.n_vendas)) + "% com cliente" : "sem vendas"} · ${n(p.registros)} registro(s) no CRM</span>`;
   $("tela").innerHTML = `
     <div class="cabtela"><h2>Ranking ${mes ? "do mês" : "do ano"} · ${esc(titulo)}</h2></div>
     <div class="filtros">
@@ -1291,43 +1291,24 @@ async function telaRanking() {
     </div>
     <div class="card destaque" id="rklider">${lideres.length ? `<small>${atual ? "Liderando até agora" : mes ? "Vendedora do mês" : "Vendedora do ano"}</small>
       <b>${lideres.map(p => esc(p.nome)).join(" e ")}</b> <span>nota ${notaTxt(lideres[0].final)} ${estrelas(lideres[0].final)}</span>`
-      : '<span class="mut">Ninguém da equipe tem vendas, registros ou nota da Dona neste período.</span>'}</div>
-    <div class="card"><div class="tw"><table><thead><tr><th class="num">#</th><th>Vendedora</th><th class="num">Nota final</th><th class="num">Vendas</th><th class="num">Cliente na venda</th><th class="num">Acompanhamento</th><th class="num">Nota da Dona</th>${r.dono && mes ? "<th></th>" : ""}</tr></thead><tbody id="rktab">
+      : '<span class="mut">Ninguém da equipe tem vendas ou registros neste período.</span>'}</div>
+    <div class="card"><div class="tw"><table><thead><tr><th class="num">#</th><th>Vendedora</th><th class="num">Nota final</th><th class="num">Vendas</th><th class="num">Cliente na venda</th><th class="num">Acompanhamento</th></tr></thead><tbody id="rktab">
       ${ps.map(p => `<tr class="rkrow ${p.eu ? "eu" : ""}"><td class="num">${p.posicao ? p.posicao + "º" : "—"}</td><td><b>${esc(p.nome)}</b>${p.eu ? ' <span class="tag">você</span>' : ""}${det(p)}</td>
-        <td class="num"><b>${notaTxt(p.final)}</b>${p.final != null && p.criterios < 4 ? `<br><span class="mut">${p.criterios} de 4 critérios</span>` : ""}</td>
-        <td class="num">${notaTxt(p.vendas)}</td><td class="num">${notaTxt(p.clientes)}</td><td class="num">${notaTxt(p.crm)}</td><td class="num">${notaTxt(p.dona)}</td>
-        ${r.dono && mes ? `<td><button type="button" class="lnk" data-nota="${p.user_id}">${p.dona == null ? "Dar nota" : "Trocar nota"}</button></td>` : ""}</tr>`).join("")
-      || '<tr><td colspan="8" class="mut">Ninguém da equipe para classificar (só entra quem tem papel no app e não é Dono).</td></tr>'}
+        <td class="num"><b>${notaTxt(p.final)}</b>${p.final != null && p.criterios < 3 ? `<br><span class="mut">${p.criterios} de 3 critérios</span>` : ""}</td>
+        <td class="num">${notaTxt(p.vendas)}</td><td class="num">${notaTxt(p.clientes)}</td><td class="num">${notaTxt(p.crm)}</td></tr>`).join("")
+      || '<tr><td colspan="6" class="mut">Ninguém da equipe para classificar (só entra quem tem papel no app e não é Dono).</td></tr>'}
     </tbody></table></div></div>
     <details class="card"><summary><b>Como a nota é calculada</b></summary>
-      <p>Quatro critérios, de 1 a 5, com o mesmo peso; a nota final é a média deles.</p>
+      <p>Três critérios, de 1 a 5, com o mesmo peso; a nota final é a média deles.</p>
       <ul><li><b>Vendas</b>: valor vendido no período (sem canceladas). Quem mais vendeu tira 5; as outras, na proporção.</li>
         <li><b>Cliente na venda</b>: quanto das vendas foi registrado com a cliente identificada (100% = 5).</li>
-        <li><b>Acompanhamento</b>: contatos registrados no CRM, visitas sem contato e clientes cadastradas. Quem mais registrou tira 5; as outras, na proporção.</li>
-        <li><b>Nota da Dona</b>: de 1 a 5, uma por mês (atendimento, postura, equipe…). No ano, a média dos meses.</li></ul>
-      <p class="mut">Sem vendas, registros ou nota no período, o critério não entra na média. Valores em reais e o comentário da Dona só aparecem para o Dono e para a própria vendedora.</p></details>`;
+        <li><b>Acompanhamento</b>: contatos registrados no CRM, visitas sem contato e clientes cadastradas. Quem mais registrou tira 5; as outras, na proporção.</li></ul>
+      <p class="mut">Sem vendas ou registros no período, o critério não entra na média. Valores em reais só aparecem para o Dono e para a própria vendedora.</p></details>`;
   $("rkmes").onclick = () => { FRK.tipo = "mes"; telaRanking(); };
   $("rkano").onclick = () => { FRK.tipo = "ano"; telaRanking(); };
   $("rkant").onclick = () => { if (mes) FRK.mes = somaMes(FRK.mes, -1); else FRK.ano = String(+FRK.ano - 1); telaRanking(); };
   $("rkprox").onclick = () => { if (mes) FRK.mes = somaMes(FRK.mes, 1); else FRK.ano = String(+FRK.ano + 1); telaRanking(); };
-  document.querySelectorAll("[data-nota]").forEach(b => b.onclick = () => darNota(ps.find(p => p.user_id === b.dataset.nota)));
 }
-function darNota(p) {
-  const f = $("dlg2f"); let nota = p.dona == null ? 0 : Math.round(p.dona);
-  f.innerHTML = `<h3>Nota da Dona · ${esc(p.nome)}</h3><div class="mut">${mesTxt(FRK.mes)}. De 1 (precisa melhorar) a 5 (excelente): atendimento, postura, cuidado com a loja, equipe.</div>
-    <div class="campo"><div class="filtros" style="margin:0" id="ntnotas">${[1, 2, 3, 4, 5].map(x => `<button type="button" class="pilula ${x === nota ? "on" : ""}" data-n="${x}">${x} ★</button>`).join("")}</div></div>
-    <div class="campo"><label for="ntcom">Comentário (só ela e o Dono veem)</label><input id="ntcom" maxlength="300" value="${esc(p.comentario || "")}" placeholder="Ex.: ótimo atendimento às clientes novas"></div>
-    <div id="nterr"></div><div class="acoes"><button type="button" class="bt" id="ntx">Cancelar</button><button type="button" class="bt pri" id="ntok">Salvar nota</button></div>`;
-  f.querySelectorAll("[data-n]").forEach(b => b.onclick = () => { nota = +b.dataset.n; f.querySelectorAll("[data-n]").forEach(x => x.classList.toggle("on", x === b)); });
-  $("ntx").onclick = () => $("dlg2").close();
-  $("ntok").onclick = async () => {
-    try { checar(await sb.rpc("lin_nota_vendedora_salvar", { p_user: p.user_id, p_mes: FRK.mes + "-01", p_nota: nota || null, p_comentario: $("ntcom").value }));
-      $("dlg2").close(); await telaRanking(); msg("ok", "Nota salva."); }
-    catch (e) { $("nterr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
-  };
-  $("dlg2").showModal();
-}
-
 // ---------------------------------------------------------------- comissões por mês (só o Dono; as vendedoras ainda não veem)
 const FCM = { mes: "", loja: "" };
 const mesTxt = m => `${MESES[Number(m.slice(5, 7)) - 1]}/${m.slice(0, 4)}`;
