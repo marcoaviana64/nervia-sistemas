@@ -1,6 +1,6 @@
 // Sistema Linum — Produção (versão 2.1): rolos de tecido (comprados por metro ou por quilo; compra pelo XML da NF-e; a peça é
-// sempre em metros e o rolo por quilo usa o rendimento em metros por kg), fichas de produção e as etapas corte → costura → lavagem →
-// passadoria → estoque. Usa os ajudantes do index.html ($, esc, sb, checar, msg, brl, n, dataBR, hoje, quando, numV, decBR…).
+// sempre em metros e o rolo por quilo usa o rendimento em metros por kg), fichas de produção e as etapas corte → costura →
+// estoque (lavagem e passadoria = só caixa de marcação na ficha, desde a 2.7; remessas antigas delas ficam no histórico). Usa os ajudantes do index.html ($, esc, sb, checar, msg, brl, n, dataBR, hoje, quando, numV, decBR…).
 // Tudo vem da lin_producao_ler(): sem a permissão "Valores da produção" o servidor nem manda valor pago, preço por peça e custo.
 const ETAPAS = ["corte", "costura", "lavagem", "passadoria"];
 const ETAPA_TXT = { corte: "Corte", costura: "Costura", lavagem: "Lavagem", passadoria: "Passadoria", estoque: "Estoque" };
@@ -57,7 +57,7 @@ function pdPainel() {
       <div class="kpi"><small>Tecido em estoque</small><b>${porUnid(linho.map(r => [r.unidade, r.saldo]))}</b><span>${n(linho.length)} rolo(s) com saldo</span></div>
       <div class="kpi"><small>Peças com parceiros</small><b>${n(fora)}</b><span>${n(abertos.length)} remessa(s) em aberto</span></div>
       <div class="kpi"><small>Atrasadas</small><b style="${atras.length ? "color:var(--crit)" : ""}">${n(atras.length)}</b><span>remessa(s) com prazo vencido</span></div>
-      <div class="kpi"><small>Prontas para o estoque</small><b>${n(prontas)}</b><span>voltaram da passadoria</span></div>
+      <div class="kpi"><small>Prontas para o estoque</small><b>${n(prontas)}</b><span>voltaram da costura</span></div>
       <div class="kpi"><small>Fichas abertas</small><b>${n(PD.ordens.filter(o => o.status === "aberta").length)}</b></div>
     </div>
     <div class="card"><h2>Onde estão as peças</h2>${abertos.length ? `<div class="tw"><table><thead><tr><th>Com quem</th><th>Etapa</th><th class="num">Peças</th><th>Ficha</th><th>Desde</th><th>Prazo</th></tr></thead><tbody>
@@ -202,23 +202,27 @@ function verFicha(id) {
   const f = $("dlgf"), aberta = o.status === "aberta";
   $("dlg").classList.add("largo");
   const loja = o.loja_destino_id ? (PD.lojas.find(l => l.id === o.loja_destino_id) || {}).nome : "";
+  const antigas = o.envios.some(e => e.etapa === "lavagem" || e.etapa === "passadoria");   // remessas de antes da 2.7
+  const marca = (et, em, nome) => `<label class="chk" style="margin:0 18px 0 0"><input type="checkbox" data-marca="${et}" ${em ? "checked" : ""} ${aberta ? "" : "disabled"}> ${ETAPA_TXT[et]} feita${em ? ` <span class="mut">(${esc(nome || "")}, ${quando(em)})</span>` : ""}</label>`;
   f.innerHTML = `<h3>Ficha nº ${o.id} ${aberta ? "" : `<span class="tag">${o.status === "concluida" ? "concluída" : "cancelada"}</span>`}</h3>
     <div class="mut">Criada em ${quando(o.criada_em)} por ${esc(o.criado_nome)}${o.prazo ? ` · prazo ${dataBR(o.prazo)}` : ""}${loja ? ` · vai para ${esc(loja)}` : ""}</div>
     ${o.molde ? `<div style="margin-top:6px"><b>Molde:</b> ${esc(o.molde)}</div>` : ""}${o.observacao ? `<div><b>Obs.:</b> ${esc(o.observacao)}</div>` : ""}
     ${o.motivo_encerramento ? `<div class="msg info">${o.status === "cancelada" ? "Cancelada" : "Encerrada"} por ${esc(o.encerrada_nome)}: ${esc(o.motivo_encerramento)}</div>` : ""}
-    <div class="tw" style="margin-top:8px"><table><thead><tr><th>Peça</th><th class="num">Pedidas</th><th class="num">Cortadas</th><th class="num">Costuradas</th><th class="num">Lavadas</th><th class="num">Passadas</th><th class="num">No estoque</th><th class="num">Perdas</th>${valores() ? '<th class="num">Custo/peça</th>' : ""}</tr></thead><tbody id="fitens">
+    <div class="tw" style="margin-top:8px"><table><thead><tr><th>Peça</th><th class="num">Pedidas</th><th class="num">Cortadas</th><th class="num">Costuradas</th>${antigas ? '<th class="num">Lavadas</th><th class="num">Passadas</th>' : ""}<th class="num">No estoque</th><th class="num">Perdas</th>${valores() ? '<th class="num">Custo/peça</th>' : ""}</tr></thead><tbody id="fitens">
       ${o.itens.map(i => { const s = situacaoItem(o, i); const c = e => `${n(s.boas[e])}${s.fora[e] ? ` <span class="mut">(+${s.fora[e]} fora)</span>` : ""}`;
         return `<tr><td><b>${esc(i.referencia)}</b> ${esc(i.descricao)}<br><span class="mut">${esc([i.cor, i.tamanho, i.edicao].filter(Boolean).join(" "))} · ${met(i.consumo)} por peça</span></td>
-          <td class="num">${n(i.quantidade)}</td><td class="num">${c("corte")}</td><td class="num">${c("costura")}</td><td class="num">${c("lavagem")}</td><td class="num">${c("passadoria")}</td>
+          <td class="num">${n(i.quantidade)}</td><td class="num">${c("corte")}</td><td class="num">${c("costura")}</td>${antigas ? `<td class="num">${c("lavagem")}</td><td class="num">${c("passadoria")}</td>` : ""}
           <td class="num">${n(i.entraram)}</td><td class="num">${s.perdas ? `<b style="color:var(--crit)">${n(s.perdas)}</b>` : "0"}</td>${valores() ? `<td class="num">${i.custo != null && Number(i.custo) ? brl(i.custo) : "—"}</td>` : ""}</tr>`; }).join("")}
     </tbody></table></div>
+    <div class="caixa" style="margin-top:10px"><h4>Lavagem e passadoria <span class="mut" style="font-weight:normal">(opcional, só para marcar)</span></h4>
+      <div class="filtros" style="margin:0;align-items:center">${marca("lavagem", o.lavagem_em, o.lavagem_nome)}${marca("passadoria", o.passadoria_em, o.passadoria_nome)}</div></div>
     <h2 style="font-size:15px;margin:14px 0 4px">Remessas</h2>
     <div id="fenvios">${o.envios.length ? o.envios.map(e => `<div class="vlin envrow"><span><b>${ETAPA_TXT[e.etapa]}</b> · ${esc(e.parceiro_nome)} · ${n((e.itens || []).reduce((t, x) => t + x.enviadas, 0))} peça(s) em ${quando(e.enviado_em)}
         ${e.prazo ? ` · prazo ${dataBR(e.prazo)}` : ""}${valores() ? ` · ${brl(e.preco_peca)}/peça` : ""}${(e.rolos || []).length ? ` · tecido: ${esc(e.rolos.map(r => r.codigo + " " + met(r.metros)).join(", "))}` : ""}
         ${e.status === "aberto" ? (atrasado(e) ? ' <b style="color:var(--crit)">· atrasado</b>' : ` · <b>${n(pecasFora(e))} com o parceiro</b>`) : ' · <span class="tag">recebido</span>'}</span>
         <span class="acs">${e.status === "aberto" && aberta ? `<button type="button" class="lnk" data-rec="${e.id}">Receber e conferir</button>` : ""}${aberta ? `<button type="button" class="lnk" data-zap="${e.id}">WhatsApp</button>` : ""}</span></div>`).join("")
       : '<div class="mut">Nada enviado ainda.</div>'}</div>
-    ${aberta ? `<div class="filtros" style="margin-top:12px">${[...ETAPAS, "estoque"].map(et => { const d = o.itens.reduce((t, i) => t + i.disp[et], 0);
+    ${aberta ? `<div class="filtros" style="margin-top:12px">${["corte", "costura", "estoque"].map(et => { const d = o.itens.reduce((t, i) => t + i.disp[et], 0);
         return `<button type="button" class="bt ${d ? "pri" : ""}" data-env="${et}" ${d ? "" : "disabled"}>${et === "estoque" ? "Dar entrada no estoque" : "Enviar para " + ETAPA_TXT[et].toLowerCase()} (${n(d)})</button>`; }).join("")}</div>` : ""}
     <div class="acoes"><button type="button" class="bt" id="fimp">Imprimir ficha</button>${aberta ? '<button type="button" class="bt" id="fenc">Encerrar ficha</button>' : ""}<button type="button" class="bt" id="fx">Fechar</button></div>`;
   $("fx").onclick = () => $("dlg").close();
@@ -228,6 +232,10 @@ function verFicha(id) {
     try { checar(await sb.rpc("lin_ordem_encerrar", { p_ordem: o.id, p_motivo: m })); $("dlg").close(); msg("ok", `Ficha nº ${o.id} encerrada.`); await telaProducao(); }
     catch (e) { msg("err", e.message); }
   };
+  f.querySelectorAll("[data-marca]").forEach(c => c.onchange = async () => {
+    try { checar(await sb.rpc("lin_ordem_marcar", { p_ordem: o.id, p_etapa: c.dataset.marca, p_feito: c.checked })); await carregarProducao(); verFicha(o.id); }
+    catch (e) { c.checked = !c.checked; msg("err", e.message); }
+  });
   f.querySelectorAll("[data-env]").forEach(b => b.onclick = () => b.dataset.env === "estoque" ? entradaEstoque(o) : enviar(o, b.dataset.env));
   f.querySelectorAll("[data-rec]").forEach(b => b.onclick = () => receber(o, o.envios.find(e => e.id === +b.dataset.rec)));
   f.querySelectorAll("[data-zap]").forEach(b => b.onclick = () => zapEnvio(o, o.envios.find(e => e.id === +b.dataset.zap)));
@@ -321,7 +329,7 @@ function receber(o, e) {
 
 function entradaEstoque(o) {
   const f = $("dlg2f"), its = o.itens.filter(i => i.disp.estoque > 0);
-  f.innerHTML = `<h3>Ficha nº ${o.id} · dar entrada no estoque</h3><div class="mut">Peças que voltaram boas da passadoria e entram para a venda.</div>
+  f.innerHTML = `<h3>Ficha nº ${o.id} · dar entrada no estoque</h3><div class="mut">Peças que voltaram boas da costura e entram para a venda (lavagem e passadoria são só marcadas na ficha).</div>
     <div class="campo"><label for="entloja">Loja</label><select id="entloja">${PD.lojas.map(l => `<option value="${l.id}" ${l.id === o.loja_destino_id ? "selected" : ""}>${esc(l.nome)}</option>`).join("")}</select></div>
     <div class="caixa">${its.map(i => `<div class="vlin"><span>${esc(i.referencia)} ${esc(i.descricao)} ${esc([i.cor, i.tamanho, i.edicao].filter(Boolean).join(" "))} <span class="mut">· ${n(i.disp.estoque)} pronta(s)</span>${valores() && Number(i.custo) ? ` <span class="mut">· custo ${brl(i.custo)}</span>` : ""}</span>
       <input type="number" min="0" max="${i.disp.estoque}" value="${i.disp.estoque}" data-ent="${i.id}" style="width:80px" aria-label="Quantidade"></div>`).join("")}</div>

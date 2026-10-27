@@ -1729,12 +1729,17 @@ set role authenticated;
 select pg_temp.erro2($$select lin_envio_receber(jsonb_build_object('envio_id', (select v from lin_pd where k = 'es'), 'itens', jsonb_build_array(jsonb_build_object('ordem_item_id', (select v from lin_pd where k = 'it'), 'recebidas', 2))))$$,
   'já voltaram', 'linum produção: não recebe mais do que foi');
 select lin_envio_receber(jsonb_build_object('envio_id', (select v from lin_pd where k = 'es'), 'itens', jsonb_build_array(jsonb_build_object('ordem_item_id', (select v from lin_pd where k = 'it'), 'recebidas', 1))));
-insert into lin_pd select 'el', lin_envio_criar(jsonb_build_object('ordem_id', (select v from lin_pd where k = 'f'), 'etapa', 'lavagem', 'parceiro_id', (select v from lin_pd where k = 'lav'),
-  'itens', jsonb_build_array(jsonb_build_object('ordem_item_id', (select v from lin_pd where k = 'it'), 'quantidade', 3))))::text;
-select lin_envio_receber(jsonb_build_object('envio_id', (select v from lin_pd where k = 'el'), 'itens', jsonb_build_array(jsonb_build_object('ordem_item_id', (select v from lin_pd where k = 'it'), 'recebidas', 3))));
-insert into lin_pd select 'ep', lin_envio_criar(jsonb_build_object('ordem_id', (select v from lin_pd where k = 'f'), 'etapa', 'passadoria', 'parceiro_id', (select v from lin_pd where k = 'pass'),
-  'itens', jsonb_build_array(jsonb_build_object('ordem_item_id', (select v from lin_pd where k = 'it'), 'quantidade', 3))))::text;
-select lin_envio_receber(jsonb_build_object('envio_id', (select v from lin_pd where k = 'ep'), 'itens', jsonb_build_array(jsonb_build_object('ordem_item_id', (select v from lin_pd where k = 'it'), 'recebidas', 3))));
+-- 2.7: lavagem e passadoria não têm mais remessa, só a marcação na ficha (opcional)
+select pg_temp.erro2($$select lin_envio_criar(jsonb_build_object('ordem_id', (select v from lin_pd where k = 'f'), 'etapa', 'lavagem', 'parceiro_id', (select v from lin_pd where k = 'lav'),
+  'itens', jsonb_build_array(jsonb_build_object('ordem_item_id', (select v from lin_pd where k = 'it'), 'quantidade', 3))))$$, 'disponíve', 'linum 2.7: não se envia mais para a lavagem');
+select lin_ordem_marcar((select v from lin_pd where k = 'f')::bigint, 'lavagem', true);
+select lin_ordem_marcar((select v from lin_pd where k = 'f')::bigint, 'passadoria', true);
+select lin_ordem_marcar((select v from lin_pd where k = 'f')::bigint, 'passadoria', false);
+select pg_temp.erro2($$select lin_ordem_marcar((select v from lin_pd where k = 'f')::bigint, 'corte', true)$$, 'Só lavagem e passadoria', 'linum 2.7: só lavagem e passadoria se marcam');
+reset role;
+select pg_temp.ok((select lavagem_em is not null and lavagem_nome <> '' and passadoria_em is null from lin_ordens where id = (select v from lin_pd where k = 'f')::bigint)
+  and (select count(*) = 3 from auditoria where acao = 'linum_producao_marcada'),
+  'linum 2.7: lavagem marcada, passadoria marcada e desmarcada, tudo na auditoria');
 reset role;
 create temp table lin_pd_est as select coalesce((select quantidade from lin_estoque where variante_id = '20000000-0000-0000-0000-000000000003' and loja_id = (select v from lin_ids where k = 'gav')), 0) q;
 set role authenticated;
@@ -1742,13 +1747,13 @@ select pg_temp.erro2($$select lin_ordem_entrada(jsonb_build_object('ordem_id', (
   'itens', jsonb_build_array(jsonb_build_object('ordem_item_id', (select v from lin_pd where k = 'it'), 'quantidade', 4))))$$, 'Só há 3', 'linum produção: só entra no estoque o que ficou pronto');
 select lin_ordem_entrada(jsonb_build_object('ordem_id', (select v from lin_pd where k = 'f'), 'loja_id', (select v from lin_ids where k = 'gav'),
   'itens', jsonb_build_array(jsonb_build_object('ordem_item_id', (select v from lin_pd where k = 'it'), 'quantidade', 3))));
--- custo: linho 600/30 = 20 por metro × 2,5 = 50 + corte 8 + costura 25 + lavagem 5 + passadoria 3 = 91
+-- custo: linho 600/30 = 20 por metro × 2,5 = 50 + corte 8 + costura 25 = 83 (lavagem e passadoria sem remessa)
 reset role;
 select pg_temp.ok((select quantidade from lin_estoque where variante_id = '20000000-0000-0000-0000-000000000003' and loja_id = (select v from lin_ids where k = 'gav')) = (select q from lin_pd_est) + 3
   and (select count(*) = 1 from lin_movimentos where tipo = 'producao' and quantidade = 3)
-  and (select custo_unitario = 91 from lin_ordem_entradas)
+  and (select custo_unitario = 83 from lin_ordem_entradas)
   and (select status = 'concluida' from lin_ordens where id = (select v from lin_pd where k = 'f')::bigint),
-  'linum produção: 3 peças entram no estoque da Gávea com custo de R$ 91 e a ficha fica concluída (1 perdida no corte)');
+  'linum produção: 3 peças entram no estoque da Gávea direto da costura, com custo de R$ 83, e a ficha fica concluída (1 perdida no corte)');
 set role authenticated;
 -- valores escondidos de quem só tem Produção
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
@@ -1797,7 +1802,7 @@ set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
 insert into lin_pd values ('ps', lin_parceiro_salvar(jsonb_build_object('id', (select v from lin_pd where k = 'cost'), 'nome', 'Maria Costureira', 'tipo', 'costureira', 'preco_peca', 999))::text);
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora com valores
-select pg_temp.ok((select (r->>'valores')::boolean and (select (oo->'itens'->0->>'custo')::numeric from jsonb_array_elements(r->'ordens') oo where (oo->>'id') = (select v from lin_pd where k = 'f')) = 91
+select pg_temp.ok((select (r->>'valores')::boolean and (select (oo->'itens'->0->>'custo')::numeric from jsonb_array_elements(r->'ordens') oo where (oo->>'id') = (select v from lin_pd where k = 'f')) = 83
     and (select (p->>'preco_peca')::numeric = 25 from jsonb_array_elements(r->'parceiros') p where p->>'nome' = 'Maria Costureira') from (select lin_producao_ler() r) x),
   'linum produção: com Valores vê o custo; quem não tem valores não muda o preço por peça');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';

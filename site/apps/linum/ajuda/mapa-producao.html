@@ -76,7 +76,7 @@
     <div class="acoes"><a href="mapa.html">Mapa do sistema</a><a href="manual.html#producao">Manual</a><button onclick="print()">Imprimir</button></div>
   </div>
 
-  <p class="lead">O tecido entra pela compra, a ficha diz o que cortar, e as peças passam por corte, costura, lavagem e passadoria, sempre conferidas na volta, até entrarem no estoque da loja. Em cada passo o sistema sabe com quem está cada peça, o tecido que saiu do rolo e o que se perdeu. Os números mostram a ordem.</p>
+  <p class="lead">O tecido entra pela compra, a ficha diz o que cortar, e as peças passam por corte e costura, conferidas na volta (lavagem e passadoria só se marcam), até entrarem no estoque da loja. Em cada passo o sistema sabe com quem está cada peça, o tecido que saiu do rolo e o que se perdeu. Os números mostram a ordem.</p>
   <div class="papeis">Quem faz:
     <span class="p ner">Equipe Nervia</span><span class="p don">Dono</span><span class="p prd">Permissão Produção</span><span class="p par">Parceiro</span><span class="p val">só com Valores da produção</span></div>
 
@@ -119,7 +119,7 @@
       </section>
     </div>
 
-    <div class="centro"><b>Produção</b><span>rolo → ficha → corte → costura → lavagem → passadoria → estoque</span></div>
+    <div class="centro"><b>Produção</b><span>rolo → ficha → corte → costura → estoque</span></div>
 
     <div class="lado dir">
       <section class="ramo r5">
@@ -139,10 +139,10 @@
         </ul>
       </section>
       <section class="ramo r7">
-        <h3><i>7</i>Lavagem e passadoria <span class="p prd">Produção</span><span class="p par">Lavanderia</span><span class="p par">Passadeira</span></h3>
+        <h3><i>7</i>Lavagem e passadoria <span class="p prd">Produção</span></h3>
         <ul>
-          <li><b>Enviar para lavagem</b>, conferir; depois <b>passadoria</b>, conferir</li>
-          <li>Cada etapa só recebe o que voltou bom da anterior</li>
+          <li><b>Opcional</b>: só caixas de marcação na ficha (<b>Lavagem feita</b>, <b>Passadoria feita</b>), com quem e quando</li>
+          <li>Não travam nada: depois da costura a peça já pode entrar no estoque</li>
         </ul>
       </section>
       <section class="ramo r8">
@@ -164,8 +164,7 @@
     <div><b>Conferência</b><span>boas e perdas</span></div><span class="seta">→</span>
     <div><b>Costura</b><span>uma ou mais</span></div><span class="seta">→</span>
     <div><b>Conferência</b><span>boas e perdas</span></div><span class="seta">→</span>
-    <div><b>Lavagem</b></div><span class="seta">→</span>
-    <div><b>Passadoria</b></div><span class="seta">→</span>
+    <div><b>Lavagem / passadoria</b><span>só marcar</span></div><span class="seta">→</span>
     <div><b>Estoque</b><span>loja escolhida</span></div>
   </div>
 
