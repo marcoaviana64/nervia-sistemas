@@ -162,6 +162,10 @@ try:
            "um cartão por produto e loja, tamanhos na ordem P M G, zerados ocultos")
         ok(pg.text_content("#resumo").startswith("2 produto(s) · 13 peça(s)"), "resumo de produtos e peças")
         ok("R$ 590,00" in pg.text_content(".prod >> nth=0").replace("\xa0", " "), "peça especial (edição) com preço próprio no quadrado")
+        ok(pg.locator(".chip.esp").count() == 1 and "Bordada" in pg.get_attribute(".chip.esp", "title")
+           and pg.evaluate("getComputedStyle(document.querySelector('.chip.esp b'), '::before').content") == '"★"'
+           and pg.locator("h2.temesp").count() == 1 and "Calça Areia" in pg.text_content("h2.temesp"),
+           "estrela dourada só na peça especial e no nome do produto que tem especial")
         ok(pg.locator(".prod").nth(1).locator(".sep").count() == 2, "traço entre tamanhos diferentes")
         ok("R$ 489,00" in pg.text_content(".prod >> nth=1").replace("\xa0", " "), "preço de venda no cartão")
         pg.click("#fzero"); pg.wait_for_timeout(200)
@@ -235,6 +239,16 @@ try:
         ok("3 peças especiais acrescentadas" in pg.text_content("#dlgf")
            and psql("select string_agg(tamanho || '=' || preco_venda, ',' order by tamanho) || ' ' || count(distinct codigo_barras) from lin_variantes where edicao = 'Bordada a mão'", saida=True) == "M=999.00,P=999.00,PP=999.00 3",
            "peça especial com vários tamanhos: uma por tamanho, mesmo preço, códigos próprios")
+        # 2.11: corrigir a cor digitada errado (pedido do Marco: "Natural Bordado" → "Natural")
+        vpp = psql("select id from lin_variantes where edicao = 'Bordada a mão' and tamanho = 'PP'", saida=True)
+        pg.click(f'[data-veditar="{vpp}"]'); pg.wait_for_selector('#dlgf [data-x="cor"]')
+        pg.fill('#dlgf [data-x="cor"]', "Natural"); pg.click(f'[data-vsalvar="{vpp}"]'); pg.wait_for_timeout(900)
+        ok("Variação atualizada" in pg.text_content("#dlgf") and psql(f"select cor || ' ' || tamanho || ' ' || preco_venda from lin_variantes where id = '{vpp}'", saida=True) == "Natural PP 999.00",
+           "Editar corrige a cor da variação")
+        pg.click(f'[data-veditar="{vpp}"]'); pg.wait_for_selector('#dlgf [data-x="tamanho"]')
+        pg.fill('#dlgf [data-x="tamanho"]', "PP, P"); pg.click(f'[data-vsalvar="{vpp}"]'); pg.wait_for_timeout(900)
+        ok("sem vírgula" in pg.text_content("#dlgf .msg.err"), "Editar recusa dois tamanhos numa variação")
+        pg.click('#dlgf [data-vcancel]'); pg.wait_for_timeout(300)
         vid = psql("select id from lin_variantes v where cor = 'Preto' and tamanho = 'P' and produto_id = (select id from lin_produtos where referencia = 'SAI-DUN')", saida=True)
         pg.click(f'[data-vativo="{vid}"]'); pg.wait_for_timeout(700)
         ok(psql(f"select ativo from lin_variantes where id = '{vid}'", saida=True) == "f" and "inativa" in pg.text_content("#dlgf"), "desativar variação")
@@ -799,7 +813,7 @@ try:
             abrir_ajuda = pg.goto(f"http://127.0.0.1:{PORTA_SITE}/apps/linum/ajuda/{pagina}.html")
             ok(abrir_ajuda.ok and "Sistema Linum" in pg.title() and pg.locator('script[src="/marca-dagua.js"][data-tipo="doc"]').count() == 1, f"ajuda: {pagina} com marca d'água")
         pg.goto(f"http://127.0.0.1:{PORTA_SITE}/ajuda/novidades.html?app=linum&nome=Sistema%20Linum"); pg.wait_for_timeout(400)
-        ok("2.9" in pg.text_content("body"), "novidades do app (versão 2.9)")
+        ok("2.11" in pg.text_content("body"), "novidades do app (versão 2.11)")
         ok(psql("select mapa_url from apps where id = 'linum'", saida=True) == "/apps/linum/ajuda/mapa.html", "botão Mapa ligado no cadastro do app")
         b.close()
     print("TODOS OS TESTES DE TELA DO SISTEMA LINUM OK")

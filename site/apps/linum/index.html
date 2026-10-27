@@ -88,6 +88,9 @@ dialog h3{margin:0 0 4px;font-size:17px}
 .estrelas{color:#d4a017;letter-spacing:1px}tr.eu td{background:var(--accent-soft)}
 .tag.possivel{background:var(--info-bg);color:var(--info)}.tag.ok{background:var(--ok-bg);color:var(--ok)}.tag.fora{background:var(--crit-bg);color:var(--crit)}
 .tag{display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;font-weight:600;background:var(--surface-2);color:var(--ink-soft);margin-left:6px;vertical-align:middle}
+/* peça especial: estrela dourada pequena (pedido do Marco); só por CSS, o texto da etiqueta não muda */
+.chip.esp b::before,.vtag.esp::before,.vlin.esp>span:first-child::before{content:"★";color:#c9a227;font-size:.9em;margin-right:3px}
+h2.temesp::after{content:"★";color:#c9a227;font-size:.7em;margin-left:5px;vertical-align:.15em}
 .vtag{display:inline-block;font-size:12px;padding:2px 8px;border:1px solid var(--border);border-radius:7px;margin:2px 4px 2px 0}
 .vtag.off{opacity:.5;text-decoration:line-through}
 .prod .rodape{display:flex;gap:14px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
@@ -356,12 +359,13 @@ function cartao(p, l, vars) {
     // peça especial (edição: pintura, bordado...) pode ter preço próprio; mostra só quando difere do preço da peça
     const preco = v.preco_venda != null && Number(v.preco_venda) !== Number(p.preco_venda) ? `<small>${brl(v.preco_venda)}</small>` : "";
     const corpo = `<b title="${esc(v.cor)}">${esc(v.cor || "—")}</b><small>${esc([v.tamanho, v.edicao].filter(Boolean).join(" · "))}</small>${preco}<strong>${n(q)} un.</strong>`;
+    const esp = v.edicao ? " esp" : "", tit = v.edicao ? `Peça especial: ${esc(v.edicao)}` : "";
     return sep + (controla()
-      ? `<button type="button" class="chip ${q > 0 ? "" : "zero"}" data-p="${p.id}" data-v="${v.id}" data-l="${l.id}" title="Movimentar">${corpo}</button>`
-      : `<div class="chip ${q > 0 ? "" : "zero"}">${corpo}</div>`);
+      ? `<button type="button" class="chip ${q > 0 ? "" : "zero"}${esp}" data-p="${p.id}" data-v="${v.id}" data-l="${l.id}" title="${tit ? tit + " · " : ""}Movimentar">${corpo}</button>`
+      : `<div class="chip ${q > 0 ? "" : "zero"}${esp}"${tit ? ` title="${tit}"` : ""}>${corpo}</div>`);
   }).join("");
   return `<div class="prod">
-    <div class="cab"><h2 title="${esc(p.descricao)}">${esc(p.descricao)}</h2><span class="preco">${p.preco_venda != null ? brl(p.preco_venda) : "Preço não cadastrado"}</span></div>
+    <div class="cab"><h2 class="${vars.some(v => v.edicao) ? "temesp" : ""}" title="${esc(p.descricao)}${vars.some(v => v.edicao) ? " · tem peça especial" : ""}">${esc(p.descricao)}</h2><span class="preco">${p.preco_venda != null ? brl(p.preco_venda) : "Preço não cadastrado"}</span></div>
     <div class="info"><span>Ref: ${esc(p.referencia || "—")}</span><span>·</span><span>Peça: ${esc(p.categoria || "—")}</span><span class="selo">${esc(l.nome)}</span></div>
     <div class="chips">${chips}</div></div>`;
 }
@@ -483,11 +487,11 @@ function listaProdutos() {
   $("plista").innerHTML = l.length ? l.slice(0, 300).map(p => {
     const vs = varsDe(p.id);
     return `<div class="prod">
-      <div class="cab"><h2 title="${esc(p.descricao)}">${esc(p.descricao)}${p.ativo ? "" : '<span class="tag">inativo</span>'}</h2>
+      <div class="cab"><h2 class="${vs.some(v => v.edicao && v.ativo) ? "temesp" : ""}" title="${esc(p.descricao)}${vs.some(v => v.edicao && v.ativo) ? " · tem peça especial" : ""}">${esc(p.descricao)}${p.ativo ? "" : '<span class="tag">inativo</span>'}</h2>
         <span class="preco">${brl(p.preco_venda)}</span></div>
       <div class="info"><span>${esc([p.referencia, p.categoria, p.fornecedor].filter(Boolean).join(" · "))}</span>
         ${p.codigo_barras ? `<span>· cód. ${esc(p.codigo_barras)}</span>` : ""}${p.preco_custo != null ? `<span>· custo ${brl(p.preco_custo)}</span>` : ""}</div>
-      <div style="margin-top:8px">${vs.length ? vs.map(v => `<span class="vtag ${v.ativo ? "" : "off"}" title="${v.ativo ? "" : "inativa"}">${esc(nomeVar(v))}${v.preco_venda != null ? " · " + brl(v.preco_venda) : ""}</span>`).join("") : '<span class="mut">Sem cores e tamanhos ainda.</span>'}</div>
+      <div style="margin-top:8px">${vs.length ? vs.map(v => `<span class="vtag ${v.ativo ? "" : "off"}${v.edicao ? " esp" : ""}" title="${[v.edicao ? "Peça especial: " + esc(v.edicao) : "", v.ativo ? "" : "inativa"].filter(Boolean).join(" · ")}">${esc(nomeVar(v))}${v.preco_venda != null ? " · " + brl(v.preco_venda) : ""}</span>`).join("") : '<span class="mut">Sem cores e tamanhos ainda.</span>'}</div>
       <div class="rodape"><button class="lnk" data-ed="${p.id}">Editar peça</button><button class="lnk perigo" data-ex="${p.id}">Excluir peça</button></div></div>`;
   }).join("") + (l.length > 300 ? `<div class="mut">Mostrando 300 de ${n(l.length)}. Use a busca para achar os outros.</div>` : "")
     : `<div class="vazio">${PRODS.length ? "Nenhum produto com esses filtros." : "Catálogo vazio. Cadastre a primeira peça em “+ Novo produto”."}</div>`;
@@ -529,16 +533,17 @@ function editarProduto(pid) {
         <div class="campo grade2"><div><label for="nv_c">Cores</label><input id="nv_c" data-n="cores" value="${esc(novas.cores)}" placeholder="Ex.: Areia, Preto"></div>
           <div><label for="nv_t">Tamanhos</label><input id="nv_t" data-n="tamanhos" value="${esc(novas.tamanhos)}" placeholder="Ex.: P, M, G"></div></div>
         ${vs.length ? `<div class="campo">${vs.map(v => editando === v.id
-          ? `<div class="vlin"><b>${esc(v.cor)} · ${esc(v.tamanho)}</b>
+          ? `<div class="vlin"><span><label>Cor</label><input data-x="cor" value="${esc(v.cor)}"></span>
+              <span><label>Tamanho</label><input data-x="tamanho" value="${esc(v.tamanho)}" style="max-width:90px"></span>
               <span><label>Edição</label><input data-x="edicao" value="${esc(v.edicao)}" placeholder="peça comum"></span>
               <span><label>Venda (R$)</label><input data-x="preco_venda" inputmode="decimal" value="${esc(moeda(v.preco_venda))}" placeholder="do produto"></span>
               ${dono() ? `<span><label>Custo (R$)</label><input data-x="preco_custo" inputmode="decimal" value="${esc(moeda(v.preco_custo))}" placeholder="do produto"></span>` : ""}
               <span class="acs"><button type="button" class="lnk" data-vsalvar="${v.id}">Salvar</button><button type="button" class="lnk" data-vcancel="1">Cancelar</button></span></div>`
-          : `<div class="vlin"><span>${esc(nomeVar(v))}${v.preco_venda != null ? " · " + brl(v.preco_venda) : ""}${v.codigo_barras ? ` <span class="mut">cód. ${esc(v.codigo_barras)}</span>` : ""}${v.ativo ? "" : '<span class="tag">inativa</span>'}</span>
-              <span class="acs"><button type="button" class="lnk" data-veditar="${v.id}">Preço/edição</button><button type="button" class="lnk" data-vativo="${v.id}">${v.ativo ? "Desativar" : "Reativar"}</button><button type="button" class="lnk perigo" data-vexcluir="${v.id}">Excluir</button></span></div>`).join("")}</div>` : ""}
+          : `<div class="vlin${v.edicao ? " esp" : ""}"><span>${esc(nomeVar(v))}${v.preco_venda != null ? " · " + brl(v.preco_venda) : ""}${v.codigo_barras ? ` <span class="mut">cód. ${esc(v.codigo_barras)}</span>` : ""}${v.ativo ? "" : '<span class="tag">inativa</span>'}</span>
+              <span class="acs"><button type="button" class="lnk" data-veditar="${v.id}" title="Corrigir cor, tamanho, edição ou preço">Editar</button><button type="button" class="lnk" data-vativo="${v.id}">${v.ativo ? "Desativar" : "Reativar"}</button><button type="button" class="lnk perigo" data-vexcluir="${v.id}">Excluir</button></span></div>`).join("")}</div>` : ""}
       </div>
-      ${p ? `<div class="caixa"><h4>Nova peça especial</h4><div class="mut">Peça única (bordada, pintura artística…) com preço e código de barras próprios. Pode repetir cor e tamanho de outra variação. Várias cores e tamanhos separados por vírgula: cada cor × tamanho vira uma peça especial, todas com o mesmo preço (depois dá para mudar em "Preço/edição"). Preço vazio = preço do produto.</div>
-        <div class="campo grade2"><div><label>Cores</label><input data-e="cor" value="${esc(esp.cor)}" placeholder="Ex.: Natural Bordado"></div><div><label>Tamanhos</label><input data-e="tamanho" value="${esc(esp.tamanho)}" placeholder="Ex.: PP, P, M, G, GG"></div></div>
+      ${p ? `<div class="caixa"><h4>Nova peça especial</h4><div class="mut">Peça única (bordada, pintura artística…) com preço e código de barras próprios. Pode repetir cor e tamanho de outra variação. Várias cores e tamanhos separados por vírgula: cada cor × tamanho vira uma peça especial, todas com o mesmo preço (depois dá para mudar em "Editar"). Preço vazio = preço do produto.</div>
+        <div class="campo grade2"><div><label>Cores</label><input data-e="cor" value="${esc(esp.cor)}" placeholder="Ex.: Natural (o bordado vai na Edição)"></div><div><label>Tamanhos</label><input data-e="tamanho" value="${esc(esp.tamanho)}" placeholder="Ex.: PP, P, M, G, GG"></div></div>
         <div class="campo"><label>Edição</label><input data-e="edicao" value="${esc(esp.edicao)}" placeholder="Ex.: Bordada à mão"></div>
         <div class="campo grade2"><div><label>Preço de venda (R$)</label><input data-e="preco_venda" inputmode="decimal" value="${esc(esp.preco_venda)}"></div>${dono() ? `<div><label>Preço de custo (R$)</label><input data-e="preco_custo" inputmode="decimal" value="${esc(esp.preco_custo)}"></div>` : ""}</div>
         <div class="acoes" style="margin-top:8px"><button type="button" class="bt" id="espadd">Acrescentar peça(s) especial(is)</button></div></div>` : ""}
@@ -553,7 +558,7 @@ function editarProduto(pid) {
     f.querySelectorAll("[data-vcancel]").forEach(b => b.onclick = () => { ler(); editando = null; desenhar(); });
     f.querySelectorAll("[data-vsalvar]").forEach(b => b.onclick = () => {
       const x = k => f.querySelector(`[data-x="${k}"]`).value;
-      acao(async () => { checar(await sb.rpc("lin_variante_salvar", { p: { id: b.dataset.vsalvar, edicao: x("edicao"), preco_venda: numBR(x("preco_venda")), preco_custo: dono() ? numBR(x("preco_custo")) : "" } })); editando = null; }, "Variação atualizada.");
+      acao(async () => { checar(await sb.rpc("lin_variante_salvar", { p: { id: b.dataset.vsalvar, cor: x("cor"), tamanho: x("tamanho"), edicao: x("edicao"), preco_venda: numBR(x("preco_venda")), preco_custo: dono() ? numBR(x("preco_custo")) : "" } })); editando = null; }, "Variação atualizada.");
     });
     f.querySelectorAll("[data-vativo]").forEach(b => b.onclick = () => {
       const v = VARS.find(x => x.id === b.dataset.vativo);

@@ -41,7 +41,8 @@
     <li>Preencha <b>Código / Referência</b> e <b>Descrição</b> (obrigatórios) e o que tiver: categoria, coleção, fornecedor, tecido, preços (com vírgula, ex.: 1.299,90) e consumo de tecido.</li>
     <li>Em <b>Cores</b> e <b>Tamanhos</b>, digite separado por vírgula (ex.: Areia, Preto e P, M, G). Ao salvar, cada cor × tamanho vira uma variação. Para acrescentar outra cor depois, digite só a nova cor e os tamanhos: as que já existem não se repetem.</li>
     <li>Clique em <b>Salvar produto</b>. O código de barras é gerado sozinho (ano + 7 dígitos) e não muda depois.</li>
-    <li><b>Peça especial</b> (bordada, pintura artística…): no mesmo cadastro, em <b>Nova peça especial</b>, informe a cor, o tamanho, a edição e, se for diferente, o preço. Para várias de uma vez, separe por vírgula (ex.: tamanhos "PP, P, M, G, GG"): cada cor × tamanho vira uma peça especial com o mesmo preço e a mesma edição, e o sistema pergunta antes de criar. Cada uma ganha código de barras próprio e aparece no estoque com a edição ao lado do tamanho; o preço de uma delas muda em <b>Preço/edição</b>.</li>
+    <li><b>Peça especial</b> (bordada, pintura artística…): no mesmo cadastro, em <b>Nova peça especial</b>, informe a cor, o tamanho, a edição e, se for diferente, o preço. Para várias de uma vez, separe por vírgula (ex.: tamanhos "PP, P, M, G, GG"): cada cor × tamanho vira uma peça especial com o mesmo preço e a mesma edição, e o sistema pergunta antes de criar. Cada uma ganha código de barras próprio e aparece no estoque com a edição ao lado do tamanho; o preço de uma delas muda em <b>Editar</b>.</li>
+    <li><b>Cor ou tamanho digitado errado</b> (ex.: "Natural Bordado" em vez de "Natural"): em Produtos, abra a peça e clique em <b>Editar</b> ao lado da variação; corrija a cor, o tamanho, a edição ou o preço e clique em <b>Salvar</b>. O estoque e o histórico continuam na mesma variação; as vendas antigas mantêm o que estava na etiqueta. Cada variação é uma cor e um tamanho: o sistema não aceita vírgula nesses campos.</li>
     <li>Variação que não se vende mais: <b>Desativar</b> (some do estoque, o histórico fica). <b>Excluir</b> só quando nunca teve movimentação nem estoque.</li>
     <li>Para lançar as quantidades da peça nova: aba <b>Estoque</b>, desligue <b>Ocultar zerados</b>, procure a peça e clique no quadrado vermelho da variação → <b>Entrada</b>.</li>
   </ol>
@@ -50,7 +51,7 @@
   <ol>
     <li>Entre na Área do Cliente e abra <b>Sistema Linum</b>.</li>
     <li>Cada cartão é um produto numa loja: nome, preço de venda, referência, categoria e o selo da loja.</li>
-    <li>Os quadrados mostram cor, tamanho e quantidade. Verde = tem peça; vermelho = zerado. Um traço separa os tamanhos. Peça especial (bordada, pintada…) mostra a edição ao lado do tamanho e, se tiver preço próprio, o preço.</li>
+    <li>Os quadrados mostram cor, tamanho e quantidade. Verde = tem peça; vermelho = zerado. Um traço separa os tamanhos. Peça especial (bordada, pintada…) tem uma ★ dourada antes da cor e mostra a edição ao lado do tamanho e, se tiver preço próprio, o preço; a ★ ao lado do nome do produto avisa que ele tem peça especial (também na aba Produtos).</li>
     <li>Para achar uma peça, digite parte do nome ou da referência em <b>Buscar</b>. Para ver só uma loja, uma categoria, uma cor ou um tamanho, use as listas ao lado.</li>
     <li>Com <b>Ocultar zerados: ativo</b> (padrão), aparecem só as variações com peça. Clique para deixar <b>inativo</b> e ver também as zeradas.</li>
     <li>Embaixo dos filtros, o total de produtos e de peças do que está na tela.</li>
@@ -264,6 +265,8 @@
     <tr><td>A cliente tem R$ … de crédito: não dá para usar R$ …</td><td>O valor usado passou do saldo. Use até o saldo e pague o resto em outra forma.</td></tr>
     <tr><td>Não dá para cancelar: a cliente já usou parte do crédito desta devolução</td><td>Cancele antes a venda que usou o crédito (o crédito volta) e depois a devolução.</td></tr>
     <tr><td>Telefone com DDD: 10 ou 11 dígitos</td><td>Digite o DDD e o número (ex.: 21 99999-0000).</td></tr>
+    <tr><td>Uma cor e um tamanho por variação (sem vírgula)</td><td>No Editar, deixe só uma cor e um tamanho. Para criar várias, use os campos de cores e tamanhos (com vírgula).</td></tr>
+    <tr><td>Já existe … (ao editar)</td><td>Já há outra variação com essa cor, tamanho e edição na peça. Use a que já existe ou desative a repetida.</td></tr>
     <tr><td>Informe a edição da peça especial</td><td>Peça especial precisa da edição (ex.: Bordada).</td></tr>
     <tr><td>Nenhum produto com esses filtros</td><td>Limpe a busca e os filtros ou desligue "Ocultar zerados".</td></tr>
     <tr><td>Estoque insuficiente: a loja tem N peça(s)</td><td>A saída é maior que o estoque da loja. Confira a quantidade ou faça um ajuste se a contagem estiver errada.</td></tr>
