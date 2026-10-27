@@ -1928,5 +1928,21 @@ select pg_temp.ok((select count(*) = 4 from auditoria where acao = 'linum_horari
   and (select count(*) from auditoria where acao = 'linum_papel_definido') = (select n from lin_hcnt),
   'linum horário: mudanças e tentativa fora do horário na auditoria (sem repetir como papel definido)');
 
+-- ---------------------------------------------------------------- linum: cópia noturna
+reset role;
+select pg_temp.ok((select count(*) >= 1 from copias.lin_copias) and (select count(*) > 20 from copias.lin_dados where copia_id = (select min(id) from copias.lin_copias)),
+  'linum cópia: a migração já faz a primeira cópia de todas as tabelas lin_');
+create temp table lin_cp as select public.lin_copia_fazer('teste') id;
+select pg_temp.ok((select (resumo->>'lin_produtos')::int = (select count(*) from lin_produtos) and (resumo->>'lin_estoque')::int = (select count(*) from lin_estoque) from copias.lin_copias where id = (select id from lin_cp)),
+  'linum cópia: resumo com o nº de linhas de cada tabela');
+select pg_temp.ok((select count(*) = (select count(*) from lin_estoque) from copias.lin_dados d, jsonb_populate_recordset(null::lin_estoque, d.linhas) r
+                   join lin_estoque e on e.variante_id = r.variante_id and e.loja_id = r.loja_id and e.quantidade = r.quantidade
+                   where d.copia_id = (select id from lin_cp) and d.tabela = 'lin_estoque'), 'linum cópia: o estoque volta igual pela cópia (jsonb_populate_recordset)');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.erro2($$select lin_copia_fazer('x')$$, 'permission denied', 'linum cópia: login não faz cópia');
+select pg_temp.erro2($$select count(*) from copias.lin_dados$$, 'permission denied', 'linum cópia: login não lê as cópias');
+reset role;
+
 reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'
