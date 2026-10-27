@@ -45,6 +45,7 @@ window.NERVIA_VERSOES = {
     ["1.0", "Lançamento: contas e licenças de cada unidade, mudanças entre exportações e licenças pagas sem uso."],
   ],
   "linum": [
+    ["2.14", "Relatório de créditos das clientes (aba Créditos, só para a Dona): saldo em aberto de todas as clientes, quem tem crédito, e os lançamentos do período (devoluções, uso em vendas, ajustes) com filtros, CSV e impressão; clicar na cliente abre o extrato dela."],
     ["2.13", "Cadastro mais rápido: o campo Tamanhos já vem com a grade da Linum (PP, P, M, G, GG, G1, G2); é só apagar os que a peça não tem e digitar as cores. Vale também para a peça nova e as cores e tamanhos da ficha de produção. G1 e G2 aparecem depois do GG no estoque."],
     ["2.12", "No Estoque, cada peça aparece num cartão só, com as lojas separadas por uma linha tracejada discreta (antes era um cartão por loja)."],
     ["2.11", "Correção de cor e tamanho: em Produtos, o botão Editar de cada cor/tamanho deixa corrigir a cor e o tamanho digitados errado (além do preço e da edição), sem perder o histórico de estoque; tudo fica no registro de auditoria. Peças especiais marcadas com uma estrela dourada no Estoque e em Produtos (e no nome da peça que tem alguma especial)."],
