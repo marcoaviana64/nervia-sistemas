@@ -1831,6 +1831,9 @@ select pg_temp.ok(lin_rolos_editar(jsonb_build_object('rolos', jsonb_build_array
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
 select pg_temp.erro2($$select lin_rolos_editar(jsonb_build_object('rolos', jsonb_build_array(jsonb_build_object('id', (select v from lin_pd where k = 'rm'), 'cor', 'X'))))$$,
   'permissão Produção', 'linum rolo: login fora da Linum não edita');
+select pg_temp.erro2($$select lin_variantes_criar('10000000-0000-0000-0000-000000000002', '{Musgo}', '{52}')$$, 'permissão Produção', 'linum 2.5: fora da Linum não cria cores e tamanhos');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora com a permissão Produção
+select pg_temp.ok(lin_variantes_criar('10000000-0000-0000-0000-000000000002', '{Musgo}', '{52}') = 1, 'linum 2.5: quem tem a permissão Produção cria cores e tamanhos (na ficha)');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';   -- Dono altera o valor
 select lin_rolos_editar(jsonb_build_object('rolos', jsonb_build_array(jsonb_build_object('id', (select v from lin_pd where k = 'rm'), 'valor_pago', '450,50', 'observacoes', 'conferido'))));
 reset role;
