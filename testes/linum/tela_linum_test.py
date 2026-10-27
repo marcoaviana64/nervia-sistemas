@@ -620,11 +620,14 @@ try:
         ok("motivo" in pg.text_content("#recerr"), "perda sem motivo não é registrada")
         pg.fill("#dlg2 [data-rm]", "Corte errado"); pg.fill("[data-sobra]", "1,5"); pg.click("#recok"); pg.wait_for_timeout(900)
         ok(psql("select min(saldo) from lin_rolos", saida=True) == "21.50" and "recebido" in pg.text_content("#fenvios"), "conferência do corte: 3 boas, 1 perdida, sobra volta ao rolo")
-        for et in ("costura", "lavagem", "passadoria"):
-            pg.click(f'[data-env="{et}"]'); pg.wait_for_selector("#dlg2[open] #envok"); pg.click("#envok"); pg.wait_for_timeout(800)
-            pg.click("#fenvios [data-rec]"); pg.wait_for_selector("#dlg2[open] #recok"); pg.click("#recok"); pg.wait_for_timeout(800)
-        ok("Dar entrada no estoque (3)" in pg.text_content("#dlgf") and "R$ 91,00" in pg.text_content("#fitens").replace("\xa0", " "),
-           "passou por costura, lavagem e passadoria; custo por peça R$ 91,00 (linho 50 + 8 + 25 + 5 + 3)")
+        ok(pg.locator('[data-env="lavagem"], [data-env="passadoria"]').count() == 0 and pg.locator('[data-marca]').count() == 2, "lavagem e passadoria: só caixa de marcação, sem remessa")
+        pg.click('[data-env="costura"]'); pg.wait_for_selector("#dlg2[open] #envok"); pg.click("#envok"); pg.wait_for_timeout(800)
+        pg.click("#fenvios [data-rec]"); pg.wait_for_selector("#dlg2[open] #recok"); pg.click("#recok"); pg.wait_for_timeout(800)
+        pg.check('[data-marca="lavagem"]'); pg.wait_for_timeout(800)
+        ok(pg.is_checked('[data-marca="lavagem"]') and "Lavagem feita" in pg.text_content("#dlgf") and psql("select (lavagem_em is not null)::text from lin_ordens", saida=True) == "true",
+           "lavagem marcada como feita (quem e quando)")
+        ok("Dar entrada no estoque (3)" in pg.text_content("#dlgf") and "R$ 83,00" in pg.text_content("#fitens").replace("\xa0", " "),
+           "depois da costura já dá entrada no estoque; custo por peça R$ 83,00 (linho 50 + corte 8 + costura 25)")
         antes = qtd_banco(V_CRU_38, "Gávea")
         pg.click('[data-env="estoque"]'); pg.wait_for_selector("#dlg2[open] #entok")
         ok(pg.eval_on_selector("#entloja", "s => s.options[s.selectedIndex].text") == "Gávea", "entrada vem com a loja da ficha")
@@ -722,7 +725,7 @@ try:
             abrir_ajuda = pg.goto(f"http://127.0.0.1:{PORTA_SITE}/apps/linum/ajuda/{pagina}.html")
             ok(abrir_ajuda.ok and "Sistema Linum" in pg.title() and pg.locator('script[src="/marca-dagua.js"][data-tipo="doc"]').count() == 1, f"ajuda: {pagina} com marca d'água")
         pg.goto(f"http://127.0.0.1:{PORTA_SITE}/ajuda/novidades.html?app=linum&nome=Sistema%20Linum"); pg.wait_for_timeout(400)
-        ok("2.6" in pg.text_content("body"), "novidades do app (versão 2.6)")
+        ok("2.7" in pg.text_content("body"), "novidades do app (versão 2.7)")
         ok(psql("select mapa_url from apps where id = 'linum'", saida=True) == "/apps/linum/ajuda/mapa.html", "botão Mapa ligado no cadastro do app")
         b.close()
     print("TODOS OS TESTES DE TELA DO SISTEMA LINUM OK")

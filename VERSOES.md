@@ -65,6 +65,7 @@ Ao publicar mudança num app: linha nova no topo do app aqui (com a data) e em `
 
 | Versão | Data | O que mudou |
 |---|---|---|
+| 2.7 | 27/10/2026 | Produção mais simples: só corte e costura têm remessa e conferência; depois da costura as peças já entram no estoque. Lavagem e passadoria viram caixas de marcação na ficha (opcional). |
 | 2.6 | 27/10/2026 | Ranking das vendedoras sem a nota da Dona: a nota final passa a ser a média de três critérios (vendas, cliente na venda e acompanhamento). |
 | 2.5 | 27/10/2026 | Peça nova direto na ficha de produção: "+ Peça nova" cria a peça que ainda não está no cadastro (nome, referência ou automática, metros por peça, cores e tamanhos), com estoque zero até a produção entregar; preço e outros dados podem ficar para depois. E "+ cores e tamanhos" acrescenta cores ou tamanhos a uma peça já cadastrada. |
 | 2.4 | 27/10/2026 | Troca e devolução com crédito na conta da cliente: a peça devolvida volta ao estoque e o valor vira crédito; na nova venda o sistema mostra o saldo e abate se a cliente quiser (compra maior, ela paga a diferença; menor, o saldo fica para depois). A boleta mostra o valor da nota fiscal sem o crédito. Na ficha da cliente, o crédito e o extrato; o Dono pode ajustar (ex.: vale-troca de papel). O estoque se atualiza sozinho ao voltar para a janela (e a cada 3 minutos), sem precisar recarregar a página. |
