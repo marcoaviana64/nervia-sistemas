@@ -141,7 +141,7 @@ function novaFicha() {
         ${p.variantes.length ? "" : '<span class="mut">Peça ainda sem cores e tamanhos: cadastre aqui.</span>'}
         <button type="button" class="lnk" data-novav="${p.id}">${p.variantes.length ? "+ outra cor ou tamanho" : "+ cores e tamanhos"}</button></div>
       <div class="filtros oculto" data-novaf="${p.id}" style="margin:6px 0 0;align-items:center"><input data-ncor placeholder="Cores, separadas por vírgula (ex.: Cru, Azul)" style="flex:2 1 220px">
-        <input data-ntam placeholder="Tamanhos (ex.: P, M, G)" style="flex:1 1 140px"><button type="button" class="bt" data-ncriar="${p.id}">Criar</button></div></div>`).join("") || (t.length >= 2 ? '<div class="mut">Nenhuma peça encontrada. Se é uma peça nova, clique em <b>+ Peça nova</b>.</div>' : "");
+        <input data-ntam value="${TAMANHOS_PADRAO}" placeholder="Tamanhos (ex.: P, M, G)" title="Grade da Linum: apague os tamanhos que a peça não tem" style="flex:1 1 140px"><button type="button" class="bt" data-ncriar="${p.id}">Criar</button></div></div>`).join("") || (t.length >= 2 ? '<div class="mut">Nenhuma peça encontrada. Se é uma peça nova, clique em <b>+ Peça nova</b>.</div>' : "");
     // cores × tamanhos criados aqui mesmo (Produção, Dono ou Estoque); entram no cadastro da peça com estoque zero
     $("nfres").querySelectorAll("[data-novav]").forEach(b => b.onclick = () => { const fm = $("nfres").querySelector(`[data-novaf="${b.dataset.novav}"]`); fm.classList.toggle("oculto"); fm.querySelector("[data-ncor]").focus(); });
     $("nfres").querySelectorAll("[data-ncriar]").forEach(b => b.onclick = async () => {
@@ -169,7 +169,7 @@ function novaFicha() {
         <div><label for="pnmet">Metros por peça</label><input id="pnmet" inputmode="decimal" placeholder="ex.: 1,8"></div>
         <div><label for="pnpreco">Preço de venda (opcional)</label><input id="pnpreco" inputmode="decimal" placeholder="pode ficar para depois"></div></div>
       <div class="campo grade2"><div><label for="pncores">Cores</label><input id="pncores" placeholder="separadas por vírgula: Cru, Azul"></div>
-        <div><label for="pntams">Tamanhos</label><input id="pntams" value="P, M, G" placeholder="P, M, G"></div></div>
+        <div><label for="pntams">Tamanhos</label><input id="pntams" value="${TAMANHOS_PADRAO}" placeholder="P, M, G" title="Grade da Linum: apague os tamanhos que a peça não tem"></div></div>
       <div id="pnerr"></div><div class="acoes"><button type="button" class="bt" id="pnx">Cancelar</button><button type="button" class="bt pri" id="pnok">Criar peça</button></div>`;
     const lista = id => $(id).value.split(/[,;]/).map(x => x.trim()).filter(Boolean);
     $("pnx").onclick = () => $("dlg2").close();

@@ -171,7 +171,9 @@ const qtd = (v, l) => QTD.get(chave(v, l)) || 0;
 const loja = id => LOJAS.find(l => l.id === id) || { nome: "?" };
 
 // tamanhos na ordem das araras; o resto em ordem alfabética/numérica (como no sistema antigo)
-const ORDEM_TAM = ["PP", "P", "M", "G", "GG", "XG", "XGG", "U", "UNICO", "ÚNICO"];
+const ORDEM_TAM = ["PP", "P", "M", "G", "GG", "G1", "G2", "G3", "XG", "XGG", "U", "UNICO", "ÚNICO"];
+// grade padrão da Linum (pedido do Marco): já vem preenchida; ao cadastrar, só confere os tamanhos e digita as cores
+const TAMANHOS_PADRAO = "PP, P, M, G, GG, G1, G2";
 function ordemTam(a, b) {
   const ia = ORDEM_TAM.indexOf(String(a).trim().toUpperCase()), ib = ORDEM_TAM.indexOf(String(b).trim().toUpperCase());
   if (ia !== -1 || ib !== -1) return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
@@ -520,7 +522,7 @@ function editarProduto(pid) {
   let F2 = p ? { referencia: p.referencia, descricao: p.descricao, categoria: p.categoria || "", colecao: p.colecao || "", fornecedor: p.fornecedor || "",
                  tecido: p.tecido || "", preco_custo: moeda(p.preco_custo), preco_venda: p.preco_venda ? moeda(p.preco_venda) : "", consumo_metros: decBR(p.consumo_metros), ativo: p.ativo }
              : { referencia: "", descricao: "", categoria: "", colecao: "", fornecedor: "", tecido: "", preco_custo: "", preco_venda: "", consumo_metros: "", ativo: true };
-  let novas = { cores: "", tamanhos: "" }, esp = { cor: "", tamanho: "", edicao: "", preco_venda: "", preco_custo: "" }, editando = null;
+  let novas = { cores: "", tamanhos: TAMANHOS_PADRAO }, esp = { cor: "", tamanho: "", edicao: "", preco_venda: "", preco_custo: "" }, editando = null;
   const campo = (k, rot, extra = "") => `<div><label for="pf_${k}">${rot}</label><input id="pf_${k}" data-k="${k}" value="${esc(F2[k])}" ${extra}></div>`;
   const ler = () => {
     f.querySelectorAll("[data-k]").forEach(i => F2[i.dataset.k] = i.type === "checkbox" ? i.checked : i.value);
@@ -538,7 +540,7 @@ function editarProduto(pid) {
       <div class="campo">${campo("consumo_metros", "Consumo previsto de tecido (metros por peça)", 'inputmode="decimal"')}</div>
       <div class="campo"><label>Código de barras</label><input readonly value="${esc(p && p.codigo_barras ? p.codigo_barras : "Gerado automaticamente ao salvar")}"></div>
       <div class="campo"><label class="chk" style="text-transform:none;font-size:13px;color:var(--ink)"><input type="checkbox" data-k="ativo" ${F2.ativo ? "checked" : ""} style="width:auto"> Ativo (aparece no estoque)</label></div>
-      <div class="caixa"><h4>Cores e tamanhos</h4><div class="mut">Separe por vírgula. Cada cor × tamanho vira uma variação com estoque próprio; as que já existem não se repetem.</div>
+      <div class="caixa"><h4>Cores e tamanhos</h4><div class="mut">Separe por vírgula. Os tamanhos já vêm com a grade da Linum (${TAMANHOS_PADRAO}): apague os que a peça não tem e digite as cores. Cada cor × tamanho vira uma variação com estoque próprio; as que já existem não se repetem.</div>
         <div class="campo grade2"><div><label for="nv_c">Cores</label><input id="nv_c" data-n="cores" value="${esc(novas.cores)}" placeholder="Ex.: Areia, Preto"></div>
           <div><label for="nv_t">Tamanhos</label><input id="nv_t" data-n="tamanhos" value="${esc(novas.tamanhos)}" placeholder="Ex.: P, M, G"></div></div>
         ${vs.length ? `<div class="campo">${vs.map(v => editando === v.id
@@ -598,7 +600,7 @@ function editarProduto(pid) {
   const salvar = async () => {
     ler();
     const cores = listaV(novas.cores), tams = listaV(novas.tamanhos);
-    if ((cores.length > 0) !== (tams.length > 0)) return desenhar("Para criar variações, informe as cores e os tamanhos.");
+    if (cores.length && !tams.length) return desenhar("Para criar variações, informe também os tamanhos.");
     $("pfs").disabled = true; $("pfs").textContent = "Salvando…";
     try {
       const novo = !p;
@@ -607,7 +609,7 @@ function editarProduto(pid) {
         consumo_metros: numBR(F2.consumo_metros), ativo: !!F2.ativo } }));
       let criadas = 0;
       if (cores.length) criadas = checar(await sb.rpc("lin_variantes_criar", { p_produto: id, p_cores: cores, p_tamanhos: tams }));
-      novas = { cores: "", tamanhos: "" };
+      novas = { cores: "", tamanhos: TAMANHOS_PADRAO };
       await carregarProdutos(); p = PRODS.find(x => x.id === id); carregar().catch(() => {});
       desenhar(null, (novo ? "Produto cadastrado" : "Produto atualizado") + (cores.length ? `; ${criadas} variação(ões) nova(s)` : "") + ".");
     } catch (e) { desenhar(e.message); }
