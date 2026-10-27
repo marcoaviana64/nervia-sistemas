@@ -28,6 +28,7 @@
     <li><a href="#visita">6b. Registrar uma visita sem contato</a></li>
     <li><a href="#clientes">7. Clientes e acompanhamento</a></li>
     <li><a href="#comissoes">7a. Comissões do mês (Dono)</a></li>
+    <li><a href="#horarios">7a2. Horário de trabalho (Dono)</a></li>
     <li><a href="#ranking">7b. Ranking das vendedoras</a></li>
     <li><a href="#producao">7c. Produção: rolos, fichas e etapas</a></li>
     <li><a href="#xml">7d. Compra de tecido pelo XML da nota</a></li>
@@ -173,6 +174,16 @@
   </ol>
   <p>A comissão de cada venda é o % que a pessoa tinha no dia da venda (aba Equipe) sobre o valor pago; mudar o % depois não muda as vendas antigas. Venda cancelada não entra; troca não muda a comissão; na venda com crédito da cliente, a comissão é só sobre o valor pago a mais.</p>
 
+  <h2 id="horarios">7a2. Horário de trabalho (Dono)</h2>
+  <p>Cada pessoa da equipe só consegue abrir o Sistema Linum no horário de trabalho dela, de qualquer aparelho. Fora dele nada abre: nem estoque, nem vendas, nem clientes, e a tentativa fica registrada na auditoria com o endereço (IP) de onde veio. O Dono não tem restrição.</p>
+  <ol>
+    <li>Aba <b>Horários</b> (só o Dono e a equipe Nervia): a lista mostra o horário de cada pessoa e se ela <b>pode abrir</b> agora.</li>
+    <li>Clique em <b>Editar</b>, desmarque <b>Sem restrição de horário</b> e marque os dias de trabalho com a entrada e a saída. Para o mesmo horário em vários dias, preencha a segunda e clique em <b>Copiar o horário de segunda para os dias marcados</b>. Dia sem marcar = folga.</li>
+    <li><b>Salvar</b>. Vale na hora: se a pessoa estiver com o sistema aberto fora do horário, a tela fecha na próxima atualização.</li>
+    <li>Precisa abrir fora do horário (hora extra, inventário, evento)? Em <b>Liberação extra até</b>, escolha o dia e a hora (até 31 dias). Depois disso volta o horário normal. Para tirar antes, apague o campo e salve.</li>
+  </ol>
+  <p>O sistema abre <b>15 minutos antes</b> da entrada e fecha <b>15 minutos depois</b> da saída, para abrir a loja e terminar uma venda em andamento. Os horários são de Brasília; feriados não entram na conta (use a liberação extra ou tire o dia). Sem horário definido, a pessoa entra a qualquer hora.</p>
+
   <h2 id="ranking">7b. Ranking das vendedoras</h2>
   <p>Incentivo da equipe: a melhor vendedora do mês e do ano. Participa quem tem papel no app e não é Dono.</p>
   <ol>
@@ -222,6 +233,7 @@
     <tr><th>Mensagem</th><th>O que fazer</th></tr>
     <tr><td>Entre na Área do Cliente para ver o estoque</td><td>A sessão expirou: entre de novo em nervia.com.br/cliente.</td></tr>
     <tr><td>Seu login não tem acesso ao Sistema Linum</td><td>O login ainda não tem papel (Dono, Estoque ou Vendedora). Fale com a Nervia.</td></tr>
+    <tr><td>Fora do seu horário de trabalho</td><td>O sistema só abre no seu horário (mais 15 minutos antes e depois). Precisa usar agora? Peça ao Dono uma liberação extra na aba Horários.</td></tr>
     <tr><td>Nenhum produto cadastrado ainda</td><td>Cadastre na aba Produtos (Dono ou Estoque).</td></tr>
     <tr><td>Já existe um produto com a referência …</td><td>A referência já é de outra peça: use outra ou edite a peça que já existe.</td></tr>
     <tr><td>Esta cor/tamanho tem movimentações de estoque. Desative em vez de excluir.</td><td>Use <b>Desativar</b>: a variação some do estoque e o histórico fica.</td></tr>
