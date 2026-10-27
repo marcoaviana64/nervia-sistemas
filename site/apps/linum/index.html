@@ -54,6 +54,8 @@ label{display:block;font-size:11.5px;font-weight:700;text-transform:uppercase;le
 .prod .info{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px;color:var(--ink-soft);margin-top:2px}
 .selo{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--primary);color:var(--bg)}
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center}
+.prod .loja{margin-top:10px}.prod .loja .chips{margin-top:6px}
+.prod .loja+.loja{border-top:1px dashed var(--border);padding-top:10px}
 .sep{width:1px;align-self:stretch;background:var(--border);margin:0 2px}
 .chip{min-width:86px;border-radius:9px;border:1px solid var(--ok-bd);background:var(--ok-bg);color:var(--ok);padding:7px 10px;text-align:center;font:inherit;line-height:1.25}
 .chip.zero{border-color:var(--crit-bd);background:var(--crit-bg);color:var(--crit)}
@@ -337,13 +339,17 @@ function lista() {
     if (F.cat && p.categoria !== F.cat) continue;
     const vars = p.variantes.filter(v => (!F.cor || v.cor === F.cor) && (!F.tam || v.tamanho === F.tam)).sort(ordemVar);
     if (!vars.length) continue;
+    // um cartão por produto; cada loja numa faixa própria, separadas por linha tracejada (pedido do Marco)
+    const grupos = [];
     for (const l of lojas) {
       const vis = F.zerados ? vars.filter(v => qtd(v.id, l.id) > 0) : vars;
       if (!vis.length) continue;
       vis.forEach(v => pecas += qtd(v.id, l.id));
-      prods.add(p.id);
-      cartoes.push(cartao(p, l, vis));
+      grupos.push([l, vis]);
     }
+    if (!grupos.length) continue;
+    prods.add(p.id);
+    cartoes.push(cartao(p, grupos));
   }
   $("resumo").textContent = cartoes.length ? `${n(prods.size)} produto(s) · ${n(pecas)} peça(s)${F.loja ? " em " + loja(F.loja).nome : ""}` : "";
   $("lista").innerHTML = cartoes.length ? cartoes.join("") : `<div class="vazio">${PRODUTOS.length
@@ -351,9 +357,16 @@ function lista() {
     : (controla() ? "Nenhum produto cadastrado ainda. Cadastre as peças na aba Produtos." : "Nenhum produto cadastrado ainda.")}</div>`;
   document.querySelectorAll("#lista button.chip").forEach(b => b.onclick = () => movimentar(b.dataset.p, b.dataset.v, b.dataset.l));
 }
-function cartao(p, l, vars) {
+function cartao(p, grupos) {
+  const temEsp = grupos.some(([, vs]) => vs.some(v => v.edicao));
+  return `<div class="prod">
+    <div class="cab"><h2 class="${temEsp ? "temesp" : ""}" title="${esc(p.descricao)}${temEsp ? " · tem peça especial" : ""}">${esc(p.descricao)}</h2><span class="preco">${p.preco_venda != null ? brl(p.preco_venda) : "Preço não cadastrado"}</span></div>
+    <div class="info"><span>Ref: ${esc(p.referencia || "—")}</span><span>·</span><span>Peça: ${esc(p.categoria || "—")}</span></div>
+    ${grupos.map(([l, vs]) => `<div class="loja" data-loja="${l.id}"><span class="selo">${esc(l.nome)}</span><div class="chips">${chipsLoja(p, l, vs)}</div></div>`).join("")}</div>`;
+}
+function chipsLoja(p, l, vars) {
   let ant = null;
-  const chips = vars.map(v => {
+  return vars.map(v => {
     const q = qtd(v.id, l.id), sep = ant !== null && ant !== (v.tamanho || "").trim() ? '<span class="sep"></span>' : "";
     ant = (v.tamanho || "").trim();
     // peça especial (edição: pintura, bordado...) pode ter preço próprio; mostra só quando difere do preço da peça
@@ -364,10 +377,6 @@ function cartao(p, l, vars) {
       ? `<button type="button" class="chip ${q > 0 ? "" : "zero"}${esp}" data-p="${p.id}" data-v="${v.id}" data-l="${l.id}" title="${tit ? tit + " · " : ""}Movimentar">${corpo}</button>`
       : `<div class="chip ${q > 0 ? "" : "zero"}${esp}"${tit ? ` title="${tit}"` : ""}>${corpo}</div>`);
   }).join("");
-  return `<div class="prod">
-    <div class="cab"><h2 class="${vars.some(v => v.edicao) ? "temesp" : ""}" title="${esc(p.descricao)}${vars.some(v => v.edicao) ? " · tem peça especial" : ""}">${esc(p.descricao)}</h2><span class="preco">${p.preco_venda != null ? brl(p.preco_venda) : "Preço não cadastrado"}</span></div>
-    <div class="info"><span>Ref: ${esc(p.referencia || "—")}</span><span>·</span><span>Peça: ${esc(p.categoria || "—")}</span><span class="selo">${esc(l.nome)}</span></div>
-    <div class="chips">${chips}</div></div>`;
 }
 
 // ---------------------------------------------------------------- movimentar (Dono)
