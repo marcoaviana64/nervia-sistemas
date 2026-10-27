@@ -1352,10 +1352,11 @@ select pg_temp.erro2($$select lin_troca_registrar(jsonb_build_object('loja_id', 
 insert into lin_tr values ('t2', lin_troca_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'cliente_id', (select v from lin_vd where k = 'cli'),
   'devolvidas', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 1, 'valor_unitario', 400)),
   'novas', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000003', 'quantidade', 1, 'valor_unitario', 359)),
-  'devolucao_forma', 'vale', 'observacao', 'compra de antes do sistema'))::text);
+  'devolucao_forma', 'credito_loja', 'observacao', 'compra de antes do sistema'))::text);
 reset role;
-select pg_temp.ok((select diferenca = -41 and devolucao_forma = 'vale' and venda_id is null and cliente_id is not null from lin_trocas where id = (select v from lin_tr where k = 't2')::bigint),
-  'linum troca: compra antiga, diferença de R$ 41 volta em vale-troca');
+select pg_temp.ok((select diferenca = -41 and devolucao_forma = 'credito_loja' and venda_id is null and cliente_id is not null from lin_trocas where id = (select v from lin_tr where k = 't2')::bigint)
+  and lin_cliente_saldo((select v from lin_vd where k = 'cli')::uuid) = 41,
+  'linum troca: compra antiga, diferença de R$ 41 vira crédito na conta da cliente');
 set role authenticated;
 select pg_temp.erro2($$select lin_troca_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'),
   'devolvidas', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 1, 'valor_unitario', 1)),
@@ -1377,6 +1378,51 @@ select pg_temp.erro2($$update lin_trocas set diferenca = 0 where id = (select v 
 select pg_temp.erro2($$delete from lin_troca_itens$$, 'não se apaga', 'linum troca: itens não se apagam');
 select pg_temp.ok((select count(*) = 2 from auditoria where acao = 'linum_troca_registrada') and (select count(*) = 1 from auditoria where acao = 'linum_troca_cancelada'),
   'linum troca: registro e cancelamento na auditoria');
+-- 2.4: crédito da cliente (devolução gera crédito; a venda usa; nota fiscal sem o crédito)
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora
+select pg_temp.erro2($$select lin_troca_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'),
+  'devolvidas', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 1, 'valor_unitario', 200)),
+  'devolucao_forma', 'credito_loja'))$$, 'identifique a cliente', 'linum crédito: crédito exige a cliente');
+insert into lin_tr values ('d1', lin_troca_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'cliente_id', (select v from lin_vd where k = 'cli'),
+  'devolvidas', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 1, 'valor_unitario', 200)),
+  'devolucao_forma', 'credito_loja'))::text);
+select pg_temp.ok((lin_cliente_credito((select v from lin_vd where k = 'cli')::uuid)->>'saldo')::numeric = 241
+  and jsonb_array_length(lin_cliente_credito((select v from lin_vd where k = 'cli')::uuid)->'extrato') = 2,
+  'linum crédito: devolução sem peça levada vira crédito (saldo R$ 241, extrato com 2 lançamentos)');
+select pg_temp.erro2($$select lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'),
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 1, 'valor_unitario', 300)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'credito_loja', 'valor', 300))))$$, 'identifique a cliente', 'linum crédito: venda com crédito exige a cliente');
+select pg_temp.erro2($$select lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'cliente_id', (select v from lin_vd where k = 'cli'),
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 1, 'valor_unitario', 300)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'credito_loja', 'valor', 300))))$$, 'tem R$ 241,00 de crédito', 'linum crédito: não usa mais que o saldo');
+insert into lin_tr values ('vc', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'cliente_id', (select v from lin_vd where k = 'cli'),
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 1, 'valor_unitario', 300)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'credito_loja', 'valor', 200), jsonb_build_object('forma', 'pix', 'valor', 100))))::text);
+select pg_temp.ok((select valor_total = 300 and credito_usado = 200 and valor_nf = 100 and comissao_valor = 5 from lin_vendas where id = (select v from lin_tr where k = 'vc')::bigint)
+  and (lin_cliente_credito((select v from lin_vd where k = 'cli')::uuid)->>'saldo')::numeric = 41,
+  'linum crédito: venda de R$ 300 com R$ 200 de crédito: paga R$ 100, nota fiscal de R$ 100, comissão só sobre R$ 100, saldo fica R$ 41');
+select pg_temp.erro2($$select lin_credito_ajustar((select v from lin_vd where k = 'cli')::uuid, 50, 'vale de papel')$$, 'Somente o Dono', 'linum crédito: só o Dono ajusta');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';   -- Dono
+select pg_temp.erro2($$select lin_troca_cancelar((select v from lin_tr where k = 'd1')::bigint, 'teste de cancelamento')$$, 'já usou parte do crédito', 'linum crédito: devolução com crédito já usado não se cancela');
+select lin_venda_cancelar((select v from lin_tr where k = 'vc')::bigint, 'teste de cancelamento');
+select pg_temp.ok((lin_cliente_credito((select v from lin_vd where k = 'cli')::uuid)->>'saldo')::numeric = 241, 'linum crédito: cancelar a venda devolve o crédito usado');
+select lin_troca_cancelar((select v from lin_tr where k = 'd1')::bigint, 'teste de cancelamento');
+select pg_temp.ok((lin_cliente_credito((select v from lin_vd where k = 'cli')::uuid)->>'saldo')::numeric = 41, 'linum crédito: cancelar a devolução tira o crédito');
+select pg_temp.erro2($$select lin_credito_ajustar((select v from lin_vd where k = 'cli')::uuid, -50, 'tirar demais')$$, 'ficaria negativo', 'linum crédito: saldo nunca negativo');
+select pg_temp.ok(lin_credito_ajustar((select v from lin_vd where k = 'cli')::uuid, 59, 'vale-troca de papel nº 12') = 100, 'linum crédito: ajuste do Dono (vale de papel)');
+reset role;
+select pg_temp.erro2($$delete from lin_creditos$$, 'não pode ser alterado', 'linum crédito: extrato é somente inclusão');
+select pg_temp.erro2($$update lin_creditos set valor = 1$$, 'não pode ser alterado', 'linum crédito: extrato não se altera');
+select pg_temp.ok((select count(*) = 1 from auditoria where acao = 'linum_credito_ajustado')
+  and (select (detalhes->>'credito_gerado')::numeric = 200 from auditoria where acao = 'linum_troca_registrada' and (detalhes->>'troca')::bigint = (select v from lin_tr where k = 'd1')::bigint)
+  and (select (detalhes->>'valor_nf')::numeric = 100 from auditoria where acao = 'linum_venda_registrada' and (detalhes->>'venda')::bigint = (select v from lin_tr where k = 'vc')::bigint),
+  'linum crédito: crédito gerado, valor da nota e ajuste na auditoria');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
+select pg_temp.erro2($$select lin_cliente_credito((select v from lin_vd where k = 'cli')::uuid)$$, 'não tem acesso', 'linum crédito: login fora da Linum não vê');
+select pg_temp.ok((select count(*) = 0 from lin_creditos), 'linum crédito: login fora da Linum não lê o extrato');
+reset role;
 reset role;
 set role anon;
 select pg_temp.erro2('select * from apps_vitrine()', 'permission', 'anônimo não vê a vitrine');
