@@ -133,6 +133,7 @@ td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-n
       <button class="aba oculto" data-v="ranking" id="abaRanking">Ranking</button>
       <button class="aba oculto" data-v="producao" id="abaProducao">Produção</button>
       <button class="aba oculto" data-v="comissoes" id="abaComissoes">Comissões</button>
+      <button class="aba oculto" data-v="creditos" id="abaCreditos">Créditos</button>
       <button class="aba oculto" data-v="horarios" id="abaHorarios">Horários</button>
       <button class="aba oculto" data-v="equipe" id="abaEquipe">Equipe</button>
       <div class="dir" id="quem"></div>
@@ -196,7 +197,7 @@ async function iniciar() {
     $("abaEquipe").classList.toggle("oculto", !ADMIN);
     $("abaProdutos").classList.toggle("oculto", !controla());
     $("abaVendas").classList.toggle("oculto", !vende()); $("abaClientes").classList.toggle("oculto", !vende()); $("abaAjustes").classList.toggle("oculto", !vende());
-    $("abaComissoes").classList.toggle("oculto", !dono()); $("abaHorarios").classList.toggle("oculto", !dono()); $("abaRanking").classList.toggle("oculto", !vende()); $("abaProducao").classList.toggle("oculto", !PERM.producao);
+    $("abaComissoes").classList.toggle("oculto", !dono()); $("abaHorarios").classList.toggle("oculto", !dono()); $("abaCreditos").classList.toggle("oculto", !dono()); $("abaRanking").classList.toggle("oculto", !vende()); $("abaProducao").classList.toggle("oculto", !PERM.producao);
     $("quem").textContent = ADMIN ? "Equipe Nervia (Dono)" : dono() ? "Dono" : controla() ? "Estoque · sem custos" : "Vendedora" + (MINHA_LOJA ? " · " + loja(MINHA_LOJA).nome : "");
     $("aviso").classList.add("oculto"); $("app").classList.remove("oculto");
     render();
@@ -302,6 +303,7 @@ function render() {
   if (VISTA === "ajustes" && vende()) return telaAjustes();
   if (VISTA === "comissoes" && dono()) return telaComissoes();
   if (VISTA === "horarios" && dono()) return telaHorarios();
+  if (VISTA === "creditos" && dono()) return telaCreditos();
   if (VISTA === "ranking" && vende()) return telaRanking();
   if (VISTA === "producao" && PERM.producao) return telaProducao();
   telaEstoque();
@@ -1604,6 +1606,68 @@ async function telaComissoes() {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob(["\ufeff" + linhas.join("\r\n")], { type: "text/csv;charset=utf-8" }));
     a.download = `comissoes-linum-${FCM.mes}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+}
+
+// ---------------------------------------------------------------- créditos das clientes (Dono; pedido do Marco: ver tudo sem entrar em cada cliente)
+const FCR = { de: "", ate: "", loja: "", tipo: "" };
+async function telaCreditos() {
+  FCR.de = FCR.de || hoje().slice(0, 8) + "01"; FCR.ate = FCR.ate || hoje();
+  $("tela").innerHTML = '<div class="card">Carregando…</div>';
+  let ext;
+  try { [ext] = await Promise.all([todas(() => sb.from("lin_creditos").select("*").order("criado_em", { ascending: false }).order("id", { ascending: false })), carregarClientes()]); }
+  catch (e) { $("tela").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; return; }
+  const dia = x => new Date(x.criado_em).toLocaleDateString("en-CA", { timeZone: TZ });
+  // saldo de cada cliente = soma de todo o extrato (não depende do período)
+  const saldos = {}, ultimo = {};
+  ext.forEach(x => { saldos[x.cliente_id] = (saldos[x.cliente_id] || 0) + Number(x.valor); if (!ultimo[x.cliente_id]) ultimo[x.cliente_id] = x; });
+  const comSaldo = Object.entries(saldos).filter(([, v]) => Math.abs(v) >= 0.005).map(([id, v]) => ({ id, v, c: cliente(id) || { nome: "?" }, u: ultimo[id] }))
+    .sort((a, b) => b.v - a.v || a.c.nome.localeCompare(b.c.nome, "pt-BR"));
+  const totSaldo = comSaldo.reduce((t, x) => t + x.v, 0);
+  const per = ext.filter(x => dia(x) >= FCR.de && dia(x) <= FCR.ate && (!FCR.loja || x.loja_id === FCR.loja) && (!FCR.tipo || x.tipo === FCR.tipo));
+  const soma = f => per.filter(f).reduce((t, x) => t + Number(x.valor), 0);
+  const gerado = soma(x => x.valor > 0 && x.tipo !== "ajuste"), usado = -soma(x => x.valor < 0 && x.tipo !== "ajuste"), ajustes = soma(x => x.tipo === "ajuste");
+  const ref = x => x.venda_id ? `venda nº ${x.venda_id}` : x.troca_id ? `troca nº ${x.troca_id}` : "";
+  $("tela").innerHTML = `
+    <div class="cabtela"><h2>Créditos das clientes</h2><span class="noprint" style="display:flex;gap:8px"><button class="bt" id="crcsv">Baixar CSV</button><button class="bt" id="crimp">Imprimir</button></span></div>
+    <div class="kpis">
+      <div class="kpi"><small>Saldo em aberto (hoje)</small><b>${brl(totSaldo)}</b><span>${n(comSaldo.length)} cliente(s) com crédito</span></div>
+      <div class="kpi"><small>Crédito gerado no período</small><b>${brl(gerado)}</b><span>devoluções e vendas canceladas</span></div>
+      <div class="kpi"><small>Crédito usado no período</small><b>${brl(usado)}</b><span>em vendas</span></div>
+      <div class="kpi"><small>Ajustes do Dono no período</small><b>${brl(ajustes)}</b><span>${n(per.filter(x => x.tipo === "ajuste").length)} lançamento(s)</span></div>
+    </div>
+    <div class="card"><h2>Clientes com saldo</h2><div class="tw"><table id="crsaldos"><thead><tr><th>Cliente</th><th>Telefone</th><th>Último lançamento</th><th class="num">Saldo</th></tr></thead><tbody>
+      ${comSaldo.length ? comSaldo.map(x => `<tr class="crcli" data-c="${x.id}" style="cursor:pointer"><td><b>${esc(x.c.nome)}</b></td><td>${esc(x.c.telefone ? fone(x.c.telefone) : "—")}</td>
+        <td>${quando(x.u.criado_em)} · ${esc(CRED_TIPO[x.u.tipo] || x.u.tipo)}</td><td class="num"><b>${brl(x.v)}</b></td></tr>`).join("")
+        + `<tr><td colspan="3"><b>Total</b></td><td class="num"><b>${brl(totSaldo)}</b></td></tr>`
+      : '<tr><td colspan="4" class="mut">Nenhuma cliente com crédito no momento.</td></tr>'}
+    </tbody></table></div><div class="mut" style="margin-top:6px">Clique na cliente para abrir a ficha com o extrato completo. O saldo em aberto é o que a loja deve em crédito às clientes.</div></div>
+    <div class="card"><h2>Lançamentos</h2>
+      <div class="filtros">
+        <label class="chk">De <input type="date" id="crde" value="${FCR.de}" style="width:auto"></label>
+        <label class="chk">até <input type="date" id="crate" value="${FCR.ate}" style="width:auto"></label>
+        <select id="crloja" aria-label="Loja"><option value="">Todas as lojas</option>${LOJAS.map(l => `<option value="${l.id}" ${l.id === FCR.loja ? "selected" : ""}>${esc(l.nome)}</option>`).join("")}</select>
+        <select id="crtipo" aria-label="Tipo"><option value="">Todos os tipos</option>${Object.entries(CRED_TIPO).map(([k, t]) => `<option value="${k}" ${k === FCR.tipo ? "selected" : ""}>${esc(t)}</option>`).join("")}</select>
+      </div>
+      <div class="tw"><table id="crlanc"><thead><tr><th>Quando</th><th>Cliente</th><th>O quê</th><th>Loja</th><th>Quem</th><th class="num">Valor</th></tr></thead><tbody>
+        ${per.length ? per.map(x => `<tr><td>${quando(x.criado_em)}</td><td><button type="button" class="lnk" data-cc="${x.cliente_id}">${esc((cliente(x.cliente_id) || { nome: "?" }).nome)}</button></td>
+          <td>${esc(CRED_TIPO[x.tipo] || x.tipo)}${ref(x) ? ` <span class="mut">(${ref(x)})</span>` : ""}${x.observacao ? `<br><span class="mut">${esc(x.observacao)}</span>` : ""}</td>
+          <td>${esc(x.loja_id ? loja(x.loja_id).nome : "—")}</td><td>${esc(x.criado_nome || "—")}</td><td class="num" style="color:${x.valor < 0 ? "var(--crit)" : "var(--ok)"}">${x.valor > 0 ? "+" : ""}${brl(x.valor)}</td></tr>`).join("")
+        : '<tr><td colspan="6" class="mut">Nenhum lançamento neste período.</td></tr>'}
+      </tbody></table></div></div>`;
+  const abrir = async id => { VISTA = "clientes"; await render(); fichaCliente(id); };
+  document.querySelectorAll(".crcli").forEach(r => r.onclick = () => abrir(r.dataset.c));
+  document.querySelectorAll("[data-cc]").forEach(b => b.onclick = () => abrir(b.dataset.cc));
+  [["crde", "de"], ["crate", "ate"], ["crloja", "loja"], ["crtipo", "tipo"]].forEach(([id, k]) => $(id).onchange = e => { FCR[k] = e.target.value; telaCreditos(); });
+  $("crimp").onclick = () => window.print();
+  $("crcsv").onclick = () => {
+    const c = x => `"${String(x).replace(/"/g, '""')}"`, num = x => Number(x || 0).toFixed(2).replace(".", ",");
+    const linhas = [["Quando", "Cliente", "Telefone", "O quê", "Venda/troca", "Observação", "Loja", "Quem", "Valor", "Saldo atual da cliente"].map(c).join(";"),
+      ...per.map(x => { const cl = cliente(x.cliente_id) || {}; return [quando(x.criado_em), cl.nome || "", cl.telefone || "", CRED_TIPO[x.tipo] || x.tipo, ref(x), x.observacao || "",
+        x.loja_id ? loja(x.loja_id).nome : "", x.criado_nome || "", num(x.valor), num(saldos[x.cliente_id])].map(c).join(";"); })];
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob(["\ufeff" + linhas.join("\r\n")], { type: "text/csv;charset=utf-8" }));
+    a.download = `creditos-linum-${FCR.de}-a-${FCR.ate}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   };
 }
 
