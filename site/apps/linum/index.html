@@ -124,6 +124,7 @@ td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-n
       <button class="aba on" data-v="estoque">Estoque</button>
       <button class="aba oculto" data-v="vendas" id="abaVendas">Vendas</button>
       <button class="aba oculto" data-v="clientes" id="abaClientes">Clientes</button>
+      <button class="aba oculto" data-v="ajustes" id="abaAjustes">Ajustes</button>
       <button class="aba oculto" data-v="ranking" id="abaRanking">Ranking</button>
       <button class="aba oculto" data-v="producao" id="abaProducao">Produção</button>
       <button class="aba oculto" data-v="comissoes" id="abaComissoes">Comissões</button>
@@ -184,7 +185,7 @@ async function iniciar() {
     PERM = checar(await sb.rpc("lin_minhas_permissoes")) || PERM;
     $("abaEquipe").classList.toggle("oculto", !ADMIN);
     $("abaProdutos").classList.toggle("oculto", !controla());
-    $("abaVendas").classList.toggle("oculto", !vende()); $("abaClientes").classList.toggle("oculto", !vende());
+    $("abaVendas").classList.toggle("oculto", !vende()); $("abaClientes").classList.toggle("oculto", !vende()); $("abaAjustes").classList.toggle("oculto", !vende());
     $("abaComissoes").classList.toggle("oculto", !dono()); $("abaRanking").classList.toggle("oculto", !vende()); $("abaProducao").classList.toggle("oculto", !PERM.producao);
     $("quem").textContent = ADMIN ? "Equipe Nervia (Dono)" : dono() ? "Dono" : controla() ? "Estoque · sem custos" : "Vendedora" + (MINHA_LOJA ? " · " + loja(MINHA_LOJA).nome : "");
     $("aviso").classList.add("oculto"); $("app").classList.remove("oculto");
@@ -217,6 +218,7 @@ function render() {
   if (VISTA === "produtos" && controla()) return telaProdutos();
   if (VISTA === "vendas" && vende()) return telaVendas();
   if (VISTA === "clientes" && vende()) return telaClientes();
+  if (VISTA === "ajustes" && vende()) return telaAjustes();
   if (VISTA === "comissoes" && dono()) return telaComissoes();
   if (VISTA === "ranking" && vende()) return telaRanking();
   if (VISTA === "producao" && PERM.producao) return telaProducao();
@@ -608,13 +610,14 @@ async function telaVendas() {
 function verVenda(id) {
   $("dlg").classList.add("largo");
   const v = VENDAS.find(x => x.id === id), its = ITENS.filter(i => i.venda_id === id), c = cliente(v.cliente_id), f = $("dlgf");
+  const podeAjuste = !v.cancelada_em && (dono() || v.vendedora_id === EU);
   f.innerHTML = `<h3>Venda nº ${v.id}${v.cancelada_em ? ' <span class="tag">cancelada</span>' : ""}</h3>
     <div class="mut">${dataBR(v.data)} · ${esc(loja(v.loja_id).nome)} · vendedora ${esc(v.vendedora_nome)}</div>
     <div class="campo"><b>Cliente:</b> ${c ? `${esc(c.nome)}${c.telefone ? " · " + esc(fone(c.telefone)) : ""}` : '<span class="mut">não informado</span>'}</div>
-    <div class="campo tw"><table><thead><tr><th>Peça</th><th class="num">Qtd</th><th class="num">Tabela</th><th class="num">Desc.</th><th class="num">Valor</th><th class="num">Total</th></tr></thead><tbody>
+    <div class="campo tw"><table><thead><tr><th>Peça</th><th class="num">Qtd</th><th class="num">Tabela</th><th class="num">Desc.</th><th class="num">Valor</th><th class="num">Total</th>${podeAjuste ? "<th></th>" : ""}</tr></thead><tbody>
       ${its.map(i => `<tr><td><b>${esc(i.referencia)}</b> ${esc(i.descricao)}<br><span class="mut">${esc([i.cor, i.tamanho, i.edicao].filter(Boolean).join(" · "))}</span></td>
         <td class="num">${n(i.quantidade)}</td><td class="num">${brl(i.preco_tabela)}</td><td class="num">${Number(i.desconto_pct) ? decBR(Number(i.desconto_pct)) + "%" : "—"}</td>
-        <td class="num">${brl(i.valor_unitario)}</td><td class="num">${brl(i.valor_total)}</td></tr>`).join("")}
+        <td class="num">${brl(i.valor_unitario)}</td><td class="num">${brl(i.valor_total)}</td>${podeAjuste ? `<td><button type="button" class="lnk" data-ajuste="${i.id}" title="Mandar para a costureira (bainha, apertar…)">Ajuste</button></td>` : ""}</tr>`).join("")}
     </tbody></table></div>
     <div class="campo">
       <div class="vlin"><span>Valor de tabela</span><span>${brl(v.valor_bruto)}</span></div>
@@ -626,11 +629,17 @@ function verVenda(id) {
       <div class="vlin"><span>Comissão de ${esc(v.vendedora_nome)}</span><span>${Number(v.comissao_pct) ? `${decBR(Number(v.comissao_pct))}% = ${brl(v.comissao_valor)}` : "sem comissão"}</span></div>
     </div>
     ${v.observacao ? `<div class="campo"><b>Observações:</b> ${esc(v.observacao)}</div>` : ""}
+    <div id="vajustes"></div>
     <div class="mut campo">Registrada por ${esc(v.criado_nome)} em ${new Date(v.criado_em).toLocaleString("pt-BR", { timeZone: TZ })}</div>
     ${v.cancelada_em ? `<div class="msg err">Cancelada por ${esc(v.cancelada_nome || "")} em ${new Date(v.cancelada_em).toLocaleString("pt-BR", { timeZone: TZ })}: ${esc(v.motivo_cancelamento)}</div>` : ""}
     <div id="verr"></div>
     <div class="acoes">${dono() && !v.cancelada_em ? '<button type="button" class="bt" id="vcanc" style="color:var(--crit);border-color:var(--crit)">Cancelar venda</button>' : ""}<button type="button" class="bt pri" id="vfechar">Fechar</button></div>`;
   $("vfechar").onclick = () => $("dlg").close();
+  f.querySelectorAll("[data-ajuste]").forEach(b => b.onclick = () => novoAjuste(v, its.find(i => i.id === +b.dataset.ajuste), () => verVenda(id)));
+  sb.from("lin_ajustes").select("*").eq("venda_id", v.id).order("id").then(({ data }) => {
+    if (!data || !data.length || !$("vajustes")) return;
+    $("vajustes").innerHTML = `<div class="campo"><b>Ajustes</b>${data.map(a => `<div class="vlin"><span>${esc(a.peca)} · ${esc(a.servico)} · ${esc(a.costureira)}</span><span>${AJ_SIT[a.situacao]}${a.situacao === "na_costureira" ? ` · volta ${dataBR(a.prazo)}` : ""}</span></div>`).join("")}</div>`;
+  });
   if ($("vcanc")) $("vcanc").onclick = async () => {
     const motivo = prompt("Motivo do cancelamento (as peças voltam para o estoque da loja):");
     if (motivo === null) return;
@@ -878,6 +887,95 @@ async function novaVenda(pre = {}) {
   };
   desenharCliente(); desenharItens(); desenharPags(); carregarCred();
   $("dlg").showModal();
+}
+
+// ---------------------------------------------------------------- ajustes da peça vendida (bainha, apertar…) com a costureira
+const AJ_SIT = { na_costureira: "Com a costureira", pronto: "Pronto na loja", entregue: "Entregue", cancelado: "Cancelado" };
+const AJ_SERV = ["Bainha", "Apertar lateral", "Apertar cava", "Ajustar cintura", "Encurtar alça", "Encurtar manga"];
+// n dias úteis (seg. a sex.) contados a partir do dia seguinte (feriados não entram; a data pode ser trocada)
+function diasUteis(d, k) { let x = d, n = 0; while (n < k) { x = somaDias(x, 1); const w = new Date(x + "T12:00:00Z").getUTCDay(); if (w !== 0 && w !== 6) n++; } return x; }
+let COSTUREIRAS = null;
+async function carregarCostureiras() { if (!COSTUREIRAS) COSTUREIRAS = checar(await sb.rpc("lin_costureiras")) || []; return COSTUREIRAS; }
+const zapAjusteCostureira = a => { const c = (COSTUREIRAS || []).find(x => x.id === a.parceiro_id);
+  const txt = `Olá, ${a.costureira.split(" ")[0]}! Linum — ajuste nº ${a.id}:\n• ${a.quantidade > 1 ? a.quantidade + "× " : ""}${a.peca}\n• ${a.servico}\nPrecisamos de volta até ${dataBR(a.prazo)}.`;
+  window.open(`https://wa.me/${c && c.telefone ? "55" + c.telefone : ""}?text=${encodeURIComponent(txt)}`, "_blank", "noopener"); };
+const zapAjusteCliente = a => { const c = cliente(a.cliente_id); if (!c || !c.telefone) return msg("err", "A cliente não tem telefone no cadastro.");
+  const txt = `Olá, ${c.nome.split(" ")[0]}! Aqui é da Linum. Sua peça (${a.peca}) já voltou do ajuste e está pronta para retirar na loja ${loja(a.loja_id).nome}. Até breve!`;
+  window.open(`https://wa.me/55${c.telefone}?text=${encodeURIComponent(txt)}`, "_blank", "noopener"); };
+
+async function novoAjuste(v, it, depois) {
+  try { await carregarCostureiras(); } catch (e) { return msg("err", e.message); }
+  const g = $("dlg2f"), prazo = diasUteis(v.data, 10);
+  g.innerHTML = `<h3>Ajuste · ${esc(it.referencia)} ${esc(it.descricao)}</h3><div class="mut">${esc([it.cor, it.tamanho, it.edicao].filter(Boolean).join(" · "))} · venda nº ${v.id} de ${dataBR(v.data)}${cliente(v.cliente_id) ? " · " + esc(cliente(v.cliente_id).nome) : ""}</div>
+    <div class="campo"><label for="ajserv">O que a costureira vai fazer</label><textarea id="ajserv" rows="2" placeholder="Ex.: bainha 2 cm; apertar 1 cm de cada lado"></textarea>
+      <div class="filtros" style="margin:4px 0 0">${AJ_SERV.map(x => `<button type="button" class="pilula" data-serv="${esc(x)}">+ ${esc(x)}</button>`).join("")}</div></div>
+    <div class="campo grade3">${it.quantidade > 1 ? `<div><label for="ajq">Quantas peças</label><input id="ajq" type="number" min="1" max="${it.quantidade}" value="1"></div>` : ""}
+      <div><label for="ajcost">Costureira</label><select id="ajcost">${COSTUREIRAS.map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join("")}<option value="">Outra…</option></select>
+        <input id="ajcostn" class="${COSTUREIRAS.length ? "oculto" : ""}" placeholder="Nome da costureira" style="margin-top:4px"></div>
+      <div><label for="ajprazo">Volta até</label><input id="ajprazo" type="date" value="${prazo}" min="${v.data}"><div class="mut" style="font-size:12px">10 dias úteis após a compra</div></div></div>
+    <div class="campo grade3"><div><label for="ajvc">Valor da costureira (R$)</label><input id="ajvc" inputmode="decimal" placeholder="0,00"></div>
+      <div><label for="ajvcli">Cobrado da cliente (R$)</label><input id="ajvcli" inputmode="decimal" placeholder="0,00 = cortesia"></div>
+      <div><label for="ajobs">Observação</label><input id="ajobs" maxlength="300" placeholder="Ex.: marcado com alfinete"></div></div>
+    <div id="ajerr"></div><div class="acoes"><button type="button" class="bt" id="ajx">Cancelar</button><button type="button" class="bt pri" id="ajok">Enviar para a costureira</button></div>`;
+  g.querySelectorAll("[data-serv]").forEach(b => b.onclick = () => { const t = $("ajserv"); t.value = (t.value.trim() ? t.value.trim() + "; " : "") + b.dataset.serv.toLowerCase() + " "; t.focus(); });
+  $("ajcost").onchange = e => $("ajcostn").classList.toggle("oculto", !!e.target.value);
+  if (!COSTUREIRAS.length) $("ajcost").value = "";
+  $("ajx").onclick = () => $("dlg2").close();
+  $("ajok").onclick = async () => {
+    $("ajok").disabled = true;
+    try {
+      const id = checar(await sb.rpc("lin_ajuste_registrar", { p: { venda_item_id: it.id, quantidade: $("ajq") ? $("ajq").value : 1, servico: $("ajserv").value,
+        parceiro_id: $("ajcost").value || null, costureira: $("ajcost").value ? "" : $("ajcostn").value, prazo: $("ajprazo").value,
+        valor_costureira: numBR($("ajvc").value), valor_cliente: numBR($("ajvcli").value), observacao: $("ajobs").value } }));
+      $("dlg2").close(); msg("ok", `Ajuste nº ${id} registrado: volta até ${dataBR($("ajprazo").value)}.`); if (depois) depois();
+    } catch (e) { $("ajerr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; $("ajok").disabled = false; }
+  };
+  $("dlg2").showModal(); $("ajserv").focus();
+}
+
+const FAJ = { sit: "abertos" };
+async function telaAjustes() {
+  $("tela").innerHTML = '<div class="card">Carregando…</div>';
+  let l = [];
+  try {
+    const desde = somaDias(hoje(), -60);
+    [l] = await Promise.all([todas(() => sb.from("lin_ajustes").select("*").or(`situacao.in.(na_costureira,pronto),enviado_em.gte.${desde}`).order("prazo")), carregarClientes(), carregarCostureiras()]);
+  } catch (e) { $("tela").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; return; }
+  const h = hoje(), mes = h.slice(0, 7);
+  const fora = l.filter(a => a.situacao === "na_costureira"), atras = fora.filter(a => a.prazo < h), prontos = l.filter(a => a.situacao === "pronto");
+  const doMes = l.filter(a => ["pronto", "entregue"].includes(a.situacao) && (a.pronto_em || "").slice(0, 7) === mes);
+  const pagar = {}; doMes.forEach(a => { pagar[a.costureira] = (pagar[a.costureira] || 0) + Number(a.valor_costureira); });
+  const vis = l.filter(a => FAJ.sit === "abertos" ? ["na_costureira", "pronto"].includes(a.situacao) : FAJ.sit === "atrasados" ? a.situacao === "na_costureira" && a.prazo < h : a.situacao === FAJ.sit);
+  const pil = (k, t) => `<button type="button" class="pilula ${FAJ.sit === k ? "on" : ""}" data-fsit="${k}">${t}</button>`;
+  $("tela").innerHTML = `<div class="cabtela"><h2>Ajustes</h2><span class="mut">Para mandar uma peça: Vendas → abra a venda → "Ajuste" na peça.</span></div>
+    <div class="kpis">
+      <div class="kpi"><small>Com a costureira</small><b>${n(fora.length)}</b><span>peça(s) em ajuste</span></div>
+      <div class="kpi"><small>Atrasados</small><b style="${atras.length ? "color:var(--crit)" : ""}">${n(atras.length)}</b><span>passaram da data de volta</span></div>
+      <div class="kpi"><small>Prontos na loja</small><b>${n(prontos.length)}</b><span>avisar a cliente</span></div>
+      <div class="kpi"><small>Costureiras no mês</small><b>${brl(Object.values(pagar).reduce((t, x) => t + x, 0))}</b><span>${esc(Object.entries(pagar).map(([k, x]) => k + " " + brl(x)).join(" · ")) || "nada voltou neste mês"}</span></div>
+    </div>
+    <div class="filtros">${pil("abertos", "Em aberto")}${pil("atrasados", "Atrasados")}${pil("na_costureira", "Com a costureira")}${pil("pronto", "Prontos")}${pil("entregue", "Entregues")}${pil("cancelado", "Cancelados")}</div>
+    <div class="card"><div class="tw"><table><thead><tr><th>Nº</th><th>Cliente</th><th>Peça e ajuste</th><th>Costureira</th><th>Volta até</th><th>Situação</th><th></th></tr></thead><tbody id="ajtab">
+    ${vis.length ? vis.map(a => { const c = cliente(a.cliente_id), atr = a.situacao === "na_costureira" && a.prazo < h;
+      return `<tr class="ajrow"><td>${a.id}<br><span class="mut">venda ${a.venda_id}</span></td><td>${c ? esc(c.nome) : '<span class="mut">—</span>'}</td>
+        <td><b>${a.quantidade > 1 ? a.quantidade + "× " : ""}${esc(a.peca)}</b><br>${esc(a.servico)}${a.observacao ? `<br><span class="mut" style="white-space:pre-line">${esc(a.observacao)}</span>` : ""}</td>
+        <td>${esc(a.costureira)}${Number(a.valor_costureira) ? `<br><span class="mut">${brl(a.valor_costureira)}</span>` : ""}${Number(a.valor_cliente) ? `<br><span class="mut">cliente paga ${brl(a.valor_cliente)}</span>` : ""}</td>
+        <td>${atr ? `<b style="color:var(--crit)">${dataBR(a.prazo)} · atrasado</b>` : dataBR(a.prazo)}<br><span class="mut">enviado ${quando(a.enviado_em)}</span></td>
+        <td><span class="tag">${AJ_SIT[a.situacao]}</span>${a.situacao === "entregue" ? `<br><span class="mut">${quando(a.entregue_em)}</span>` : a.situacao === "cancelado" ? `<br><span class="mut">${esc(a.motivo_cancelamento || "")}</span>` : ""}</td>
+        <td class="acs" style="white-space:nowrap">${a.situacao === "na_costureira" ? `<button type="button" class="lnk" data-aj="pronto" data-id="${a.id}">Voltou</button> <button type="button" class="lnk" data-zapc="${a.id}">WhatsApp</button>` : ""}
+          ${a.situacao === "pronto" ? `<button type="button" class="lnk" data-aj="entregue" data-id="${a.id}">Entregue</button> <button type="button" class="lnk" data-zapcli="${a.id}">Avisar cliente</button> <button type="button" class="lnk" data-aj="reabrir" data-id="${a.id}">Voltar p/ costureira</button>` : ""}
+          ${["na_costureira", "pronto"].includes(a.situacao) && (dono() || a.enviado_por === EU) ? `<button type="button" class="lnk perigo" data-aj="cancelar" data-id="${a.id}">Cancelar</button>` : ""}</td></tr>`; }).join("")
+      : '<tr><td colspan="7" class="mut">Nenhum ajuste aqui.</td></tr>'}</tbody></table></div></div>`;
+  document.querySelectorAll("[data-fsit]").forEach(b => b.onclick = () => { FAJ.sit = b.dataset.fsit; telaAjustes(); });
+  document.querySelectorAll("[data-zapc]").forEach(b => b.onclick = () => zapAjusteCostureira(l.find(a => a.id === +b.dataset.zapc)));
+  document.querySelectorAll("[data-zapcli]").forEach(b => b.onclick = () => zapAjusteCliente(l.find(a => a.id === +b.dataset.zapcli)));
+  document.querySelectorAll("[data-aj]").forEach(b => b.onclick = async () => {
+    const acao = b.dataset.aj; let motivo = null;
+    if (acao === "cancelar" || acao === "reabrir") { motivo = prompt(acao === "cancelar" ? "Motivo do cancelamento do ajuste:" : "O que faltou ajustar?"); if (motivo === null) return; }
+    try { checar(await sb.rpc("lin_ajuste_andamento", { p_ajuste: +b.dataset.id, p_acao: acao, p_motivo: motivo }));
+      msg("ok", { pronto: "Peça de volta na loja: avise a cliente.", entregue: "Ajuste entregue à cliente.", reabrir: "Peça voltou para a costureira.", cancelar: "Ajuste cancelado." }[acao]); await telaAjustes(); }
+    catch (e) { msg("err", e.message); }
+  });
 }
 
 // ---------------------------------------------------------------- trocas (a opção "Troca" da boleta)
