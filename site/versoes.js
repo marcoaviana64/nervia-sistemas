@@ -45,7 +45,7 @@ window.NERVIA_VERSOES = {
     ["1.0", "Lançamento: contas e licenças de cada unidade, mudanças entre exportações e licenças pagas sem uso."],
   ],
   "linum": [
-    ["2.8", "Ajustes da peça vendida (bainha, apertar lateral ou cava…): na venda, \"Ajuste\" na peça escolhe a costureira, o que fazer, a data de volta (10 dias úteis depois da compra) e o valor. A aba Ajustes mostra o que está com a costureira, os atrasados e os prontos, com WhatsApp para a costureira e para avisar a cliente."],
+    ["2.8", "Ajustes da peça vendida (bainha, apertar lateral ou cava…): na venda, \"Ajuste\" na peça escolhe a costureira, o que fazer, a data de volta (10 dias úteis depois da compra) e o valor. A aba Ajustes mostra o que está com a costureira, os atrasados e os prontos, com WhatsApp para a costureira e para avisar a cliente. Observações para a costureira e ficha de ajuste para imprimir ou salvar em PDF (uma peça ou todas as de uma costureira)."],
     ["2.7", "Produção mais simples: só corte e costura têm remessa e conferência; depois da costura as peças já entram no estoque. Lavagem e passadoria viram caixas de marcação na ficha (opcional)."],
     ["2.6", "Ranking das vendedoras sem a nota da Dona: a nota final passa a ser a média de três critérios (vendas, cliente na venda e acompanhamento)."],
     ["2.5", "Peça nova direto na ficha de produção: \"+ Peça nova\" cria a peça que ainda não está no cadastro (nome, referência ou automática, metros por peça, cores e tamanhos), com estoque zero até a produção entregar; preço e outros dados podem ficar para depois. E \"+ cores e tamanhos\" acrescenta cores ou tamanhos a uma peça já cadastrada."],

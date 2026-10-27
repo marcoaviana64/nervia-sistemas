@@ -903,6 +903,28 @@ const zapAjusteCliente = a => { const c = cliente(a.cliente_id); if (!c || !c.te
   const txt = `Olá, ${c.nome.split(" ")[0]}! Aqui é da Linum. Sua peça (${a.peca}) já voltou do ajuste e está pronta para retirar na loja ${loja(a.loja_id).nome}. Até breve!`;
   window.open(`https://wa.me/55${c.telefone}?text=${encodeURIComponent(txt)}`, "_blank", "noopener"); };
 
+// ficha de ajuste para a costureira (imprimir ou salvar em PDF); várias de uma vez = uma folha com todas
+function imprimirAjustes(lista) {
+  const w = window.open("", "_blank"); if (!w) return msg("err", "O navegador bloqueou a janela de impressão.");
+  const nome = c => c ? c.nome.split(" ")[0] : "—";
+  w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Ajuste${lista.length > 1 ? "s" : ""} ${lista.map(a => "nº " + a.id).join(", ")} — Linum</title>
+    <style>body{font:14px system-ui,sans-serif;margin:24px;color:#111}h1{font-size:20px;margin:0 0 2px}.aj{border:1px solid #999;border-radius:6px;padding:12px 14px;margin:14px 0;page-break-inside:avoid}
+    table{width:100%;border-collapse:collapse}td{padding:4px 6px;vertical-align:top}td.r{width:150px;color:#555}.obs{white-space:pre-line;border:1px dashed #999;padding:8px;min-height:60px}.mut{color:#555}.ass{margin-top:22px}</style></head><body>
+    <h1>LINUM · Ficha de ajuste${lista.length > 1 ? "s" : ""}</h1><div class="mut">Costureira: <b>${esc([...new Set(lista.map(a => a.costureira))].join(", "))}</b> · emitida em ${dataBR(hoje())}</div>
+    ${lista.map(a => `<div class="aj"><table>
+      <tr><td class="r">Ajuste nº</td><td><b>${a.id}</b> (venda nº ${a.venda_id} · loja ${esc(loja(a.loja_id).nome)})</td></tr>
+      <tr><td class="r">Peça</td><td><b>${a.quantidade > 1 ? a.quantidade + "× " : ""}${esc(a.peca)}</b></td></tr>
+      <tr><td class="r">Cliente</td><td>${esc(nome(cliente(a.cliente_id)))}</td></tr>
+      <tr><td class="r">O que fazer</td><td><b>${esc(a.servico)}</b></td></tr>
+      <tr><td class="r">Observações</td><td><div class="obs">${esc(a.observacao || "")}</div></td></tr>
+      <tr><td class="r">Enviado em</td><td>${quando(a.enviado_em)}</td></tr>
+      <tr><td class="r">Volta até</td><td><b>${dataBR(a.prazo)}</b></td></tr>
+      ${Number(a.valor_costureira) ? `<tr><td class="r">Valor combinado</td><td>${brl(a.valor_costureira)}</td></tr>` : ""}
+    </table><div class="ass">Recebido pela costureira: ______________________ em ____/____/______ &nbsp; Devolvido em ____/____/______</div></div>`).join("")}
+    </body></html>`);
+  w.document.close(); w.focus(); w.print();
+}
+
 async function novoAjuste(v, it, depois) {
   try { await carregarCostureiras(); } catch (e) { return msg("err", e.message); }
   const g = $("dlg2f"), prazo = diasUteis(v.data, 10);
@@ -914,8 +936,8 @@ async function novoAjuste(v, it, depois) {
         <input id="ajcostn" class="${COSTUREIRAS.length ? "oculto" : ""}" placeholder="Nome da costureira" style="margin-top:4px"></div>
       <div><label for="ajprazo">Volta até</label><input id="ajprazo" type="date" value="${prazo}" min="${v.data}"><div class="mut" style="font-size:12px">10 dias úteis após a compra</div></div></div>
     <div class="campo grade3"><div><label for="ajvc">Valor da costureira (R$)</label><input id="ajvc" inputmode="decimal" placeholder="0,00"></div>
-      <div><label for="ajvcli">Cobrado da cliente (R$)</label><input id="ajvcli" inputmode="decimal" placeholder="0,00 = cortesia"></div>
-      <div><label for="ajobs">Observação</label><input id="ajobs" maxlength="300" placeholder="Ex.: marcado com alfinete"></div></div>
+      <div><label for="ajvcli">Cobrado da cliente (R$)</label><input id="ajvcli" inputmode="decimal" placeholder="0,00 = cortesia"></div></div>
+    <div class="campo"><label for="ajobs">Observações para a costureira</label><textarea id="ajobs" rows="4" maxlength="1000" placeholder="Detalhes do que fazer: medidas, onde está marcado com alfinete, cuidado com o tecido… (sai na ficha impressa / PDF)"></textarea></div>
     <div id="ajerr"></div><div class="acoes"><button type="button" class="bt" id="ajx">Cancelar</button><button type="button" class="bt pri" id="ajok">Enviar para a costureira</button></div>`;
   g.querySelectorAll("[data-serv]").forEach(b => b.onclick = () => { const t = $("ajserv"); t.value = (t.value.trim() ? t.value.trim() + "; " : "") + b.dataset.serv.toLowerCase() + " "; t.focus(); });
   $("ajcost").onchange = e => $("ajcostn").classList.toggle("oculto", !!e.target.value);
@@ -927,7 +949,14 @@ async function novoAjuste(v, it, depois) {
       const id = checar(await sb.rpc("lin_ajuste_registrar", { p: { venda_item_id: it.id, quantidade: $("ajq") ? $("ajq").value : 1, servico: $("ajserv").value,
         parceiro_id: $("ajcost").value || null, costureira: $("ajcost").value ? "" : $("ajcostn").value, prazo: $("ajprazo").value,
         valor_costureira: numBR($("ajvc").value), valor_cliente: numBR($("ajvcli").value), observacao: $("ajobs").value } }));
-      $("dlg2").close(); msg("ok", `Ajuste nº ${id} registrado: volta até ${dataBR($("ajprazo").value)}.`); if (depois) depois();
+      msg("ok", `Ajuste nº ${id} registrado: volta até ${dataBR($("ajprazo").value)}.`); if (depois) depois();
+      const { data: a } = await sb.from("lin_ajustes").select("*").eq("id", id).maybeSingle();
+      g.innerHTML = `<h3>Ajuste nº ${id} registrado</h3><p>${esc(it.referencia)} ${esc(it.descricao)} vai para <b>${esc(a ? a.costureira : "")}</b> e volta até <b>${dataBR($("ajprazo").value)}</b>.</p>
+        <p class="mut">Imprima a ficha para ir junto com a peça, ou salve em PDF (na janela de impressão, destino "Salvar como PDF") e mande para a costureira.</p>
+        <div class="acoes"><button type="button" class="bt" id="ajfim">Fechar</button><button type="button" class="bt" id="ajzap">WhatsApp para a costureira</button><button type="button" class="bt pri" id="ajimp">Imprimir / PDF</button></div>`;
+      $("ajfim").onclick = () => $("dlg2").close();
+      $("ajimp").onclick = () => a && imprimirAjustes([a]);
+      $("ajzap").onclick = () => a && zapAjusteCostureira(a);
     } catch (e) { $("ajerr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; $("ajok").disabled = false; }
   };
   $("dlg2").showModal(); $("ajserv").focus();
@@ -954,7 +983,7 @@ async function telaAjustes() {
       <div class="kpi"><small>Prontos na loja</small><b>${n(prontos.length)}</b><span>avisar a cliente</span></div>
       <div class="kpi"><small>Costureiras no mês</small><b>${brl(Object.values(pagar).reduce((t, x) => t + x, 0))}</b><span>${esc(Object.entries(pagar).map(([k, x]) => k + " " + brl(x)).join(" · ")) || "nada voltou neste mês"}</span></div>
     </div>
-    <div class="filtros">${pil("abertos", "Em aberto")}${pil("atrasados", "Atrasados")}${pil("na_costureira", "Com a costureira")}${pil("pronto", "Prontos")}${pil("entregue", "Entregues")}${pil("cancelado", "Cancelados")}</div>
+    <div class="filtros">${fora.length ? `<select id="ajimpc" style="width:auto" aria-label="Imprimir as fichas de uma costureira"><option value="">Imprimir / PDF de uma costureira…</option>${[...new Set(fora.map(a => a.costureira))].map(c => `<option value="${esc(c)}">${esc(c)} (${fora.filter(a => a.costureira === c).length})</option>`).join("")}</select>` : ""}${pil("abertos", "Em aberto")}${pil("atrasados", "Atrasados")}${pil("na_costureira", "Com a costureira")}${pil("pronto", "Prontos")}${pil("entregue", "Entregues")}${pil("cancelado", "Cancelados")}</div>
     <div class="card"><div class="tw"><table><thead><tr><th>Nº</th><th>Cliente</th><th>Peça e ajuste</th><th>Costureira</th><th>Volta até</th><th>Situação</th><th></th></tr></thead><tbody id="ajtab">
     ${vis.length ? vis.map(a => { const c = cliente(a.cliente_id), atr = a.situacao === "na_costureira" && a.prazo < h;
       return `<tr class="ajrow"><td>${a.id}<br><span class="mut">venda ${a.venda_id}</span></td><td>${c ? esc(c.nome) : '<span class="mut">—</span>'}</td>
@@ -962,11 +991,13 @@ async function telaAjustes() {
         <td>${esc(a.costureira)}${Number(a.valor_costureira) ? `<br><span class="mut">${brl(a.valor_costureira)}</span>` : ""}${Number(a.valor_cliente) ? `<br><span class="mut">cliente paga ${brl(a.valor_cliente)}</span>` : ""}</td>
         <td>${atr ? `<b style="color:var(--crit)">${dataBR(a.prazo)} · atrasado</b>` : dataBR(a.prazo)}<br><span class="mut">enviado ${quando(a.enviado_em)}</span></td>
         <td><span class="tag">${AJ_SIT[a.situacao]}</span>${a.situacao === "entregue" ? `<br><span class="mut">${quando(a.entregue_em)}</span>` : a.situacao === "cancelado" ? `<br><span class="mut">${esc(a.motivo_cancelamento || "")}</span>` : ""}</td>
-        <td class="acs" style="white-space:nowrap">${a.situacao === "na_costureira" ? `<button type="button" class="lnk" data-aj="pronto" data-id="${a.id}">Voltou</button> <button type="button" class="lnk" data-zapc="${a.id}">WhatsApp</button>` : ""}
+        <td class="acs" style="white-space:nowrap">${a.situacao === "na_costureira" ? `<button type="button" class="lnk" data-aj="pronto" data-id="${a.id}">Voltou</button> <button type="button" class="lnk" data-zapc="${a.id}">WhatsApp</button> <button type="button" class="lnk" data-imp="${a.id}">Imprimir / PDF</button>` : ""}
           ${a.situacao === "pronto" ? `<button type="button" class="lnk" data-aj="entregue" data-id="${a.id}">Entregue</button> <button type="button" class="lnk" data-zapcli="${a.id}">Avisar cliente</button> <button type="button" class="lnk" data-aj="reabrir" data-id="${a.id}">Voltar p/ costureira</button>` : ""}
           ${["na_costureira", "pronto"].includes(a.situacao) && (dono() || a.enviado_por === EU) ? `<button type="button" class="lnk perigo" data-aj="cancelar" data-id="${a.id}">Cancelar</button>` : ""}</td></tr>`; }).join("")
       : '<tr><td colspan="7" class="mut">Nenhum ajuste aqui.</td></tr>'}</tbody></table></div></div>`;
   document.querySelectorAll("[data-fsit]").forEach(b => b.onclick = () => { FAJ.sit = b.dataset.fsit; telaAjustes(); });
+  document.querySelectorAll("[data-imp]").forEach(b => b.onclick = () => imprimirAjustes([l.find(a => a.id === +b.dataset.imp)]));
+  if ($("ajimpc")) $("ajimpc").onchange = e => { const nm = e.target.value; e.target.value = ""; if (nm) imprimirAjustes(fora.filter(a => a.costureira === nm)); };
   document.querySelectorAll("[data-zapc]").forEach(b => b.onclick = () => zapAjusteCostureira(l.find(a => a.id === +b.dataset.zapc)));
   document.querySelectorAll("[data-zapcli]").forEach(b => b.onclick = () => zapAjusteCliente(l.find(a => a.id === +b.dataset.zapcli)));
   document.querySelectorAll("[data-aj]").forEach(b => b.onclick = async () => {
