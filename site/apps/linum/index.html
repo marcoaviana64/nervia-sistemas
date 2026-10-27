@@ -537,17 +537,18 @@ function editarProduto(pid) {
           : `<div class="vlin"><span>${esc(nomeVar(v))}${v.preco_venda != null ? " · " + brl(v.preco_venda) : ""}${v.codigo_barras ? ` <span class="mut">cód. ${esc(v.codigo_barras)}</span>` : ""}${v.ativo ? "" : '<span class="tag">inativa</span>'}</span>
               <span class="acs"><button type="button" class="lnk" data-veditar="${v.id}">Preço/edição</button><button type="button" class="lnk" data-vativo="${v.id}">${v.ativo ? "Desativar" : "Reativar"}</button><button type="button" class="lnk perigo" data-vexcluir="${v.id}">Excluir</button></span></div>`).join("")}</div>` : ""}
       </div>
-      ${p ? `<div class="caixa"><h4>Nova peça especial</h4><div class="mut">Peça única (bordada, pintura artística…) com preço e código de barras próprios. Pode repetir cor e tamanho de outra variação. Preço vazio = preço do produto.</div>
-        <div class="campo grade2"><div><label>Cor</label><input data-e="cor" value="${esc(esp.cor)}"></div><div><label>Tamanho</label><input data-e="tamanho" value="${esc(esp.tamanho)}"></div></div>
+      ${p ? `<div class="caixa"><h4>Nova peça especial</h4><div class="mut">Peça única (bordada, pintura artística…) com preço e código de barras próprios. Pode repetir cor e tamanho de outra variação. Várias cores e tamanhos separados por vírgula: cada cor × tamanho vira uma peça especial, todas com o mesmo preço (depois dá para mudar em "Preço/edição"). Preço vazio = preço do produto.</div>
+        <div class="campo grade2"><div><label>Cores</label><input data-e="cor" value="${esc(esp.cor)}" placeholder="Ex.: Natural Bordado"></div><div><label>Tamanhos</label><input data-e="tamanho" value="${esc(esp.tamanho)}" placeholder="Ex.: PP, P, M, G, GG"></div></div>
         <div class="campo"><label>Edição</label><input data-e="edicao" value="${esc(esp.edicao)}" placeholder="Ex.: Bordada à mão"></div>
         <div class="campo grade2"><div><label>Preço de venda (R$)</label><input data-e="preco_venda" inputmode="decimal" value="${esc(esp.preco_venda)}"></div>${dono() ? `<div><label>Preço de custo (R$)</label><input data-e="preco_custo" inputmode="decimal" value="${esc(esp.preco_custo)}"></div>` : ""}</div>
-        <div class="acoes" style="margin-top:8px"><button type="button" class="bt" id="espadd">Acrescentar peça especial</button></div></div>` : ""}
+        <div class="acoes" style="margin-top:8px"><button type="button" class="bt" id="espadd">Acrescentar peça(s) especial(is)</button></div></div>` : ""}
       ${erro ? `<div class="msg err">${esc(erro)}</div>` : ""}${ok ? `<div class="msg ok">${esc(ok)}</div>` : ""}
       <div class="acoes"><button type="button" class="bt" id="pfx">Fechar</button><button type="button" class="bt pri" id="pfs">Salvar produto</button></div>
       ${p ? '<div class="mut" style="margin-top:8px">Para lançar as quantidades: aba Estoque, desligue “Ocultar zerados” e clique no quadrado vermelho da variação (Entrada).</div>' : ""}`;
     $("pfx").onclick = () => $("dlg").close();
     $("pfs").onclick = salvar;
-    const acao = async (fn, okmsg) => { ler(); try { await fn(); await recarregar(); desenhar(null, okmsg); } catch (e) { desenhar(e.message); } };
+    const acao = async (fn, okmsg) => { ler(); try { await fn(); await recarregar(); desenhar(null, typeof okmsg === "function" ? (nEsp === 1 ? "Peça especial acrescentada." : `${nEsp} peças especiais acrescentadas.`) : okmsg); }
+      catch (e) { await recarregar(); desenhar(e.message + (nEsp ? ` (${nEsp} já tinham sido criadas antes do erro)` : "")); } };
     f.querySelectorAll("[data-veditar]").forEach(b => b.onclick = () => { ler(); editando = b.dataset.veditar; desenhar(); });
     f.querySelectorAll("[data-vcancel]").forEach(b => b.onclick = () => { ler(); editando = null; desenhar(); });
     f.querySelectorAll("[data-vsalvar]").forEach(b => b.onclick = () => {
@@ -563,10 +564,21 @@ function editarProduto(pid) {
       if (!confirm(`Excluir ${nomeVar(v)} definitivamente?`)) return;
       acao(async () => checar(await sb.rpc("lin_variante_excluir", { p_variante: v.id })), "Cor/tamanho excluída.");
     });
-    if ($("espadd")) $("espadd").onclick = () => acao(async () => {
-      checar(await sb.rpc("lin_variante_salvar", { p: { produto_id: p.id, cor: esp.cor, tamanho: esp.tamanho, edicao: esp.edicao, preco_venda: numBR(esp.preco_venda), preco_custo: numBR(esp.preco_custo) } }));
-      esp = { cor: "", tamanho: "", edicao: "", preco_venda: "", preco_custo: "" };
-    }, "Peça especial acrescentada.");
+    // cores e tamanhos separados por vírgula: uma peça especial por cor × tamanho, com o mesmo preço e a mesma edição
+    let nEsp = 0;
+    if ($("espadd")) $("espadd").onclick = () => { ler();
+      const cs = listaV(esp.cor), ts = listaV(esp.tamanho);
+      if (!cs.length || !ts.length) return desenhar("Informe a cor e o tamanho da peça especial.");
+      if (cs.length * ts.length > 1 && !confirm(`Criar ${cs.length * ts.length} peças especiais (${cs.join(", ")} × ${ts.join(", ")}), cada uma com código de barras próprio e o mesmo preço?`)) return;
+      acao(async () => {
+        nEsp = 0;
+        for (const cor of cs) for (const tamanho of ts) {
+          checar(await sb.rpc("lin_variante_salvar", { p: { produto_id: p.id, cor, tamanho, edicao: esp.edicao, preco_venda: numBR(esp.preco_venda), preco_custo: dono() ? numBR(esp.preco_custo) : "" } }));
+          nEsp++;
+        }
+        esp = { cor: "", tamanho: "", edicao: "", preco_venda: "", preco_custo: "" };
+      }, nEsp => nEsp);
+    };
   };
   const recarregar = async () => { await carregarProdutos(); if (p) p = PRODS.find(x => x.id === p.id); carregar().catch(() => {}); };
   const salvar = async () => {

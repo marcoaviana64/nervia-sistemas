@@ -229,6 +229,12 @@ try:
         pg.click("#espadd"); pg.wait_for_timeout(800)
         ok("Peça especial acrescentada" in pg.text_content("#dlgf") and psql("select preco_venda || ' ' || (codigo_barras like '%0000237') from lin_variantes where edicao = 'Bordada' and cor = 'Areia'", saida=True) == "1590.00 true",
            "peça especial com preço e código próprios")
+        # várias cores e tamanhos de uma vez (pedido do Marco: a A34 virou um registro só com "PP, P, M, G, GG")
+        pg.fill('#dlgf [data-e="cor"]', "Natural Bordado"); pg.fill('#dlgf [data-e="tamanho"]', "PP, P, M"); pg.fill('#dlgf [data-e="edicao"]', "Bordada a mão"); pg.fill('#dlgf [data-e="preco_venda"]', "999,00")
+        pg.click("#espadd"); pg.wait_for_timeout(1500)   # o confirm é aceito pelo pg.on("dialog") do teste
+        ok("3 peças especiais acrescentadas" in pg.text_content("#dlgf")
+           and psql("select string_agg(tamanho || '=' || preco_venda, ',' order by tamanho) || ' ' || count(distinct codigo_barras) from lin_variantes where edicao = 'Bordada a mão'", saida=True) == "M=999.00,P=999.00,PP=999.00 3",
+           "peça especial com vários tamanhos: uma por tamanho, mesmo preço, códigos próprios")
         vid = psql("select id from lin_variantes v where cor = 'Preto' and tamanho = 'P' and produto_id = (select id from lin_produtos where referencia = 'SAI-DUN')", saida=True)
         pg.click(f'[data-vativo="{vid}"]'); pg.wait_for_timeout(700)
         ok(psql(f"select ativo from lin_variantes where id = '{vid}'", saida=True) == "f" and "inativa" in pg.text_content("#dlgf"), "desativar variação")
