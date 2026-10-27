@@ -1834,6 +1834,16 @@ select pg_temp.erro2($$select lin_rolos_editar(jsonb_build_object('rolos', jsonb
 select pg_temp.erro2($$select lin_variantes_criar('10000000-0000-0000-0000-000000000002', '{Musgo}', '{52}')$$, 'permissão Produção', 'linum 2.5: fora da Linum não cria cores e tamanhos');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora com a permissão Produção
 select pg_temp.ok(lin_variantes_criar('10000000-0000-0000-0000-000000000002', '{Musgo}', '{52}') = 1, 'linum 2.5: quem tem a permissão Produção cria cores e tamanhos (na ficha)');
+select pg_temp.ok((select (r->>'referencia') like 'NOVA-____-001' and (r->>'variantes')::int = 6 from (select lin_producao_peca_nova('{"descricao":"Bata Cadarço","cores":["Cru","Azul"],"tamanhos":["P","M","G"],"consumo_metros":"1.8"}') r) x),
+  'linum 2.5: peça nova na ficha (referência automática NOVA-ano-001, 2 cores × 3 tamanhos)');
+select pg_temp.ok((select lin_producao_peca_nova('{"descricao":"Saia Nova","referencia":"SN-1","cores":["Cru"],"tamanhos":["U"]}')->>'referencia') = 'SN-1', 'linum 2.5: peça nova com referência escolhida');
+select pg_temp.erro2($$select lin_producao_peca_nova('{"descricao":"Outra","referencia":"sn-1","cores":["Cru"],"tamanhos":["U"]}')$$, 'Já existe um produto', 'linum 2.5: referência repetida recusada');
+select pg_temp.erro2($$select lin_producao_peca_nova('{"descricao":"Sem cor","tamanhos":["U"]}')$$, 'ao menos uma cor', 'linum 2.5: peça nova exige cor e tamanho');
+reset role;
+select pg_temp.ok((select count(*) = 0 from lin_estoque e join lin_variantes v on v.id = e.variante_id join lin_produtos p on p.id = v.produto_id where p.descricao = 'Bata Cadarço' and e.quantidade > 0)
+  and (select count(*) = 2 from auditoria where acao = 'linum_produto_criado' and (detalhes->>'pela_producao')::boolean),
+  'linum 2.5: peça nova sem estoque e na auditoria');
+set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';   -- Dono altera o valor
 select lin_rolos_editar(jsonb_build_object('rolos', jsonb_build_array(jsonb_build_object('id', (select v from lin_pd where k = 'rm'), 'valor_pago', '450,50', 'observacoes', 'conferido'))));
 reset role;

@@ -588,6 +588,18 @@ try:
         ok(pg.locator("#nfres [data-v]").count() == 4 and "4 cor(es)/tamanho(s) criados" in pg.text_content("#nferr")
            and psql("select count(*) from lin_variantes v join lin_produtos p on p.id = v.produto_id where p.referencia = 'BAT-CAD'", saida=True) == "4",
            "ficha: Cru e Azul × P e M criados na peça, prontos para escolher")
+        # peça que ainda nem existe no cadastro: "+ Peça nova" na própria ficha
+        pg.fill("#nfq", "Vestido Lua"); pg.wait_for_timeout(150)
+        ok("+ Peça nova" in pg.text_content("#nfres"), "ficha: peça não encontrada sugere + Peça nova")
+        pg.click("#nfpnova"); pg.wait_for_selector("#dlg2[open] #pnok")
+        ok(pg.input_value("#pnnome") == "Vestido Lua" and pg.input_value("#pntams") == "P, M, G", "peça nova já vem com o nome digitado e P, M, G")
+        pg.fill("#pncores", "Cru, Areia"); pg.fill("#pnmet", "2,2"); pg.fill("#pncat", "Vestido"); pg.click("#pnok"); pg.wait_for_timeout(1000)
+        ref = psql("select referencia from lin_produtos where descricao = 'Vestido Lua'", saida=True)
+        ok(ref.startswith("NOVA-") and pg.locator("#nfres [data-v]").count() == 6 and "criada" in pg.text_content("#nferr")
+           and psql("select consumo_metros || ' ' || preco_venda from lin_produtos where descricao = 'Vestido Lua'", saida=True) == "2.2 0",
+           f"peça nova criada ({ref}) com 2 cores × 3 tamanhos e 2,2 m por peça, pronta para a ficha")
+        pg.click("#nfres [data-v] >> nth=0"); pg.wait_for_timeout(150)
+        ok(pg.input_value('#nfitens [data-k="c"]') == "2,2", "a cor/tamanho da peça nova entra na ficha com a metragem informada")
         pg.click("#nfx")
         pg.click("#pdnova"); pg.wait_for_selector("#dlg[open] #nfq")
         pg.fill("#nfq", "cal-are"); pg.wait_for_timeout(150); pg.click(f'#nfres [data-v="{V_CRU_38}"]'); pg.wait_for_timeout(100)
