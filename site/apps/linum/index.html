@@ -162,7 +162,9 @@ function msg(tipo, texto) { const m = $("msg"); m.className = "msg " + tipo; m.t
 function limparMsg() { $("msg").className = "msg oculto"; }
 
 let MINHA_LOJA = null, ADMIN = false, PAPEL = null, LOJAS = [], PRODUTOS = [], QTD = new Map(), VISTA = "estoque", EQUIPE = [];
-const F = { q: "", loja: "", cat: "", cor: "", tam: "", zerados: true };
+const F = { q: "", loja: "", cat: "", cor: "", tam: "", zerados: true, prov: false };
+// referência provisória = a automática NOVA-<ano>-<nº> (produto cadastrado sem saber a referência; troca-se depois no Editar)
+const refProvisoria = p => /^NOVA-\d{4}-\d+$/i.test(p.referencia || "");
 const dono = () => PAPEL === "dono";
 const controla = () => PAPEL === "dono" || PAPEL === "estoque";   // Estoque: cadastra e movimenta, mas nunca vê custo
 let MINHA_COMISSAO = 0;
@@ -325,12 +327,14 @@ function telaEstoque() {
       <select id="fcor" aria-label="Cor">${opc(cores, F.cor, "Cor")}</select>
       <select id="ftam" aria-label="Tamanho">${opc(tams, F.tam, "Tamanho")}</select>
       <button class="pilula ${F.zerados ? "on" : ""}" id="fzero" type="button" title="Esconde as variações sem peça na loja">${F.zerados ? "Ocultar zerados: ativo" : "Ocultar zerados: inativo"}</button>
+      <button class="pilula ${F.prov ? "on" : ""}" id="fprov" type="button" title="Só as peças com referência provisória (NOVA-…), para trocar pela correta">Referência provisória</button>
     </div>
     <div class="resumo" id="resumo"></div>
     <div id="lista"></div>`;
   $("fq").oninput = e => { F.q = e.target.value; lista(); };
   [["floja", "loja"], ["fcat", "cat"], ["fcor", "cor"], ["ftam", "tam"]].forEach(([id, k]) => $(id).onchange = e => { F[k] = e.target.value; lista(); });
   $("fzero").onclick = () => { F.zerados = !F.zerados; telaEstoque(); };
+  $("fprov").onclick = () => { F.prov = !F.prov; telaEstoque(); };
   lista();
 }
 function lista() {
@@ -341,6 +345,7 @@ function lista() {
   for (const p of PRODUTOS) {
     if (termo && !p.descricao.toLowerCase().includes(termo) && !p.referencia.toLowerCase().includes(termo)) continue;
     if (F.cat && p.categoria !== F.cat) continue;
+    if (F.prov && !refProvisoria(p)) continue;
     const vars = p.variantes.filter(v => (!F.cor || v.cor === F.cor) && (!F.tam || v.tamanho === F.tam)).sort(ordemVar);
     if (!vars.length) continue;
     // um cartão por produto; cada loja numa faixa própria, separadas por linha tracejada (pedido do Marco)
@@ -365,7 +370,7 @@ function cartao(p, grupos) {
   const temEsp = grupos.some(([, vs]) => vs.some(v => v.edicao));
   return `<div class="prod">
     <div class="cab"><h2 class="${temEsp ? "temesp" : ""}" title="${esc(p.descricao)}${temEsp ? " · tem peça especial" : ""}">${esc(p.descricao)}</h2><span class="preco">${p.preco_venda != null ? brl(p.preco_venda) : "Preço não cadastrado"}</span></div>
-    <div class="info"><span>Ref: ${esc(p.referencia || "—")}</span><span>·</span><span>Peça: ${esc(p.categoria || "—")}</span></div>
+    <div class="info"><span>Ref: ${esc(p.referencia || "—")}${refProvisoria(p) ? '<span class="tag">provisória</span>' : ""}</span><span>·</span><span>Peça: ${esc(p.categoria || "—")}</span></div>
     ${grupos.map(([l, vs]) => `<div class="loja" data-loja="${l.id}"><span class="selo">${esc(l.nome)}</span><div class="chips">${chipsLoja(p, l, vs)}</div></div>`).join("")}</div>`;
 }
 function chipsLoja(p, l, vars) {
@@ -444,7 +449,7 @@ async function movimentar(pid, vid, lid) {
 
 // ---------------------------------------------------------------- produtos (Dono)
 let PRODS = [], VARS = [];
-const FP = { q: "", cat: "", cor: "", tam: "", forn: "" };
+const FP = { q: "", cat: "", cor: "", tam: "", forn: "", prov: false };
 async function todas(q) {   // o Supabase devolve no máximo 1000 linhas por consulta
   const l = [];
   for (let i = 0; ; i += 1000) { const parte = checar(await q().range(i, i + 999)) || []; l.push(...parte); if (parte.length < 1000) break; }
@@ -478,9 +483,11 @@ async function telaProdutos() {
       <select id="pcor" aria-label="Cor">${opc(unicos(VARS.map(v => v.cor)), FP.cor, "Cor")}</select>
       <select id="ptam" aria-label="Tamanho">${[`<option value="">Tamanho</option>`, ...[...new Set(VARS.map(v => v.tamanho))].sort(ordemTam).map(x => `<option value="${esc(x)}" ${x === FP.tam ? "selected" : ""}>${esc(x)}</option>`)].join("")}</select>
       <select id="pforn" aria-label="Fornecedor">${opc(unicos(PRODS.map(p => p.fornecedor)), FP.forn, "Fornecedor")}</select>
+      <button class="pilula ${FP.prov ? "on" : ""}" id="pprov" type="button" title="Só as peças com referência provisória (NOVA-…), para trocar pela correta">Referência provisória</button>
     </div>
     <div id="plista"></div>`;
   $("pnovo").onclick = () => editarProduto(null);
+  $("pprov").onclick = () => { FP.prov = !FP.prov; $("pprov").classList.toggle("on", FP.prov); listaProdutos(); };
   $("pq").oninput = e => { FP.q = e.target.value; listaProdutos(); };
   [["pcat", "cat"], ["pcor", "cor"], ["ptam", "tam"], ["pforn", "forn"]].forEach(([id, k]) => $(id).onchange = e => { FP[k] = e.target.value; listaProdutos(); });
   listaProdutos();
@@ -492,6 +499,7 @@ function listaProdutos() {
     if (termo && ![p.descricao, p.referencia, p.codigo_barras, ...vs.map(v => v.codigo_barras)].some(x => String(x || "").toLowerCase().includes(termo))) return false;
     if (FP.cat && p.categoria !== FP.cat) return false;
     if (FP.forn && p.fornecedor !== FP.forn) return false;
+    if (FP.prov && !refProvisoria(p)) return false;
     if (FP.cor && !vs.some(v => v.cor === FP.cor)) return false;
     if (FP.tam && !vs.some(v => v.tamanho === FP.tam)) return false;
     return true;
@@ -500,7 +508,7 @@ function listaProdutos() {
   $("plista").innerHTML = l.length ? l.slice(0, 300).map(p => {
     const vs = varsDe(p.id);
     return `<div class="prod">
-      <div class="cab"><h2 class="${vs.some(v => v.edicao && v.ativo) ? "temesp" : ""}" title="${esc(p.descricao)}${vs.some(v => v.edicao && v.ativo) ? " · tem peça especial" : ""}">${esc(p.descricao)}${p.ativo ? "" : '<span class="tag">inativo</span>'}</h2>
+      <div class="cab"><h2 class="${vs.some(v => v.edicao && v.ativo) ? "temesp" : ""}" title="${esc(p.descricao)}${vs.some(v => v.edicao && v.ativo) ? " · tem peça especial" : ""}">${esc(p.descricao)}${p.ativo ? "" : '<span class="tag">inativo</span>'}${refProvisoria(p) ? '<span class="tag" title="Troque pela referência correta em Editar peça">ref. provisória</span>' : ""}</h2>
         <span class="preco">${brl(p.preco_venda)}</span></div>
       <div class="info"><span>${esc([p.referencia, p.categoria, p.fornecedor].filter(Boolean).join(" · "))}</span>
         ${p.codigo_barras ? `<span>· cód. ${esc(p.codigo_barras)}</span>` : ""}${p.preco_custo != null ? `<span>· custo ${brl(p.preco_custo)}</span>` : ""}</div>
@@ -534,7 +542,7 @@ function editarProduto(pid) {
   const desenhar = (erro, ok) => {
     const vs = p ? varsDe(p.id) : [];
     f.innerHTML = `<h3>${p ? "Editar produto" : "Novo produto"}</h3>
-      <div class="campo grade2">${campo("referencia", "Código / Referência")}${campo("categoria", "Categoria")}</div>
+      <div class="campo grade2">${campo("referencia", "Código / Referência", p ? "" : 'placeholder="Vazio = provisória (NOVA-…)"')}${campo("categoria", "Categoria")}</div>
       <div class="campo">${campo("descricao", "Descrição (nome da peça)")}</div>
       <div class="campo grade2">${campo("colecao", "Coleção")}${campo("fornecedor", "Fornecedor")}</div>
       <div class="campo">${campo("tecido", "Tecido")}</div>
@@ -613,7 +621,8 @@ function editarProduto(pid) {
       if (cores.length) criadas = checar(await sb.rpc("lin_variantes_criar", { p_produto: id, p_cores: cores, p_tamanhos: tams }));
       novas = { cores: "", tamanhos: TAMANHOS_PADRAO };
       await carregarProdutos(); p = PRODS.find(x => x.id === id); carregar().catch(() => {});
-      desenhar(null, (novo ? "Produto cadastrado" : "Produto atualizado") + (cores.length ? `; ${criadas} variação(ões) nova(s)` : "") + ".");
+      desenhar(null, (novo ? "Produto cadastrado" : "Produto atualizado") + (cores.length ? `; ${criadas} variação(ões) nova(s)` : "") + "."
+        + (p && refProvisoria(p) ? ` Referência provisória ${p.referencia}: quando souber a correta, troque aqui (o código de barras não muda).` : ""));
     } catch (e) { desenhar(e.message); }
   };
   desenhar();
