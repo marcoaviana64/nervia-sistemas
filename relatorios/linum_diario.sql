@@ -1,7 +1,7 @@
 -- Relatório diário do Linum (pedido do Marco em 27/10/2026): uma linha com um jsonb `r` com tudo o que o PDF precisa.
--- "dia" = ontem em Brasília (o relatório roda às 8h). Comparação com o último registro de copias.lin_status.
+-- "dia" = hoje em Brasília (o relatório roda às 22h30, com as lojas fechadas; decisão do Marco em 27/10/2026). Comparação com o último registro de copias.lin_status.
 -- Depois de gerar o PDF, gravar o status novo:  insert into copias.lin_status (dados) values ('<r->agora>');
-with dia as (select (now() at time zone 'America/Sao_Paulo')::date - 1 as d),
+with dia as (select (now() at time zone 'America/Sao_Paulo')::date as d),
 agora as (
   select jsonb_build_object(
     'produtos', (select count(*) from lin_produtos),
