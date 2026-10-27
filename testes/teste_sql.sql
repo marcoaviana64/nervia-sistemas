@@ -1880,5 +1880,69 @@ select pg_temp.ok((select count(distinct acao) >= 6 from auditoria where acao in
   'linum_producao_enviada', 'linum_producao_recebida', 'linum_producao_estoque')) and (select count(*) >= 2 from auditoria where acao = 'linum_papel_definido' and detalhes ? 'permissoes'),
   'linum produção: tudo na auditoria (inclusive as permissões)');
 
+-- ---------------------------------------------------------------- linum 2.9: horário de trabalho
+reset role;
+create temp table lin_hcnt as select count(*) n from auditoria where acao = 'linum_papel_definido';
+select pg_temp.ok(_lin_no_horario_em(null, null, now()), 'linum horário: sem horário = sem restrição');
+select pg_temp.ok(_lin_no_horario_em('{"2":{"ini":"10:00","fim":"19:00"}}', null, '2026-10-27 12:00-03'), 'linum horário: terça 12h dentro');
+select pg_temp.ok(_lin_no_horario_em('{"2":{"ini":"10:00","fim":"19:00"}}', null, '2026-10-27 09:46-03')
+  and _lin_no_horario_em('{"2":{"ini":"10:00","fim":"19:00"}}', null, '2026-10-27 19:15-03'), 'linum horário: 15 min de folga antes e depois');
+select pg_temp.ok(not _lin_no_horario_em('{"2":{"ini":"10:00","fim":"19:00"}}', null, '2026-10-27 09:40-03')
+  and not _lin_no_horario_em('{"2":{"ini":"10:00","fim":"19:00"}}', null, '2026-10-27 19:20-03'), 'linum horário: fora da folga bloqueia');
+select pg_temp.ok(not _lin_no_horario_em('{"2":{"ini":"10:00","fim":"19:00"}}', null, '2026-10-28 12:00-03'), 'linum horário: dia sem horário = folga (bloqueia)');
+select pg_temp.ok(_lin_no_horario_em('{"2":{"ini":"10:00","fim":"19:00"}}', null, '2026-10-27 13:00Z'), 'linum horário: conta no fuso de Brasília (13h UTC = 10h)');
+select pg_temp.ok(_lin_no_horario_em('{}', '2026-10-28 20:00-03', '2026-10-28 18:00-03') and not _lin_no_horario_em('{}', '2026-10-28 20:00-03', '2026-10-28 20:30-03'),
+  'linum horário: liberação extra vale até a hora marcada');
+select pg_temp.ok(_lin_no_horario_em('{"7":{"ini":"00:05","fim":"23:59"}}', null, '2026-11-01 00:01-03') and _lin_no_horario_em('{"7":{"ini":"00:05","fim":"23:59"}}', null, '2026-11-01 23:59:59-03'),
+  'linum horário: perto da meia-noite não quebra');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora
+select pg_temp.erro2($$select lin_horario_salvar('00000000-0000-0000-0000-00000000000c', null)$$, 'Só o Dono', 'linum horário: vendedora não muda o próprio horário');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';   -- Dono
+select pg_temp.erro2($$select lin_horario_salvar('00000000-0000-0000-0000-00000000000c', '{"1":{"ini":"19:00","fim":"10:00"}}')$$, 'antes da saída', 'linum horário: entrada depois da saída recusada');
+select pg_temp.erro2($$select lin_horario_salvar('00000000-0000-0000-0000-00000000000c', '{"8":{"ini":"10:00","fim":"19:00"}}')$$, 'Dia da semana', 'linum horário: dia inválido recusado');
+select pg_temp.erro2($$select lin_horario_salvar('00000000-0000-0000-0000-00000000000c', '{"1":{"ini":"25:00","fim":"26:00"}}')$$, 'HH:MM', 'linum horário: hora inválida recusada');
+select pg_temp.erro2($$select lin_horario_salvar('00000000-0000-0000-0000-00000000000b', '{}')$$, 'não tem restrição', 'linum horário: Dono sem horário');
+select lin_horario_salvar('00000000-0000-0000-0000-00000000000c', '{}');   -- nenhum dia: bloqueada
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.ok(lin_papel() is null and not lin_vende() and (select count(*) = 0 from lin_clientes), 'linum horário: fora do horário a vendedora não lê nada (policies)');
+select pg_temp.erro2($$select lin_estoque_ler()$$, 'não tem acesso', 'linum horário: fora do horário o app recusa');
+select pg_temp.ok((select (r->>'liberado')::boolean = false and (r->>'restrito')::boolean from (select lin_meu_horario() r) x), 'linum horário: a tela sabe que está fora do horário');
+select lin_meu_horario();   -- segunda tentativa em 30 min não repete na auditoria
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok((select count(*) = 1 from jsonb_array_elements(lin_horarios()) e where e->>'user_id' = '00000000-0000-0000-0000-00000000000c' and not (e->>'agora')::boolean),
+  'linum horário: o Dono vê quem está fora do horário');
+select lin_horario_salvar('00000000-0000-0000-0000-00000000000c', '{}', now() + interval '2 hours');   -- liberação extra
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.ok(lin_papel() = 'vendedora' and (lin_meu_horario()->>'liberado')::boolean, 'linum horário: liberação extra abre o app');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select lin_horario_salvar('00000000-0000-0000-0000-00000000000c', '{"1":{"ini":"00:00","fim":"23:59"},"2":{"ini":"00:00","fim":"23:59"},"3":{"ini":"00:00","fim":"23:59"},"4":{"ini":"00:00","fim":"23:59"},"5":{"ini":"00:00","fim":"23:59"},"6":{"ini":"00:00","fim":"23:59"},"7":{"ini":"00:00","fim":"23:59"}}');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.ok(lin_papel() = 'vendedora', 'linum horário: dentro do horário a vendedora entra');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select lin_horario_salvar('00000000-0000-0000-0000-00000000000c', null);
+reset role;
+select pg_temp.ok((select count(*) = 4 from auditoria where acao = 'linum_horario_alterado')
+  and (select count(*) = 1 from auditoria where acao = 'linum_fora_do_horario' and detalhes->>'papel_linum' = 'vendedora')
+  and (select detalhes->'antes'->>'horario' is null and detalhes->'depois'->'horario' = '{}' from auditoria where acao = 'linum_horario_alterado' order by id limit 1)
+  and (select count(*) from auditoria where acao = 'linum_papel_definido') = (select n from lin_hcnt),
+  'linum horário: mudanças e tentativa fora do horário na auditoria (sem repetir como papel definido)');
+
+-- ---------------------------------------------------------------- linum: cópia noturna
+reset role;
+select pg_temp.ok((select count(*) >= 1 from copias.lin_copias) and (select count(*) > 20 from copias.lin_dados where copia_id = (select min(id) from copias.lin_copias)),
+  'linum cópia: a migração já faz a primeira cópia de todas as tabelas lin_');
+create temp table lin_cp as select public.lin_copia_fazer('teste') id;
+select pg_temp.ok((select (resumo->>'lin_produtos')::int = (select count(*) from lin_produtos) and (resumo->>'lin_estoque')::int = (select count(*) from lin_estoque) from copias.lin_copias where id = (select id from lin_cp)),
+  'linum cópia: resumo com o nº de linhas de cada tabela');
+select pg_temp.ok((select count(*) = (select count(*) from lin_estoque) from copias.lin_dados d, jsonb_populate_recordset(null::lin_estoque, d.linhas) r
+                   join lin_estoque e on e.variante_id = r.variante_id and e.loja_id = r.loja_id and e.quantidade = r.quantidade
+                   where d.copia_id = (select id from lin_cp) and d.tabela = 'lin_estoque'), 'linum cópia: o estoque volta igual pela cópia (jsonb_populate_recordset)');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.erro2($$select lin_copia_fazer('x')$$, 'permission denied', 'linum cópia: login não faz cópia');
+select pg_temp.erro2($$select count(*) from copias.lin_dados$$, 'permission denied', 'linum cópia: login não lê as cópias');
+reset role;
+
 reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'

@@ -86,7 +86,7 @@ dialog h3{margin:0 0 4px;font-size:17px}
 .cabtela h2{margin:0;font-size:18px}
 .destaque{background:linear-gradient(135deg,var(--accent-soft),var(--surface));border-color:var(--accent)}.destaque small{display:block;color:var(--ink-soft)}.destaque b{font-size:20px}
 .estrelas{color:#d4a017;letter-spacing:1px}tr.eu td{background:var(--accent-soft)}
-.tag.possivel{background:var(--info-bg);color:var(--info)}
+.tag.possivel{background:var(--info-bg);color:var(--info)}.tag.ok{background:var(--ok-bg);color:var(--ok)}.tag.fora{background:var(--crit-bg);color:var(--crit)}
 .tag{display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;font-weight:600;background:var(--surface-2);color:var(--ink-soft);margin-left:6px;vertical-align:middle}
 .vtag{display:inline-block;font-size:12px;padding:2px 8px;border:1px solid var(--border);border-radius:7px;margin:2px 4px 2px 0}
 .vtag.off{opacity:.5;text-decoration:line-through}
@@ -128,6 +128,7 @@ td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-n
       <button class="aba oculto" data-v="ranking" id="abaRanking">Ranking</button>
       <button class="aba oculto" data-v="producao" id="abaProducao">Produção</button>
       <button class="aba oculto" data-v="comissoes" id="abaComissoes">Comissões</button>
+      <button class="aba oculto" data-v="horarios" id="abaHorarios">Horários</button>
       <button class="aba oculto" data-v="equipe" id="abaEquipe">Equipe</button>
       <div class="dir" id="quem"></div>
     </div>
@@ -144,7 +145,8 @@ if (EMBUTIDO) document.documentElement.classList.add("embutido");
 const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const checar = r => { if (r.error) throw new Error(r.error.message); return r.data; };
+// o horário acabou com o app aberto: o banco passa a recusar ("não tem acesso"); a tela confere e mostra o aviso
+const checar = r => { if (r.error) { if (/não tem acesso/.test(r.error.message) && PAPEL && !ADMIN) setTimeout(() => conferirHorario().catch(() => {}), 0); throw new Error(r.error.message); } return r.data; };
 const TZ = "America/Sao_Paulo";
 const hoje = () => new Date().toLocaleDateString("en-CA", { timeZone: TZ });
 const dataBR = v => v ? String(v).slice(0, 10).split("-").reverse().join("/") : "—";
@@ -181,12 +183,13 @@ async function iniciar() {
   try {
     const p = checar(await sb.from("perfis").select("admin").eq("user_id", session.user.id).maybeSingle());
     ADMIN = !!(p && p.admin);
+    if (!ADMIN && !(await conferirHorario())) return;
     await carregar();
     PERM = checar(await sb.rpc("lin_minhas_permissoes")) || PERM;
     $("abaEquipe").classList.toggle("oculto", !ADMIN);
     $("abaProdutos").classList.toggle("oculto", !controla());
     $("abaVendas").classList.toggle("oculto", !vende()); $("abaClientes").classList.toggle("oculto", !vende()); $("abaAjustes").classList.toggle("oculto", !vende());
-    $("abaComissoes").classList.toggle("oculto", !dono()); $("abaRanking").classList.toggle("oculto", !vende()); $("abaProducao").classList.toggle("oculto", !PERM.producao);
+    $("abaComissoes").classList.toggle("oculto", !dono()); $("abaHorarios").classList.toggle("oculto", !dono()); $("abaRanking").classList.toggle("oculto", !vende()); $("abaProducao").classList.toggle("oculto", !PERM.producao);
     $("quem").textContent = ADMIN ? "Equipe Nervia (Dono)" : dono() ? "Dono" : controla() ? "Estoque · sem custos" : "Vendedora" + (MINHA_LOJA ? " · " + loja(MINHA_LOJA).nome : "");
     $("aviso").classList.add("oculto"); $("app").classList.remove("oculto");
     render();
@@ -198,9 +201,80 @@ let ULTIMA_CARGA = 0;
 async function atualizarEstoque() {
   if (document.hidden || !PAPEL || Date.now() - ULTIMA_CARGA < 20000) return;
   try {
+    if (!ADMIN && !dono() && !(await conferirHorario())) return;
     await carregar();
     if (VISTA === "estoque" && !$("dlg").open && !$("dlg2").open) lista();
   } catch (e) { /* sem rede: tenta de novo na próxima vez */ }
+}
+
+// ---------------------------------------------------------------- horário de trabalho (a trava é no banco: fora do horário nada abre)
+const DIAS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
+function horarioTxt(h) {
+  if (!h) return "sem restrição";
+  const dias = Object.keys(h).sort();
+  if (!dias.length) return "nenhum dia (só com liberação extra)";
+  const grupos = [];   // dias seguidos com o mesmo horário: "Segunda a Sexta 10:00–19:00"
+  for (const d of dias) {
+    const t = h[d].ini + "–" + h[d].fim, u = grupos[grupos.length - 1];
+    if (u && u.t === t && Number(d) === u.fim + 1) u.fim = Number(d); else grupos.push({ ini: Number(d), fim: Number(d), t });
+  }
+  return grupos.map(g => (g.ini === g.fim ? DIAS[g.ini - 1] : DIAS[g.ini - 1] + (g.fim === g.ini + 1 ? " e " : " a ") + DIAS[g.fim - 1]) + " " + g.t).join(" · ");
+}
+const dataHoraBR = v => new Date(v).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+async function conferirHorario() {
+  const h = checar(await sb.rpc("lin_meu_horario")) || {};
+  if (h.liberado || h.sem_papel) return true;
+  $("app").classList.add("oculto"); $("aviso").classList.remove("oculto");
+  $("aviso").innerHTML = `<b>Fora do seu horário de trabalho.</b><br>O Sistema Linum só abre no seu horário: ${esc(horarioTxt(h.horario))}.<br>
+    <span class="mut">Abre 15 minutos antes e fecha 15 minutos depois. Precisa usar agora? Peça ao Dono uma liberação extra (aba Horários).</span>`;
+  PAPEL = null;
+  return false;
+}
+
+const vazioH = () => ({ ini: "10:00", fim: "19:00" });
+async function telaHorarios() {
+  $("tela").innerHTML = '<div class="card">Carregando…</div>';
+  let l = [];
+  try { l = checar(await sb.rpc("lin_horarios")) || []; } catch (e) { $("tela").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; return; }
+  const papelTxt = { dono: "Dono", estoque: "Estoque", vendedora: "Vendedora" };
+  $("tela").innerHTML = `<div class="card"><h2>Horário de trabalho</h2>
+    <p class="mut">Cada pessoa só consegue abrir o Sistema Linum no horário dela (de qualquer aparelho). Fora dele, nada abre: nem estoque, nem vendas, nem clientes. O sistema abre <b>15 minutos antes</b> e fecha <b>15 minutos depois</b>, para abrir a loja e terminar a venda em andamento. Dia sem horário = folga. <b>Liberação extra</b>: abre até o dia e a hora escolhidos (hora extra, inventário, evento). Sem horário definido, a pessoa entra a qualquer hora. O Dono não tem restrição. As mudanças e as tentativas de abrir fora do horário ficam na auditoria.</p>
+    ${l.length ? `<div class="tw"><table><thead><tr><th>Pessoa</th><th>Horário</th><th>Agora</th><th></th></tr></thead><tbody>
+      ${l.map((u, i) => `<tr><td><b>${esc(u.nome)}</b><br><span class="mut">${esc(papelTxt[u.papel] || u.papel)}${u.loja_id ? " · " + esc(loja(u.loja_id).nome) : ""}</span></td>
+        <td>${u.papel === "dono" ? '<span class="mut">sem restrição (Dono)</span>' : esc(horarioTxt(u.horario))}${u.extra_ate ? `<br><span class="tag">liberação extra até ${esc(dataHoraBR(u.extra_ate))}</span>` : ""}</td>
+        <td>${u.agora ? '<span class="tag ok">pode abrir</span>' : '<span class="tag fora">fora do horário</span>'}</td>
+        <td>${u.papel === "dono" ? "" : `<button class="bt" data-hor="${i}">Editar</button>`}</td></tr>`).join("")}
+      </tbody></table></div>` : '<div class="vazio">Ninguém na equipe ainda.</div>'}</div>`;
+  document.querySelectorAll("[data-hor]").forEach(b => b.onclick = () => editarHorario(l[b.dataset.hor]));
+}
+function editarHorario(u) {
+  const g = $("dlgf"), h = u.horario || {};
+  const extra = u.extra_ate ? new Date(new Date(u.extra_ate).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "";
+  g.innerHTML = `<h3>Horário · ${esc(u.nome)}</h3>
+    <label class="chk"><input type="checkbox" id="hlivre" ${u.horario ? "" : "checked"}> Sem restrição de horário (entra a qualquer hora)</label>
+    <div id="hdias" style="margin-top:8px">${DIAS.map((d, i) => { const k = String(i + 1), x = h[k]; return `<div class="filtros" style="margin:4px 0;align-items:center">
+      <label class="chk" style="min-width:110px"><input type="checkbox" class="hdia" data-k="${k}" ${x ? "checked" : ""}> ${d}</label>
+      <input type="time" class="hini" data-k="${k}" value="${x ? x.ini : vazioH().ini}" aria-label="${d}: entrada"> até
+      <input type="time" class="hfim" data-k="${k}" value="${x ? x.fim : vazioH().fim}" aria-label="${d}: saída"></div>`; }).join("")}
+      <button type="button" class="bt" id="hcopia">Copiar o horário de segunda para os dias marcados</button></div>
+    <div class="campo"><label for="hextra">Liberação extra até (opcional)</label><input id="hextra" type="datetime-local" value="${extra}">
+      <div class="mut" style="font-size:12px">Abre o sistema fora do horário até esse dia e hora (no máximo 31 dias). Deixe vazio para tirar.</div></div>
+    <div id="herr"></div><div class="acoes"><button type="button" class="bt" id="hx">Cancelar</button><button type="button" class="bt pri" id="hok">Salvar</button></div>`;
+  const livre = () => $("hdias").classList.toggle("oculto", $("hlivre").checked);
+  $("hlivre").onchange = livre; livre();
+  $("hcopia").onclick = () => { const i = g.querySelector('.hini[data-k="1"]').value, f = g.querySelector('.hfim[data-k="1"]').value;
+    g.querySelectorAll(".hdia:checked").forEach(c => { g.querySelector(`.hini[data-k="${c.dataset.k}"]`).value = i; g.querySelector(`.hfim[data-k="${c.dataset.k}"]`).value = f; }); };
+  $("hx").onclick = () => $("dlg").close();
+  $("hok").onclick = async () => {
+    let hor = null;
+    if (!$("hlivre").checked) { hor = {}; g.querySelectorAll(".hdia:checked").forEach(c => { const k = c.dataset.k;
+      hor[k] = { ini: g.querySelector(`.hini[data-k="${k}"]`).value, fim: g.querySelector(`.hfim[data-k="${k}"]`).value }; }); }
+    const ex = $("hextra").value ? new Date($("hextra").value).toISOString() : null;
+    $("hok").disabled = true;
+    try { checar(await sb.rpc("lin_horario_salvar", { p_user: u.user_id, p_horario: hor, p_extra_ate: ex })); $("dlg").close(); msg("ok", `Horário de ${u.nome} salvo.`); telaHorarios(); }
+    catch (e) { $("herr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; $("hok").disabled = false; }
+  };
+  $("dlg").showModal();
 }
 document.addEventListener("visibilitychange", atualizarEstoque);
 window.addEventListener("focus", atualizarEstoque);
@@ -220,6 +294,7 @@ function render() {
   if (VISTA === "clientes" && vende()) return telaClientes();
   if (VISTA === "ajustes" && vende()) return telaAjustes();
   if (VISTA === "comissoes" && dono()) return telaComissoes();
+  if (VISTA === "horarios" && dono()) return telaHorarios();
   if (VISTA === "ranking" && vende()) return telaRanking();
   if (VISTA === "producao" && PERM.producao) return telaProducao();
   telaEstoque();
@@ -462,17 +537,18 @@ function editarProduto(pid) {
           : `<div class="vlin"><span>${esc(nomeVar(v))}${v.preco_venda != null ? " · " + brl(v.preco_venda) : ""}${v.codigo_barras ? ` <span class="mut">cód. ${esc(v.codigo_barras)}</span>` : ""}${v.ativo ? "" : '<span class="tag">inativa</span>'}</span>
               <span class="acs"><button type="button" class="lnk" data-veditar="${v.id}">Preço/edição</button><button type="button" class="lnk" data-vativo="${v.id}">${v.ativo ? "Desativar" : "Reativar"}</button><button type="button" class="lnk perigo" data-vexcluir="${v.id}">Excluir</button></span></div>`).join("")}</div>` : ""}
       </div>
-      ${p ? `<div class="caixa"><h4>Nova peça especial</h4><div class="mut">Peça única (bordada, pintura artística…) com preço e código de barras próprios. Pode repetir cor e tamanho de outra variação. Preço vazio = preço do produto.</div>
-        <div class="campo grade2"><div><label>Cor</label><input data-e="cor" value="${esc(esp.cor)}"></div><div><label>Tamanho</label><input data-e="tamanho" value="${esc(esp.tamanho)}"></div></div>
+      ${p ? `<div class="caixa"><h4>Nova peça especial</h4><div class="mut">Peça única (bordada, pintura artística…) com preço e código de barras próprios. Pode repetir cor e tamanho de outra variação. Várias cores e tamanhos separados por vírgula: cada cor × tamanho vira uma peça especial, todas com o mesmo preço (depois dá para mudar em "Preço/edição"). Preço vazio = preço do produto.</div>
+        <div class="campo grade2"><div><label>Cores</label><input data-e="cor" value="${esc(esp.cor)}" placeholder="Ex.: Natural Bordado"></div><div><label>Tamanhos</label><input data-e="tamanho" value="${esc(esp.tamanho)}" placeholder="Ex.: PP, P, M, G, GG"></div></div>
         <div class="campo"><label>Edição</label><input data-e="edicao" value="${esc(esp.edicao)}" placeholder="Ex.: Bordada à mão"></div>
         <div class="campo grade2"><div><label>Preço de venda (R$)</label><input data-e="preco_venda" inputmode="decimal" value="${esc(esp.preco_venda)}"></div>${dono() ? `<div><label>Preço de custo (R$)</label><input data-e="preco_custo" inputmode="decimal" value="${esc(esp.preco_custo)}"></div>` : ""}</div>
-        <div class="acoes" style="margin-top:8px"><button type="button" class="bt" id="espadd">Acrescentar peça especial</button></div></div>` : ""}
+        <div class="acoes" style="margin-top:8px"><button type="button" class="bt" id="espadd">Acrescentar peça(s) especial(is)</button></div></div>` : ""}
       ${erro ? `<div class="msg err">${esc(erro)}</div>` : ""}${ok ? `<div class="msg ok">${esc(ok)}</div>` : ""}
       <div class="acoes"><button type="button" class="bt" id="pfx">Fechar</button><button type="button" class="bt pri" id="pfs">Salvar produto</button></div>
       ${p ? '<div class="mut" style="margin-top:8px">Para lançar as quantidades: aba Estoque, desligue “Ocultar zerados” e clique no quadrado vermelho da variação (Entrada).</div>' : ""}`;
     $("pfx").onclick = () => $("dlg").close();
     $("pfs").onclick = salvar;
-    const acao = async (fn, okmsg) => { ler(); try { await fn(); await recarregar(); desenhar(null, okmsg); } catch (e) { desenhar(e.message); } };
+    const acao = async (fn, okmsg) => { ler(); try { await fn(); await recarregar(); desenhar(null, typeof okmsg === "function" ? (nEsp === 1 ? "Peça especial acrescentada." : `${nEsp} peças especiais acrescentadas.`) : okmsg); }
+      catch (e) { await recarregar(); desenhar(e.message + (nEsp ? ` (${nEsp} já tinham sido criadas antes do erro)` : "")); } };
     f.querySelectorAll("[data-veditar]").forEach(b => b.onclick = () => { ler(); editando = b.dataset.veditar; desenhar(); });
     f.querySelectorAll("[data-vcancel]").forEach(b => b.onclick = () => { ler(); editando = null; desenhar(); });
     f.querySelectorAll("[data-vsalvar]").forEach(b => b.onclick = () => {
@@ -488,10 +564,21 @@ function editarProduto(pid) {
       if (!confirm(`Excluir ${nomeVar(v)} definitivamente?`)) return;
       acao(async () => checar(await sb.rpc("lin_variante_excluir", { p_variante: v.id })), "Cor/tamanho excluída.");
     });
-    if ($("espadd")) $("espadd").onclick = () => acao(async () => {
-      checar(await sb.rpc("lin_variante_salvar", { p: { produto_id: p.id, cor: esp.cor, tamanho: esp.tamanho, edicao: esp.edicao, preco_venda: numBR(esp.preco_venda), preco_custo: numBR(esp.preco_custo) } }));
-      esp = { cor: "", tamanho: "", edicao: "", preco_venda: "", preco_custo: "" };
-    }, "Peça especial acrescentada.");
+    // cores e tamanhos separados por vírgula: uma peça especial por cor × tamanho, com o mesmo preço e a mesma edição
+    let nEsp = 0;
+    if ($("espadd")) $("espadd").onclick = () => { ler();
+      const cs = listaV(esp.cor), ts = listaV(esp.tamanho);
+      if (!cs.length || !ts.length) return desenhar("Informe a cor e o tamanho da peça especial.");
+      if (cs.length * ts.length > 1 && !confirm(`Criar ${cs.length * ts.length} peças especiais (${cs.join(", ")} × ${ts.join(", ")}), cada uma com código de barras próprio e o mesmo preço?`)) return;
+      acao(async () => {
+        nEsp = 0;
+        for (const cor of cs) for (const tamanho of ts) {
+          checar(await sb.rpc("lin_variante_salvar", { p: { produto_id: p.id, cor, tamanho, edicao: esp.edicao, preco_venda: numBR(esp.preco_venda), preco_custo: dono() ? numBR(esp.preco_custo) : "" } }));
+          nEsp++;
+        }
+        esp = { cor: "", tamanho: "", edicao: "", preco_venda: "", preco_custo: "" };
+      }, nEsp => nEsp);
+    };
   };
   const recarregar = async () => { await carregarProdutos(); if (p) p = PRODS.find(x => x.id === p.id); carregar().catch(() => {}); };
   const salvar = async () => {

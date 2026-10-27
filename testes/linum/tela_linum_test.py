@@ -229,6 +229,12 @@ try:
         pg.click("#espadd"); pg.wait_for_timeout(800)
         ok("Peça especial acrescentada" in pg.text_content("#dlgf") and psql("select preco_venda || ' ' || (codigo_barras like '%0000237') from lin_variantes where edicao = 'Bordada' and cor = 'Areia'", saida=True) == "1590.00 true",
            "peça especial com preço e código próprios")
+        # várias cores e tamanhos de uma vez (pedido do Marco: a A34 virou um registro só com "PP, P, M, G, GG")
+        pg.fill('#dlgf [data-e="cor"]', "Natural Bordado"); pg.fill('#dlgf [data-e="tamanho"]', "PP, P, M"); pg.fill('#dlgf [data-e="edicao"]', "Bordada a mão"); pg.fill('#dlgf [data-e="preco_venda"]', "999,00")
+        pg.click("#espadd"); pg.wait_for_timeout(1500)   # o confirm é aceito pelo pg.on("dialog") do teste
+        ok("3 peças especiais acrescentadas" in pg.text_content("#dlgf")
+           and psql("select string_agg(tamanho || '=' || preco_venda, ',' order by tamanho) || ' ' || count(distinct codigo_barras) from lin_variantes where edicao = 'Bordada a mão'", saida=True) == "M=999.00,P=999.00,PP=999.00 3",
+           "peça especial com vários tamanhos: uma por tamanho, mesmo preço, códigos próprios")
         vid = psql("select id from lin_variantes v where cor = 'Preto' and tamanho = 'P' and produto_id = (select id from lin_produtos where referencia = 'SAI-DUN')", saida=True)
         pg.click(f'[data-vativo="{vid}"]'); pg.wait_for_timeout(700)
         ok(psql(f"select ativo from lin_variantes where id = '{vid}'", saida=True) == "f" and "inativa" in pg.text_content("#dlgf"), "desativar variação")
@@ -740,6 +746,46 @@ try:
         ok("42 un." in pg.text_content("#lista"), "ao voltar para a janela, o estoque é recarregado sozinho")
         psql(f"update lin_estoque set quantidade = {antes} where variante_id = '{V_AZUL_P}' and loja_id = (select id from lin_lojas where nome = 'Gávea')")
 
+        # ---------------------------------------------------------------- horário de trabalho (2.9)
+        pg, erros = entrar(b, "dono"); abrir(pg)
+        pg.click("#abaHorarios"); pg.wait_for_selector("text=Horário de trabalho")
+        ok("sem restrição" in pg.text_content("#tela") and pg.locator('tr:has-text("Vera Vendedora") [data-hor]').count() == 1, "Horários: Dono vê a equipe, sem restrição por padrão")
+        pg.click('tr:has-text("Vera Vendedora") [data-hor]'); pg.wait_for_selector("#dlg[open] #hlivre")
+        pg.uncheck("#hlivre")
+        for k in "12345": pg.check(f'.hdia[data-k="{k}"]')
+        pg.fill('.hini[data-k="1"]', "10:00"); pg.fill('.hfim[data-k="1"]', "19:00"); pg.click("#hcopia")
+        ok(pg.input_value('.hfim[data-k="5"]') == "19:00", "copiar o horário de segunda para os dias marcados")
+        pg.click("#hok"); pg.wait_for_timeout(800)
+        ok("Segunda a Sexta 10:00–19:00" in pg.text_content("#tela"), "horário salvo e mostrado em resumo (Segunda a Sexta)")
+        # deixa a vendedora sem nenhum dia: fora do horário agora
+        pg.click('tr:has-text("Vera Vendedora") [data-hor]'); pg.wait_for_selector("#dlg[open] #hlivre")
+        for k in "12345": pg.uncheck(f'.hdia[data-k="{k}"]')
+        pg.click("#hok"); pg.wait_for_timeout(800)
+        ok("fora do horário" in pg.text_content("#tela"), "Dono vê a vendedora fora do horário")
+        ok(not erros, "sem erros de JavaScript (Horários do Dono)")
+        pg2, erros2 = entrar(b, "vendedora"); abrir(pg2)
+        ok("Fora do seu horário" in pg2.text_content("#aviso") and not pg2.is_visible("#app"), "vendedora fora do horário não abre o app")
+        pg2.screenshot(path=os.path.join(SAIDA, "linum_fora_do_horario.png"), full_page=True)
+        ok(psql("select count(*) from auditoria where acao = 'linum_fora_do_horario'", saida=True) == "1", "tentativa fora do horário na auditoria")
+        # liberação extra pelo Dono
+        pg.click('tr:has-text("Vera Vendedora") [data-hor]'); pg.wait_for_selector("#dlg[open] #hextra")
+        pg.fill("#hextra", pg.evaluate("new Date(Date.now() + 2*3600e3 - new Date().getTimezoneOffset()*60000).toISOString().slice(0,16)"))
+        pg.click("#hok"); pg.wait_for_timeout(800)
+        ok("liberação extra até" in pg.text_content("#tela") and "pode abrir" in pg.text_content('tr:has-text("Vera Vendedora")'), "liberação extra registrada")
+        pg2, erros2 = entrar(b, "vendedora"); abrir(pg2)
+        ok(pg2.is_visible("#app"), "com a liberação extra a vendedora abre o app")
+        # o horário acaba com o app aberto: a tela fecha sozinha
+        psql("update lin_membros set horario_extra_ate = null where user_id = '00000000-0000-0000-0000-0000000000b1'")
+        pg2.evaluate("ULTIMA_CARGA = 0; document.dispatchEvent(new Event('visibilitychange'))"); pg2.wait_for_timeout(800)
+        ok("Fora do seu horário" in pg2.text_content("#aviso") and not pg2.is_visible("#app"), "horário acabou com o app aberto: a tela fecha")
+        ok(not erros2, "sem erros de JavaScript (vendedora fora do horário)")
+        pg.click('tr:has-text("Vera Vendedora") [data-hor]'); pg.wait_for_selector("#dlg[open] #hlivre")
+        pg.check("#hlivre"); pg.click("#hok"); pg.wait_for_timeout(800)
+        ok(psql("select horario is null from lin_membros where user_id = '00000000-0000-0000-0000-0000000000b1'", saida=True) == "t"
+           and psql("select count(*) from auditoria where acao = 'linum_horario_alterado'", saida=True) == "4", "volta a sem restrição; cada mudança na auditoria")
+        pg2, erros2 = entrar(b, "vendedora"); abrir(pg2)
+        ok(pg2.is_visible("#app") and not pg2.is_visible("#abaHorarios"), "sem restrição a vendedora entra; ela não vê a aba Horários")
+
         # ---------------------------------------------------------------- celular, iframe, ajuda e quem não tem acesso
         pg, erros = entrar(b, "vendedora", largura=390); abrir(pg)
         ok(pg.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), "celular sem rolagem lateral")
@@ -753,7 +799,7 @@ try:
             abrir_ajuda = pg.goto(f"http://127.0.0.1:{PORTA_SITE}/apps/linum/ajuda/{pagina}.html")
             ok(abrir_ajuda.ok and "Sistema Linum" in pg.title() and pg.locator('script[src="/marca-dagua.js"][data-tipo="doc"]').count() == 1, f"ajuda: {pagina} com marca d'água")
         pg.goto(f"http://127.0.0.1:{PORTA_SITE}/ajuda/novidades.html?app=linum&nome=Sistema%20Linum"); pg.wait_for_timeout(400)
-        ok("2.8" in pg.text_content("body"), "novidades do app (versão 2.8)")
+        ok("2.9" in pg.text_content("body"), "novidades do app (versão 2.9)")
         ok(psql("select mapa_url from apps where id = 'linum'", saida=True) == "/apps/linum/ajuda/mapa.html", "botão Mapa ligado no cadastro do app")
         b.close()
     print("TODOS OS TESTES DE TELA DO SISTEMA LINUM OK")
