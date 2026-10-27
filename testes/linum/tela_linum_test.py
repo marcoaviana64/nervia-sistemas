@@ -267,6 +267,18 @@ try:
         ok("não pode ser excluída" in pg.text_content("#msg"), "peça com movimentação não se exclui")
         pg.click('.barra [data-v="estoque"]'); pg.click("#fzero"); pg.fill("#fq", "duna"); pg.wait_for_timeout(300)
         ok(any("Saia Duna @ Gávea" in x and "Areia M · Bordada=0 un." in x for x in chips(pg)), "produto novo aparece no estoque para lançar as quantidades")
+        # 2.15: produto sem referência = provisória NOVA-…, com filtro no Estoque e em Produtos
+        pg.click("#abaProdutos"); pg.wait_for_selector("#plista"); pg.click("#pnovo"); pg.wait_for_selector("#dlg[open]")
+        ok("provisória" in (pg.get_attribute("#pf_referencia", "placeholder") or ""), "referência vazia explicada no campo")
+        pg.fill("#pf_descricao", "Blusa Sem Ref"); pg.fill("#nv_c", "Cru"); pg.fill("#nv_t", "M"); pg.click("#pfs"); pg.wait_for_timeout(900)
+        ok("Referência provisória NOVA-" in pg.text_content("#dlgf .msg.ok"), "produto sem referência recebe a provisória")
+        pg.click("#pfx"); pg.wait_for_timeout(300); pg.click("#pprov"); pg.wait_for_timeout(200)
+        ok(pg.locator("#plista .prod").count() == 1 and "ref. provisória" in pg.text_content("#plista"), "filtro Referência provisória em Produtos")
+        pg.click("#pprov"); pg.click('.barra [data-v="estoque"]'); pg.fill("#fq", ""); pg.click("#fprov"); pg.wait_for_timeout(300)
+        ok(pg.locator("#lista .prod").count() == 1 and "Blusa Sem Ref" in pg.text_content("#lista") and "provisória" in pg.text_content("#lista"), "filtro Referência provisória no Estoque")
+        pg.click("#fprov"); pg.wait_for_timeout(200)
+        psql("delete from lin_estoque where variante_id in (select v.id from lin_variantes v join lin_produtos p on p.id = v.produto_id where p.descricao = 'Blusa Sem Ref'); "
+             "delete from lin_variantes where produto_id in (select id from lin_produtos where descricao = 'Blusa Sem Ref'); delete from lin_produtos where descricao = 'Blusa Sem Ref'")
         ok(not erros, "sem erros de JavaScript (produtos)")
 
         # ---------------------------------------------------------------- papel Estoque: cadastra e movimenta, sem custo
@@ -831,7 +843,7 @@ try:
             abrir_ajuda = pg.goto(f"http://127.0.0.1:{PORTA_SITE}/apps/linum/ajuda/{pagina}.html")
             ok(abrir_ajuda.ok and "Sistema Linum" in pg.title() and pg.locator('script[src="/marca-dagua.js"][data-tipo="doc"]').count() == 1, f"ajuda: {pagina} com marca d'água")
         pg.goto(f"http://127.0.0.1:{PORTA_SITE}/ajuda/novidades.html?app=linum&nome=Sistema%20Linum"); pg.wait_for_timeout(400)
-        ok("2.14" in pg.text_content("body"), "novidades do app (versão 2.14)")
+        ok("2.15" in pg.text_content("body"), "novidades do app (versão 2.15)")
         ok(psql("select mapa_url from apps where id = 'linum'", saida=True) == "/apps/linum/ajuda/mapa.html", "botão Mapa ligado no cadastro do app")
         b.close()
     print("TODOS OS TESTES DE TELA DO SISTEMA LINUM OK")

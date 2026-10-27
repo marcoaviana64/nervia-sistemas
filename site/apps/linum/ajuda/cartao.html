@@ -28,6 +28,7 @@
   <h2>Filtros</h2>
   <table>
     <tr><td>Buscar por nome ou referência</td><td>Mostra só os produtos que têm o texto no nome ou na referência.</td></tr>
+    <tr><td>Referência provisória</td><td>Só as peças com referência provisória (NOVA-…); a etiqueta “provisória” aparece ao lado da Ref.</td></tr>
     <tr><td>Todas as lojas</td><td>Escolha uma loja para ver só as peças dela.</td></tr>
     <tr><td>Categoria · Cor · Tamanho</td><td>Mostra só os produtos e as variações daquela categoria, cor ou tamanho.</td></tr>
     <tr><td>Ocultar zerados: ativo / inativo</td><td>Ativo (padrão): esconde as variações sem peça na loja. Inativo: mostra todas, as zeradas em vermelho.</td></tr>
@@ -60,8 +61,9 @@
   <h2>Produtos <span class="eq">DONO · ESTOQUE</span></h2>
   <table>
     <tr><td>Buscar · Categoria · Cor · Tamanho · Fornecedor</td><td>Filtra a lista; a busca acha nome, referência ou código de barras.</td></tr>
+    <tr><td>Referência provisória</td><td>Mostra só as peças com referência NOVA-… (cadastradas sem saber a referência), para trocar pela correta.</td></tr>
     <tr><td>+ Novo produto</td><td>Abre o cadastro de uma peça nova.</td></tr>
-    <tr><td>Código / Referência · Descrição</td><td>Obrigatórios. A referência não pode repetir.</td></tr>
+    <tr><td>Código / Referência · Descrição</td><td>Descrição obrigatória. Referência não pode repetir; vazia no produto novo = provisória NOVA-ano-nº (troque depois em Editar peça).</td></tr>
     <tr><td>Categoria · Coleção · Fornecedor · Tecido</td><td>Opcionais; viram filtros.</td></tr>
     <tr><td>Preço de custo · Preço de venda</td><td>Em reais, com vírgula (ex.: 1.299,90). O custo só o Dono vê e altera (para o Estoque o campo nem aparece).</td></tr>
     <tr><td>Consumo previsto de tecido</td><td>Metros por peça (ex.: 1,5).</td></tr>
@@ -213,7 +215,7 @@
     <tr><td>Permissões</td><td>Somam ao papel: Produção (rolos, fichas e etapas) e Valores da produção (valor do linho, preço por peça, custo). O Dono tem as duas.</td></tr>
     <tr><td>Salvar</td><td>Grava o papel e as permissões. Fica na auditoria.</td></tr>
   </table>
-  <div class="rodape">Nervia Tecnologia · Cartão de referência do app Sistema Linum · atualizado em 25/10/2026</div>
+  <div class="rodape">Nervia Tecnologia · Cartão de referência do app Sistema Linum · atualizado em 27/10/2026</div>
 </div>
 <script src="/marca-dagua.js" data-tipo="doc"></script>
 </body>

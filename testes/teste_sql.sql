@@ -1960,5 +1960,21 @@ select pg_temp.erro2($$select lin_copia_fazer('x')$$, 'permission denied', 'linu
 select pg_temp.erro2($$select count(*) from copias.lin_dados$$, 'permission denied', 'linum cópia: login não lê as cópias');
 reset role;
 
+-- ---------------------------------------------------------------- linum 2.15: referência provisória no cadastro de produto
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+create temp table lin_rp as select lin_produto_salvar('{"descricao":"Blusa sem referência"}') id;
+select pg_temp.ok((select referencia ~ ('^NOVA-' || to_char(now() at time zone 'America/Sao_Paulo', 'YYYY') || '-002$') from lin_produtos where id = (select id from lin_rp)),
+  'linum 2.15: produto novo sem referência recebe a provisória (continua a numeração da peça nova da Produção)');
+select lin_produto_salvar('{"descricao":"Outra sem referência","referencia":"  "}');
+select pg_temp.ok((select referencia like 'NOVA-____-003' from lin_produtos where descricao = 'Outra sem referência'), 'linum 2.15: a seguinte pega o próximo número');
+select pg_temp.erro2($$select lin_produto_salvar(jsonb_build_object('id', (select id from lin_rp), 'descricao', 'Blusa sem referência'))$$,
+  'Informe o código', 'linum 2.15: na edição a referência continua obrigatória');
+select lin_produto_salvar(jsonb_build_object('id', (select id from lin_rp), 'referencia', 'B99', 'descricao', 'Blusa sem referência'));
+reset role;
+select pg_temp.ok((select referencia = 'B99' and codigo_barras is not null from lin_produtos where id = (select id from lin_rp))
+  and (select count(*) = 2 from auditoria where acao = 'linum_produto_criado' and (detalhes->>'referencia_provisoria')::boolean),
+  'linum 2.15: troca pela referência correta mantém o código de barras; auditoria marca a provisória');
+
 reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'
