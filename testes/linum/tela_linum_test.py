@@ -227,6 +227,7 @@ try:
         pg.click("#pnovo"); pg.wait_for_selector("#dlg[open]")
         for k, v in {"referencia": "SAI-DUN", "descricao": "Saia Duna", "categoria": "Saia", "fornecedor": "Ateliê Fictício", "preco_custo": "80,50", "preco_venda": "1.299,90"}.items():
             pg.fill(f"#pf_{k}", v)
+        ok(pg.input_value("#nv_t") == "PP, P, M, G, GG, G1, G2", "cadastro já vem com a grade de tamanhos da Linum")
         pg.fill("#nv_c", "Areia, Preto"); pg.fill("#nv_t", "P, M"); pg.click("#pfs"); pg.wait_for_timeout(900)
         ok("Produto cadastrado; 4 variação(ões) nova(s)." in pg.text_content("#dlgf .msg.ok"), "novo produto com cores × tamanhos")
         ok(psql("select preco_venda || ' ' || preco_custo || ' ' || codigo_barras from lin_produtos where referencia = 'SAI-DUN'", saida=True).endswith("0000236")
@@ -639,8 +640,8 @@ try:
         pg.fill("#nfq", "Vestido Lua"); pg.wait_for_timeout(150)
         ok("+ Peça nova" in pg.text_content("#nfres"), "ficha: peça não encontrada sugere + Peça nova")
         pg.click("#nfpnova"); pg.wait_for_selector("#dlg2[open] #pnok")
-        ok(pg.input_value("#pnnome") == "Vestido Lua" and pg.input_value("#pntams") == "P, M, G", "peça nova já vem com o nome digitado e P, M, G")
-        pg.fill("#pncores", "Cru, Areia"); pg.fill("#pnmet", "2,2"); pg.fill("#pncat", "Vestido"); pg.click("#pnok"); pg.wait_for_timeout(1000)
+        ok(pg.input_value("#pnnome") == "Vestido Lua" and pg.input_value("#pntams") == "PP, P, M, G, GG, G1, G2", "peça nova já vem com o nome digitado e a grade da Linum")
+        pg.fill("#pntams", "P, M, G"); pg.fill("#pncores", "Cru, Areia"); pg.fill("#pnmet", "2,2"); pg.fill("#pncat", "Vestido"); pg.click("#pnok"); pg.wait_for_timeout(1000)
         ref = psql("select referencia from lin_produtos where descricao = 'Vestido Lua'", saida=True)
         ok(ref.startswith("NOVA-") and pg.locator("#nfres [data-v]").count() == 6 and "criada" in pg.text_content("#nferr")
            and psql("select consumo_metros || ' ' || preco_venda from lin_produtos where descricao = 'Vestido Lua'", saida=True) == "2.2 0",
@@ -816,7 +817,7 @@ try:
             abrir_ajuda = pg.goto(f"http://127.0.0.1:{PORTA_SITE}/apps/linum/ajuda/{pagina}.html")
             ok(abrir_ajuda.ok and "Sistema Linum" in pg.title() and pg.locator('script[src="/marca-dagua.js"][data-tipo="doc"]').count() == 1, f"ajuda: {pagina} com marca d'água")
         pg.goto(f"http://127.0.0.1:{PORTA_SITE}/ajuda/novidades.html?app=linum&nome=Sistema%20Linum"); pg.wait_for_timeout(400)
-        ok("2.11" in pg.text_content("body"), "novidades do app (versão 2.11)")
+        ok("2.13" in pg.text_content("body"), "novidades do app (versão 2.13)")
         ok(psql("select mapa_url from apps where id = 'linum'", saida=True) == "/apps/linum/ajuda/mapa.html", "botão Mapa ligado no cadastro do app")
         b.close()
     print("TODOS OS TESTES DE TELA DO SISTEMA LINUM OK")

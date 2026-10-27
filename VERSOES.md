@@ -65,6 +65,7 @@ Ao publicar mudança num app: linha nova no topo do app aqui (com a data) e em `
 
 | Versão | Data | O que mudou |
 |---|---|---|
+| 2.13 | 27/10/2026 | Cadastro mais rápido: o campo Tamanhos já vem com a grade da Linum (PP, P, M, G, GG, G1, G2); é só apagar os que a peça não tem e digitar as cores. Vale também para a peça nova e as cores e tamanhos da ficha de produção. G1 e G2 aparecem depois do GG no estoque. |
 | 2.12 | 27/10/2026 | No Estoque, cada peça aparece num cartão só, com as lojas separadas por uma linha tracejada discreta (antes era um cartão por loja). |
 | 2.11 | 27/10/2026 | Correção de cor e tamanho: em Produtos, o botão Editar de cada cor/tamanho deixa corrigir a cor e o tamanho digitados errado (além do preço e da edição), sem perder o histórico de estoque; tudo fica no registro de auditoria. Peças especiais marcadas com uma estrela dourada no Estoque e em Produtos (e no nome da peça que tem alguma especial). |
 | 2.10 | 27/10/2026 | Peça especial com várias cores e tamanhos de uma vez: separe por vírgula (ex.: PP, P, M, G, GG) e cada cor × tamanho vira uma peça especial com o mesmo preço e código de barras próprio; o preço de cada uma pode ser mudado depois. |
