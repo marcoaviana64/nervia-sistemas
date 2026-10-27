@@ -45,6 +45,7 @@ window.NERVIA_VERSOES = {
     ["1.0", "Lançamento: contas e licenças de cada unidade, mudanças entre exportações e licenças pagas sem uso."],
   ],
   "linum": [
+    ["2.11", "Correção de cor e tamanho: em Produtos, o botão Editar de cada cor/tamanho deixa corrigir a cor e o tamanho digitados errado (além do preço e da edição), sem perder o histórico de estoque; tudo fica no registro de auditoria."],
     ["2.10", "Peça especial com várias cores e tamanhos de uma vez: separe por vírgula (ex.: PP, P, M, G, GG) e cada cor × tamanho vira uma peça especial com o mesmo preço e código de barras próprio; o preço de cada uma pode ser mudado depois."],
     ["2.9", "Horário de trabalho: cada pessoa da equipe só abre o sistema no horário dela (dias da semana, entrada e saída), de qualquer aparelho; abre 15 minutos antes e fecha 15 minutos depois. O Dono define na aba Horários e pode dar uma liberação extra (hora extra, inventário, evento). Fora do horário nada abre, e a tentativa fica registrada."],
     ["2.8", "Ajustes da peça vendida (bainha, apertar lateral ou cava…): na venda, \"Ajuste\" na peça escolhe a costureira, o que fazer, a data de volta (10 dias úteis depois da compra) e o valor. A aba Ajustes mostra o que está com a costureira, os atrasados e os prontos, com WhatsApp para a costureira e para avisar a cliente. Observações para a costureira e ficha de ajuste para imprimir ou salvar em PDF (uma peça ou todas as de uma costureira)."],

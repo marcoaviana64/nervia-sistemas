@@ -1105,6 +1105,22 @@ select lin_variante_salvar(jsonb_build_object('id', (select id from lin_variante
   'edicao', 'Pintada', 'preco_venda', '', 'preco_custo', '95'));
 select pg_temp.ok((select edicao = 'Pintada' and preco_venda is null and preco_custo = 95 and codigo_barras like '%0000238' from lin_variantes where cor = 'Preto' and tamanho = 'P'),
   'linum produtos: variação que vira peça especial ganha código próprio');
+-- 2.11: corrigir cor e tamanho (a peça especial com estoque continua com o histórico)
+select lin_movimentar((select v from lin_p where k = 'esp'), (select v from lin_ids where k = 'gav'), 'entrada', 2);
+select lin_variante_salvar(jsonb_build_object('id', (select v from lin_p where k = 'esp'), 'cor', 'Areia Clara', 'tamanho', 'G', 'edicao', 'Bordada', 'preco_venda', '450'));
+select pg_temp.ok((select cor = 'Areia Clara' and tamanho = 'G' and codigo_barras like '%0000237' from lin_variantes where id = (select v from lin_p where k = 'esp')::uuid)
+  and (select quantidade = 2 from lin_estoque where variante_id = (select v from lin_p where k = 'esp')::uuid),
+  'linum 2.11: cor e tamanho corrigidos, mesmo código de barras e estoque');
+select pg_temp.erro2($$select lin_variante_salvar(jsonb_build_object('id', (select v from lin_p where k = 'esp'), 'tamanho', 'P, M', 'edicao', 'Bordada'))$$, 'sem vírgula', 'linum 2.11: tamanho com vírgula recusado');
+select pg_temp.erro2($$select lin_variante_salvar(jsonb_build_object('id', (select v from lin_p where k = 'esp'), 'cor', 'Preto', 'tamanho', 'P', 'edicao', 'Pintada'))$$, 'Já existe Preto P Pintada', 'linum 2.11: não vira outra variação que já existe');
+select pg_temp.erro2($$select lin_variante_salvar(jsonb_build_object('id', (select v from lin_p where k = 'esp'), 'cor', '', 'edicao', 'Bordada'))$$, 'Informe a cor', 'linum 2.11: cor vazia recusada');
+select pg_temp.erro2($$select lin_variante_salvar(jsonb_build_object('produto_id', (select v from lin_p where k = 'saia'), 'cor', 'Natural', 'tamanho', 'PP, P, M, G, GG', 'edicao', 'Bordada'))$$, 'sem vírgula', 'linum 2.11: peça especial nova com vírgula recusada');
+reset role;
+select pg_temp.ok((select detalhes->'antes' = '{"cor":"Areia","tamanho":"M"}' and detalhes->'depois' = '{"cor":"Areia Clara","tamanho":"G"}'
+   from auditoria where acao = 'linum_variante_alterada' order by id desc limit 1), 'linum 2.11: auditoria só com a cor e o tamanho (antes e depois)');
+set role authenticated;
+select lin_variante_salvar(jsonb_build_object('id', (select v from lin_p where k = 'esp'), 'cor', 'Areia', 'tamanho', 'M', 'edicao', 'Bordada', 'preco_venda', '450'));
+select lin_movimentar((select v from lin_p where k = 'esp'), (select v from lin_ids where k = 'gav'), 'saida', 2);
 -- excluir / desativar
 select lin_movimentar((select v from lin_p where k = 'esp'), (select v from lin_ids where k = 'gav'), 'entrada', 1);
 select pg_temp.erro2($$select lin_variante_excluir((select v from lin_p where k = 'esp'))$$, 'Desative em vez de excluir', 'linum produtos: variação com movimentação não se exclui');

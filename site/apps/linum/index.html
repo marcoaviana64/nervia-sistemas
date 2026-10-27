@@ -529,15 +529,16 @@ function editarProduto(pid) {
         <div class="campo grade2"><div><label for="nv_c">Cores</label><input id="nv_c" data-n="cores" value="${esc(novas.cores)}" placeholder="Ex.: Areia, Preto"></div>
           <div><label for="nv_t">Tamanhos</label><input id="nv_t" data-n="tamanhos" value="${esc(novas.tamanhos)}" placeholder="Ex.: P, M, G"></div></div>
         ${vs.length ? `<div class="campo">${vs.map(v => editando === v.id
-          ? `<div class="vlin"><b>${esc(v.cor)} · ${esc(v.tamanho)}</b>
+          ? `<div class="vlin"><span><label>Cor</label><input data-x="cor" value="${esc(v.cor)}"></span>
+              <span><label>Tamanho</label><input data-x="tamanho" value="${esc(v.tamanho)}" style="max-width:90px"></span>
               <span><label>Edição</label><input data-x="edicao" value="${esc(v.edicao)}" placeholder="peça comum"></span>
               <span><label>Venda (R$)</label><input data-x="preco_venda" inputmode="decimal" value="${esc(moeda(v.preco_venda))}" placeholder="do produto"></span>
               ${dono() ? `<span><label>Custo (R$)</label><input data-x="preco_custo" inputmode="decimal" value="${esc(moeda(v.preco_custo))}" placeholder="do produto"></span>` : ""}
               <span class="acs"><button type="button" class="lnk" data-vsalvar="${v.id}">Salvar</button><button type="button" class="lnk" data-vcancel="1">Cancelar</button></span></div>`
           : `<div class="vlin"><span>${esc(nomeVar(v))}${v.preco_venda != null ? " · " + brl(v.preco_venda) : ""}${v.codigo_barras ? ` <span class="mut">cód. ${esc(v.codigo_barras)}</span>` : ""}${v.ativo ? "" : '<span class="tag">inativa</span>'}</span>
-              <span class="acs"><button type="button" class="lnk" data-veditar="${v.id}">Preço/edição</button><button type="button" class="lnk" data-vativo="${v.id}">${v.ativo ? "Desativar" : "Reativar"}</button><button type="button" class="lnk perigo" data-vexcluir="${v.id}">Excluir</button></span></div>`).join("")}</div>` : ""}
+              <span class="acs"><button type="button" class="lnk" data-veditar="${v.id}" title="Corrigir cor, tamanho, edição ou preço">Editar</button><button type="button" class="lnk" data-vativo="${v.id}">${v.ativo ? "Desativar" : "Reativar"}</button><button type="button" class="lnk perigo" data-vexcluir="${v.id}">Excluir</button></span></div>`).join("")}</div>` : ""}
       </div>
-      ${p ? `<div class="caixa"><h4>Nova peça especial</h4><div class="mut">Peça única (bordada, pintura artística…) com preço e código de barras próprios. Pode repetir cor e tamanho de outra variação. Várias cores e tamanhos separados por vírgula: cada cor × tamanho vira uma peça especial, todas com o mesmo preço (depois dá para mudar em "Preço/edição"). Preço vazio = preço do produto.</div>
+      ${p ? `<div class="caixa"><h4>Nova peça especial</h4><div class="mut">Peça única (bordada, pintura artística…) com preço e código de barras próprios. Pode repetir cor e tamanho de outra variação. Várias cores e tamanhos separados por vírgula: cada cor × tamanho vira uma peça especial, todas com o mesmo preço (depois dá para mudar em "Editar"). Preço vazio = preço do produto.</div>
         <div class="campo grade2"><div><label>Cores</label><input data-e="cor" value="${esc(esp.cor)}" placeholder="Ex.: Natural Bordado"></div><div><label>Tamanhos</label><input data-e="tamanho" value="${esc(esp.tamanho)}" placeholder="Ex.: PP, P, M, G, GG"></div></div>
         <div class="campo"><label>Edição</label><input data-e="edicao" value="${esc(esp.edicao)}" placeholder="Ex.: Bordada à mão"></div>
         <div class="campo grade2"><div><label>Preço de venda (R$)</label><input data-e="preco_venda" inputmode="decimal" value="${esc(esp.preco_venda)}"></div>${dono() ? `<div><label>Preço de custo (R$)</label><input data-e="preco_custo" inputmode="decimal" value="${esc(esp.preco_custo)}"></div>` : ""}</div>
@@ -553,7 +554,7 @@ function editarProduto(pid) {
     f.querySelectorAll("[data-vcancel]").forEach(b => b.onclick = () => { ler(); editando = null; desenhar(); });
     f.querySelectorAll("[data-vsalvar]").forEach(b => b.onclick = () => {
       const x = k => f.querySelector(`[data-x="${k}"]`).value;
-      acao(async () => { checar(await sb.rpc("lin_variante_salvar", { p: { id: b.dataset.vsalvar, edicao: x("edicao"), preco_venda: numBR(x("preco_venda")), preco_custo: dono() ? numBR(x("preco_custo")) : "" } })); editando = null; }, "Variação atualizada.");
+      acao(async () => { checar(await sb.rpc("lin_variante_salvar", { p: { id: b.dataset.vsalvar, cor: x("cor"), tamanho: x("tamanho"), edicao: x("edicao"), preco_venda: numBR(x("preco_venda")), preco_custo: dono() ? numBR(x("preco_custo")) : "" } })); editando = null; }, "Variação atualizada.");
     });
     f.querySelectorAll("[data-vativo]").forEach(b => b.onclick = () => {
       const v = VARS.find(x => x.id === b.dataset.vativo);
