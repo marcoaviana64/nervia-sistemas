@@ -1423,6 +1423,36 @@ set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
 select pg_temp.erro2($$select lin_cliente_credito((select v from lin_vd where k = 'cli')::uuid)$$, 'não tem acesso', 'linum crédito: login fora da Linum não vê');
 select pg_temp.ok((select count(*) = 0 from lin_creditos), 'linum crédito: login fora da Linum não lê o extrato');
 reset role;
+-- 2.8: ajustes da peça vendida (bainha, cava…) com a costureira
+select pg_temp.ok(_lin_dias_uteis('2026-10-23', 10) = '2026-11-06' and _lin_dias_uteis('2026-10-27', 1) = '2026-10-28', 'linum ajuste: 10 dias úteis a partir do dia seguinte (sexta 23/10 → 06/11)');
+create temp table lin_aj (k text primary key, v text); grant all on lin_aj to authenticated;
+insert into lin_aj select 'item', min(id)::text from lin_venda_itens where venda_id = (select v from lin_vd where k = 'v4')::bigint;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';   -- Estoque não fez a venda
+select pg_temp.erro2($$select lin_ajuste_registrar(jsonb_build_object('venda_item_id', (select v from lin_aj where k = 'item'), 'servico', 'bainha', 'costureira', 'Dona Rosa'))$$,
+  'Só quem fez a venda', 'linum ajuste: só quem vendeu (ou o Dono) manda para ajuste');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora da venda v4
+select pg_temp.erro2($$select lin_ajuste_registrar(jsonb_build_object('venda_item_id', (select v from lin_aj where k = 'item'), 'servico', 'bainha'))$$, 'Escolha a costureira', 'linum ajuste: exige a costureira');
+select pg_temp.erro2($$select lin_ajuste_registrar(jsonb_build_object('venda_item_id', (select v from lin_aj where k = 'item'), 'servico', 'bainha', 'costureira', 'Dona Rosa', 'quantidade', 9))$$, 'Quantidade', 'linum ajuste: no máximo o que foi comprado');
+insert into lin_aj select 'a1', lin_ajuste_registrar(jsonb_build_object('venda_item_id', (select v from lin_aj where k = 'item'), 'servico', 'Bainha 2 cm e apertar a cava',
+  'costureira', 'Dona Rosa', 'valor_costureira', '25'))::text;
+select pg_temp.ok((select situacao = 'na_costureira' and valor_costureira = 25 and costureira = 'Dona Rosa' and peca like '%CAL%'
+    and prazo = _lin_dias_uteis((select data from lin_vendas where id = (select v from lin_vd where k = 'v4')::bigint), 10) from lin_ajustes where id = (select v from lin_aj where k = 'a1')::bigint),
+  'linum ajuste: registrado com a costureira, valor e prazo padrão de 10 dias úteis');
+select pg_temp.ok(jsonb_typeof(lin_costureiras()) = 'array' and coalesce(not (lin_costureiras()->0 ? 'preco_peca'), true), 'linum ajuste: lista de costureiras sem preço por peça para quem vende');
+select pg_temp.erro2($$select lin_ajuste_andamento((select v from lin_aj where k = 'a1')::bigint, 'reabrir', 'x')$$, 'pronto na loja', 'linum ajuste: só reabre o que voltou');
+select lin_ajuste_andamento((select v from lin_aj where k = 'a1')::bigint, 'pronto');
+select lin_ajuste_andamento((select v from lin_aj where k = 'a1')::bigint, 'reabrir', 'bainha torta');
+select lin_ajuste_andamento((select v from lin_aj where k = 'a1')::bigint, 'pronto');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';   -- quem está na loja entrega
+select lin_ajuste_andamento((select v from lin_aj where k = 'a1')::bigint, 'entregue');
+select pg_temp.erro2($$select lin_ajuste_andamento((select v from lin_aj where k = 'a1')::bigint, 'cancelar', 'teste')$$, 'já foi encerrado', 'linum ajuste: entregue não se cancela');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
+select pg_temp.ok((select count(*) = 0 from lin_ajustes), 'linum ajuste: login fora da Linum não vê');
+reset role;
+select pg_temp.ok((select situacao = 'entregue' and entregue_nome <> '' and observacao like '%bainha torta%' from lin_ajustes where id = (select v from lin_aj where k = 'a1')::bigint)
+  and (select count(*) = 5 from auditoria where acao like 'linum_ajuste_%'),
+  'linum ajuste: pronto, voltou para a costureira, pronto e entregue, tudo na auditoria');
 reset role;
 set role anon;
 select pg_temp.erro2('select * from apps_vitrine()', 'permission', 'anônimo não vê a vitrine');

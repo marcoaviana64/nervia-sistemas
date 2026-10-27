@@ -65,6 +65,7 @@ Ao publicar mudança num app: linha nova no topo do app aqui (com a data) e em `
 
 | Versão | Data | O que mudou |
 |---|---|---|
+| 2.8 | 27/10/2026 | Ajustes da peça vendida (bainha, apertar lateral ou cava…): na venda, "Ajuste" na peça escolhe a costureira, o que fazer, a data de volta (10 dias úteis depois da compra) e o valor. A aba Ajustes mostra o que está com a costureira, os atrasados e os prontos, com WhatsApp para a costureira e para avisar a cliente. Observações para a costureira e ficha de ajuste para imprimir ou salvar em PDF (uma peça ou todas as de uma costureira). |
 | 2.7 | 27/10/2026 | Produção mais simples: só corte e costura têm remessa e conferência; depois da costura as peças já entram no estoque. Lavagem e passadoria viram caixas de marcação na ficha (opcional). |
 | 2.6 | 27/10/2026 | Ranking das vendedoras sem a nota da Dona: a nota final passa a ser a média de três critérios (vendas, cliente na venda e acompanhamento). |
 | 2.5 | 27/10/2026 | Peça nova direto na ficha de produção: "+ Peça nova" cria a peça que ainda não está no cadastro (nome, referência ou automática, metros por peça, cores e tamanhos), com estoque zero até a produção entregar; preço e outros dados podem ficar para depois. E "+ cores e tamanhos" acrescenta cores ou tamanhos a uma peça já cadastrada. |
