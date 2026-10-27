@@ -107,16 +107,20 @@
     <li>Escreva o motivo. As peças voltam para o estoque da loja; a venda continua na lista, riscada, com quem cancelou, quando e por quê.</li>
   </ol>
 
-  <h2 id="troca">6a. Registrar uma troca</h2>
-  <p>É a opção "Troca" da boleta: a cliente devolve uma peça e leva outra.</p>
+  <h2 id="troca">6a. Troca, devolução e crédito da cliente</h2>
+  <p>Na troca, a peça devolvida sai da compra da cliente, volta ao estoque e o valor vira <b>crédito na conta da cliente</b>. A peça nova é uma <b>venda normal</b> que usa esse crédito: se a nova compra for maior, ela paga a diferença; se for menor, o saldo fica na conta para quando ela quiser.</p>
   <ol>
-    <li>Na aba <b>Vendas</b>, clique em <b>+ Troca</b>. Escolha a <b>loja da troca</b>: a peça devolvida entra no estoque dessa loja e a levada sai dela.</li>
-    <li><b>Peça que a cliente devolve</b>: em <b>Venda do sistema</b>, digite o número da venda (Nº na lista de vendas), clique em <b>Buscar venda</b> e em <b>Devolver</b> na peça. O valor é o que a cliente pagou, e cada peça só pode ser trocada uma vez. Se a compra foi antes do sistema, use <b>Compra antiga</b>: busque a peça e informe o valor.</li>
-    <li><b>Cliente</b>: vem da venda; na compra antiga, busque ou cadastre (opcional).</li>
-    <li><b>Peça que a cliente leva</b>: busque pela referência, nome ou código de barras (só aparecem peças com estoque na loja) e clique em <b>Levar</b>. Ajuste o valor se combinar outro preço.</li>
-    <li><b>Diferença</b>: se a peça levada vale mais, a cliente paga a diferença (escolha a forma e as parcelas); se vale menos, escolha como a loja devolve (dinheiro, Pix, estorno no cartão ou vale-troca).</li>
-    <li>Clique em <b>Registrar troca</b>. A troca aparece em <b>Trocas do período</b> (Nº T…). A comissão da venda original não muda.</li>
-    <li>Só o <b>Dono</b> cancela uma troca (clique nela → <b>Cancelar troca</b>, com motivo): a peça levada volta ao estoque e a devolvida sai de novo.</li>
+    <li>Na aba <b>Vendas</b>, clique em <b>+ Troca / devolução</b>. Escolha a <b>loja</b>: a peça devolvida volta ao estoque dessa loja.</li>
+    <li><b>Peça que a cliente devolve</b>: em <b>Venda do sistema</b>, digite o número da venda (Nº na lista de vendas), clique em <b>Buscar venda</b> e em <b>Devolver</b> na peça. O valor é o que a cliente pagou, e cada peça só pode ser devolvida uma vez. Se a compra foi antes do sistema, use <b>Compra antiga</b>: busque a peça e informe o valor.</li>
+    <li><b>Cliente</b>: vem da venda; na compra antiga, busque ou cadastre. Sem a cliente não há crédito.</li>
+    <li><b>O que fazer com o valor</b>: <b>Crédito na conta da cliente</b> (padrão) ou, se combinado, devolver em dinheiro, Pix ou estorno no cartão.</li>
+    <li>Clique em <b>Registrar devolução</b>. Ela aparece em <b>Trocas e devoluções do período</b> (Nº T…). A comissão da venda original não muda.</li>
+    <li>Se a cliente vai levar outra peça agora, clique em <b>Nova venda usando o crédito</b>: a venda abre com a cliente e o crédito marcado. Adicione as peças; o sistema mostra <b>A pagar agora</b> (total menos o crédito) e o <b>Valor da nota fiscal</b>. Escolha a forma de pagamento da diferença e registre.</li>
+    <li>Em qualquer venda, ao escolher uma cliente com saldo aparece <b>Usar o crédito da cliente</b>. Dá para usar só uma parte (escreva o valor). O que não for usado continua na conta.</li>
+    <li><b>Nota fiscal</b> (preparado para quando a Nervia emitir): a peça devolvida já teve nota na primeira compra, então a nota da nova venda é só do valor pago a mais (total − crédito). A boleta mostra esse valor.</li>
+    <li><b>Comissão</b>: na venda com crédito, a comissão é só sobre o valor pago a mais (o crédito veio de uma venda que já teve comissão).</li>
+    <li>Na aba <b>Clientes</b>, quem tem saldo aparece com a etiqueta <b>crédito R$ …</b>; na ficha, <b>Crédito na conta</b> mostra o saldo e o <b>extrato</b> (devoluções, uso em vendas, cancelamentos, ajustes). O <b>Dono</b> pode <b>Ajustar crédito</b> com motivo, por exemplo para lançar um vale-troca de papel.</li>
+    <li>Só o <b>Dono</b> cancela: <b>cancelar a devolução</b> tira o crédito da conta e a peça sai de novo do estoque (não dá se a cliente já usou o crédito: cancele antes a venda que usou); <b>cancelar a venda</b> que usou crédito devolve o crédito para a conta.</li>
   </ol>
 
   <h2 id="visita">6b. Registrar uma visita sem contato</h2>
@@ -156,7 +160,7 @@
     <li><b>Últimos 12 meses</b>: a comissão de cada pessoa mês a mês, para comparar.</li>
     <li><b>Baixar CSV</b> para a planilha do pagamento ou <b>Imprimir</b>.</li>
   </ol>
-  <p>A comissão de cada venda é o % que a pessoa tinha no dia da venda (aba Equipe) sobre o valor pago; mudar o % depois não muda as vendas antigas. Venda cancelada não entra; troca não muda a comissão.</p>
+  <p>A comissão de cada venda é o % que a pessoa tinha no dia da venda (aba Equipe) sobre o valor pago; mudar o % depois não muda as vendas antigas. Venda cancelada não entra; troca não muda a comissão; na venda com crédito da cliente, a comissão é só sobre o valor pago a mais.</p>
 
   <h2 id="ranking">7b. Ranking das vendedoras</h2>
   <p>Incentivo da equipe: a melhor vendedora do mês e do ano. Participa quem tem papel no app e não é Dono.</p>
@@ -234,7 +238,10 @@
     <tr><td>O histórico de contatos não pode ser alterado nem apagado</td><td>Registre um contato novo com a correção.</td></tr>
     <tr><td>Venda nº … não encontrada · A venda nº … foi cancelada</td><td>Confira o número na lista de vendas. Venda cancelada não tem troca; use Compra antiga se for o caso.</td></tr>
     <tr><td>… da venda nº … só restam N peça(s) para trocar</td><td>A peça já foi trocada antes. Confira em Trocas do período.</td></tr>
-    <tr><td>Informe como a diferença de R$ … volta para a cliente</td><td>Escolha dinheiro, Pix, estorno no cartão ou vale-troca.</td></tr>
+    <tr><td>Informe como a diferença de R$ … volta para a cliente</td><td>Escolha crédito na conta da cliente, dinheiro, Pix ou estorno no cartão.</td></tr>
+    <tr><td>Para gerar crédito, identifique a cliente · Para usar crédito, identifique a cliente na venda</td><td>Escolha ou cadastre a cliente; crédito sempre fica na conta de uma cliente.</td></tr>
+    <tr><td>A cliente tem R$ … de crédito: não dá para usar R$ …</td><td>O valor usado passou do saldo. Use até o saldo e pague o resto em outra forma.</td></tr>
+    <tr><td>Não dá para cancelar: a cliente já usou parte do crédito desta devolução</td><td>Cancele antes a venda que usou o crédito (o crédito volta) e depois a devolução.</td></tr>
     <tr><td>Telefone com DDD: 10 ou 11 dígitos</td><td>Digite o DDD e o número (ex.: 21 99999-0000).</td></tr>
     <tr><td>Informe a edição da peça especial</td><td>Peça especial precisa da edição (ex.: Bordada).</td></tr>
     <tr><td>Nenhum produto com esses filtros</td><td>Limpe a busca e os filtros ou desligue "Ocultar zerados".</td></tr>
