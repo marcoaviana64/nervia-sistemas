@@ -104,7 +104,7 @@ function novaFicha() {
   const f = $("dlgf"), NF = { itens: [] };
   $("dlg").classList.add("largo");
   f.innerHTML = `<h3>Nova ficha de produção</h3><div class="mut">O que o cortador vai cortar: escolha a peça e as quantidades de cada cor e tamanho.</div>
-    <div class="caixa"><h4>Peças</h4><input id="nfq" type="search" placeholder="Referência ou nome da peça" autocomplete="off"><div id="nfres"></div><div id="nfitens" class="campo"></div></div>
+    <div class="caixa"><h4>Peças</h4><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="nfq" type="search" placeholder="Referência ou nome da peça" autocomplete="off" style="flex:1 1 240px"><button type="button" class="bt" id="nfpnova" title="Peça que ainda não está no cadastro">+ Peça nova</button></div><div id="nfres"></div><div id="nfitens" class="campo"></div></div>
     <div class="campo grade3"><div><label for="nfprazo">Prazo para ficar pronta</label><input type="date" id="nfprazo" min="${hoje()}"></div>
       <div><label for="nfloja">Loja que recebe</label><select id="nfloja"><option value="">Escolher depois</option>${PD.lojas.map(l => `<option value="${l.id}">${esc(l.nome)}</option>`).join("")}</select></div>
       <div><label>Linho necessário</label><div id="nftot" style="font-size:18px;font-weight:700;padding-top:4px">0 m</div></div></div>
@@ -137,13 +137,53 @@ function novaFicha() {
     const t = $("nfq").value.trim().toLowerCase();
     const l = t.length < 2 ? [] : PD.produtos.filter(p => p.referencia.toLowerCase().includes(t) || p.descricao.toLowerCase().includes(t)).slice(0, 8);
     $("nfres").innerHTML = l.map(p => `<div class="caixa"><b>${esc(p.referencia)}</b> ${esc(p.descricao)} <span class="mut">· ${p.consumo ? met(p.consumo) + " por peça" : "sem metragem cadastrada"}</span>
-      <div class="filtros" style="margin:6px 0 0">${p.variantes.length ? p.variantes.map(v => `<button type="button" class="pilula" data-p="${p.id}" data-v="${v.id}">+ ${esc([v.cor, v.tamanho, v.edicao].filter(Boolean).join(" "))}</button>`).join("")
-        : '<span class="mut">Sem cores e tamanhos cadastrados (aba Produtos).</span>'}</div></div>`).join("") || (t.length >= 2 ? '<div class="mut">Nenhuma peça encontrada.</div>' : "");
+      <div class="filtros" style="margin:6px 0 0">${p.variantes.map(v => `<button type="button" class="pilula" data-p="${p.id}" data-v="${v.id}">+ ${esc([v.cor, v.tamanho, v.edicao].filter(Boolean).join(" "))}</button>`).join("")}
+        ${p.variantes.length ? "" : '<span class="mut">Peça ainda sem cores e tamanhos: cadastre aqui.</span>'}
+        <button type="button" class="lnk" data-novav="${p.id}">${p.variantes.length ? "+ outra cor ou tamanho" : "+ cores e tamanhos"}</button></div>
+      <div class="filtros oculto" data-novaf="${p.id}" style="margin:6px 0 0;align-items:center"><input data-ncor placeholder="Cores, separadas por vírgula (ex.: Cru, Azul)" style="flex:2 1 220px">
+        <input data-ntam placeholder="Tamanhos (ex.: P, M, G)" style="flex:1 1 140px"><button type="button" class="bt" data-ncriar="${p.id}">Criar</button></div></div>`).join("") || (t.length >= 2 ? '<div class="mut">Nenhuma peça encontrada. Se é uma peça nova, clique em <b>+ Peça nova</b>.</div>' : "");
+    // cores × tamanhos criados aqui mesmo (Produção, Dono ou Estoque); entram no cadastro da peça com estoque zero
+    $("nfres").querySelectorAll("[data-novav]").forEach(b => b.onclick = () => { const fm = $("nfres").querySelector(`[data-novaf="${b.dataset.novav}"]`); fm.classList.toggle("oculto"); fm.querySelector("[data-ncor]").focus(); });
+    $("nfres").querySelectorAll("[data-ncriar]").forEach(b => b.onclick = async () => {
+      const fm = b.closest("[data-novaf]"), lista = x => fm.querySelector(x).value.split(/[,;]/).map(s => s.trim()).filter(Boolean);
+      try {
+        const n = checar(await sb.rpc("lin_variantes_criar", { p_produto: b.dataset.ncriar, p_cores: lista("[data-ncor]"), p_tamanhos: lista("[data-ntam]") }));
+        await carregarProducao(); $("nfq").oninput(); carregar().catch(() => {});   // o Estoque também passa a mostrar as novas (com zero)
+        $("nferr").innerHTML = `<div class="msg ok">${n ? `${n} cor(es)/tamanho(s) criados na peça: clique neles para pôr na ficha.` : "Essas cores e tamanhos já existiam."}</div>`;
+      } catch (e) { $("nferr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+    });
     $("nfres").querySelectorAll("[data-v]").forEach(b => b.onclick = () => {
       const p = PD.produtos.find(x => x.id === b.dataset.p), v = p.variantes.find(x => x.id === b.dataset.v);
       if (!NF.itens.some(i => i.vid === v.id)) NF.itens.push({ vid: v.id, ref: p.referencia, desc: p.descricao, var: [v.cor, v.tamanho, v.edicao].filter(Boolean).join(" "), q: "1", c: decBR(v.consumo || p.consumo || ""), cad: v.consumo || p.consumo || null, pid: p.id, vprop: !!v.consumo });
       desenhar();
     });
+  };
+  // peça nova (ainda não está no cadastro): cria a peça com cores e tamanhos; estoque zero até a produção entregar
+  $("nfpnova").onclick = () => {
+    const g = $("dlg2f"), t = $("nfq").value.trim();
+    const cats = [...new Set((typeof PRODUTOS !== "undefined" ? PRODUTOS : []).map(x => x.categoria).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+    g.innerHTML = `<h3>Peça nova</h3><div class="mut">Para peça que ainda não existe no cadastro. Ela fica com estoque zero e só aparece no Estoque e na venda quando a produção entregar. Preço e outros dados podem ser completados depois na aba Produtos.</div>
+      <div class="campo grade2"><div><label for="pnnome">Nome da peça</label><input id="pnnome" value="${esc(t && !/\d/.test(t) ? t : "")}" placeholder="Ex.: Bata Cadarço"></div>
+        <div><label for="pnref">Referência</label><input id="pnref" value="${esc(t && /\d/.test(t) ? t.toUpperCase() : "")}" placeholder="vazio = automática (NOVA-ano-nº)"></div></div>
+      <div class="campo grade3"><div><label for="pncat">Categoria</label><input id="pncat" list="pncats" placeholder="Ex.: Bata"><datalist id="pncats">${cats.map(c => `<option value="${esc(c)}">`).join("")}</datalist></div>
+        <div><label for="pnmet">Metros por peça</label><input id="pnmet" inputmode="decimal" placeholder="ex.: 1,8"></div>
+        <div><label for="pnpreco">Preço de venda (opcional)</label><input id="pnpreco" inputmode="decimal" placeholder="pode ficar para depois"></div></div>
+      <div class="campo grade2"><div><label for="pncores">Cores</label><input id="pncores" placeholder="separadas por vírgula: Cru, Azul"></div>
+        <div><label for="pntams">Tamanhos</label><input id="pntams" value="P, M, G" placeholder="P, M, G"></div></div>
+      <div id="pnerr"></div><div class="acoes"><button type="button" class="bt" id="pnx">Cancelar</button><button type="button" class="bt pri" id="pnok">Criar peça</button></div>`;
+    const lista = id => $(id).value.split(/[,;]/).map(x => x.trim()).filter(Boolean);
+    $("pnx").onclick = () => $("dlg2").close();
+    $("pnok").onclick = async () => {
+      $("pnok").disabled = true;
+      try {
+        const r = checar(await sb.rpc("lin_producao_peca_nova", { p: { descricao: $("pnnome").value, referencia: $("pnref").value, categoria: $("pncat").value,
+          consumo_metros: numBR($("pnmet").value), preco_venda: numBR($("pnpreco").value), cores: lista("pncores"), tamanhos: lista("pntams") } }));
+        $("dlg2").close(); await carregarProducao(); carregar().catch(() => {});
+        $("nfq").value = r.referencia; $("nfq").oninput();
+        $("nferr").innerHTML = `<div class="msg ok">Peça ${esc(r.referencia)} criada com ${r.variantes} cor(es)/tamanho(s): clique neles acima para pôr na ficha.</div>`;
+      } catch (e) { $("pnerr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; $("pnok").disabled = false; }
+    };
+    $("dlg2").showModal(); $(t && !/\d/.test(t) ? "pncores" : "pnnome").focus();
   };
   $("nfx").onclick = () => $("dlg").close();
   $("nfok").onclick = async () => {
