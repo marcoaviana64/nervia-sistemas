@@ -162,6 +162,10 @@ try:
            "um cartão por produto e loja, tamanhos na ordem P M G, zerados ocultos")
         ok(pg.text_content("#resumo").startswith("2 produto(s) · 13 peça(s)"), "resumo de produtos e peças")
         ok("R$ 590,00" in pg.text_content(".prod >> nth=0").replace("\xa0", " "), "peça especial (edição) com preço próprio no quadrado")
+        ok(pg.locator(".chip.esp").count() == 1 and "Bordada" in pg.get_attribute(".chip.esp", "title")
+           and pg.evaluate("getComputedStyle(document.querySelector('.chip.esp b'), '::before').content") == '"★"'
+           and pg.locator("h2.temesp").count() == 1 and "Calça Areia" in pg.text_content("h2.temesp"),
+           "estrela dourada só na peça especial e no nome do produto que tem especial")
         ok(pg.locator(".prod").nth(1).locator(".sep").count() == 2, "traço entre tamanhos diferentes")
         ok("R$ 489,00" in pg.text_content(".prod >> nth=1").replace("\xa0", " "), "preço de venda no cartão")
         pg.click("#fzero"); pg.wait_for_timeout(200)
