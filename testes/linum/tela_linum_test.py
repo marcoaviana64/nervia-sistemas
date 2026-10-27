@@ -105,7 +105,7 @@ def ok(cond, nome):
     if not cond: raise SystemExit("FALHOU: " + nome)
     print("ok ", nome)
 
-def chips(pg): return pg.eval_on_selector_all(".prod", "cs => cs.map(c => c.querySelector('h2').textContent + ' @ ' + c.querySelector('.selo').textContent + ': ' + [...c.querySelectorAll('.chip')].map(x => x.querySelector('b').textContent + ' ' + x.querySelector('small').textContent + '=' + x.querySelector('strong').textContent).join(', '))")
+def chips(pg): return pg.eval_on_selector_all(".prod .loja", "cs => cs.map(c => c.closest('.prod').querySelector('h2').textContent + ' @ ' + c.querySelector('.selo').textContent + ': ' + [...c.querySelectorAll('.chip')].map(x => x.querySelector('b').textContent + ' ' + x.querySelector('small').textContent + '=' + x.querySelector('strong').textContent).join(', '))")
 def qtd_banco(var, loja): return int(psql(f"select coalesce((select quantidade from lin_estoque where variante_id = '{var}' and loja_id = (select id from lin_lojas where nome = '{loja}')), 0)", saida=True))
 V_AZUL_P, V_AZUL_M, V_OFF_M, V_CRU_38 = "20000000-0000-0000-0000-000000000001", "20000000-0000-0000-0000-000000000002", "20000000-0000-0000-0000-000000000003", "20000000-0000-0000-0000-000000000005"
 
@@ -159,7 +159,10 @@ try:
         ok(not pg.is_visible("#abaEquipe") and pg.text_content("#quem") == "Dono", "dono não vê a aba Equipe")
         c = chips(pg)
         ok(c == ["Calça Areia @ Gávea: Cru 38=4 un., Cru 40 · Bordada=1 un.", "Vestido Mar @ Gávea: Azul P=3 un., Azul M=1 un., Azul G=2 un.", "Vestido Mar @ Ipanema: Off White M=2 un."],
-           "um cartão por produto e loja, tamanhos na ordem P M G, zerados ocultos")
+           "uma faixa por loja, tamanhos na ordem P M G, zerados ocultos")
+        ok(pg.locator(".prod").count() == 2 and pg.locator('.prod:has-text("Vestido Mar") .loja').count() == 2
+           and pg.evaluate("getComputedStyle(document.querySelectorAll('.prod')[1].querySelectorAll('.loja')[1]).borderTopStyle") == "dashed",
+           "a mesma peça num cartão só, lojas separadas por linha tracejada")
         ok(pg.text_content("#resumo").startswith("2 produto(s) · 13 peça(s)"), "resumo de produtos e peças")
         ok("R$ 590,00" in pg.text_content(".prod >> nth=0").replace("\xa0", " "), "peça especial (edição) com preço próprio no quadrado")
         ok(pg.locator(".chip.esp").count() == 1 and "Bordada" in pg.get_attribute(".chip.esp", "title")
