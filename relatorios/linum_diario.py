@@ -78,6 +78,17 @@ def montar(r):
         aten.append(f"<li><b>Produtos excluídos no dia ({len(r['excluidos'])}):</b> {html.escape(', '.join(r['excluidos']))}</li>")
     if not aten:
         aten.append("<li>Nada a observar.</li>")
+    qrs = r.get("qr") or []
+    if qrs:
+        nomes = {"ipanema": "Ipanema", "gavea": "Gávea", "sacola": "Sacola", "cartao": "Cartão de visita", "etiqueta": "Etiqueta", "trakto": "QR antigo (Trakto)"}
+        corpo = "".join(f"<tr><td>{html.escape(nomes.get(q['origem'], q['origem']))}</td><td class='n b'>{num(q['hoje'])}</td>"
+                        f"<td class='n'>{num(q['pessoas_hoje'])}</td><td class='n'>{num(q['cliques_hoje'])}</td><td class='n mut'>{num(q['total'])}</td></tr>" for q in qrs)
+        cl = r.get("qr_cliques") or {}
+        extra = f"<p class='mut s'>Toques nos botões hoje: {html.escape(' · '.join(f'{k} {v}' for k, v in sorted(cl.items(), key=lambda x: -x[1])))}</p>" if cl else ""
+        qr = (f"<h2>Leituras dos QR codes</h2><table class='t'><thead><tr><th>De onde</th><th class='n'>Leituras hoje</th><th class='n'>Pessoas</th>"
+              f"<th class='n'>Toques nos botões</th><th class='n'>Desde o início</th></tr></thead><tbody>{corpo}</tbody></table>{extra}")
+    else:
+        qr = ""
     logo = base64.b64encode(open(os.path.join(RAIZ, "site/img/nervia-logo.png"), "rb").read()).decode()
     return f"""<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><style>
 @page {{ size: A4; margin: 14mm 13mm 14mm 13mm; }}
@@ -117,7 +128,7 @@ footer {{ margin-top: 18px; font-size: 10px; color: #8a8f96; border-top: 1px sol
 <tbody>{''.join(linhas)}</tbody></table>
 <p class="mut s" style="margin-top:6px">Ainda falta: {sem} de {a['produtos']} produtos estão só com o nome, sem cores, tamanhos ou quantidades.</p>
 <h2>Quem fez o quê</h2>{quem}
-<h2>Pontos de atenção</h2><ul>{''.join(aten)}</ul>
+{qr}<h2>Pontos de atenção</h2><ul>{''.join(aten)}</ul>
 <footer>Sistema Linum · Plataforma Nervia · nervia.com.br · “Antes” = último relatório; “Quem fez o quê” = ações de cadastro e estoque registradas na auditoria no dia {r['dia']}.</footer>
 </body></html>"""
 

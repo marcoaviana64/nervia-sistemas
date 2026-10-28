@@ -46,5 +46,16 @@ select jsonb_build_object(
   'anterior_em', (select to_char(em at time zone 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI') from copias.lin_status order by em desc limit 1),
   'pessoas', (select j from pessoas),
   'excluidos', (select coalesce(jsonb_agg(distinct coalesce(detalhes ->> 'referencia', '?')), '[]') from aud where acao = 'linum_produto_excluido'),
+  -- leituras dos QR codes da Linum (página /linum/ com ?o=<origem>; cliques = /linum/clique/<botão>)
+  'qr', (select coalesce(jsonb_agg(x order by x.total desc), '[]') from (
+     select coalesce(origem, '(sem origem)') origem,
+       count(*) filter (where pagina = '/linum/' and (quando at time zone 'America/Sao_Paulo')::date = (select d from dia)) hoje,
+       count(distinct ip) filter (where pagina = '/linum/' and (quando at time zone 'America/Sao_Paulo')::date = (select d from dia)) pessoas_hoje,
+       count(*) filter (where pagina like '/linum/clique/%' and (quando at time zone 'America/Sao_Paulo')::date = (select d from dia)) cliques_hoje,
+       count(*) filter (where pagina = '/linum/') total
+     from site_acessos where pagina = '/linum/' or pagina like '/linum/clique/%' group by 1) x),
+  'qr_cliques', (select coalesce(jsonb_object_agg(b, n), '{}') from (
+     select replace(pagina, '/linum/clique/', '') b, count(*) n from site_acessos, dia
+      where pagina like '/linum/clique/%' and (quando at time zone 'America/Sao_Paulo')::date = dia.d group by 1) y),
   'provisorias', (select coalesce(jsonb_agg(referencia || ' ' || descricao order by referencia), '[]') from lin_produtos where referencia ~ '^NOVA-')
 ) r;
