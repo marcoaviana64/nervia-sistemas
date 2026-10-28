@@ -635,7 +635,9 @@ const FORMAS_PAG = Object.entries(FORMAS).filter(([k]) => k !== "credito_loja");
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 let VENDAS = [], ITENS = [], CLIENTES = [], VENDEDORAS = [], EU = "";   // EU = login de quem está usando
 const FV = { de: "", ate: "", loja: "", vend: "" };
-const FC = { q: "", niver: false, sit: "", agenda: false, meus: false };
+const FC = { q: "", niver: false, sit: "", agenda: false, meus: false, qr: false };
+// veio pela página dos QR codes da LINUM (nervia.com.br/linum, rpc lin_qr_cadastrar)
+const doQr = c => !!c.novidades_origem || /^QR code/.test(c.origem || "");
 const soDig = t => String(t || "").replace(/\D/g, "");
 // clientes: nome sem acento/maiúsculas; nome e telefone digitados juntos ("Maria 21 99999-0000") são separados
 const semAc = t => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
@@ -1332,7 +1334,7 @@ async function novaTroca() {
 // ---------------------------------------------------------------- clientes e acompanhamento (CRM)
 const CANAIS = { whatsapp: "WhatsApp", ligacao: "Ligação", instagram: "Instagram", loja: "Na loja", email: "E-mail", outro: "Outro" };
 const RESULTADOS = { sem_resposta: "Não respondeu", conversou: "Conversou", vai_a_loja: "Vai à loja", veio_a_loja: "Veio à loja", comprou: "Comprou", sem_interesse: "Sem interesse agora", outro: "Outro" };
-const ORIGENS = ["Instagram", "Indicação", "Passou na loja", "WhatsApp", "Evento", "Site", "Outro"];
+const ORIGENS = ["Instagram", "Indicação", "Passou na loja", "WhatsApp", "QR code", "Evento", "Site", "Outro"];
 const somaDias = (d, k) => { const x = new Date(d + "T12:00:00Z"); x.setUTCDate(x.getUTCDate() + k); return x.toISOString().slice(0, 10); };
 const quando = v => v ? new Date(v).toLocaleString("pt-BR", { timeZone: TZ, day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—";
 const proxTxt = c => !c.proximo_contato ? "—" : c.proximo_contato < hoje() ? `<b style="color:var(--crit)">${dataBR(c.proximo_contato)} · atrasado</b>`
@@ -1411,6 +1413,7 @@ async function fichaCliente(id) {
   const dados = [c.telefone && fone(c.telefone), c.email, niver(c) && "aniversário " + niver(c), c.origem && "conheceu por " + c.origem].filter(Boolean).map(esc).join(" · ");
   f.innerHTML = `<h3>${esc(c.nome)} ${sitTag(c) || '<span class="tag">cliente</span>'}</h3>
     <div class="mut">${dados || "Sem telefone nem e-mail"}</div>
+    ${c.novidades_aceite_em ? `<div style="margin-top:6px" class="mut">Autorizou receber novidades pelo WhatsApp em ${dataBR(new Date(c.novidades_aceite_em).toLocaleDateString("en-CA", { timeZone: TZ }))} (página do QR code).</div>` : ""}
     ${c.interesses ? `<div style="margin-top:6px"><b>Interesses:</b> ${esc(c.interesses)}</div>` : ""}
     ${c.observacoes ? `<div style="margin-top:4px"><b>Observações:</b> ${esc(c.observacoes)}</div>` : ""}
     <div class="vlin" style="margin-top:8px"><span>Quem acompanha: <b>${esc(c.responsavel_nome || "—")}</b> · Próximo contato: ${proxTxt(c)}</span>
@@ -1475,14 +1478,14 @@ async function telaClientes() {
     <div class="filtros"><input id="cq" type="search" placeholder="Nome, telefone ou CPF" value="${esc(FC.q)}">
       <select id="csit" aria-label="Situação"><option value="">Clientes e possíveis</option><option value="cliente" ${FC.sit === "cliente" ? "selected" : ""}>Só clientes</option><option value="possivel" ${FC.sit === "possivel" ? "selected" : ""}>Só possíveis clientes</option></select>
       ${pil("cagenda", FC.agenda, "Para contatar até hoje")}${pil("cmeus", FC.meus, "Só os que eu acompanho")}
-      ${pil("cniver", FC.niver, "Aniversariantes de " + MESES[new Date().getMonth()])}</div>
+      ${pil("cniver", FC.niver, "Aniversariantes de " + MESES[new Date().getMonth()])}${pil("cqr", FC.qr, "Vieram pelo QR code")}</div>
     <div class="card"><div class="tw"><table><thead><tr><th>Cliente</th><th>Telefone</th><th>Próximo contato</th><th>Último contato</th><th>Quem acompanha</th><th class="num">Compras</th><th class="num">Total</th></tr></thead><tbody id="clista"></tbody></table></div>
     <div class="mut" style="margin-top:6px">Clique no cliente para ver o histórico e registrar um contato.${dono() ? "" : " Compras e total contam só as vendas que você registrou."}</div></div>`;
   $("cnovo").onclick = () => editarCliente(null, c => { listaClientes(); kpisClientes(); if (c) fichaCliente(c.id); }, true);
   $("cq").oninput = e => { FC.q = e.target.value; listaClientes(); };
   $("csit").onchange = e => { FC.sit = e.target.value; listaClientes(); };
   const alterna = (id, k) => $(id).onclick = () => { FC[k] = !FC[k]; $(id).classList.toggle("on", FC[k]); listaClientes(); };
-  alterna("cagenda", "agenda"); alterna("cmeus", "meus"); alterna("cniver", "niver");
+  alterna("cagenda", "agenda"); alterna("cmeus", "meus"); alterna("cniver", "niver"); alterna("cqr", "qr");
   kpisClientes(); listaClientes();
 }
 function kpisClientes() {
@@ -1499,12 +1502,12 @@ let SALDOS = {};   // crédito na conta (devoluções) por cliente
 function listaClientes() {
   const t = FC.q.trim(), mes = new Date().getMonth() + 1, h = hoje(), eu = EU;
   const l = CLIENTES.filter(c => (!t || pontoCliente(c, t)) && (!FC.sit || c.situacao === FC.sit) && (!FC.meus || c.responsavel_id === eu)
-    && (!FC.agenda || (c.proximo_contato && c.proximo_contato <= h)) && (!FC.niver || c.aniversario_mes === mes))
+    && (!FC.agenda || (c.proximo_contato && c.proximo_contato <= h)) && (!FC.niver || c.aniversario_mes === mes) && (!FC.qr || doQr(c)))
     .sort((a, b) => FC.agenda ? a.proximo_contato.localeCompare(b.proximo_contato) || a.nome.localeCompare(b.nome, "pt-BR")
       : FC.niver ? a.aniversario_dia - b.aniversario_dia : a.nome.localeCompare(b.nome, "pt-BR"));
   $("clista").innerHTML = l.length ? l.slice(0, 500).map(c => {
     const cp = comprasDe(c.id), sub = [c.interesses, c.observacoes, niver(c) && "aniversário " + niver(c)].filter(Boolean).join(" · ");
-    return `<tr class="crow" data-c="${c.id}" style="cursor:pointer"><td><b>${esc(c.nome)}</b>${sitTag(c)}${Number(SALDOS[c.id]) > 0 ? ` <span class="tag">crédito ${brl(SALDOS[c.id])}</span>` : ""}${sub ? `<br><span class="mut">${esc(sub)}</span>` : ""}</td>
+    return `<tr class="crow" data-c="${c.id}" style="cursor:pointer"><td><b>${esc(c.nome)}</b>${sitTag(c)}${doQr(c) ? ' <span class="tag" title="Cadastrou-se pela página do QR code">QR</span>' : ""}${Number(SALDOS[c.id]) > 0 ? ` <span class="tag">crédito ${brl(SALDOS[c.id])}</span>` : ""}${sub ? `<br><span class="mut">${esc(sub)}</span>` : ""}</td>
       <td>${c.telefone ? `<a href="https://wa.me/55${esc(c.telefone)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(fone(c.telefone))}</a>` : "—"}</td>
       <td>${proxTxt(c)}</td><td>${c.ultimo_contato ? dataBR(new Date(c.ultimo_contato).toLocaleDateString("en-CA", { timeZone: TZ })) : "—"}</td><td>${esc(c.responsavel_nome || "—")}</td>
       <td class="num">${n(cp.n)}${cp.ult ? `<br><span class="mut">últ. ${dataBR(cp.ult)}</span>` : ""}</td><td class="num">${cp.n ? brl(cp.tot) : "—"}</td></tr>`;

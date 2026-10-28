@@ -1976,5 +1976,47 @@ select pg_temp.ok((select referencia = 'B99' and codigo_barras is not null from 
   and (select count(*) = 2 from auditoria where acao = 'linum_produto_criado' and (detalhes->>'referencia_provisoria')::boolean),
   'linum 2.15: troca pela referência correta mantém o código de barras; auditoria marca a provisória');
 
+-- ---------------------------------------------------------------- linum: cadastro pelo QR code (página da LINUM, sem login)
+reset request.jwt.claim.sub;
+set role anon;
+set request.headers = '{"cf-connecting-ip":"177.1.2.3","user-agent":"CelularQR/1.0"}';
+select pg_temp.erro2($$select lin_qr_cadastrar('{"nome":"Ana Paula","telefone":"21 99876-5432","origem":"ipanema"}')$$, 'autorização', 'linum QR: sem a autorização não cadastra');
+select pg_temp.erro2($$select lin_qr_cadastrar('{"nome":"Ana","telefone":"9987","origem":"ipanema","aceite":true}')$$, 'WhatsApp com DDD', 'linum QR: telefone sem DDD recusado');
+select pg_temp.erro2($$select lin_qr_cadastrar('{"nome":"Ana","telefone":"21998765432","aniversario_dia":"31","aniversario_mes":"2","aceite":true}')$$, 'Aniversário inválido', 'linum QR: aniversário 31/02 recusado');
+select pg_temp.ok((lin_qr_cadastrar('{"nome":"  Ana   Paula ","telefone":"+55 (21) 99876-5432","aniversario_dia":"5","aniversario_mes":"3","origem":"ipanema","aceite":true}')->>'ok')::boolean,
+  'linum QR: cadastro pela página (anon)');
+select pg_temp.ok((lin_qr_cadastrar('{"nome":"Robô","telefone":"21911112222","aceite":true,"site":"http://spam"}')->>'ok')::boolean, 'linum QR: campo escondido preenchido finge sucesso');
+select pg_temp.ok((select count(*) = 0 from lin_clientes), 'linum QR: anon continua sem ver clientes');
+select pg_temp.erro2($$select count(*) from lin_contatos$$, 'permission denied', 'linum QR: anon não lê o histórico');
+select pg_temp.erro2($$select count(*) from lin_qr_cadastros$$, 'permission denied', 'linum QR: anon não lê os cadastros');
+reset role;
+select pg_temp.ok((select nome = 'Ana Paula' and telefone = '21998765432' and situacao = 'possivel' and origem = 'QR code – vitrine de Ipanema'
+                     and loja_id = (select id from lin_lojas where nome = 'Ipanema') and aniversario_dia = 5 and aniversario_mes = 3
+                     and proximo_contato = (now() at time zone 'America/Sao_Paulo')::date + 1 and novidades_aceite_em is not null and criado_nome = 'Pelo QR code'
+                   from lin_clientes where telefone = '21998765432')
+  and (select count(*) = 0 from lin_clientes where telefone = '21911112222'),
+  'linum QR: possível cliente com origem, loja de Ipanema, aniversário e próximo contato amanhã (robô não entra)');
+select pg_temp.ok((select count(*) = 1 from lin_contatos c join lin_clientes k on k.id = c.cliente_id where k.telefone = '21998765432' and c.por_nome = 'Pelo QR code')
+  and (select ip = '177.1.2.3' and novo and origem = 'ipanema' from lin_qr_cadastros order by id desc limit 1)
+  and (select count(*) = 1 from auditoria where acao = 'linum_qr_cadastro' and papel = 'sistema' and ip = '177.1.2.3' and (detalhes->>'novo')::boolean),
+  'linum QR: histórico do contato, registro com IP e auditoria');
+-- telefone que já existe: não duplica, só anota (e a resposta é a mesma)
+insert into lin_clientes (nome, telefone, situacao) values ('Beatriz Souza', '21977776666', 'cliente');
+set role anon;
+set request.headers = '{"cf-connecting-ip":"177.9.9.9","user-agent":"CelularQR/1.0"}';
+select lin_qr_cadastrar('{"nome":"Bia","telefone":"21977776666","origem":"sacola","aceite":true}');
+reset role;
+select pg_temp.ok((select count(*) = 1 from lin_clientes where telefone = '21977776666')
+  and (select nome = 'Beatriz Souza' and situacao = 'cliente' and loja_id is null and novidades_origem = 'sacola' and proximo_contato is not null from lin_clientes where telefone = '21977776666')
+  and (select texto like '%sacola%(nome informado: Bia)%' from lin_contatos c join lin_clientes k on k.id = c.cliente_id where k.telefone = '21977776666'),
+  'linum QR: cliente que já existe não duplica (nome e situação mantidos; anota no histórico)');
+-- limite de 5 envios por hora no mesmo IP
+set role anon;
+set request.headers = '{"cf-connecting-ip":"177.5.5.5"}';
+select lin_qr_cadastrar(jsonb_build_object('nome', 'Pessoa ' || i, 'telefone', '2190000000' || i, 'aceite', true)) from generate_series(1, 5) i;
+select pg_temp.erro2($$select lin_qr_cadastrar('{"nome":"Pessoa 6","telefone":"21900000006","aceite":true}')$$, 'Muitos envios', 'linum QR: no máximo 5 envios por hora por IP');
+reset role; reset request.headers;
+select pg_temp.erro2($$update lin_qr_cadastros set origem = 'x'$$, 'não pode ser alterado', 'linum QR: registro somente inclusão');
+
 reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'

@@ -45,6 +45,7 @@ window.NERVIA_VERSOES = {
     ["1.0", "Lançamento: contas e licenças de cada unidade, mudanças entre exportações e licenças pagas sem uso."],
   ],
   "linum": [
+    ["2.16", "Quem lê o QR code da LINUM (vitrine, sacola, cartão) pode deixar nome, WhatsApp e aniversário na página e já entra em Clientes como possível cliente, com a origem e o próximo contato para o dia seguinte; filtro “Vieram pelo QR code” e a etiqueta QR na lista."],
     ["2.15", "Referência provisória: cadastre o produto mesmo sem saber a referência (deixe o campo vazio e o sistema dá uma provisória, NOVA-…); o botão “Referência provisória” no Estoque e em Produtos mostra só essas peças, para trocar pela correta depois (o código de barras não muda)."],
     ["2.14", "Relatório de créditos das clientes (aba Créditos, só para a Dona): saldo em aberto de todas as clientes, quem tem crédito, e os lançamentos do período (devoluções, uso em vendas, ajustes) com filtros, CSV e impressão; clicar na cliente abre o extrato dela."],
     ["2.13", "Cadastro mais rápido: o campo Tamanhos já vem com a grade da Linum (PP, P, M, G, GG, G1, G2); é só apagar os que a peça não tem e digitar as cores. Vale também para a peça nova e as cores e tamanhos da ficha de produção. G1 e G2 aparecem depois do GG no estoque."],
