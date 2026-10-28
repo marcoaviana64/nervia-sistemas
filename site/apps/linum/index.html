@@ -621,6 +621,7 @@ function editarProduto(pid) {
       if (cores.length) criadas = checar(await sb.rpc("lin_variantes_criar", { p_produto: id, p_cores: cores, p_tamanhos: tams }));
       novas = { cores: "", tamanhos: TAMANHOS_PADRAO };
       await carregarProdutos(); p = PRODS.find(x => x.id === id); carregar().catch(() => {});
+      if (p) F2.referencia = p.referencia;   // a referência provisória (NOVA-…) aparece no campo; sem isso, salvar de novo mandava a referência vazia
       desenhar(null, (novo ? "Produto cadastrado" : "Produto atualizado") + (cores.length ? `; ${criadas} variação(ões) nova(s)` : "") + "."
         + (p && refProvisoria(p) ? ` Referência provisória ${p.referencia}: quando souber a correta, troque aqui (o código de barras não muda).` : ""));
     } catch (e) { desenhar(e.message); }
