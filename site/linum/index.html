@@ -36,6 +36,19 @@ h2{font-family:"Cormorant Garamond",Georgia,serif;font-weight:600;font-size:24px
 .loja span{color:var(--soft);font-size:14.5px}
 .loja a{display:inline-block;margin-top:6px;color:var(--accent);font-weight:600;font-size:14.5px;text-decoration:none}
 .vazio{color:var(--soft);font-style:italic}
+.cad{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 16px;text-align:left;margin:0 0 26px}
+.cad h2{text-align:center;margin-top:0}
+.cad p.int{color:var(--soft);font-size:14.5px;margin:-4px 0 12px;text-align:center}
+.cad label{display:block;font-size:13.5px;font-weight:600;margin:10px 0 4px}
+.cad input[type=text],.cad input[type=tel],.cad select{width:100%;font:inherit;font-size:16px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+.cad .niver{display:grid;grid-template-columns:1fr 1.6fr;gap:8px}
+.cad .aceite{display:flex;gap:10px;align-items:flex-start;font-weight:400;font-size:13.5px;color:var(--soft);margin-top:14px}
+.cad .aceite input{width:20px;height:20px;margin:1px 0 0;flex:none;accent-color:var(--accent)}
+.cad button{width:100%;margin-top:14px;min-height:50px;border:0;border-radius:12px;background:var(--accent);color:var(--accent-ink);font:inherit;font-weight:600;font-size:16px;cursor:pointer}
+.cad button:disabled{opacity:.6}
+.cad .msg{margin-top:12px;font-size:14.5px;text-align:center}
+.cad .msg.err{color:#a33a2a}.cad .msg.ok{color:#2e6b3a;font-weight:600}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
 footer{margin-top:30px;font-size:12px;color:var(--soft)}
 footer a{color:var(--soft)}
 </style>
@@ -45,6 +58,20 @@ footer a{color:var(--soft)}
   <h1 class="marca">LINUM</h1>
   <p class="sub">100% linho feito à mão</p>
   <nav class="botoes" id="botoes" aria-label="Contatos da LINUM"></nav>
+  <section class="cad" id="cad">
+    <h2>Receba novidades</h2>
+    <p class="int">Coleções novas, peças especiais e convites da LINUM no seu WhatsApp.</p>
+    <form id="fcad" novalidate>
+      <label for="cnome">Nome</label><input id="cnome" type="text" autocomplete="name" maxlength="80" required>
+      <label for="ctel">WhatsApp com DDD</label><input id="ctel" type="tel" inputmode="tel" autocomplete="tel" placeholder="(21) 99999-9999" maxlength="20" required>
+      <label>Aniversário (opcional)</label>
+      <div class="niver"><select id="cdia" aria-label="Dia"><option value="">Dia</option></select><select id="cmes" aria-label="Mês"><option value="">Mês</option></select></div>
+      <div class="hp" aria-hidden="true"><label for="csite">Não preencha</label><input id="csite" type="text" tabindex="-1" autocomplete="off"></div>
+      <label class="aceite"><input id="caceite" type="checkbox"> <span>Autorizo a LINUM a guardar meu nome, WhatsApp e aniversário e a me enviar novidades pelo WhatsApp. Para sair, é só pedir por lá.</span></label>
+      <button type="submit" id="cenviar">Quero receber</button>
+      <div class="msg" id="cmsg" role="status"></div>
+    </form>
+  </section>
   <section id="secLojas" hidden><h2>Nossas lojas</h2><div class="lojas" id="lojas"></div></section>
   <footer>LINUM · Rio de Janeiro · <a href="/privacidade.html">Privacidade</a></footer>
 </main>
@@ -69,7 +96,15 @@ const ICONES = {
 };
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const seguro = u => /^https:\/\//i.test(u || "") ? u : "";
-const botoes = LINUM.botoes.filter(b => seguro(b.url));
+const ORIGEM = (new URLSearchParams(location.search).get("o") || "").toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 30);
+const ONDE = { ipanema: "da vitrine de Ipanema", gavea: "da vitrine da Gávea", sacola: "da sacola", cartao: "do cartão", etiqueta: "da etiqueta da peça" }[ORIGEM] || "";
+// WhatsApp já com a mensagem dizendo de onde a pessoa veio (a vendedora sabe na hora)
+const urlBotao = b => {
+  if (b.id !== "whatsapp") return b.url;
+  if (/[?&]text=/.test(b.url)) return b.url;
+  return b.url + (b.url.includes("?") ? "&" : "?") + "text=" + encodeURIComponent(`Olá! Vim pelo QR code${ONDE ? " " + ONDE : ""} 😊`);
+};
+const botoes = LINUM.botoes.filter(b => seguro(b.url)).map(b => ({ ...b, url: urlBotao(b) }));
 document.getElementById("botoes").innerHTML = botoes.length
   ? botoes.map(b => `<a href="${esc(b.url)}" target="_blank" rel="noopener" data-clique="${esc(b.id)}" class="${b.destaque ? "destaque" : ""}">${ICONES[b.id] || ""}${esc(b.texto)}</a>`).join("")
   : '<p class="vazio">Em breve.</p>';
@@ -79,12 +114,38 @@ if (lojas.length) {
   document.getElementById("lojas").innerHTML = lojas.map(l => `<div class="loja"><b>${esc(l.nome)}</b><span>${esc(l.endereco)}</span>
     ${seguro(l.mapa) ? `<br><a href="${esc(l.mapa)}" target="_blank" rel="noopener" data-clique="mapa-${esc(l.nome.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""))}">Ver no mapa →</a>` : ""}</div>`).join("");
 }
+// ===== cadastro: vira "possível cliente" no CRM do Sistema Linum (rpc lin_qr_cadastrar, sem login) =====
+const MESES = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+document.getElementById("cdia").insertAdjacentHTML("beforeend", Array.from({ length: 31 }, (_, i) => `<option>${i + 1}</option>`).join(""));
+document.getElementById("cmes").insertAdjacentHTML("beforeend", MESES.map((m, i) => `<option value="${i + 1}">${m}</option>`).join(""));
+document.getElementById("fcad").addEventListener("submit", async e => {
+  e.preventDefault();
+  const $ = id => document.getElementById(id), msg = $("cmsg"), bt = $("cenviar");
+  const erro = t => { msg.className = "msg err"; msg.textContent = t; };
+  const nome = $("cnome").value.trim(), tel = $("ctel").value.replace(/\D/g, "").replace(/^55(?=\d{10,11}$)/, "");
+  if (nome.length < 2) return erro("Informe o seu nome.");
+  if (!/^[1-9]\d{9,10}$/.test(tel)) return erro("Informe o WhatsApp com DDD, ex.: (21) 99999-9999.");
+  if (!!$("cdia").value !== !!$("cmes").value) return erro("Para o aniversário, escolha o dia e o mês.");
+  if (!$("caceite").checked) return erro("Marque a autorização para podermos falar com você.");
+  bt.disabled = true; bt.textContent = "Enviando…"; msg.textContent = "";
+  try {
+    const C = window.NERVIA_CONFIG;
+    const r = await fetch(`${C.SUPABASE_URL}/rest/v1/rpc/lin_qr_cadastrar`, { method: "POST",
+      headers: { apikey: C.SUPABASE_ANON_KEY, "content-type": "application/json" },
+      body: JSON.stringify({ p: { nome, telefone: tel, aniversario_dia: $("cdia").value, aniversario_mes: $("cmes").value,
+        origem: ORIGEM, aceite: true, site: $("csite").value } }) });
+    if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.message || "Não foi possível enviar agora. Tente de novo em instantes."); }
+    $("fcad").innerHTML = `<p class="msg ok">Obrigada, ${esc(nome.split(" ")[0])}! Em breve a LINUM fala com você pelo WhatsApp.</p>`;
+    if (window.NERVIA_REGISTRAR) window.NERVIA_REGISTRAR("/linum/clique/cadastro");
+  } catch (err) { erro(err.message); bt.disabled = false; bt.textContent = "Quero receber"; }
+});
 // cada toque num botão conta como /linum/clique/<botão>, com a origem do QR (acesso.js)
 document.addEventListener("click", e => {
   const a = e.target.closest("[data-clique]");
   if (a && window.NERVIA_REGISTRAR) window.NERVIA_REGISTRAR("/linum/clique/" + a.dataset.clique);
 });
 </script>
+<script src="/config.js"></script>
 <script src="/acesso.js" defer></script>
 </body>
 </html>

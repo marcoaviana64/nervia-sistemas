@@ -82,11 +82,11 @@ def montar(r):
     if qrs:
         nomes = {"ipanema": "Ipanema", "gavea": "Gávea", "sacola": "Sacola", "cartao": "Cartão de visita", "etiqueta": "Etiqueta", "trakto": "QR antigo (Trakto)"}
         corpo = "".join(f"<tr><td>{html.escape(nomes.get(q['origem'], q['origem']))}</td><td class='n b'>{num(q['hoje'])}</td>"
-                        f"<td class='n'>{num(q['pessoas_hoje'])}</td><td class='n'>{num(q['cliques_hoje'])}</td><td class='n mut'>{num(q['total'])}</td></tr>" for q in qrs)
+                        f"<td class='n'>{num(q['pessoas_hoje'])}</td><td class='n'>{num(q['cliques_hoje'])}</td><td class='n b'>{num((r.get('qr_cadastros') or {}).get(q['origem'], 0))}</td><td class='n mut'>{num(q['total'])}</td></tr>" for q in qrs)
         cl = r.get("qr_cliques") or {}
         extra = f"<p class='mut s'>Toques nos botões hoje: {html.escape(' · '.join(f'{k} {v}' for k, v in sorted(cl.items(), key=lambda x: -x[1])))}</p>" if cl else ""
         qr = (f"<h2>Leituras dos QR codes</h2><table class='t'><thead><tr><th>De onde</th><th class='n'>Leituras hoje</th><th class='n'>Pessoas</th>"
-              f"<th class='n'>Toques nos botões</th><th class='n'>Desde o início</th></tr></thead><tbody>{corpo}</tbody></table>{extra}")
+              f"<th class='n'>Toques nos botões</th><th class='n'>Cadastros</th><th class='n'>Desde o início</th></tr></thead><tbody>{corpo}</tbody></table>{extra}")
     else:
         qr = ""
     logo = base64.b64encode(open(os.path.join(RAIZ, "site/img/nervia-logo.png"), "rb").read()).decode()

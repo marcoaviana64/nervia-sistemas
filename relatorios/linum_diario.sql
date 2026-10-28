@@ -54,6 +54,8 @@ select jsonb_build_object(
        count(*) filter (where pagina like '/linum/clique/%' and (quando at time zone 'America/Sao_Paulo')::date = (select d from dia)) cliques_hoje,
        count(*) filter (where pagina = '/linum/') total
      from site_acessos where pagina = '/linum/' or pagina like '/linum/clique/%' group by 1) x),
+  'qr_cadastros', (select coalesce(jsonb_object_agg(origem, n), '{}') from (
+     select origem, count(*) n from lin_qr_cadastros, dia where (em at time zone 'America/Sao_Paulo')::date = dia.d group by 1) z),
   'qr_cliques', (select coalesce(jsonb_object_agg(b, n), '{}') from (
      select replace(pagina, '/linum/clique/', '') b, count(*) n from site_acessos, dia
       where pagina like '/linum/clique/%' and (quando at time zone 'America/Sao_Paulo')::date = dia.d group by 1) y),
