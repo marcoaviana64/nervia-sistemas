@@ -100,5 +100,5 @@ Ao publicar mudança num app: linha nova no topo do app aqui (com a data) e em `
 
 | Versão | Data | O que mudou |
 |---|---|---|
-| 1.1 | 29/10/2026 | Um filtro só para o Painel e a lista de chamados (busca, empreendimento, situação, tipo, ano e mês), que já vem no ano em curso: o que você filtra numa tela vale na outra, e os números, gráficos e a lista dos abertos há mais tempo do Painel seguem o filtro. |
+| 1.1 | 29/10/2026 | Um filtro só para o Painel e a lista de chamados (busca, empreendimento, situação, tipo, ano e mês), que já vem no ano em curso: o que você filtra numa tela vale na outra, e os números e gráficos do Painel seguem o filtro. Os chamados em aberto aparecem sempre, de qualquer data, para nada que falta fazer ficar escondido; só o filtro de empreendimento os separa. |
 | 1.0 | 29/10/2026 | Lançamento na Plataforma: os chamados de suporte de TI da Nervia por empreendimento, com o histórico de andamentos, a ficha do atendimento em PDF e os equipamentos com código e histórico de usuários. |

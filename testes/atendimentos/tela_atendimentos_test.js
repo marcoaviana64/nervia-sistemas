@@ -262,17 +262,19 @@ const print = async (pg, nome) => { if (SAIDA) await pg.screenshot({ path: path.
     ok((await pg.locator('#kpis').textContent()).includes('Em aberto') && (await pg.locator('#ch-mes svg').count()) === 1, 'painel com números e gráficos');
     const anoAtual = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date()).slice(0, 4);
     ok(await pg.inputValue('#f-ano') === anoAtual && await pg.inputValue('#f-mes') === '', 'painel já vem filtrado no ano em curso');
-    await pg.selectOption('#f-ano', '2026'); await pg.selectOption('#f-mes', '09');
-    ok((await pg.locator('#oldest').innerText()).includes('Wi-Fi lento') && (await pg.locator('#oldest li').count()) === 1, 'filtro de mês: em aberto há mais tempo só com os abertos no período');
-    ok((await pg.locator('#kpis .kpi').first().locator('.v').innerText()) === '1', 'filtro de mês: em aberto = 1 em set/2026');
-    await pg.selectOption('#f-mes', '08');
-    ok((await pg.locator('#oldest').innerText()).includes('Nenhum chamado em aberto no período') && (await pg.locator('#kpis .kpi').nth(2).locator('.v').innerText()) === '1', 'ago/2026: nenhum em aberto e 1 fechado no período');
+    await pg.selectOption('#f-ano', '2026'); await pg.selectOption('#f-mes', '08');
+    ok((await pg.locator('#oldest').innerText()).includes('Wi-Fi lento') && (await pg.locator('#kpis .kpi').nth(2).locator('.v').innerText()) === '1',
+      'ago/2026: o chamado em aberto de setembro continua aparecendo e 1 fechado no período');
+    await pg.selectOption('#f-emp', 'SVS');
+    ok(!(await pg.locator('#oldest').innerText()).includes('Wi-Fi lento'), 'o em aberto respeita o filtro de empreendimento');
+    await pg.selectOption('#f-emp', '');
     await pg.selectOption('#f-ano', ''); await pg.selectOption('#f-mes', '');
     ok((await pg.locator('#painel-sub').innerText()).includes('todos os anos · 3 chamados'), 'todos os anos: os 3 chamados');
-    await pg.selectOption('#f-mes', '09');
+    await pg.selectOption('#f-ano', '2026'); await pg.selectOption('#f-mes', '08');
     await pg.click('a[data-v=atendimentos]');
-    ok((await pg.locator('#count').innerText()).startsWith('1 de 3 chamados') && await pg.inputValue('#f-mes') === '09' && (await pg.locator('#v-atendimentos #filtros').count()) === 1,
-      'o mesmo filtro vale na lista de chamados (mês escolhido no Painel)');
+    const lista = await pg.locator('#v-atendimentos').innerText();
+    ok(lista.includes('Impressora do financeiro') && lista.includes('Wi-Fi lento') && await pg.inputValue('#f-mes') === '08' && (await pg.locator('#v-atendimentos #filtros').count()) === 1,
+      'o mesmo filtro vale na lista de chamados (agosto: o fechado de agosto e o em aberto de setembro)');
     await pg.selectOption('#f-tp', 'Suporte TI'); await pg.click('a[data-v=painel]');
     ok((await pg.locator('#v-painel #filtros').count()) === 1 && await pg.inputValue('#f-tp') === 'Suporte TI', 'e o filtro da lista vale no Painel');
     await pg.selectOption('#f-mes', ''); await pg.selectOption('#f-tp', '');

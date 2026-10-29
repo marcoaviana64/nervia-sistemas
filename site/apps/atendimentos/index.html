@@ -286,13 +286,13 @@ textarea{min-height:84px;resize:vertical;line-height:1.45}
         <div id="ch-mes"></div>
       </div>
       <div class="panel chart">
-        <h2>Por empreendimento <span class="hint" style="margin:0;font-weight:400">(abertos no período)</span></h2>
+        <h2>Por empreendimento <span class="hint" style="margin:0;font-weight:400">(todos os em aberto e os do período)</span></h2>
         <div class="legend"><span><i style="background:var(--accent)"></i>Em aberto</span><span><i style="background:var(--bar-closed)"></i>Fechados</span></div>
         <div id="ch-emp"></div>
       </div>
     </div>
     <div class="panel">
-      <h2>Em aberto há mais tempo <span class="hint" style="margin:0;font-weight:400">(abertos no período)</span></h2>
+      <h2>Em aberto há mais tempo <span class="hint" style="margin:0;font-weight:400">(de qualquer data)</span></h2>
       <ul class="olist" id="oldest"></ul>
     </div>
   </section>
@@ -507,8 +507,9 @@ function periodoTxt() { const f = S.filters; return f.mes ? `${MESES[+f.mes - 1]
 function filtered(data = 'abertura', comPeriodo = true) {
   const f = S.filters, q = f.q.trim().toLowerCase();
   return list().filter(c =>
-    (!f.emp || c.empr === f.emp) && (!f.st || c.status === f.st) && (!f.tp || c.tipo === f.tp) &&
-    (!comPeriodo || noPeriodo(c[data])) &&
+    (!f.emp || c.empr === f.emp) && (!f.st || c.status === f.st) &&
+    // chamado em aberto aparece sempre (é o que falta fazer): ignora período e tipo
+    (c.status === 'Aberto' || ((!f.tp || c.tipo === f.tp) && (!comPeriodo || noPeriodo(c[data])))) &&
     (!q || String(c.numero) === q.replace('#','') || [c.resumo, c.descricao, c.solicitante, c.empr, ...(c.ativos||[]), ...(c.andamentos||[]).map(a => a.texto)].join(' ').toLowerCase().includes(q)));
 }
 
@@ -959,10 +960,11 @@ function renderPainel() {
   const fechadosPer = filtered('fechamento').filter(c => c.status === 'Fechado');
   const tempos = fechadosPer.map(c => Math.max(0, days(c.abertura, c.fechamento))).sort((a, b) => a - b);
   const media = tempos.length ? tempos.reduce((a, b) => a + b, 0) / tempos.length : 0; const mesmoDia = tempos.filter(x => x === 0).length;
-  $('#painel-sub').textContent = `Período: ${periodoTxt()} · ${all.length} chamado${all.length === 1 ? '' : 's'} aberto${all.length === 1 ? '' : 's'} no período. Dados de ${br(t)}.`;
+  const doPer = all.filter(c => c.status !== 'Aberto' || ((!f.tp || c.tipo === f.tp) && noPeriodo(c.abertura))).length;
+  $('#painel-sub').textContent = `Período: ${periodoTxt()} · ${doPer} chamado${doPer === 1 ? '' : 's'} aberto${doPer === 1 ? '' : 's'} no período; os em aberto aparecem todos, de qualquer data. Dados de ${br(t)}.`;
   const k = (label, v, h, cls, go) => el('div', { class: 'kpi' + (cls ? ' ' + cls : '') }, el('div', { class: 'label', text: label }), el('div', { class: 'v', text: v }), el('div', { class: 'h' }, h));
   $('#kpis').replaceChildren(
-    k('Em aberto', abertos.length, `de ${all.length} abertos no período`),
+    k('Em aberto', abertos.length, 'todos, de qualquer data'),
     k('Abertos há +30 dias', velhos.length, 'pedem atenção', velhos.length ? 'alert' : ''),
     k('Fechados no período', fechadosPer.length, 'pela data de fechamento'),
     k('Tempo médio até fechar', media.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' d', `${Math.round(100 * mesmoDia / (fechadosPer.length || 1))}% fechados no mesmo dia`));
@@ -1016,7 +1018,7 @@ function renderPainel() {
       el('span', { class: 'num', text: c.numero }), el('span', { class: 'emp', text: c.empr }),
       el('span', { class: 'desc', text: c.resumo || c.descricao }),
       el('span', { class: 'age' + (d > 30 ? ' old' : ''), style: 'text-align:right;margin:0', text: d + ' dias' })));
-  }) : [el('li', { class: 'empty', text: 'Nenhum chamado em aberto no período.' })]));
+  }) : [el('li', { class: 'empty', text: 'Nenhum chamado em aberto.' })]));
 }
 
 function renderEmps() {
