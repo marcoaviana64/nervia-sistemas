@@ -2107,6 +2107,16 @@ set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
 select lin_custo_salvar('{"ficha":"Nova artesanal","referencia":"ZZ888","edicao":"Artesanal","venda":500,"corte":100}');
 select pg_temp.erro2($$select lin_custo_enviar((select id from lin_custos where ficha = 'Nova artesanal'))$$, 'cadastre a peça em Produtos primeiro', 'linum 2.20: peça especial de peça inexistente não cria peça');
 reset role;
+-- linum 2.21: ficha de versão sem a peça especial escolhida não mexe na peça normal
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select lin_custo_salvar(jsonb_build_object('ficha', 'A48 bordada2', 'versao', 'bordada', 'produto_id', (select produto_id from lin_custos where ficha = 'A48'), 'venda', 1999, 'corte', 500));
+select pg_temp.erro2($$select lin_custos_aplicar(array[(select id from lin_custos where ficha = 'A48 bordada2')])$$, 'escolha na ficha a peça especial', 'linum 2.21: versão sem peça especial é recusada (aplicar)');
+select pg_temp.erro2($$select lin_custo_enviar((select id from lin_custos where ficha = 'A48 bordada2'))$$, 'escolha na ficha a peça especial', 'linum 2.21: versão sem peça especial é recusada (enviar)');
+select lin_custo_salvar(jsonb_build_object('id', (select id from lin_custos where ficha = 'A48'), 'versao', 'A48'));
+select pg_temp.ok((select lin_custos_aplicar(array[(select id from lin_custos where ficha = 'A48')])) = 1, 'linum 2.21: versão igual ao nome da ficha não trava');
+reset role;
+select pg_temp.ok((select preco_venda = 869 from lin_produtos where id = (select produto_id from lin_custos where ficha = 'A48')), 'linum 2.21: a peça normal continua com o preço dela');
 set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
 reset role;

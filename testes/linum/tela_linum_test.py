@@ -544,8 +544,11 @@ try:
         pg.click('[data-ca="todas"]'); pg.wait_for_selector("#cutb tr"); pg.click('[data-ca="fichas"]'); pg.wait_for_selector("#cures")
         art = psql(f"select id from lin_custos where ficha = '{ref_cu} artesanal'", saida=True)
         pg.click(f'.cuitem[data-cid="{art}"]'); pg.wait_for_selector("#cu_edicao")
-        ok("tem peças especiais" in pg.text_content("#cures") and "Pintura Artesanal" in pg.text_content("#cu_edicao"),
-           "Ficha de versão: avisa que a peça tem peças especiais e lista as edições")
+        ok("escolher a peça especial" in pg.text_content("#cures") and "Pintura Artesanal" in pg.text_content("#cu_edicao"),
+           "Ficha de versão: avisa que precisa escolher a peça especial e lista as edições")
+        pg.click("#cuenviar"); pg.wait_for_timeout(300)
+        ok("escolha a peça especial" in pg.text_content("#msg") and psql("select count(*) from lin_variantes where edicao = 'Pintura Artesanal' and preco_venda = 1290", saida=True) == "0",
+           "Trava 2.21: ficha de versão sem a peça especial não atualiza o cadastro")
         pg.select_option("#cu_edicao", "Pintura Artesanal"); pg.wait_for_timeout(200)
         ok("Pintura Artesanal" in pg.text_content("#cures") and "990,00" in pg.text_content("#cures").replace("\xa0", " "), "Ficha: compara com o preço da peça especial")
         pg.click("#cusalvar"); pg.wait_for_timeout(900); pg.wait_for_selector("#cuenviar"); pg.click("#cuenviar"); pg.wait_for_timeout(1200)
@@ -918,7 +921,7 @@ try:
             abrir_ajuda = pg.goto(f"http://127.0.0.1:{PORTA_SITE}/apps/linum/ajuda/{pagina}.html")
             ok(abrir_ajuda.ok and "Sistema Linum" in pg.title() and pg.locator('script[src="/marca-dagua.js"][data-tipo="doc"]').count() == 1, f"ajuda: {pagina} com marca d'água")
         pg.goto(f"http://127.0.0.1:{PORTA_SITE}/ajuda/novidades.html?app=linum&nome=Sistema%20Linum"); pg.wait_for_timeout(400)
-        ok("2.20" in pg.text_content("body"), "novidades do app (versão 2.20)")
+        ok("2.21" in pg.text_content("body"), "novidades do app (versão 2.21)")
         ok(psql("select mapa_url from apps where id = 'linum'", saida=True) == "/apps/linum/ajuda/mapa.html", "botão Mapa ligado no cadastro do app")
         b.close()
     print("TODOS OS TESTES DE TELA DO SISTEMA LINUM OK")
