@@ -141,7 +141,7 @@ end $$;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
 select pg_temp.ok((select count(*) = 0 from apps), 'login sem app liberado não vê apps');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
-select pg_temp.ok((select count(*) = 10 from apps), 'admin vê todos os apps, inclusive inativos');
+select pg_temp.ok((select count(*) = 11 from apps), 'admin vê todos os apps, inclusive inativos');
 insert into app_acessos values ('00000000-0000-0000-0000-00000000000c', 'chamados');
 update apps set ativo = false where id = 'chamados';
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
@@ -2017,6 +2017,104 @@ select lin_qr_cadastrar(jsonb_build_object('nome', 'Pessoa ' || i, 'telefone', '
 select pg_temp.erro2($$select lin_qr_cadastrar('{"nome":"Pessoa 6","telefone":"21900000006","aceite":true}')$$, 'Muitos envios', 'linum QR: no máximo 5 envios por hora por IP');
 reset role; reset request.headers;
 select pg_temp.erro2($$update lin_qr_cadastros set origem = 'x'$$, 'não pode ser alterado', 'linum QR: registro somente inclusão');
+
+-- ================================================================ Atendimentos de TI (atd_)
+reset role; reset request.headers;
+select pg_temp.ok((select situacao = 'oculto' and manual_url like '/apps/atendimentos/ajuda/%' from apps where id = 'atendimentos'),
+  'atendimentos: app cadastrado fora da vitrine');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+insert into atd_empreendimentos (sigla, nome, cod_equip) values ('SVS', 'Vogue', 'SVS'), ('Rio2Pom', 'Rio2', 'R2P');
+select pg_temp.erro2($$insert into atd_empreendimentos (sigla, nome, cod_equip) values ('svs', 'Outro', 'XX1')$$, 'duplicate', 'atendimentos: sigla repetida (maiúscula/minúscula) recusada');
+select pg_temp.erro2($$insert into atd_empreendimentos (sigla, nome, cod_equip) values ('ABC', 'Outro', 'R2P')$$, 'duplicate', 'atendimentos: código de equipamento repetido recusado');
+insert into atd_chamados (sigla, abertura, resumo, descricao, tipo, solicitante) values ('SVS', '2026-10-01', ' Impressora ', 'Impressora não imprime', 'Suporte TI', 'Ana');
+select pg_temp.ok((select numero = 1 and status = 'Aberto' and fechamento is null and resumo = 'Impressora' from atd_chamados),
+  'atendimentos: chamado novo sem andamento fica Aberto');
+insert into atd_andamentos (numero, data, fechado, texto) values (1, '2026-10-02', false, 'Aguardando toner');
+select pg_temp.ok((select status = 'Aberto' from atd_chamados where numero = 1), 'atendimentos: andamento aberto mantém o chamado aberto');
+insert into atd_andamentos (numero, data, fechado, texto) values (1, '2026-10-05', true, 'Toner trocado');
+select pg_temp.ok((select status = 'Aberto' from atd_chamados where numero = 1), 'atendimentos: só fecha com todos os andamentos fechados');
+update atd_andamentos set fechado = true where texto = 'Aguardando toner';
+select pg_temp.ok((select status = 'Fechado' and fechamento = '2026-10-05' from atd_chamados where numero = 1),
+  'atendimentos: todos fechados = Fechado, na data do último andamento');
+delete from atd_andamentos where texto = 'Toner trocado';
+select pg_temp.ok((select status = 'Fechado' and fechamento = '2026-10-02' from atd_chamados where numero = 1),
+  'atendimentos: excluir andamento recalcula o fechamento');
+select pg_temp.ok((select count(*) = 1 from auditoria where acao = 'atendimento_andamento_alterado' and detalhes->'antes' = '{"fechado":false}'
+                     and detalhes->'depois' = '{"fechado":true}' and detalhes->>'situacao_chamado' = 'Fechado')
+  and (select count(*) = 1 from auditoria where acao = 'atendimento_andamento_excluido' and detalhes->>'texto' = 'Toner trocado')
+  and (select count(*) = 1 from auditoria where acao = 'atendimento_chamado_aberto' and (detalhes->>'chamado')::int = 1),
+  'atendimentos: auditoria do chamado e dos andamentos (alteração só com o que mudou)');
+select pg_temp.erro2($$update atd_chamados set status = 'Aberto' where numero = 1$$, 'permission denied', 'atendimentos: a tela não grava a situação');
+update atd_chamados set solicitante = 'Ana Paula' where numero = 1;
+select pg_temp.ok((select detalhes->'antes' = '{"solicitante":"Ana"}' from auditoria where acao = 'atendimento_chamado_alterado'),
+  'atendimentos: alteração do chamado auditada com antes e depois');
+-- equipamentos
+insert into atd_equipamentos (sigla, prefixo, marca, modelo, usuario, setor) values ('SVS', 'NB', 'Lenovo', 'E480', 'Robson', 'Operações');
+insert into atd_equipamentos (sigla, prefixo, marca) values ('SVS', 'NB', 'Dell');
+insert into atd_equipamentos (sigla, prefixo, marca, vinculado_a, usuario) values ('SVS', 'MM', 'Kingston', 'NBSVS0001', 'ignorado');
+select pg_temp.ok((select string_agg(codigo || ':' || tipo || ':' || usuario, ',' order by codigo) from atd_equipamentos)
+                   = 'MMSVS0001:Memória:,NBSVS0001:Notebook:Robson,NBSVS0002:Notebook:',
+  'atendimentos: código gerado (prefixo + código do empreendimento + 4 dígitos); item usa o usuário do equipamento');
+select pg_temp.ok((select string_agg(evento, ' | ' order by id) from atd_equip_historico where codigo = 'NBSVS0001')
+                   = 'Cadastrado · usuário Robson | Item MMSVS0001 (Memória) instalado',
+  'atendimentos: histórico do cadastro e do item instalado');
+select atd_equip_alterar('NBSVS0001', '{"usuario":"Carla","situacao":"Manutenção"}', '2026-10-20');
+select pg_temp.ok((select string_agg(data || ' ' || evento, ' | ' order by id) from atd_equip_historico where codigo = 'NBSVS0001' and data = '2026-10-20')
+                   = '2026-10-20 Usuário: Robson → Carla | 2026-10-20 Situação: Em uso → Manutenção',
+  'atendimentos: alteração com a data informada gera um evento por mudança');
+select atd_equip_alterar('MMSVS0001', '{"vinculado_a":"NBSVS0002"}');
+select pg_temp.ok((select evento from atd_equip_historico where codigo = 'MMSVS0001' order by id desc limit 1) = 'Instalado em NBSVS0002 (antes em NBSVS0001)'
+  and (select evento from atd_equip_historico where codigo = 'NBSVS0001' order by id desc limit 1) = 'Item MMSVS0001 (Memória) removido',
+  'atendimentos: trocar o item de equipamento registra nos três históricos');
+select pg_temp.erro2($$select atd_equip_alterar('NBSVS0002', '{"vinculado_a":"NBSVS0001"}')$$, 'itens instalados', 'atendimentos: equipamento com itens não é instalado em outro');
+select pg_temp.erro2($$insert into atd_equipamentos (sigla, prefixo, vinculado_a) values ('Rio2Pom', 'MN', 'NBSVS0001')$$, 'outro empreendimento', 'atendimentos: item só em equipamento do mesmo empreendimento');
+select pg_temp.erro2($$update atd_empreendimentos set cod_equip = 'VSQ' where sigla = 'SVS'$$, 'não pode mudar', 'atendimentos: código do empreendimento fixo depois dos equipamentos');
+select pg_temp.erro2($$update atd_equip_historico set evento = 'x'$$, 'permission denied', 'atendimentos: histórico do equipamento não se altera pela tela');
+select pg_temp.erro2($$delete from atd_equipamentos where codigo = 'NBSVS0002'$$, 'permission denied', 'atendimentos: equipamento não se apaga (vira Baixado)');
+insert into atd_chamado_equip values (1, 'NBSVS0001');
+insert into atd_chamados (sigla, abertura, descricao) values ('Rio2Pom', '2026-10-10', 'Sem internet');
+select pg_temp.erro2($$insert into atd_chamado_equip values (2, 'NBSVS0001')$$, 'não é do empreendimento', 'atendimentos: equipamento só em chamado do mesmo empreendimento');
+select pg_temp.erro2($$update atd_chamados set sigla = 'Rio2Pom' where numero = 1$$, 'Desvincule', 'atendimentos: trocar empreendimento exige desvincular os equipamentos');
+-- cliente: só lê o empreendimento liberado
+insert into atd_acessos values ('00000000-0000-0000-0000-00000000000b', 'SVS');
+select pg_temp.ok((select count(*) = 1 from auditoria where acao = 'atendimento_acesso_liberado' and detalhes->>'empreendimento' = 'SVS'),
+  'atendimentos: acesso liberado auditado');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok((select count(*) = 1 from atd_chamados) and (select count(*) = 1 from atd_empreendimentos) and (select count(*) = 1 from atd_andamentos)
+  and (select count(*) = 3 from atd_equipamentos) and (select count(*) = 1 from atd_chamado_equip) and (select count(*) > 0 from atd_equip_historico),
+  'atendimentos: cliente lê só o empreendimento liberado');
+update atd_chamados set resumo = 'hack';
+delete from atd_andamentos;
+insert into atd_andamentos (numero, data, texto) select 1, '2026-10-29', 'x' where false;
+select pg_temp.erro2($$insert into atd_andamentos (numero, data, texto) values (1, '2026-10-29', 'x')$$, 'row-level security', 'atendimentos: cliente não registra andamento');
+select pg_temp.erro2($$select atd_equip_alterar('NBSVS0001', '{"usuario":"x"}')$$, 'equipe Nervia', 'atendimentos: cliente não altera equipamento');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select pg_temp.ok((select resumo = 'Impressora' from atd_chamados where numero = 1) and (select count(*) = 1 from atd_andamentos),
+  'atendimentos: cliente não altera nem apaga');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.ok((select count(*) = 0 from atd_chamados) and (select count(*) = 0 from atd_equipamentos), 'atendimentos: login sem acesso não vê nada');
+reset role;
+-- carga: mantém número, código e histórico, sem auditoria por linha; a sequência continua do maior número
+begin;
+set local atd.carga = 'sim';
+insert into atd_chamados (numero, sigla, abertura, descricao) values (300, 'SVS', '2026-01-02', 'Antigo');
+insert into atd_andamentos (numero, data, fechado, texto) values (300, '2026-01-03', true, 'Feito');
+insert into atd_equipamentos (codigo, seq, sigla, prefixo) values ('DTSVS0007', 7, 'SVS', 'DT');
+insert into atd_equip_historico (codigo, data, evento) values ('DTSVS0007', '2026-01-02', 'Cadastrado');
+commit;
+select setval('atd_chamados_numero_seq', (select max(numero) from atd_chamados));
+select pg_temp.ok((select status = 'Fechado' from atd_chamados where numero = 300)
+  and (select count(*) = 1 from atd_equip_historico where codigo = 'DTSVS0007')
+  and (select count(*) = 0 from auditoria where detalhes->>'chamado' = '300' or detalhes->>'equipamento' = 'DTSVS0007'),
+  'atendimentos: carga sem auditoria por linha, com status calculado e histórico trazido');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+insert into atd_chamados (sigla, abertura, descricao) values ('SVS', '2026-10-29', 'Novo');
+insert into atd_equipamentos (sigla, prefixo) values ('SVS', 'DT');
+select pg_temp.ok((select max(numero) = 301 from atd_chamados) and exists (select 1 from atd_equipamentos where codigo = 'DTSVS0008'),
+  'atendimentos: depois da carga a numeração continua');
+reset role;
 
 reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'
