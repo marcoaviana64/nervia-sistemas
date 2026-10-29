@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manual de utilização · Atendimentos de TI | Nervia</title>
+<link rel="stylesheet" href="/ajuda/ajuda.css">
+</head>
+<body>
+<div class="pagina">
+  <div class="cab">
+    <img src="/img/nervia-logo.png" alt="Nervia">
+    <div><div class="t">Atendimentos de TI · Manual de utilização</div><div class="s">Chamados de suporte de TI, andamentos, equipamentos e ficha do atendimento</div></div>
+    <div class="acoes"><a href="cartao.html">Cartão rápido</a><button onclick="print()">Imprimir</button></div>
+  </div>
+
+  <h1>Como usar os Atendimentos de TI</h1>
+  <p class="lead">Cada pedido de suporte de TI vira um chamado, com número, empreendimento, quem pediu e o que foi pedido. Cada passo do atendimento é um andamento. O chamado fica <b>Aberto</b> até todos os andamentos estarem fechados. Os equipamentos (notebooks, desktops, impressoras…) têm código próprio e guardam o histórico de usuários e situações.</p>
+
+  <ul class="indice">
+    <li><a href="#ver">1. Acompanhar os chamados</a></li>
+    <li><a href="#ficha">2. Ficha do atendimento em PDF</a></li>
+    <li><a href="#equip">3. Equipamentos</a></li>
+    <li><a href="#abrir">4. Abrir um chamado (equipe Nervia)</a></li>
+    <li><a href="#andamento">5. Registrar, corrigir e excluir andamentos (equipe Nervia)</a></li>
+    <li><a href="#cadastro">6. Equipamentos e empreendimentos (equipe Nervia)</a></li>
+    <li><a href="#quem">7. Liberar para o cliente (equipe Nervia)</a></li>
+    <li><a href="#problemas">8. Mensagens e o que fazer</a></li>
+  </ul>
+
+  <h2 id="ver">1. Acompanhar os chamados</h2>
+  <ol>
+    <li>Entre na Área do Cliente e abra <b>Atendimentos de TI</b>.</li>
+    <li>Em <b>Atendimentos</b>, a lista mostra os chamados do mais novo para o mais antigo. Use <b>Buscar</b> (número, texto, solicitante, código do equipamento) e os filtros <b>Empreendimento</b>, <b>Situação</b>, <b>Tipo</b> e <b>Mês</b>.</li>
+    <li>Clique na linha para ver os dados do chamado, os equipamentos e o <b>Histórico de andamentos</b>.</li>
+    <li>O <b>Painel</b> resume: quantos estão em aberto, os abertos há mais de 30 dias, o mês atual, o tempo médio até fechar, os gráficos por mês e por empreendimento e os 10 abertos há mais tempo.</li>
+  </ol>
+  <div class="nota">O cliente vê só os empreendimentos liberados para o login dele, sem poder alterar nada.</div>
+
+  <h2 id="ficha">2. Ficha do atendimento em PDF</h2>
+  <ol>
+    <li>Na linha do chamado, clique em <b>Ficha</b> (ou em <b>Ficha / PDF</b>, dentro do chamado).</li>
+    <li>A ficha mostra o resumo, o empreendimento, o solicitante, a situação, as datas, o tempo de atendimento, a solicitação, os equipamentos e a evolução do atendimento.</li>
+    <li>Clique em <b>Baixar PDF</b>. O arquivo sai com o nome "Ficha atendimento &lt;nº&gt; - &lt;empreendimento&gt;.pdf".</li>
+  </ol>
+
+  <h2 id="equip">3. Equipamentos</h2>
+  <ol>
+    <li>Em <b>Equipamentos</b>, cada linha é um equipamento; os itens instalados nele (memória, monitor, mouse…) aparecem logo abaixo, com ↳.</li>
+    <li>O código junta o tipo, o código do empreendimento e um número: <b>NBSVS0001</b> é o 1º notebook do SVS; <b>MMR2P0002</b> é a 2ª memória do Rio2.</li>
+    <li>Clique na linha para ver os dados, os itens instalados, os chamados que envolveram o equipamento e o histórico (cadastro, troca de usuário, situação, setor, item instalado ou removido).</li>
+  </ol>
+
+  <h2 id="abrir">4. Abrir um chamado <span class="eq">EQUIPE NERVIA</span></h2>
+  <ol>
+    <li>Clique em <b>Novo atendimento</b>.</li>
+    <li>Escolha o <b>Empreendimento</b> e confira a <b>Data de abertura</b> (vem com a de hoje).</li>
+    <li>Preencha <b>Resumo</b> (curto, aparece na lista), <b>Descrição</b> (o que foi pedido ou relatado), <b>Tipo</b> e <b>Solicitante</b> (as sugestões vêm dos chamados anteriores).</li>
+    <li>Opcional: em <b>Equipamentos</b>, escolha um equipamento do empreendimento ou clique em <b>+ Cadastrar novo</b>.</li>
+    <li>Opcional: escreva o <b>Primeiro andamento</b> e a situação dele. Sem andamento, o chamado fica aberto.</li>
+    <li>Clique em <b>Abrir chamado</b>. O número é gerado e a lista abre no chamado novo.</li>
+  </ol>
+
+  <h2 id="andamento">5. Registrar, corrigir e excluir andamentos <span class="eq">EQUIPE NERVIA</span></h2>
+  <ol>
+    <li>Abra o chamado. Em <b>Novo andamento</b>, informe a data, a situação (<b>Fechado</b> ou <b>Aberto</b>) e o que foi feito, e clique em <b>Registrar andamento</b>.</li>
+    <li>Use <b>Aberto</b> quando ainda falta algo (ex.: "aguardando peça"). O chamado só fecha quando <b>todos</b> os andamentos estão fechados; a data de fechamento é a do último andamento.</li>
+    <li>Para corrigir, clique em <b>Editar</b> no andamento, mude e clique em <b>Salvar</b>. Para excluir, <b>Editar</b> → <b>Excluir andamento</b> → <b>Confirmar exclusão</b>.</li>
+    <li>Para mudar os dados do chamado, clique em <b>Editar</b> em "Dados do chamado".</li>
+  </ol>
+  <div class="nota">Toda abertura, alteração e exclusão fica no registro de auditoria (Área do Cliente → Administração → Auditoria), com quem fez, quando e o texto de antes e de depois.</div>
+
+  <h2 id="cadastro">6. Equipamentos e empreendimentos <span class="eq">EQUIPE NERVIA</span></h2>
+  <ol>
+    <li><b>Cadastrar equipamento ou item</b>: escolha o empreendimento e o tipo (o código que será gerado aparece embaixo), a situação, marca, modelo, série, usuário, setor e observações. Para um item, escolha em <b>Instalado em</b> o equipamento onde ele está: ele passa a usar o usuário do equipamento.</li>
+    <li><b>Editar / trocar usuário</b>: mude o que for preciso e informe a <b>Data da alteração</b>. Cada mudança entra no histórico com essa data. O equipamento não é apagado: quando sai de uso, a situação vira <b>Baixado</b>.</li>
+    <li>Um equipamento com itens instalados não pode ser instalado em outro.</li>
+    <li><b>Empreendimentos</b>: para adicionar, informe a sigla (como aparece na lista; não muda depois), o nome e o código para equipamentos (2 a 4 letras ou números, diferente dos outros). O código não muda depois do primeiro equipamento.</li>
+  </ol>
+
+  <h2 id="quem">7. Liberar para o cliente <span class="eq">EQUIPE NERVIA</span></h2>
+  <ol>
+    <li>Crie o login do cliente em Área do Cliente → Administração → Logins (se ainda não existir).</li>
+    <li>Em <b>Empreendimentos</b>, clique no número da coluna <b>Quem vê</b> ("ninguém", "1 login"…) do empreendimento.</li>
+    <li>Marque os logins e clique em <b>Salvar</b>. O app Atendimentos de TI é liberado junto para quem foi marcado.</li>
+    <li>Desmarcar tira o acesso àquele empreendimento (o app continua liberado; retire em Logins, se for o caso).</li>
+  </ol>
+
+  <h2 id="problemas">8. Mensagens e o que fazer</h2>
+  <table>
+    <tr><th>Mensagem</th><th>O que fazer</th></tr>
+    <tr><td>Entre na Área do Cliente para ver os chamados</td><td>A sessão expirou: entre de novo em nervia.com.br/cliente.</td></tr>
+    <tr><td>Nenhum empreendimento liberado para o seu login</td><td>Peça à Nervia para liberar o empreendimento.</td></tr>
+    <tr><td>Não foi possível gerar o PDF</td><td>Confira a internet e tente de novo; se continuar, use outro navegador.</td></tr>
+    <tr><td>O equipamento … não é do empreendimento do chamado <span class="eq">EQUIPE NERVIA</span></td><td>Só se vinculam equipamentos do mesmo empreendimento do chamado.</td></tr>
+    <tr><td>Desvincule os equipamentos antes de trocar o empreendimento do chamado <span class="eq">EQUIPE NERVIA</span></td><td>Tire os equipamentos (×) e depois troque o empreendimento.</td></tr>
+    <tr><td>Este equipamento tem itens instalados… <span class="eq">EQUIPE NERVIA</span></td><td>Remova os itens dele antes de instalá-lo em outro equipamento.</td></tr>
+    <tr><td>Já existem equipamentos com o código… <span class="eq">EQUIPE NERVIA</span></td><td>O código do empreendimento faz parte dos códigos dos equipamentos e não pode mais mudar.</td></tr>
+    <tr><td>Essa sigla já existe · O código … já é usado <span class="eq">EQUIPE NERVIA</span></td><td>Escolha outra sigla ou outro código.</td></tr>
+  </table>
+  <div class="rodape">Dúvidas: WhatsApp (21) 96686-9374 · atendimento@nervia.com.br<br>Nervia Tecnologia · Manual do app Atendimentos de TI · atualizado em 29/10/2026</div>
+</div>
+<script src="/marca-dagua.js" data-tipo="doc"></script>
+</body>
+</html>

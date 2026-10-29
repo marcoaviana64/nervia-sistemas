@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cartão de referência · Atendimentos de TI | Nervia</title>
+<link rel="stylesheet" href="/ajuda/ajuda.css">
+</head>
+<body>
+<div class="pagina">
+  <div class="cab">
+    <img src="/img/nervia-logo.png" alt="Nervia">
+    <div><div class="t">Atendimentos de TI · Cartão de referência</div><div class="s">Cada campo e botão em uma linha</div></div>
+    <div class="acoes"><a href="manual.html">Manual completo</a><button onclick="print()">Imprimir</button></div>
+  </div>
+
+  <p class="lead">Os chamados de suporte de TI que a Nervia atende em cada empreendimento: o que foi pedido, cada andamento até a solução, os equipamentos envolvidos e a ficha do atendimento em PDF.</p>
+
+  <h2>Painel</h2>
+  <table>
+    <tr><td>Em aberto</td><td>Chamados ainda não resolvidos, do total registrado.</td></tr>
+    <tr><td>Abertos há +30 dias</td><td>Chamados em aberto há mais de 30 dias (pedem atenção).</td></tr>
+    <tr><td>Abertos no mês</td><td>Chamados abertos no mês atual e quantos foram fechados nele.</td></tr>
+    <tr><td>Tempo médio até fechar</td><td>Dias entre a abertura e o fechamento, e quantos foram resolvidos no mesmo dia.</td></tr>
+    <tr><td>Chamados abertos por mês</td><td>Últimos 12 meses; passe o mouse para ver o número.</td></tr>
+    <tr><td>Por empreendimento</td><td>Em aberto e fechados de cada um. Clique para ver os chamados dele.</td></tr>
+    <tr><td>Em aberto há mais tempo</td><td>Os 10 mais antigos. Clique para abrir o chamado.</td></tr>
+  </table>
+
+  <h2>Atendimentos</h2>
+  <table>
+    <tr><td>Buscar</td><td>Número, resumo, descrição, solicitante, texto dos andamentos ou código do equipamento.</td></tr>
+    <tr><td>Empreendimento · Situação · Tipo · Mês</td><td>Filtros da lista.</td></tr>
+    <tr><td>Aberto · Fechado · 12 d</td><td>Situação do chamado e há quantos dias está aberto (laranja = mais de 30).</td></tr>
+    <tr><td>Clique na linha</td><td>Abre os dados, os equipamentos e o histórico de andamentos.</td></tr>
+    <tr><td>Ficha · Ficha / PDF</td><td>Ficha do atendimento para enviar ou arquivar; <b>Baixar PDF</b> salva o arquivo.</td></tr>
+    <tr><td>Histórico de andamentos</td><td>Cada passo do atendimento, com data e situação.</td></tr>
+  </table>
+
+  <h2>Equipamentos</h2>
+  <table>
+    <tr><td>Código</td><td>Tipo + empreendimento + número (ex.: NBSVS0001 = 1º notebook do SVS).</td></tr>
+    <tr><td>↳ (item)</td><td>Memória, monitor, mouse… instalado em um equipamento; usa o usuário dele.</td></tr>
+    <tr><td>Em uso · Reserva · Manutenção · Baixado</td><td>Situação do equipamento.</td></tr>
+    <tr><td>Cham.</td><td>Quantos chamados envolveram o equipamento.</td></tr>
+    <tr><td>Clique na linha</td><td>Dados, itens instalados, chamados e histórico (troca de usuário, situação, setor).</td></tr>
+  </table>
+
+  <h2>Equipe Nervia <span class="eq">EQUIPE NERVIA</span></h2>
+  <table>
+    <tr><td>Novo atendimento</td><td>Empreendimento, data, resumo, descrição, tipo, solicitante, equipamentos e primeiro andamento (opcional). O número é automático.</td></tr>
+    <tr><td>Registrar andamento</td><td>Data, Fechado/Aberto e o que foi feito.</td></tr>
+    <tr><td>Fechado / Aberto (andamento)</td><td>O chamado só fecha quando todos os andamentos estão fechados; a data de fechamento é a do último andamento.</td></tr>
+    <tr><td>Editar (andamento) · Excluir andamento</td><td>Corrige data, situação ou texto, ou exclui (pede confirmação). Fica registrado na auditoria com o antes e o depois.</td></tr>
+    <tr><td>Editar (chamado)</td><td>Empreendimento, abertura, resumo, descrição, tipo e solicitante.</td></tr>
+    <tr><td>Vincular equipamento · + Cadastrar novo</td><td>Liga um equipamento do mesmo empreendimento ao chamado ou cadastra na hora; × desvincula.</td></tr>
+    <tr><td>Cadastrar equipamento ou item</td><td>Empreendimento, tipo, situação, marca, modelo, série, instalado em, usuário, setor, observações.</td></tr>
+    <tr><td>Editar / trocar usuário · Data da alteração</td><td>A mudança entra no histórico com a data informada.</td></tr>
+    <tr><td>Empreendimentos · Adicionar</td><td>Sigla (não muda depois), nome e código para equipamentos (2 a 4 letras/números; não muda depois do 1º equipamento).</td></tr>
+    <tr><td>Quem vê</td><td>Logins de clientes que veem os chamados e equipamentos do empreendimento (só leitura). Libera o app junto.</td></tr>
+  </table>
+
+  <h2>Bom saber</h2>
+  <table>
+    <tr><td>Cliente</td><td>Vê só os empreendimentos liberados para o login dele e não altera nada.</td></tr>
+    <tr><td>Atualização</td><td>A tela relê os chamados ao voltar para ela e a cada 2 minutos.</td></tr>
+    <tr><td>Ajuda</td><td>WhatsApp (21) 96686-9374 · atendimento@nervia.com.br</td></tr>
+  </table>
+  <div class="rodape">Nervia Tecnologia · Cartão de referência do app Atendimentos de TI · atualizado em 29/10/2026</div>
+</div>
+<script src="/marca-dagua.js" data-tipo="doc"></script>
+</body>
+</html>

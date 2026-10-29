@@ -44,6 +44,9 @@ window.NERVIA_VERSOES = {
     ["1.1", "Formulário da fatura pelo link: o cliente informa as licenças pagas do mês, sem login, e a Nervia confere e aprova."],
     ["1.0", "Lançamento: contas e licenças de cada unidade, mudanças entre exportações e licenças pagas sem uso."],
   ],
+  "atendimentos": [
+    ["1.0", "Lançamento na Plataforma: os chamados de suporte de TI da Nervia por empreendimento, com o histórico de andamentos, a ficha do atendimento em PDF e os equipamentos com código e histórico de usuários."],
+  ],
   "linum": [
     ["2.17", "Ao cadastrar um produto sem referência, a referência provisória (NOVA-…) já aparece no campo depois de salvar; antes, salvar de novo (por exemplo, para acrescentar cores) dava a mensagem de referência faltando, embora o produto já estivesse gravado."],
     ["2.16", "Quem lê o QR code da LINUM (vitrine, sacola, cartão) pode deixar nome, WhatsApp e aniversário na página e já entra em Clientes como possível cliente, com a origem e o próximo contato para o dia seguinte; filtro “Vieram pelo QR code” e a etiqueta QR na lista."],

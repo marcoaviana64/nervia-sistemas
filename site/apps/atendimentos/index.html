@@ -1,0 +1,1191 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Atendimentos de TI | Nervia</title>
+<script src="/config.js"></script>
+<script src="/versoes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Atendimentos de TI (app "atendimentos", tabelas atd_). Veio da Central "Nervia Atendimentos" (artifact) em 29/10/2026:
+   mesmo visual e mesmas telas. A equipe Nervia (admin) altera; o cliente só lê os empreendimentos liberados (atd_acessos).
+   Situação e fechamento do chamado, código e histórico do equipamento são calculados no servidor (gatilhos). */
+[hidden]{display:none!important}
+:root{
+  --bg:#F3F6F6; --surface:#FFFFFF; --surface-2:#EAF0EF; --line:#D8E1E0; --line-strong:#B9C6C5;
+  --ink:#0F1719; --ink-2:#44545A; --muted:#6A7A7F;
+  --accent:#0C7F74; --accent-ink:#FFFFFF; --accent-soft:#DCEFEC;
+  --warn:#9A5B00; --warn-soft:#FBEBD2; --crit:#B3261E; --crit-soft:#F9E0DE;
+  --bar-closed:#B7C4C3;
+  --shadow:0 1px 2px rgba(15,23,25,.06),0 4px 16px rgba(15,23,25,.05);
+  --sans:"Instrument Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0D1213; --surface:#141B1D; --surface-2:#1B2427; --line:#263236; --line-strong:#38484D;
+    --ink:#E4ECEC; --ink-2:#B2C0C2; --muted:#84979B;
+    --accent:#3BC0B0; --accent-ink:#06201D; --accent-soft:#12302D;
+    --warn:#F0B35A; --warn-soft:#352813; --crit:#F2877F; --crit-soft:#3A1C1A;
+    --bar-closed:#3E4F53;
+    --shadow:0 1px 2px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0D1213; --surface:#141B1D; --surface-2:#1B2427; --line:#263236; --line-strong:#38484D;
+  --ink:#E4ECEC; --ink-2:#B2C0C2; --muted:#84979B;
+  --accent:#3BC0B0; --accent-ink:#06201D; --accent-soft:#12302D;
+  --warn:#F0B35A; --warn-soft:#352813; --crit:#F2877F; --crit-soft:#3A1C1A;
+  --bar-closed:#3E4F53;
+  --shadow:0 1px 2px rgba(0,0,0,.3);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;padding-inline:16px;padding-block:0 48px}
+.embutido .brand{visibility:hidden;width:0;overflow:hidden}
+.brand .versao{color:var(--muted);font-size:11.5px}
+#dlg{border:0;border-radius:14px;padding:18px;max-width:560px;width:calc(100% - 24px);background:var(--surface);color:var(--ink)}
+#dlg::backdrop{background:#0008}
+.quem{max-height:50vh;overflow:auto;display:flex;flex-direction:column;gap:4px;margin:10px 0}
+.quem label{display:flex;gap:8px;align-items:center;font-size:13.5px}
+.wrap{max-width:1180px;margin:0 auto}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* header */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);margin-inline:-16px;padding:10px 16px}
+.top .wrap{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto}
+.brand svg{flex:none}
+.brand b{display:block;font-size:15px;letter-spacing:.02em}
+.brand small{display:block;color:var(--muted);font-size:12px;line-height:1.2}
+nav{display:flex;gap:4px;flex-wrap:wrap}
+nav a{text-decoration:none;color:var(--ink-2);padding:7px 12px;border-radius:8px;font-weight:500;font-size:13.5px}
+nav a:hover{background:var(--surface-2);color:var(--ink)}
+nav a[aria-current="page"]{background:var(--ink);color:var(--bg)}
+.notice{margin-top:14px;padding:10px 14px;border-radius:10px;background:var(--warn-soft);color:var(--warn);font-weight:500}
+
+h1{font-size:24px;line-height:1.2;margin:28px 0 4px;text-wrap:balance;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:0 0 20px}
+h2{font-size:15px;margin:0 0 12px}
+.label{font-size:11.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
+
+/* panel */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;box-shadow:var(--shadow)}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.kpi .v{font-family:var(--mono);font-size:28px;font-weight:500;line-height:1.1;margin-top:6px;font-variant-numeric:tabular-nums}
+.kpi .h{color:var(--muted);font-size:12.5px;margin-top:4px}
+.kpi.alert .v{color:var(--warn)}
+.grid2{display:grid;grid-template-columns:1.25fr 1fr;gap:12px;margin-bottom:12px}
+.chart svg{display:block;width:100%;height:auto}
+.chart text{fill:var(--muted);font-family:var(--mono);font-size:11px}
+.chart .val{fill:var(--ink-2)}
+.legend{display:flex;gap:14px;font-size:12.5px;color:var(--ink-2);margin:-4px 0 10px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--bg);font-size:12px;padding:6px 9px;border-radius:6px;z-index:50;white-space:nowrap}
+
+/* filters */
+.filters{display:grid;grid-template-columns:1.6fr repeat(4,minmax(0,1fr));gap:10px;align-items:end;margin-bottom:14px}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field label{font-size:12px;color:var(--ink-2);font-weight:500}
+input[type=text],input[type=date],input[type=search],select,textarea{width:100%;background:var(--surface);border:1px solid var(--line-strong);border-radius:8px;padding:8px 10px;min-height:38px}
+textarea{min-height:84px;resize:vertical;line-height:1.45}
+.count{color:var(--muted);font-size:13px;margin:0 0 10px}
+
+/* list */
+.list{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.row{border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.rhead{display:grid;grid-template-columns:22px 52px 70px 90px minmax(0,1fr) 96px 150px 84px 90px 64px;gap:12px;align-items:center;padding:10px 14px;cursor:pointer;width:100%;background:none;border:0;text-align:left}
+.rhead:hover{background:var(--surface-2)}
+.thead{display:grid;grid-template-columns:22px 52px 70px 90px minmax(0,1fr) 96px 150px 84px 90px 64px;gap:12px;padding:9px 14px;background:var(--surface-2);font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.chev{transition:transform .15s;color:var(--muted)}
+.row.open .chev{transform:rotate(90deg)}
+.fbtn{justify-self:end;font-size:12.5px;font-weight:600;color:var(--accent);border:1px solid var(--accent);border-radius:7px;padding:3px 10px;white-space:nowrap}
+.rhead:hover .fbtn{background:var(--accent);color:var(--accent-ink)}
+.fbtn:hover{background:var(--accent);color:var(--accent-ink)}
+/* ficha documento */
+#fd-overlay[hidden]{display:none}
+#fd-overlay{position:fixed;inset:0;z-index:40;background:rgba(10,16,18,.55);display:flex;justify-content:center;padding:max(16px,env(safe-area-inset-top,0px)) 16px 16px}
+.fd-dialog{background:var(--bg);border-radius:14px;width:100%;max-width:880px;display:flex;flex-direction:column;max-height:100%;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.fd-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--line)}
+.fd-scroll{overflow:auto;padding:18px}
+.fdoc{background:#fff;color:#0F1719;border-radius:6px;padding:36px 40px;box-shadow:0 1px 3px rgba(0,0,0,.12);max-width:794px;margin:0 auto;display:flex;flex-direction:column;gap:18px;--ink:#0F1719;--ink-2:#44545A;--muted:#5F6F74;--line:#D8E1E0;--line-strong:#B9C6C5;--accent:#0C7F74;--accent-ink:#fff}
+.fd-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;border-bottom:2px solid #0C7F74;padding-bottom:14px}
+.fd-brand{display:flex;gap:10px;align-items:center}.fd-brand b{display:block;letter-spacing:.06em;font-size:14px}.fd-brand small{display:block;color:#5F6F74;font-size:12px}
+.fd-title{text-align:right}.fd-title b{display:block;font-size:24px;line-height:1.1}
+.fd-resumo{font-size:18px;margin:0;text-wrap:balance}
+.fd-info{display:grid;grid-template-columns:repeat(2,minmax(0,150px) minmax(0,1fr));gap:8px 14px;margin:0}
+.fd-info dt{color:#5F6F74;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;font-weight:600;padding-top:2px}.fd-info dd{margin:0}
+.fdoc h3{font-size:14px;margin:0 0 8px}
+.fd-text{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;color:#26343A}
+.fd-tab{width:100%;border-collapse:collapse;font-size:13px}.fd-tab th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#5F6F74;padding:6px 6px;border-bottom:1px solid #B9C6C5}.fd-tab td{padding:7px 6px;border-bottom:1px solid #D8E1E0;vertical-align:top}
+.fd-tl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}.fd-tl li{border-left:2px solid #D8E1E0;padding-left:12px}
+.fd-foot{border-top:1px solid #D8E1E0;padding-top:10px;font-size:11.5px;color:#5F6F74}
+@media (max-width:640px){.fdoc{padding:20px 16px}.fd-info{grid-template-columns:minmax(0,120px) minmax(0,1fr)}.fd-head{flex-direction:column}.fd-title{text-align:left}}
+.num{font-family:var(--mono);font-weight:500}
+.emp{font-family:var(--mono);font-size:12px;padding:2px 7px;border-radius:5px;background:var(--surface-2);color:var(--ink-2);justify-self:start;white-space:nowrap}
+.desc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.desc b{font-weight:600}
+.desc span{color:var(--ink-2)}
+.cell-m{color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.date{font-family:var(--mono);font-size:12.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.pill{font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;justify-self:start;white-space:nowrap}
+.pill.aberto{background:var(--accent);color:var(--accent-ink)}
+.pill.fechado{background:transparent;color:var(--muted);box-shadow:inset 0 0 0 1px var(--line-strong)}
+.age{display:block;font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px}
+.age.old{color:var(--warn)}
+.empty{padding:28px;text-align:center;color:var(--muted)}
+
+/* ficha */
+.ficha{padding:4px 14px 18px 48px;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:18px}
+.card{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--bg)}
+.card h3{font-size:13.5px;margin:0 0 10px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.dl{display:grid;grid-template-columns:110px minmax(0,1fr);gap:6px 12px;margin:0}
+.dl dt{color:var(--muted);font-size:12.5px}
+.dl dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.timeline{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+.timeline li{position:relative;padding-left:18px}
+.timeline li::before{content:"";position:absolute;left:3px;top:7px;width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.timeline li.aberto::before{background:var(--accent)}
+.timeline li::after{content:"";position:absolute;left:6.5px;top:18px;bottom:-12px;width:1px;background:var(--line)}
+.timeline li:last-child::after{display:none}
+.tl-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tl-t{margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--ink-2)}
+.hint{font-size:12px;color:var(--muted);margin:8px 0 0}
+.stack{display:flex;flex-direction:column;gap:10px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:8px;padding:8px 14px;border:1px solid transparent;font-weight:600;cursor:pointer;min-height:36px}
+.btn.primary{background:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.ghost{background:transparent;border-color:var(--line-strong);color:var(--ink-2)}
+.btn.ghost:hover{background:var(--surface-2)}
+.btn.danger{background:var(--crit-soft);color:var(--crit)}
+.btn.link{background:none;border:0;padding:2px 6px;min-height:0;color:var(--accent);font-weight:600;font-size:12.5px}
+.btn:disabled{opacity:.5;cursor:default}
+.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.msg{font-size:12.5px;color:var(--accent);font-weight:500}
+.msg.err{color:var(--crit)}
+
+/* oldest */
+.olist{list-style:none;margin:0;padding:0}
+.olist li{border-top:1px solid var(--line)}
+.olist li:first-child{border-top:0}
+.olist button{width:100%;display:grid;grid-template-columns:52px 70px minmax(0,1fr) 70px;gap:10px;align-items:center;padding:9px 4px;background:none;border:0;text-align:left;cursor:pointer;border-radius:6px}
+.olist button:hover{background:var(--surface-2)}
+
+/* forms page */
+.formgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.formgrid .full{grid-column:1/-1}
+.maxw{max-width:780px}
+.emptab{width:100%;border-collapse:collapse}
+.emptab th,.emptab td{text-align:left;padding:9px 8px;border-top:1px solid var(--line)}
+.emptab th{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);border-top:0}
+.emptab td.n{font-family:var(--mono);text-align:right}
+
+/* equipamentos */
+.filters.f4{grid-template-columns:1.6fr repeat(3,minmax(0,1fr))}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+.chip{display:inline-flex;align-items:center;border:1px solid var(--line-strong);border-radius:999px;background:var(--surface);font-size:12.5px;max-width:100%}
+.chip-l{background:none;border:0;padding:3px 4px 3px 10px;cursor:pointer;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
+.chip-l b{color:var(--ink);font-weight:500;font-family:var(--mono)}
+.chip-l:only-child{padding-right:10px}
+.chip-x{background:none;border:0;padding:3px 10px 3px 6px;cursor:pointer;color:var(--muted);font-size:15px;line-height:1}
+.chip-x:hover{color:var(--crit)}
+.picker{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.picker select{flex:1 1 240px;width:auto}
+.subform{border:1px dashed var(--line-strong);border-radius:10px;padding:12px;background:var(--surface)}
+.subform h4{margin:0 0 10px;font-size:13px}
+.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.eqhead,.eqrow{display:grid;grid-template-columns:22px 132px 120px minmax(0,1fr) 150px 120px 100px 64px;gap:12px;align-items:center;padding:10px 14px}
+.eqhead{padding-block:9px;background:var(--surface-2);font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.eqrow{width:100%;background:none;border:0;text-align:left;cursor:pointer}
+.eqrow:hover{background:var(--surface-2)}
+.row.child .eqrow .code{padding-left:16px;position:relative}
+.row.child .eqrow .code::before{content:"↳";position:absolute;left:0;color:var(--muted)}
+.row.child{background:color-mix(in srgb,var(--surface-2) 40%,transparent)}
+.code{font-family:var(--mono);font-weight:500;font-size:13px;white-space:nowrap}
+.sit{font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;justify-self:start;white-space:nowrap;box-shadow:inset 0 0 0 1px var(--line-strong);color:var(--ink-2)}
+.sit.em-uso{background:var(--accent-soft);color:var(--accent);box-shadow:none}
+.sit.manutencao{background:var(--warn-soft);color:var(--warn);box-shadow:none}
+.sit.baixado{color:var(--muted);text-decoration:line-through}
+.nchip{font-family:var(--mono);font-size:12px;color:var(--muted);text-align:right}
+.linklist{list-style:none;margin:0;padding:0}
+.linklist li{border-top:1px solid var(--line)}
+.linklist li:first-child{border-top:0}
+.linklist button{width:100%;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:7px 2px;background:none;border:0;text-align:left;cursor:pointer;border-radius:6px}
+.linklist button:hover{background:var(--surface-2)}
+@media (max-width:900px){
+  .filters.f4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .eqhead{display:none}
+  .eqrow{grid-template-columns:18px auto minmax(0,1fr) auto;grid-template-areas:"c k m s" "c u u u";row-gap:2px}
+  .eqrow .chev{grid-area:c}.eqrow .code{grid-area:k}.eqrow .mm{grid-area:m}.eqrow .sit{grid-area:s}.eqrow .us{grid-area:u}
+  .eqrow .tpc,.eqrow .se,.eqrow .nchip{display:none}
+  .three{grid-template-columns:1fr}
+}
+@media (max-width:900px){
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .grid2{grid-template-columns:1fr}
+  .filters{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .filters .field:first-child{grid-column:1/-1}
+  .thead{display:none}
+  .rhead{grid-template-columns:18px auto auto minmax(0,1fr) auto;grid-template-areas:"c n e d s" "c x x x f";row-gap:4px}
+  .rhead .fbtn{grid-area:f;align-self:end}
+  .rhead .chev{grid-area:c}
+  .rhead .num{grid-area:n}
+  .rhead .emp{grid-area:e}
+  .rhead .ab{grid-area:d;justify-self:end}
+  .rhead .st{grid-area:s}
+  .rhead .desc{grid-area:x;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .rhead .tp,.rhead .so,.rhead .fe{display:none}
+  .ficha{grid-template-columns:1fr;padding-left:14px}
+  .formgrid{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){.chev{transition:none}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="8" fill="var(--ink)"/><path d="M9 15.5a11 11 0 0 1 16 0M12 19a6.5 6.5 0 0 1 10 0" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round"/><circle cx="17" cy="23" r="2.1" fill="var(--accent)"/></svg>
+      <div><b>NERVIA TI</b><small>Central de atendimentos</small><span class="versao" data-versao="atendimentos"></span></div>
+    </div>
+    <nav id="nav">
+      <a href="#painel" data-v="painel">Painel</a>
+      <a href="#atendimentos" data-v="atendimentos">Atendimentos</a>
+      <a href="#equipamentos" data-v="equipamentos">Equipamentos</a>
+      <a href="#novo" data-v="novo" class="so-equipe">Novo atendimento</a>
+      <a href="#empreendimentos" data-v="empreendimentos" class="so-equipe">Empreendimentos</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="notice" class="notice" hidden></div>
+
+  <section id="v-painel" hidden>
+    <h1>Painel</h1>
+    <p class="sub" id="painel-sub">Carregando…</p>
+    <div class="kpis" id="kpis"></div>
+    <div class="grid2">
+      <div class="panel chart">
+        <h2>Chamados abertos por mês</h2>
+        <div id="ch-mes"></div>
+      </div>
+      <div class="panel chart">
+        <h2>Por empreendimento</h2>
+        <div class="legend"><span><i style="background:var(--accent)"></i>Em aberto</span><span><i style="background:var(--bar-closed)"></i>Fechados</span></div>
+        <div id="ch-emp"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Em aberto há mais tempo</h2>
+      <ul class="olist" id="oldest"></ul>
+    </div>
+  </section>
+
+  <section id="v-atendimentos" hidden>
+    <h1>Atendimentos</h1>
+    <p class="sub" id="at-sub">Carregando…</p>
+    <div class="filters">
+      <div class="field"><label for="f-q">Buscar</label><input type="search" id="f-q" placeholder="Nº, descrição, solicitante…"></div>
+      <div class="field"><label for="f-emp">Empreendimento</label><select id="f-emp"></select></div>
+      <div class="field"><label for="f-st">Situação</label><select id="f-st"><option value="">Todos</option><option>Aberto</option><option>Fechado</option></select></div>
+      <div class="field"><label for="f-tp">Tipo</label><select id="f-tp"></select></div>
+      <div class="field"><label for="f-mes">Mês</label><select id="f-mes"></select></div>
+    </div>
+    <p class="count" id="count"></p>
+    <div class="list" id="list"></div>
+  </section>
+
+  <section id="v-equipamentos" hidden>
+    <h1>Equipamentos</h1>
+    <p class="sub" id="eq-sub">Carregando…</p>
+    <div class="filters f4">
+      <div class="field"><label for="q-q">Buscar</label><input type="search" id="q-q" placeholder="Código, marca, série, usuário, setor…"></div>
+      <div class="field"><label for="q-emp">Empreendimento</label><select id="q-emp"></select></div>
+      <div class="field"><label for="q-tp">Tipo</label><select id="q-tp"></select></div>
+      <div class="field"><label for="q-sit">Situação</label><select id="q-sit"></select></div>
+    </div>
+    <div class="actions" style="margin:0 0 12px"><button class="btn primary" type="button" id="eq-new">Cadastrar equipamento ou item</button><span class="count" id="eq-count" style="margin:0"></span></div>
+    <div id="eq-form" style="margin-bottom:12px"></div>
+    <div class="list" id="eq-list"></div>
+  </section>
+
+  <section id="v-novo" hidden>
+    <h1>Novo atendimento</h1>
+    <p class="sub">O número é gerado automaticamente. Sem andamento, o chamado fica em aberto.</p>
+    <form class="panel maxw" id="novo-form" autocomplete="off">
+      <div class="formgrid">
+        <div class="field"><label for="n-emp">Empreendimento</label><select id="n-emp" required></select></div>
+        <div class="field"><label for="n-data">Data de abertura</label><input type="date" id="n-data" required></div>
+        <div class="field full"><label for="n-resumo">Resumo</label><input type="text" id="n-resumo" required placeholder="Ex.: Acesso ao setor comercial"></div>
+        <div class="field full"><label for="n-desc">Descrição</label><textarea id="n-desc" required placeholder="O que o solicitante pediu ou relatou"></textarea></div>
+        <div class="field"><label for="n-tipo">Tipo</label><input type="text" id="n-tipo" list="dl-tipos" required></div>
+        <div class="field"><label for="n-sol">Solicitante</label><input type="text" id="n-sol" list="dl-sol"></div>
+        <div class="field full"><label>Equipamentos (opcional)</label><div id="n-ativos"></div></div>
+        <div class="field full"><label for="n-and">Primeiro andamento (opcional)</label><textarea id="n-and" placeholder="O que já foi feito"></textarea></div>
+        <div class="field"><label for="n-and-st">Situação do andamento</label><select id="n-and-st"><option value="1">Fechado</option><option value="0">Aberto</option></select></div>
+      </div>
+      <div class="actions" style="margin-top:16px"><button class="btn primary" type="submit" id="n-save">Abrir chamado</button><span class="msg" id="n-msg"></span></div>
+    </form>
+  </section>
+
+  <section id="v-empreendimentos" hidden>
+    <h1>Empreendimentos</h1>
+    <p class="sub">Clientes e locais atendidos. A sigla aparece na lista de chamados.</p>
+    <div class="grid2">
+      <div class="panel"><table class="emptab"><thead><tr><th>Sigla</th><th>Nome</th><th title="Usado no código dos equipamentos">Cód. equip.</th><th style="text-align:right">Abertos</th><th style="text-align:right">Total</th><th>Quem vê</th><th></th></tr></thead><tbody id="emp-body"></tbody></table></div>
+      <form class="panel" id="emp-form" autocomplete="off">
+        <h2>Adicionar empreendimento</h2>
+        <div class="stack">
+          <div class="field"><label for="e-sigla">Sigla</label><input type="text" id="e-sigla" required maxlength="12" placeholder="Ex.: SBG"></div>
+          <div class="field"><label for="e-nome">Nome</label><input type="text" id="e-nome" required></div>
+          <div class="field"><label for="e-cod">Código para equipamentos (2 a 4 letras/números)</label><input type="text" id="e-cod" required maxlength="4" placeholder="Ex.: SBG" style="text-transform:uppercase"></div>
+          <p class="hint" style="margin:0">Entra no código de cada equipamento. Ex.: com R2P, o primeiro notebook fica NBR2P0001.</p>
+          <div class="actions"><button class="btn primary" type="submit">Adicionar</button><span class="msg" id="e-msg"></span></div>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <datalist id="dl-tipos"></datalist>
+  <datalist id="dl-sol"></datalist>
+  <datalist id="dl-setores"></datalist>
+</main>
+<div class="tip" id="tip" hidden></div>
+<div id="fd-overlay" hidden></div>
+<dialog id="dlg"></dialog>
+
+<script>
+(() => {
+const $ = s => document.querySelector(s);
+const el = (tag, attrs = {}, ...kids) => {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v == null || v === false) continue;
+    if (k === 'class') n.className = v;
+    else if (k === 'text') n.textContent = v;
+    else if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
+    else n.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of kids.flat(Infinity)) if (c != null && c !== false) n.append(c.nodeType ? c : document.createTextNode(String(c)));
+  return n;
+};
+
+const CFG = window.NERVIA_CONFIG || {};
+const EMBUTIDO = window.self !== window.top;
+if (EMBUTIDO) document.documentElement.classList.add('embutido');
+const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
+const checar = r => { if (r.error) throw r.error; return r.data; };
+// a API devolve no máximo 1000 linhas por pedido: lê em páginas
+async function todos(mk) { const out = []; for (let i = 0; ; i += 1000) { const d = checar(await mk().range(i, i + 999)); out.push(...d); if (d.length < 1000) return out; } }
+
+const tip = document.getElementById('tip');
+const S = { admin: false, acessos: new Map(), chamados: new Map(), emps: [], loaded: false, readOnly: false,
+  open: new Set(), editing: new Set(), editAnd: new Map(), drafts: {}, filters: { q:'', emp:'', st:'', tp:'', mes:'' },
+  ativos: new Map(), eqf: { q:'', emp:'', tp:'', sit:'' }, eqOpen: new Set(), eqEdit: new Set(), eqNew: false, pickNew: new Set(), novoAtivos: [], empEdit: null };
+
+const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+const br = d => d ? d.slice(8,10) + '/' + d.slice(5,7) + '/' + d.slice(0,4) : '—';
+const mesLabel = ym => MESES[+ym.slice(5,7) - 1] + '/' + ym.slice(0,4);
+const days = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5);
+
+const sortAnd = a => [...a].sort((x, y) => x.data < y.data ? -1 : x.data > y.data ? 1 : (x.id || 0) - (y.id || 0));
+
+async function carregar() {
+  const [emps, chs, ands, ce, eqs, hs] = await Promise.all([
+    todos(() => sb.from('atd_empreendimentos').select('sigla, nome, cod_equip, ativo').order('sigla')),
+    todos(() => sb.from('atd_chamados').select('numero, sigla, abertura, resumo, descricao, tipo, solicitante, categoria, status, fechamento').order('numero')),
+    todos(() => sb.from('atd_andamentos').select('id, numero, data, fechado, texto').order('id')),
+    todos(() => sb.from('atd_chamado_equip').select('numero, codigo').order('numero')),
+    todos(() => sb.from('atd_equipamentos').select('codigo, seq, prefixo, tipo, sigla, marca, modelo, serie, setor, situacao, usuario, vinculado_a, obs').order('codigo')),
+    todos(() => sb.from('atd_equip_historico').select('id, codigo, data, evento').order('id'))]);
+  S.emps = emps.map(e => ({ sigla: e.sigla, nome: e.nome, codEquip: e.cod_equip, ativo: e.ativo })).sort((a, b) => a.sigla.localeCompare(b.sigla, 'pt', { sensitivity: 'base' }));
+  const m = new Map();
+  for (const c of chs) m.set(c.numero, { numero: c.numero, empr: c.sigla, abertura: c.abertura, resumo: c.resumo, descricao: c.descricao, tipo: c.tipo,
+    solicitante: c.solicitante, categoria: c.categoria, status: c.status, fechamento: c.fechamento || '', andamentos: [], ativos: [] });
+  for (const a of ands) m.get(a.numero)?.andamentos.push({ id: a.id, data: a.data, fechado: a.fechado, texto: a.texto });
+  for (const c of m.values()) c.andamentos = sortAnd(c.andamentos);
+  for (const x of ce) m.get(x.numero)?.ativos.push(x.codigo);
+  S.chamados = m;
+  const at = new Map();
+  for (const a of eqs) at.set(a.codigo, { codigo: a.codigo, seq: a.seq, prefixo: a.prefixo, tipo: a.tipo, empr: a.sigla, marca: a.marca, modelo: a.modelo,
+    serie: a.serie, setor: a.setor, situacao: a.situacao, usuario: a.usuario, vinculadoA: a.vinculado_a || '', obs: a.obs, historico: [] });
+  for (const h of hs) at.get(h.codigo)?.historico.push({ data: h.data, evento: h.evento });
+  S.ativos = at;
+  S.loaded = true; S.lido = Date.now();
+}
+async function recarregar() { await carregar(); render(); }
+
+/* ---------- views ---------- */
+const VIEWS = ['painel','atendimentos','equipamentos','novo','empreendimentos'];
+let VIEW = (() => { const h = location.hash.slice(1); return VIEWS.includes(h) ? h : 'atendimentos'; })();
+function currentView() { return VIEW; }
+function go(v) { VIEW = v; tip.hidden = true; show(); window.scrollTo(0, 0); }
+const SO_EQUIPE = ['novo', 'empreendimentos'];
+document.getElementById('nav').addEventListener('click', e => { const a = e.target.closest('a[data-v]'); if (!a) return; e.preventDefault(); go(a.dataset.v); });
+function show() {
+  if (S.readOnly && SO_EQUIPE.includes(VIEW)) VIEW = 'atendimentos';
+  const v = currentView();
+  for (const x of VIEWS) $('#v-' + x).hidden = x !== v;
+  for (const a of document.querySelectorAll('#nav a')) { if (a.dataset.v === v) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); }
+  render();
+}
+
+/* ---------- rendering ---------- */
+function list() { return [...S.chamados.values()].sort((a, b) => b.numero - a.numero); }
+
+function render() {
+  const v = currentView();
+  const act = document.activeElement, actId = act && act.id, selS = act && act.selectionStart, selE = act && act.selectionEnd;
+  fillOptions();
+  if (v === 'painel') renderPainel();
+  if (v === 'atendimentos') renderList();
+  if (v === 'equipamentos') renderEquip();
+  if (v === 'novo') renderNovoAtivos();
+  if (v === 'empreendimentos') renderEmps();
+  const n = actId && document.getElementById(actId);
+  if (n && n !== document.activeElement) { n.focus(); try { if (selS != null) n.setSelectionRange(selS, selE); } catch {} }
+}
+
+function setOptions(sel, items, allLabel) {
+  const cur = sel.value;
+  sel.replaceChildren(...(allLabel ? [el('option', { value: '', text: allLabel })] : []), ...items.map(([v, t]) => el('option', { value: v, text: t })));
+  if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
+}
+function fillOptions() {
+  const all = list();
+  const emps = S.emps.map(e => [e.sigla, e.sigla + ' · ' + e.nome]);
+  setOptions($('#f-emp'), emps, 'Todos');
+  const nEmp = $('#n-emp'); const had = nEmp.value;
+  setOptions(nEmp, emps, 'Selecione…'); if (had) nEmp.value = had;
+  const tipos = [...new Set(['Suporte', 'Suporte TI', 'Consultoria TI', 'Software', 'Instalação', ...all.map(c => c.tipo).filter(Boolean)])].sort((a,b)=>a.localeCompare(b,'pt'));
+  setOptions($('#f-tp'), tipos.map(t => [t, t]), 'Todos');
+  $('#dl-tipos').replaceChildren(...tipos.map(t => el('option', { value: t })));
+  const sols = [...new Set([...all.map(c => (c.solicitante || '').trim()), ...ativosList().map(a => (a.usuario || '').trim())].filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt'));
+  const setores = [...new Set(ativosList().map(a => (a.setor || '').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt'));
+  $('#dl-setores').replaceChildren(...setores.map(t => el('option', { value: t })));
+  setOptions($('#q-emp'), S.emps.map(e => [e.sigla, `${e.sigla} · ${e.nome} (${empCod(e.sigla)})`]), 'Todos');
+  setOptions($('#q-tp'), TIPOS.map(t => [t[0], t[1]]), 'Todos');
+  setOptions($('#q-sit'), SITS.map(t => [t, t]), 'Todas');
+  $('#dl-sol').replaceChildren(...sols.map(t => el('option', { value: t })));
+  const meses = [...new Set(all.map(c => c.abertura.slice(0,7)))].sort().reverse();
+  setOptions($('#f-mes'), meses.map(m => [m, mesLabel(m)]), 'Todos');
+}
+
+function pill(st) { return el('span', { class: 'pill ' + st.toLowerCase(), text: st }); }
+
+function filtered() {
+  const f = S.filters, q = f.q.trim().toLowerCase();
+  return list().filter(c =>
+    (!f.emp || c.empr === f.emp) && (!f.st || c.status === f.st) && (!f.tp || c.tipo === f.tp) &&
+    (!f.mes || c.abertura.startsWith(f.mes)) &&
+    (!q || String(c.numero) === q.replace('#','') || [c.resumo, c.descricao, c.solicitante, c.empr, ...(c.ativos||[]), ...(c.andamentos||[]).map(a => a.texto)].join(' ').toLowerCase().includes(q)));
+}
+
+function renderList() {
+  if (!S.loaded) return;
+  // keep focus & caret across re-render
+  const act = document.activeElement, actId = act && act.id, selS = act && act.selectionStart, selE = act && act.selectionEnd;
+  const rows = filtered();
+  $('#at-sub').textContent = `${S.chamados.size} chamados registrados · ${list().filter(c => c.status === 'Aberto').length} em aberto`;
+  $('#count').textContent = rows.length === S.chamados.size ? `Mostrando todos os ${rows.length}` : `${rows.length} de ${S.chamados.size} chamados`;
+  const head = el('div', { class: 'thead', 'aria-hidden': 'true' }, el('span'), el('span', { text: 'Nº' }), el('span', { text: 'Empr.' }), el('span', { text: 'Abertura' }), el('span', { text: 'Descrição' }), el('span', { text: 'Tipo' }), el('span', { text: 'Solicitante' }), el('span', { text: 'Situação' }), el('span', { text: 'Fechamento' }), el('span'));
+  const out = [head];
+  if (!rows.length) out.push(el('div', { class: 'empty', text: 'Nenhum chamado com esses filtros.' }));
+  const t = today();
+  for (const c of rows) {
+    const open = S.open.has(c.numero);
+    const age = c.status === 'Aberto' ? days(c.abertura, t) : null;
+    const h = el('button', { class: 'rhead', type: 'button', title: open ? 'Recolher detalhes' : 'Ver e editar detalhes', 'aria-expanded': open ? 'true' : 'false', onclick: () => { open ? S.open.delete(c.numero) : S.open.add(c.numero); renderList(); } },
+      el('span', { class: 'chev', text: '›', 'aria-hidden': 'true' }),
+      el('span', { class: 'num', text: c.numero }),
+      el('span', { class: 'emp', text: c.empr }),
+      el('span', { class: 'date ab', text: br(c.abertura) }),
+      el('span', { class: 'desc', title: c.descricao }, c.resumo && c.resumo !== c.descricao ? el('b', { text: c.resumo + ' — ' }) : null, el('span', { text: c.descricao })),
+      el('span', { class: 'cell-m tp', text: c.tipo }),
+      el('span', { class: 'cell-m so', text: c.solicitante || '—' }),
+      el('span', { class: 'st' }, pill(c.status), age != null ? el('span', { class: 'age' + (age > 30 ? ' old' : ''), text: age + ' d' }) : null),
+      el('span', { class: 'date fe', text: br(c.fechamento) }),
+      el('span', { class: 'fbtn', title: 'Ficha do atendimento para enviar ao cliente (PDF)', onclick: e => { e.stopPropagation(); openFicha(c); } }, 'Ficha'));
+    const row = el('div', { class: 'row' + (open ? ' open' : ''), id: 'r' + c.numero }, h);
+    if (open) row.append(ficha(c));
+    out.push(row);
+  }
+  $('#list').replaceChildren(...out);
+  if (actId && document.getElementById(actId) && document.getElementById(actId) !== act) {
+    const n = document.getElementById(actId); n.focus();
+    try { if (selS != null) n.setSelectionRange(selS, selE); } catch {}
+  }
+}
+
+/* inputs bound to drafts so re-renders keep what's typed */
+function draft(key, node, init) {
+  node.id = key;
+  node.value = key in S.drafts ? S.drafts[key] : init;
+  node.addEventListener('input', () => { S.drafts[key] = node.value; });
+  node.addEventListener('change', () => { S.drafts[key] = node.value; });
+  return node;
+}
+function clearDrafts(prefix) { for (const k of Object.keys(S.drafts)) if (k.startsWith(prefix)) delete S.drafts[k]; }
+
+function ficha(c) {
+  const n = c.numero, ro = S.readOnly;
+  // dados
+  let dados;
+  if (S.editing.has(n)) {
+    const empSel = draft(`ed-emp-${n}`, el('select', {}, ...S.emps.map(e => el('option', { value: e.sigla, text: e.sigla + ' · ' + e.nome }))), c.empr);
+    const ab = draft(`ed-ab-${n}`, el('input', { type: 'date' }), c.abertura);
+    const rs = draft(`ed-rs-${n}`, el('input', { type: 'text' }), c.resumo || '');
+    const ds = draft(`ed-ds-${n}`, el('textarea', {}), c.descricao || '');
+    const tp = draft(`ed-tp-${n}`, el('input', { type: 'text', list: 'dl-tipos' }), c.tipo || '');
+    const so = draft(`ed-so-${n}`, el('input', { type: 'text', list: 'dl-sol' }), c.solicitante || '');
+    const msg = el('span', { class: 'msg' });
+    dados = el('div', { class: 'card' }, el('h3', { text: 'Editar chamado #' + n }),
+      el('div', { class: 'stack' },
+        el('div', { class: 'two' }, fld('Empreendimento', empSel), fld('Abertura', ab)),
+        fld('Resumo', rs), fld('Descrição', ds),
+        el('div', { class: 'two' }, fld('Tipo', tp), fld('Solicitante', so)),
+        el('div', { class: 'actions' },
+          el('button', { class: 'btn primary', type: 'button', onclick: async e => {
+            if (!ds.value.trim() || !ab.value) { msg.className = 'msg err'; msg.textContent = 'Preencha a data e a descrição.'; return; }
+            e.target.disabled = true;
+            const ok = await write(n, { empr: empSel.value, abertura: ab.value, resumo: rs.value.trim(), descricao: ds.value.trim(), tipo: tp.value.trim(), solicitante: so.value.trim() }, msg);
+            if (ok) { S.editing.delete(n); clearDrafts(`ed-`); renderList(); } else e.target.disabled = false;
+          } }, 'Salvar'),
+          el('button', { class: 'btn ghost', type: 'button', onclick: () => { S.editing.delete(n); for (const k of ['emp','ab','rs','ds','tp','so']) delete S.drafts[`ed-${k}-${n}`]; renderList(); } }, 'Cancelar'),
+          msg)));
+  } else {
+    dados = el('div', { class: 'card' },
+      el('h3', {}, 'Dados do chamado', el('span', { class: 'actions', style: 'gap:2px' }, el('button', { class: 'btn link', type: 'button', onclick: () => openFicha(c) }, 'Ficha / PDF'), ro ? null : el('button', { class: 'btn link', type: 'button', onclick: () => { S.editing.add(n); renderList(); } }, 'Editar'))),
+      el('dl', { class: 'dl' },
+        el('dt', { text: 'Resumo' }), el('dd', { text: c.resumo || '—' }),
+        el('dt', { text: 'Descrição' }), el('dd', { text: c.descricao || '—' }),
+        el('dt', { text: 'Empreendimento' }), el('dd', { text: empNome(c.empr) }),
+        c.categoria ? el('dt', { text: 'Categoria' }) : null, c.categoria ? el('dd', { text: c.categoria }) : null,
+        el('dt', { text: 'Tipo' }), el('dd', { text: c.tipo || '—' }),
+        el('dt', { text: 'Solicitante' }), el('dd', { text: c.solicitante || '—' }),
+        el('dt', { text: 'Abertura' }), el('dd', { class: 'mono', text: br(c.abertura) }),
+        el('dt', { text: 'Fechamento' }), el('dd', { class: 'mono', text: br(c.fechamento) })));
+  }
+
+  // histórico
+  const ands = c.andamentos || [];
+  const items = ands.map((a, i) => {
+    const key = `${n}-${i}`;
+    if (S.editAnd.has(key)) {
+      const d = draft(`ea-d-${key}`, el('input', { type: 'date' }), a.data);
+      const s = draft(`ea-s-${key}`, el('select', {}, el('option', { value: '1', text: 'Fechado' }), el('option', { value: '0', text: 'Aberto' })), a.fechado ? '1' : '0');
+      const t = draft(`ea-t-${key}`, el('textarea', {}), a.texto);
+      const msg = el('span', { class: 'msg' });
+      const confirmDel = S.editAnd.get(key) === 'del';
+      return el('li', { class: a.fechado ? 'fechado' : 'aberto' }, el('div', { class: 'stack' },
+        el('div', { class: 'two' }, fld('Data', d), fld('Situação', s)), fld('Descrição', t),
+        el('div', { class: 'actions' },
+          el('button', { class: 'btn primary', type: 'button', onclick: async e => {
+            if (!t.value.trim() || !d.value) { msg.className = 'msg err'; msg.textContent = 'Preencha data e descrição.'; return; }
+            e.target.disabled = true;
+            if (await updAnd(a.id, { data: d.value, fechado: s.value === '1', texto: t.value.trim() }, msg)) { S.editAnd.delete(key); clearDrafts(`ea-`); renderList(); } else e.target.disabled = false;
+          } }, 'Salvar'),
+          el('button', { class: 'btn ghost', type: 'button', onclick: () => { S.editAnd.delete(key); clearDrafts(`ea-`); renderList(); } }, 'Cancelar'),
+          confirmDel
+            ? el('button', { class: 'btn danger', type: 'button', onclick: async e => { e.target.disabled = true; if (await delAnd(a.id, msg)) { S.editAnd.delete(key); clearDrafts(`ea-`); renderList(); } else e.target.disabled = false; } }, 'Confirmar exclusão')
+            : el('button', { class: 'btn link', type: 'button', onclick: () => { S.editAnd.set(key, 'del'); renderList(); } }, 'Excluir andamento'),
+          msg)));
+    }
+    return el('li', { class: a.fechado ? 'fechado' : 'aberto' },
+      el('div', { class: 'tl-h' }, el('span', { class: 'date', text: br(a.data) }), pill(a.fechado ? 'Fechado' : 'Aberto'),
+        ro ? null : el('button', { class: 'btn link', type: 'button', 'aria-label': 'Editar andamento', onclick: () => { S.editAnd.set(key, 'edit'); renderList(); } }, 'Editar')),
+      el('p', { class: 'tl-t', text: a.texto }));
+  });
+  const hist = el('div', { class: 'card' }, el('h3', { text: 'Histórico de andamentos' }),
+    items.length ? el('ul', { class: 'timeline' }, items) : el('p', { class: 'hint', style: 'margin:0', text: 'Nenhum andamento registrado ainda.' }));
+
+  // novo andamento
+  let novo = null;
+  if (!ro) {
+    const d = draft(`na-d-${n}`, el('input', { type: 'date' }), today());
+    const s = draft(`na-s-${n}`, el('select', {}, el('option', { value: '1', text: 'Fechado' }), el('option', { value: '0', text: 'Aberto' })), '1');
+    const t = draft(`na-t-${n}`, el('textarea', { placeholder: 'O que foi feito neste andamento' }), '');
+    const msg = el('span', { class: 'msg' });
+    novo = el('div', { class: 'card' }, el('h3', { text: 'Novo andamento' }),
+      el('div', { class: 'stack' },
+        el('div', { class: 'two' }, fld('Data', d), fld('Situação', s)), fld('Descrição', t),
+        el('div', { class: 'actions' }, el('button', { class: 'btn primary', type: 'button', onclick: async e => {
+          if (!t.value.trim() || !d.value) { msg.className = 'msg err'; msg.textContent = 'Descreva o que foi feito.'; return; }
+          e.target.disabled = true;
+          const ok = await addAnd(n, { data: d.value, fechado: s.value === '1', texto: t.value.trim() }, msg);
+          if (ok) { for (const k of ['d','s','t']) delete S.drafts[`na-${k}-${n}`]; renderList(); } else e.target.disabled = false;
+        } }, 'Registrar andamento'), msg),
+        el('p', { class: 'hint', text: 'O chamado só fecha quando todos os andamentos estão fechados. A data de fechamento é a do último andamento fechado.' })));
+  }
+  return el('div', { class: 'ficha' }, el('div', { class: 'stack' }, dados, ativosCard(c), hist), novo || el('div'));
+}
+function fld(label, node) { return el('div', { class: 'field' }, el('label', { for: node.id, text: label }), node); }
+function empNome(s) { const e = S.emps.find(x => x.sigla === s); return e ? `${e.sigla} · ${e.nome}` : s; }
+
+/* ---------- writes (cada uma relê os dados: situação, fechamento e históricos vêm do servidor) ---------- */
+async function salvar(fn, msg) {
+  try { await fn(); await recarregar(); return true; }
+  catch (e) { fail(e, msg); return false; }
+}
+const COLS = { empr: 'sigla', abertura: 'abertura', resumo: 'resumo', descricao: 'descricao', tipo: 'tipo', solicitante: 'solicitante' };
+function write(n, patch, msg) {
+  const row = {}; for (const [k, v] of Object.entries(patch)) row[COLS[k]] = v;
+  return salvar(async () => checar(await sb.from('atd_chamados').update(row).eq('numero', n)), msg);
+}
+const addAnd = (n, a, msg) => salvar(async () => checar(await sb.from('atd_andamentos').insert({ numero: n, ...a })), msg);
+const updAnd = (id, a, msg) => salvar(async () => checar(await sb.from('atd_andamentos').update(a).eq('id', id)), msg);
+const delAnd = (id, msg) => salvar(async () => checar(await sb.from('atd_andamentos').delete().eq('id', id)), msg);
+const vincEquip = (n, k, sim) => salvar(async () => checar(sim ? await sb.from('atd_chamado_equip').insert({ numero: n, codigo: k })
+  : await sb.from('atd_chamado_equip').delete().match({ numero: n, codigo: k })), null);
+function fail(e, msg) {
+  const txt = (e && e.message) || 'Não foi possível salvar. Tente de novo.';
+  if (msg) { msg.className = 'msg err'; msg.textContent = txt; } else alert(txt);
+}
+function setReadOnly() { S.readOnly = true; const nt = $('#notice'); nt.hidden = false; nt.textContent = 'Você está vendo os chamados em modo leitura.'; }
+
+$('#novo-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const msg = $('#n-msg'), btn = $('#n-save');
+  if (S.readOnly) return;
+  const emp = $('#n-emp').value;
+  if (!emp) { msg.className = 'msg err'; msg.textContent = 'Escolha o empreendimento.'; return; }
+  btn.disabled = true; msg.className = 'msg'; msg.textContent = 'Salvando…';
+  const andTxt = $('#n-and').value.trim();
+  try {
+    {
+      const { numero } = checar(await sb.from('atd_chamados').insert({ sigla: emp, abertura: $('#n-data').value, resumo: $('#n-resumo').value.trim(),
+        descricao: $('#n-desc').value.trim(), tipo: $('#n-tipo').value.trim(), solicitante: $('#n-sol').value.trim() }).select('numero').single());
+      if (andTxt) checar(await sb.from('atd_andamentos').insert({ numero, data: $('#n-data').value, fechado: $('#n-and-st').value === '1', texto: andTxt }));
+      if (S.novoAtivos.length) checar(await sb.from('atd_chamado_equip').insert(S.novoAtivos.map(codigo => ({ numero, codigo }))));
+      await carregar();
+      e.target.reset(); $('#n-data').value = today(); $('#n-emp').value = ''; S.novoAtivos = []; S.pickNew.delete('nv'); clearDrafts('af-nv'); renderNovoAtivos();
+      msg.textContent = `Chamado #${numero} aberto.`;
+      S.open.clear(); S.open.add(numero);
+      S.filters = { q:'', emp:'', st:'', tp:'', mes:'' }; syncFilterInputs();
+      setTimeout(() => { go('atendimentos'); setTimeout(() => document.getElementById('r' + numero)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 80); }, 700);
+    }
+  } catch (err) { fail(err, msg); }
+  btn.disabled = false;
+});
+
+$('#emp-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const msg = $('#e-msg');
+  const sigla = $('#e-sigla').value.trim(), nome = $('#e-nome').value.trim();
+  if (!/^[A-Za-z0-9_\-]{1,12}$/.test(sigla)) { msg.className = 'msg err'; msg.textContent = 'Use só letras e números na sigla.'; return; }
+  if (S.emps.some(x => x.sigla.toLowerCase() === sigla.toLowerCase())) { msg.className = 'msg err'; msg.textContent = 'Essa sigla já existe.'; return; }
+  const codEquip = $('#e-cod').value.trim().toUpperCase(), bad = codErro(codEquip, null);
+  if (bad) { msg.className = 'msg err'; msg.textContent = bad; return; }
+  if (await salvar(async () => checar(await sb.from('atd_empreendimentos').insert({ sigla, nome, cod_equip: codEquip })), msg)) { e.target.reset(); msg.className = 'msg'; msg.textContent = `${sigla} adicionado.`; }
+});
+
+/* ---------- filters ---------- */
+const FMAP = { q: '#f-q', emp: '#f-emp', st: '#f-st', tp: '#f-tp', mes: '#f-mes' };
+for (const [k, s] of Object.entries(FMAP)) $(s).addEventListener(k === 'q' ? 'input' : 'change', e => { S.filters[k] = e.target.value; renderList(); });
+function syncFilterInputs() { for (const [k, s] of Object.entries(FMAP)) $(s).value = S.filters[k]; }
+
+/* ---------- equipamentos e itens ---------- */
+const TIPOS = [
+  ['NB', 'Notebook', 'equip'], ['DT', 'Desktop', 'equip'], ['IM', 'Impressora', 'equip'], ['NBK', 'Nobreak', 'equip'], ['RT', 'Roteador/AP', 'equip'],
+  ['MN', 'Monitor', 'item'], ['MS', 'Mouse', 'item'], ['TC', 'Teclado', 'item'], ['HD', 'HD/SSD', 'item'], ['MM', 'Memória', 'item'],
+  ['FT', 'Fonte/carregador', 'item'], ['OU', 'Outros', 'item']];
+const TIPO = Object.fromEntries(TIPOS.map(([p, n, k]) => [p, { p, n, k }]));
+const SITS = ['Em uso', 'Reserva', 'Manutenção', 'Baixado'];
+const sitClass = s => ({ 'Em uso': 'em-uso', 'Reserva': 'reserva', 'Manutenção': 'manutencao', 'Baixado': 'baixado' }[s] || '');
+function ativosList() { return [...S.ativos.values()]; }
+const byCode = (a, b) => a.codigo.localeCompare(b.codigo, 'pt', { numeric: true });
+const mm = a => [a.marca, a.modelo].filter(Boolean).join(' ');
+function ativoLabel(a) { return `${a.codigo} · ${a.tipo}${mm(a) ? ' ' + mm(a) : ''}`; }
+function pai(a) { return a && a.vinculadoA ? S.ativos.get(a.vinculadoA) : null; }
+function usuarioDe(a) { const p = pai(a); return p ? (p.usuario || '') : (a.usuario || ''); }
+function filhos(codigo) { return ativosList().filter(x => x.vinculadoA === codigo).sort(byCode); }
+function chamadosDe(codigos) { return list().filter(c => (c.ativos || []).some(k => codigos.includes(k))); }
+function empCod(sigla) { const e = S.emps.find(x => x.sigla === sigla); return (e && e.codEquip) || String(sigla || '').toUpperCase(); }
+function codErro(cod, sigla) {
+  if (!/^[A-Z0-9]{2,4}$/.test(cod)) return 'O código para equipamentos deve ter de 2 a 4 letras ou números.';
+  const outro = S.emps.find(x => x.sigla !== sigla && empCod(x.sigla) === cod);
+  return outro ? `O código ${cod} já é usado por ${outro.sigla}.` : '';
+}
+const codeOf = (p, e, n) => `${p}${empCod(e)}${String(n).padStart(4, '0')}`;
+function nextSeq(p, e) { let m = 0; for (const a of S.ativos.values()) if (a.prefixo === p && a.empr === e) m = Math.max(m, a.seq || 0); return m + 1; }
+
+// o código (prefixo + código do empreendimento + 4 dígitos) e o histórico são gerados no servidor
+async function createAtivo(d) {
+  const { codigo } = checar(await sb.from('atd_equipamentos').insert({ sigla: d.empr, prefixo: d.prefixo, marca: d.marca || '', modelo: d.modelo || '',
+    serie: d.serie || '', setor: d.setor || '', situacao: d.situacao || 'Em uso', usuario: d.vinculadoA ? '' : (d.usuario || ''),
+    vinculado_a: d.vinculadoA || null, obs: d.obs || '' }).select('codigo').single());
+  await carregar();
+  return codigo;
+}
+
+/* formulário de cadastro / edição (key = prefixo dos rascunhos) */
+function ativoForm(key, a, o) {
+  const isNew = !a, msg = el('span', { class: 'msg' });
+  const fEmp = draft(`${key}-emp`, el('select', {}, el('option', { value: '', text: 'Selecione…' }), ...S.emps.map(e => el('option', { value: e.sigla, text: e.sigla + ' · ' + e.nome }))), a ? a.empr : (o.empr || ''));
+  if (!isNew || o.lockEmpr) fEmp.disabled = true;
+  const fTipo = draft(`${key}-tipo`, el('select', {},
+    el('optgroup', { label: 'Equipamentos' }, ...TIPOS.filter(t => t[2] === 'equip').map(t => el('option', { value: t[0], text: `${t[1]} (${t[0]})` }))),
+    el('optgroup', { label: 'Itens' }, ...TIPOS.filter(t => t[2] === 'item').map(t => el('option', { value: t[0], text: `${t[1]} (${t[0]})` })))), a ? a.prefixo : (o.prefixo || 'NB'));
+  if (!isNew) fTipo.disabled = true;
+  const fMarca = draft(`${key}-marca`, el('input', { type: 'text', placeholder: 'Ex.: Dell' }), a ? a.marca : '');
+  const fModelo = draft(`${key}-modelo`, el('input', { type: 'text', placeholder: 'Ex.: Vostro 3500' }), a ? a.modelo : '');
+  const fSerie = draft(`${key}-serie`, el('input', { type: 'text', placeholder: 'Nº de série / Service Tag' }), a ? a.serie : '');
+  const fSetor = draft(`${key}-setor`, el('input', { type: 'text', list: 'dl-setores', placeholder: 'Ex.: Financeiro' }), a ? a.setor : '');
+  const fSit = draft(`${key}-sit`, el('select', {}, ...SITS.map(s => el('option', { value: s, text: s }))), a ? a.situacao : 'Em uso');
+  const fUser = draft(`${key}-user`, el('input', { type: 'text', list: 'dl-sol', placeholder: 'Nome do usuário' }), a ? (a.usuario || '') : (o.solicitante || ''));
+  const temFilhos = a && filhos(a.codigo).length > 0;
+  const fVinc = draft(`${key}-vinc`, el('select', {}), a ? (a.vinculadoA || '') : '');
+  const fillVinc = () => {
+    const cur = fVinc.value, emp = fEmp.value;
+    const opts = ativosList().filter(x => x.empr === emp && !x.vinculadoA && (!a || x.codigo !== a.codigo) && x.situacao !== 'Baixado').sort(byCode);
+    fVinc.replaceChildren(el('option', { value: '', text: 'Nenhum (avulso)' }), ...opts.map(x => el('option', { value: x.codigo, text: ativoLabel(x) + (x.usuario ? ' · ' + x.usuario : '') })));
+    fVinc.value = opts.some(x => x.codigo === cur) ? cur : '';
+  };
+  fillVinc();
+  if (temFilhos) fVinc.disabled = true;
+  const syncUser = () => { fUser.disabled = !!fVinc.value; fUser.placeholder = fVinc.value ? 'Usa o usuário do equipamento' : 'Nome do usuário'; };
+  syncUser();
+  fVinc.addEventListener('change', syncUser);
+  fEmp.addEventListener('change', () => { fillVinc(); syncUser(); });
+  const codeHint = el('span', { class: 'hint', style: 'margin:0' });
+  const updHint = () => { codeHint.textContent = fEmp.value ? `Código gerado: ${codeOf(fTipo.value, fEmp.value, nextSeq(fTipo.value, fEmp.value))} (${empCod(fEmp.value)} = ${empNome(fEmp.value)})` : 'Escolha o empreendimento para ver o código'; };
+  updHint(); fEmp.addEventListener('change', updHint); fTipo.addEventListener('change', updHint);
+  const fData = isNew ? null : draft(`${key}-data`, el('input', { type: 'date' }), today());
+  const fObs = draft(`${key}-obs`, el('textarea', { placeholder: 'Configuração, patrimônio, observações', style: 'min-height:60px' }), a ? a.obs : '');
+
+  const save = async e => {
+    const empr = fEmp.value, vinc = fVinc.value;
+    if (!empr) { msg.className = 'msg err'; msg.textContent = 'Escolha o empreendimento.'; return; }
+    e.target.disabled = true; msg.className = 'msg'; msg.textContent = 'Salvando…';
+    const v = { marca: fMarca.value.trim(), modelo: fModelo.value.trim(), serie: fSerie.value.trim(), setor: fSetor.value.trim(), situacao: fSit.value, obs: fObs.value.trim() };
+    const user = vinc ? '' : fUser.value.trim();
+    try {
+      if (isNew) {
+        const codigo = await createAtivo({ ...v, prefixo: fTipo.value, empr, usuario: user, vinculadoA: vinc });
+        await o.onDone(codigo);
+      } else {
+        checar(await sb.rpc('atd_equip_alterar', { p_codigo: a.codigo, p_dados: { ...v, usuario: user, vinculado_a: vinc }, p_data: fData.value || today() }));
+        await carregar();
+        await o.onDone(a.codigo);
+      }
+    } catch (err) { e.target.disabled = false; fail(err, msg); }
+  };
+  return el('div', { class: 'subform' },
+    el('h4', { text: isNew ? 'Cadastrar equipamento ou item' : `Editar ${a.codigo}` }),
+    el('div', { class: 'stack' },
+      el('div', { class: 'three' }, fld('Empreendimento', fEmp), fld('Tipo', fTipo), fld('Situação', fSit)),
+      el('div', { class: 'three' }, fld('Marca', fMarca), fld('Modelo', fModelo), fld('Nº de série / Service Tag', fSerie)),
+      el('div', { class: 'three' }, fld('Instalado em (equipamento)', fVinc), fld('Usuário', fUser), fld('Setor / local', fSetor)),
+      fld('Observações', fObs),
+      fData ? el('div', { class: 'three' }, fld('Data da alteração', fData)) : null,
+      temFilhos ? el('p', { class: 'hint', style: 'margin:0', text: 'Este equipamento tem itens instalados, por isso não pode ser instalado em outro.' }) : null,
+      el('div', { class: 'actions' },
+        el('button', { class: 'btn primary', type: 'button', onclick: save }, isNew ? 'Cadastrar' : 'Salvar'),
+        el('button', { class: 'btn ghost', type: 'button', onclick: () => o.onCancel() }, 'Cancelar'),
+        isNew ? codeHint : null,
+        msg)));
+}
+
+/* seletor usado no chamado: vincular existente ou cadastrar na hora */
+function ativoPicker(ctx, empr, selected, onAdd, solicitante) {
+  if (!empr) return el('p', { class: 'hint', style: 'margin:0', text: 'Escolha o empreendimento para vincular equipamentos.' });
+  if (S.pickNew.has(ctx)) {
+    return ativoForm(`af-${ctx}`, null, { empr, lockEmpr: true, solicitante,
+      onDone: async code => { S.pickNew.delete(ctx); clearDrafts(`af-${ctx}`); await onAdd(code); render(); },
+      onCancel: () => { S.pickNew.delete(ctx); clearDrafts(`af-${ctx}`); render(); } });
+  }
+  const opts = ativosList().filter(a => a.empr === empr && !selected.includes(a.codigo) && a.situacao !== 'Baixado').sort(byCode);
+  const sel = el('select', { 'aria-label': 'Vincular equipamento existente' },
+    el('option', { value: '', text: opts.length ? 'Vincular equipamento ou item existente…' : 'Nenhum equipamento cadastrado neste empreendimento' }),
+    ...opts.map(a => el('option', { value: a.codigo, text: ativoLabel(a) + (usuarioDe(a) ? ' · ' + usuarioDe(a) : '') })));
+  sel.addEventListener('change', async () => { if (!sel.value) return; const k = sel.value; sel.disabled = true; await onAdd(k); render(); });
+  return el('div', { class: 'picker' }, sel, el('button', { class: 'btn ghost', type: 'button', onclick: () => { S.pickNew.add(ctx); render(); } }, '+ Cadastrar novo'));
+}
+function ativoChips(codes, onRemove) {
+  return el('div', { class: 'chips' }, codes.map(k => {
+    const a = S.ativos.get(k), u = a ? usuarioDe(a) : '';
+    return el('span', { class: 'chip' },
+      el('button', { class: 'chip-l', type: 'button', title: 'Abrir equipamento', onclick: () => openAtivo(k) }, el('b', { text: k }), a ? ` ${a.tipo}${mm(a) ? ' ' + mm(a) : ''}${u ? ' · ' + u : ''}` : ' (não encontrado)'),
+      onRemove ? el('button', { class: 'chip-x', type: 'button', 'aria-label': 'Desvincular ' + k, onclick: () => onRemove(k) }, '×') : null);
+  }));
+}
+function ativosCard(c) {
+  const n = c.numero, cod = c.ativos || [];
+  return el('div', { class: 'card' }, el('h3', { text: 'Equipamentos' }),
+    cod.length ? ativoChips(cod, S.readOnly ? null : k => vincEquip(n, k, false)) : el('p', { class: 'hint', style: 'margin:0 0 10px', text: 'Nenhum equipamento vinculado.' }),
+    S.readOnly ? null : ativoPicker(`ch-${n}`, c.empr, cod, k => vincEquip(n, k, true), c.solicitante));
+}
+function renderNovoAtivos() {
+  const box = $('#n-ativos'); if (!box) return;
+  const emp = $('#n-emp').value;
+  S.novoAtivos = S.novoAtivos.filter(k => S.ativos.get(k)?.empr === emp);
+  box.replaceChildren(el('div', { class: 'stack' },
+    S.novoAtivos.length ? ativoChips(S.novoAtivos, k => { S.novoAtivos = S.novoAtivos.filter(x => x !== k); renderNovoAtivos(); }) : null,
+    ativoPicker('nv', emp, S.novoAtivos, k => { S.novoAtivos = [...S.novoAtivos, k]; }, $('#n-sol').value.trim())));
+}
+$('#n-emp').addEventListener('change', () => { S.pickNew.delete('nv'); clearDrafts('af-nv'); renderNovoAtivos(); });
+
+function openAtivo(k) {
+  S.eqOpen.add(k); S.eqf = { q: '', emp: '', tp: '', sit: '' };
+  for (const [kk, sel] of Object.entries(QMAP)) $(sel).value = '';
+  go('equipamentos'); setTimeout(() => document.getElementById('a-' + k)?.scrollIntoView({ block: 'start' }), 60);
+}
+function openChamado(n) {
+  S.open.add(n); S.filters = { q: '', emp: '', st: '', tp: '', mes: '' }; syncFilterInputs();
+  go('atendimentos'); setTimeout(() => document.getElementById('r' + n)?.scrollIntoView({ block: 'start' }), 60);
+}
+
+/* tela Equipamentos */
+const QMAP = { q: '#q-q', emp: '#q-emp', tp: '#q-tp', sit: '#q-sit' };
+for (const [k, sel] of Object.entries(QMAP)) $(sel).addEventListener(k === 'q' ? 'input' : 'change', e => { S.eqf[k] = e.target.value; renderEquip(); });
+$('#eq-new').addEventListener('click', () => { S.eqNew = true; renderEquip(); });
+
+function renderEquip() {
+  if (!S.loaded) return;
+  const all = ativosList(), f = S.eqf, q = f.q.trim().toLowerCase();
+  const nEq = all.filter(a => !a.vinculadoA).length;
+  $('#eq-sub').textContent = all.length ? `${nEq} equipamento${nEq === 1 ? '' : 's'} e ${all.length - nEq} ite${all.length - nEq === 1 ? 'm' : 'ns'} instalado${all.length - nEq === 1 ? '' : 's'}` : 'Nenhum equipamento cadastrado ainda.';
+  $('#eq-new').hidden = S.eqNew || S.readOnly;
+  $('#eq-form').replaceChildren(...(S.eqNew ? [ativoForm('af-new', null, { empr: f.emp,
+    onDone: code => { S.eqNew = false; clearDrafts('af-new'); S.eqOpen.add(code); renderEquip(); setTimeout(() => document.getElementById('a-' + code)?.scrollIntoView({ block: 'center' }), 60); },
+    onCancel: () => { S.eqNew = false; clearDrafts('af-new'); renderEquip(); } })] : []));
+  const match = a => (!f.emp || a.empr === f.emp) && (!f.tp || a.prefixo === f.tp) && (!f.sit || a.situacao === f.sit) &&
+    (!q || [a.codigo, a.tipo, a.marca, a.modelo, a.serie, a.setor, usuarioDe(a), a.obs].join(' ').toLowerCase().includes(q));
+  const roots = all.filter(a => !a.vinculadoA || !S.ativos.has(a.vinculadoA)).sort(byCode);
+  const rows = [];
+  for (const r of roots) {
+    const kids = filhos(r.codigo).filter(match);
+    if (match(r) || kids.length) { rows.push([r, false]); kids.forEach(k => rows.push([k, true])); }
+  }
+  $('#eq-count').textContent = all.length ? `${rows.length} de ${all.length}` : '';
+  const out = [el('div', { class: 'eqhead', 'aria-hidden': 'true' }, el('span'), el('span', { text: 'Código' }), el('span', { text: 'Tipo' }), el('span', { text: 'Marca / modelo' }), el('span', { text: 'Usuário' }), el('span', { text: 'Setor' }), el('span', { text: 'Situação' }), el('span', { text: 'Cham.', style: 'text-align:right' }))];
+  if (!rows.length) out.push(el('div', { class: 'empty', text: all.length ? 'Nenhum equipamento com esses filtros.' : 'Cadastre o primeiro equipamento pelo botão acima ou direto ao abrir um chamado.' }));
+  for (const [a, child] of rows) {
+    const isOpen = S.eqOpen.has(a.codigo), u = usuarioDe(a), nch = chamadosDe([a.codigo]).length;
+    const h = el('button', { class: 'eqrow', type: 'button', 'aria-expanded': String(isOpen), onclick: () => { isOpen ? S.eqOpen.delete(a.codigo) : S.eqOpen.add(a.codigo); renderEquip(); } },
+      el('span', { class: 'chev', text: '›', 'aria-hidden': 'true' }), el('span', { class: 'code', text: a.codigo }), el('span', { class: 'cell-m tpc', text: a.tipo }),
+      el('span', { class: 'cell-m mm', text: mm(a) || '—' }), el('span', { class: 'cell-m us', text: u || '—', title: child && u ? 'Usuário do equipamento ' + a.vinculadoA : null }),
+      el('span', { class: 'cell-m se', text: a.setor || '—' }), el('span', { class: 'sit ' + sitClass(a.situacao), text: a.situacao }), el('span', { class: 'nchip', text: nch || '' }));
+    const row = el('div', { class: 'row' + (isOpen ? ' open' : '') + (child ? ' child' : ''), id: 'a-' + a.codigo }, h);
+    if (isOpen) row.append(ativoFicha(a));
+    out.push(row);
+  }
+  $('#eq-list').replaceChildren(...out);
+}
+
+function ativoFicha(a) {
+  const k = a.codigo, p = pai(a), kids = filhos(k), u = usuarioDe(a);
+  let dados;
+  if (S.eqEdit.has(k)) {
+    dados = ativoForm(`af-ed-${k}`, a, { onDone: () => { S.eqEdit.delete(k); clearDrafts(`af-ed-${k}`); renderEquip(); }, onCancel: () => { S.eqEdit.delete(k); clearDrafts(`af-ed-${k}`); renderEquip(); } });
+  } else {
+    dados = el('div', { class: 'card' },
+      el('h3', {}, `${a.tipo} ${k}`, S.readOnly ? null : el('button', { class: 'btn link', type: 'button', onclick: () => { S.eqEdit.add(k); renderEquip(); } }, 'Editar / trocar usuário')),
+      el('dl', { class: 'dl' },
+        el('dt', { text: 'Empreendimento' }), el('dd', { text: `${empNome(a.empr)} (código ${empCod(a.empr)})` }),
+        el('dt', { text: 'Marca / modelo' }), el('dd', { text: mm(a) || '—' }),
+        el('dt', { text: 'Nº de série' }), el('dd', { class: 'mono', text: a.serie || '—' }),
+        el('dt', { text: 'Usuário' }), el('dd', { text: (u || '—') + (p ? ` (do ${p.codigo})` : '') }),
+        el('dt', { text: 'Setor / local' }), el('dd', { text: a.setor || '—' }),
+        el('dt', { text: 'Situação' }), el('dd', {}, el('span', { class: 'sit ' + sitClass(a.situacao), text: a.situacao })),
+        p ? el('dt', { text: 'Instalado em' }) : null, p ? el('dd', {}, el('button', { class: 'btn link', type: 'button', style: 'padding:0', onclick: () => openAtivo(p.codigo) }, ativoLabel(p))) : null,
+        a.obs ? el('dt', { text: 'Observações' }) : null, a.obs ? el('dd', { text: a.obs }) : null));
+  }
+  const itens = (!a.vinculadoA || kids.length) ? el('div', { class: 'card' }, el('h3', { text: `Itens instalados (${kids.length})` }),
+    kids.length ? el('ul', { class: 'linklist' }, kids.map(x => el('li', {}, el('button', { type: 'button', onclick: () => openAtivo(x.codigo) },
+      el('span', { class: 'code', text: x.codigo }), el('span', { class: 'cell-m', text: x.tipo + (mm(x) ? ' ' + mm(x) : '') }), el('span', { class: 'sit ' + sitClass(x.situacao), text: x.situacao })))))
+      : el('p', { class: 'hint', style: 'margin:0', text: 'Nenhum item instalado. Para instalar, cadastre o item e escolha este equipamento em "Instalado em".' })) : null;
+  const chs = chamadosDe([k, ...kids.map(x => x.codigo)]);
+  const cham = el('div', { class: 'card' }, el('h3', { text: `Chamados (${chs.length})` }),
+    chs.length ? el('ul', { class: 'linklist' }, chs.map(c => el('li', {}, el('button', { type: 'button', onclick: () => openChamado(c.numero) },
+      el('span', { class: 'num', text: '#' + c.numero }), el('span', { class: 'cell-m', text: `${br(c.abertura)} · ${c.resumo || c.descricao}` }), pill(c.status)))))
+      : el('p', { class: 'hint', style: 'margin:0', text: 'Nenhum chamado vinculado.' }));
+  const hist = el('div', { class: 'card' }, el('h3', { text: 'Histórico' }),
+    el('ul', { class: 'timeline' }, [...(a.historico || [])].reverse().map(h => el('li', { class: 'fechado' },
+      el('div', { class: 'tl-h' }, el('span', { class: 'date', text: br(h.data) })), el('p', { class: 'tl-t', text: h.evento })))));
+  return el('div', { class: 'ficha' }, el('div', { class: 'stack' }, dados, itens), el('div', { class: 'stack' }, cham, hist));
+}
+
+/* ---------- painel ---------- */
+function hover(node, text) {
+  node.addEventListener('pointermove', e => { tip.hidden = false; tip.textContent = text; tip.style.left = Math.min(e.clientX + 12, innerWidth - tip.offsetWidth - 8) + 'px'; tip.style.top = (e.clientY - 34) + 'px'; });
+  node.addEventListener('pointerleave', () => { tip.hidden = true; });
+}
+const NS = 'http://www.w3.org/2000/svg';
+const sv = (tag, a = {}) => { const n = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(a)) n.setAttribute(k, v); return n; };
+const barPath = (x, y, w, h, r) => { r = Math.min(r, h, w / 2); return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`; };
+const hBarPath = (x, y, w, h, r) => { r = Math.min(r, w, h / 2); return `M${x},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h - r}Q${x + w},${y + h} ${x + w - r},${y + h}H${x}Z`; };
+const niceMax = m => { if (m <= 5) return 5; const p = Math.pow(10, Math.floor(Math.log10(m))); for (const s of [1, 2, 2.5, 5, 10]) if (s * p >= m) return s * p; return 10 * p; };
+
+function renderPainel() {
+  if (!S.loaded) return;
+  const all = list(), t = today(), ym = t.slice(0, 7);
+  const abertos = all.filter(c => c.status === 'Aberto');
+  const velhos = abertos.filter(c => days(c.abertura, t) > 30);
+  const fechMes = all.filter(c => c.status === 'Fechado' && c.fechamento.startsWith(ym));
+  const abMes = all.filter(c => c.abertura.startsWith(ym));
+  const fechados = all.filter(c => c.status === 'Fechado');
+  const tempos = fechados.map(c => Math.max(0, days(c.abertura, c.fechamento))).sort((a, b) => a - b);
+  const media = tempos.length ? tempos.reduce((a, b) => a + b, 0) / tempos.length : 0; const mesmoDia = tempos.filter(x => x === 0).length;
+  $('#painel-sub').textContent = `${all.length} chamados desde ${br(all.map(c => c.abertura).sort()[0])}. Dados de ${br(t)}.`;
+  const k = (label, v, h, cls, go) => el('div', { class: 'kpi' + (cls ? ' ' + cls : '') }, el('div', { class: 'label', text: label }), el('div', { class: 'v', text: v }), el('div', { class: 'h' }, h));
+  $('#kpis').replaceChildren(
+    k('Em aberto', abertos.length, `de ${all.length} chamados`),
+    k('Abertos há +30 dias', velhos.length, 'pedem atenção', velhos.length ? 'alert' : ''),
+    k(`Abertos em ${mesLabel(ym)}`, abMes.length, `${fechMes.length} fechados no mês`),
+    k('Tempo médio até fechar', media.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' d', `${Math.round(100 * mesmoDia / (fechados.length || 1))}% fechados no mesmo dia`));
+
+  // por mês: last 12 months
+  const months = []; { let y = +ym.slice(0, 4), m = +ym.slice(5, 7); for (let i = 0; i < 12; i++) { months.unshift(`${y}-${String(m).padStart(2, '0')}`); if (--m === 0) { m = 12; y--; } } }
+  const counts = months.map(m => all.filter(c => c.abertura.startsWith(m)).length);
+  const W = 560, H = 230, L = 30, R = 8, T = 18, B = 26, max = niceMax(Math.max(...counts, 1));
+  const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'Chamados abertos por mês nos últimos 12 meses' });
+  const y = v => T + (H - T - B) * (1 - v / max);
+  for (let i = 0; i <= 4; i++) { const v = max * i / 4, yy = y(v); svg.append(sv('line', { x1: L, x2: W - R, y1: yy, y2: yy, stroke: 'var(--line)', 'stroke-width': 1 })); const tx = sv('text', { x: L - 6, y: yy + 3.5, 'text-anchor': 'end' }); tx.textContent = Math.round(v); svg.append(tx); }
+  const bw = (W - L - R) / 12;
+  counts.forEach((v, i) => {
+    const x = L + i * bw + bw * .2, w = bw * .6;
+    if (v > 0) { const p = sv('path', { d: barPath(x, y(v), w, y(0) - y(v), 4), fill: i === 11 ? 'var(--accent)' : 'var(--bar-closed)' }); svg.append(p); }
+    const hit = sv('rect', { x: L + i * bw, y: T, width: bw, height: H - T - B, fill: 'transparent' }); hover(hit, `${mesLabel(months[i])}: ${v} chamado${v === 1 ? '' : 's'}`); svg.append(hit);
+    if (v > 0) { const tv = sv('text', { x: x + w / 2, y: y(v) - 5, 'text-anchor': 'middle', class: 'val' }); tv.textContent = v; svg.append(tv); }
+    const tl = sv('text', { x: x + w / 2, y: H - 8, 'text-anchor': 'middle' }); tl.textContent = MESES[+months[i].slice(5, 7) - 1]; svg.append(tl);
+  });
+  $('#ch-mes').replaceChildren(svg);
+
+  // por empreendimento
+  const byEmp = S.emps.map(e => ({ s: e.sigla, n: e.nome, ab: all.filter(c => c.empr === e.sigla && c.status === 'Aberto').length, fe: all.filter(c => c.empr === e.sigla && c.status === 'Fechado').length }))
+    .filter(r => r.ab + r.fe > 0).sort((a, b) => (b.ab + b.fe) - (a.ab + a.fe));
+  const rowH = 24, W2 = 460, L2 = 64, R2 = 92, H2 = byEmp.length * rowH + 8, max2 = Math.max(...byEmp.map(r => r.ab + r.fe), 1);
+  const svg2 = sv('svg', { viewBox: `0 0 ${W2} ${H2}`, role: 'img', 'aria-label': 'Chamados por empreendimento, em aberto e fechados' });
+  const sx = v => (W2 - L2 - R2) * v / max2;
+  byEmp.forEach((r, i) => {
+    const yy = 4 + i * rowH, bh = 14, by = yy + (rowH - bh) / 2 - 2;
+    const lab = sv('text', { x: L2 - 8, y: by + 11, 'text-anchor': 'end' }); lab.textContent = r.s; svg2.append(lab);
+    const wa = sx(r.ab), wf = sx(r.fe);
+    if (r.ab) svg2.append(sv('rect', { x: L2, y: by, width: Math.max(wa - (r.fe ? 2 : 0), 1), height: bh, fill: 'var(--accent)', rx: r.fe ? 0 : 0 }));
+    if (r.fe) svg2.append(sv('path', { d: hBarPath(L2 + wa, by, wf, bh, 4), fill: 'var(--bar-closed)' }));
+    const tv = sv('text', { x: L2 + wa + wf + 6, y: by + 11, class: 'val' }); tv.textContent = r.ab ? `${r.ab + r.fe} · ${r.ab} ab.` : r.ab + r.fe; svg2.append(tv);
+    const hit = sv('rect', { x: 0, y: yy, width: W2, height: rowH, fill: 'transparent', style: 'cursor:pointer' });
+    hover(hit, `${r.n}: ${r.ab} em aberto, ${r.fe} fechados`);
+    hit.addEventListener('click', () => { tip.hidden = true; S.filters = { q:'', emp: r.s, st:'', tp:'', mes:'' }; syncFilterInputs(); go('atendimentos'); });
+    svg2.append(hit);
+  });
+  $('#ch-emp').replaceChildren(svg2);
+
+  // oldest open
+  const old = [...abertos].sort((a, b) => a.abertura < b.abertura ? -1 : 1).slice(0, 10);
+  $('#oldest').replaceChildren(...(old.length ? old.map(c => {
+    const d = days(c.abertura, t);
+    return el('li', {}, el('button', { type: 'button', onclick: () => { S.open.add(c.numero); S.filters = { q:'', emp:'', st:'', tp:'', mes:'' }; syncFilterInputs(); go('atendimentos'); setTimeout(() => document.getElementById('r' + c.numero)?.scrollIntoView({ block: 'start' }), 60); } },
+      el('span', { class: 'num', text: c.numero }), el('span', { class: 'emp', text: c.empr }),
+      el('span', { class: 'desc', text: c.resumo || c.descricao }),
+      el('span', { class: 'age' + (d > 30 ? ' old' : ''), style: 'text-align:right;margin:0', text: d + ' dias' })));
+  }) : [el('li', { class: 'empty', text: 'Nenhum chamado em aberto.' })]));
+}
+
+function renderEmps() {
+  if (!S.loaded) return;
+  const all = list();
+  $('#emp-body').replaceChildren(...S.emps.map(e => {
+    const nums = [el('td', { class: 'n', text: all.filter(c => c.empr === e.sigla && c.status === 'Aberto').length }), el('td', { class: 'n', text: all.filter(c => c.empr === e.sigla).length })];
+    if (S.empEdit === e.sigla) {
+      const fn = draft(`ee-nome-${e.sigla}`, el('input', { type: 'text', 'aria-label': 'Nome' }), e.nome);
+      const fc = draft(`ee-cod-${e.sigla}`, el('input', { type: 'text', maxlength: '4', 'aria-label': 'Código para equipamentos', style: 'text-transform:uppercase;width:80px' }), empCod(e.sigla));
+      const temAtivos = ativosList().some(a => a.empr === e.sigla);
+      if (temAtivos) { fc.disabled = true; fc.title = 'Já existem equipamentos com este código'; }
+      const msg = el('span', { class: 'msg' });
+      return el('tr', {}, el('td', {}, el('span', { class: 'emp', text: e.sigla })), el('td', {}, fn, msg), el('td', {}, fc), ...nums, el('td', { class: 'cell-m', text: quemTxt(e.sigla) }),
+        el('td', {}, el('div', { class: 'actions', style: 'flex-wrap:nowrap' },
+          el('button', { class: 'btn link', type: 'button', onclick: async () => {
+            const nome = fn.value.trim(), cod = fc.value.trim().toUpperCase(), bad = temAtivos ? '' : codErro(cod, e.sigla);
+            if (!nome) { msg.className = 'msg err'; msg.textContent = ' Informe o nome.'; return; }
+            if (bad) { msg.className = 'msg err'; msg.textContent = ' ' + bad; return; }
+            const ok = await salvar(async () => checar(await sb.from('atd_empreendimentos').update(temAtivos ? { nome } : { nome, cod_equip: cod }).eq('sigla', e.sigla)), msg);
+            if (ok) { S.empEdit = null; clearDrafts('ee-'); renderEmps(); }
+          } }, 'Salvar'),
+          el('button', { class: 'btn link', type: 'button', style: 'color:var(--muted)', onclick: () => { S.empEdit = null; clearDrafts('ee-'); renderEmps(); } }, 'Cancelar'))));
+    }
+    return el('tr', {}, el('td', {}, el('span', { class: 'emp', text: e.sigla })), el('td', { text: e.nome }), el('td', { class: 'mono', text: empCod(e.sigla) }), ...nums,
+      el('td', {}, el('button', { class: 'btn link', type: 'button', style: 'padding:0', title: 'Logins de clientes que veem os chamados e equipamentos deste empreendimento', onclick: () => quemVe(e) }, quemTxt(e.sigla))),
+      el('td', {}, S.readOnly ? null : el('button', { class: 'btn link', type: 'button', onclick: () => { S.empEdit = e.sigla; renderEmps(); } }, 'Editar')));
+  }));
+}
+
+/* ---------- ficha do atendimento (documento + PDF) ---------- */
+const NERVIA = { nome: 'Nervia Tecnologia da Informação', email: 'atendimento@nervia.com.br', whats: '(21) 96686-9374' };
+const LOGO_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 34 34"><rect width="34" height="34" rx="8" fill="#0F1719"/><path d="M9 15.5a11 11 0 0 1 16 0M12 19a6.5 6.5 0 0 1 10 0" fill="none" stroke="#0C7F74" stroke-width="2.4" stroke-linecap="round"/><circle cx="17" cy="23" r="2.1" fill="#0C7F74"/></svg>';
+function empNomeSo(s) { const e = S.emps.find(x => x.sigla === s); return e ? e.nome : s; }
+function fichaDados(c) {
+  const hoje = today(), ands = sortAnd(c.andamentos || []);
+  const dur = c.status === 'Fechado' ? days(c.abertura, c.fechamento) : days(c.abertura, hoje);
+  const tempo = c.status === 'Fechado' ? (dur <= 0 ? 'Resolvido no mesmo dia' : `${dur} dia${dur === 1 ? '' : 's'}`) : `Em andamento há ${Math.max(dur, 0)} dia${dur === 1 ? '' : 's'}`;
+  const eqs = (c.ativos || []).map(k => S.ativos.get(k)).filter(Boolean);
+  return { hoje, ands, tempo, eqs };
+}
+let fichaAtual = null, fichaVoltar = null;
+function openFicha(c) {
+  fichaAtual = c; fichaVoltar = document.activeElement;
+  const { hoje, ands, tempo, eqs } = fichaDados(c);
+  const info = [['Empreendimento', `${empNomeSo(c.empr)} (${c.empr})`], ['Solicitante', c.solicitante || '—'], ['Tipo', c.tipo || '—'], ['Situação', c.status],
+    ['Abertura', br(c.abertura)], ['Fechamento', br(c.fechamento)], ['Tempo de atendimento', tempo]];
+  const doc = el('article', { class: 'fdoc' },
+    el('header', { class: 'fd-head' },
+      el('div', { class: 'fd-brand' }),
+      el('div', { class: 'fd-title' }, el('span', { class: 'label', text: 'Ficha de atendimento' }), el('b', { class: 'mono', text: 'Nº ' + c.numero }))),
+    c.resumo ? el('h2', { class: 'fd-resumo', text: c.resumo }) : null,
+    el('dl', { class: 'fd-info' }, info.map(([k, v]) => [el('dt', { text: k }), el('dd', {}, k === 'Situação' ? pill(v) : v)])),
+    el('section', {}, el('h3', { text: 'Solicitação' }), el('p', { class: 'fd-text', text: c.descricao || '—' })),
+    eqs.length ? el('section', {}, el('h3', { text: 'Equipamentos' }),
+      el('table', { class: 'fd-tab' }, el('thead', {}, el('tr', {}, ['Código', 'Equipamento', 'Nº de série', 'Usuário'].map(h => el('th', { text: h })))),
+        el('tbody', {}, eqs.map(a => el('tr', {}, el('td', { class: 'mono', text: a.codigo }), el('td', { text: a.tipo + (mm(a) ? ' ' + mm(a) : '') }), el('td', { class: 'mono', text: a.serie || '—' }), el('td', { text: usuarioDe(a) || '—' }))))))
+      : null,
+    el('section', {}, el('h3', { text: `Evolução do atendimento (${ands.length})` }),
+      ands.length ? el('ol', { class: 'fd-tl' }, ands.map(a => el('li', {},
+        el('div', { class: 'tl-h' }, el('span', { class: 'date', text: br(a.data) }), pill(a.fechado ? 'Fechado' : 'Aberto')),
+        el('p', { class: 'fd-text', text: a.texto }))))
+      : el('p', { class: 'hint', style: 'margin:0', text: 'Nenhum andamento registrado até o momento.' })),
+    el('footer', { class: 'fd-foot' }, `${NERVIA.nome} · ${NERVIA.email} · WhatsApp ${NERVIA.whats} · Emitido em ${br(hoje)}`));
+  doc.querySelector('.fd-brand').innerHTML = LOGO_SVG + '<div><b>NERVIA TECNOLOGIA</b><small>Suporte de TI</small></div>';
+  const msg = el('span', { class: 'msg' });
+  const pdfBtn = el('button', { class: 'btn primary', type: 'button', id: 'fd-pdf', onclick: () => baixarPdf(c, msg, pdfBtn) }, 'Baixar PDF');
+  const bar = el('div', { class: 'fd-bar' }, el('b', { text: `Ficha do chamado #${c.numero}` }), el('span', { style: 'flex:1' }), msg, pdfBtn,
+    el('button', { class: 'btn ghost', type: 'button', onclick: closeFicha }, 'Fechar'));
+  const ov = $('#fd-overlay');
+  ov.replaceChildren(el('div', { class: 'fd-dialog', role: 'dialog', 'aria-modal': 'true', 'aria-label': `Ficha do chamado ${c.numero}` }, bar, el('div', { class: 'fd-scroll' }, doc)));
+  ov.hidden = false; document.body.style.overflow = 'hidden';
+  pdfBtn.focus();
+}
+function closeFicha() { $('#fd-overlay').hidden = true; $('#fd-overlay').replaceChildren(); document.body.style.overflow = ''; fichaAtual = null; fichaVoltar?.focus?.(); }
+$('#fd-overlay').addEventListener('click', e => { if (e.target.id === 'fd-overlay') closeFicha(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && fichaAtual) closeFicha(); });
+
+function loadScript(src) { return new Promise((ok, bad) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => bad(new Error('load ' + src)); document.head.appendChild(s); }); }
+let pdfReady = null;
+function ensurePdfMake() {
+  if (window.pdfMake && window.pdfMake.vfs) return Promise.resolve();
+  if (!pdfReady) pdfReady = loadScript('https://cdn.jsdelivr.net/npm/pdfmake@0.2.10/build/pdfmake.min.js').then(() => loadScript('https://cdn.jsdelivr.net/npm/pdfmake@0.2.10/build/vfs_fonts.js')).catch(e => { pdfReady = null; throw e; });
+  return pdfReady;
+}
+function fichaPdfDef(c) {
+  const { hoje, ands, tempo, eqs } = fichaDados(c);
+  const ink = '#0F1719', muted = '#5F6F74', teal = '#0C7F74', line = '#D8E1E0';
+  const lbl = t => ({ text: t.toUpperCase(), fontSize: 7.5, bold: true, color: muted, characterSpacing: 0.6 });
+  const info = [['Empreendimento', `${empNomeSo(c.empr)} (${c.empr})`], ['Solicitante', c.solicitante || '—'], ['Tipo', c.tipo || '—'], ['Situação', c.status],
+    ['Abertura', br(c.abertura)], ['Fechamento', br(c.fechamento)], ['Tempo de atendimento', tempo]];
+  const infoRows = []; for (let i = 0; i < info.length; i += 2) infoRows.push([info[i], info[i + 1] || ['', '']].flatMap(([k, v]) => [lbl(k), { text: v, bold: k === 'Situação', color: k === 'Situação' ? (v === 'Aberto' ? '#9A5B00' : teal) : ink }]));
+  const box = { hLineWidth: () => 0.6, vLineWidth: () => 0, hLineColor: () => line, paddingTop: () => 5, paddingBottom: () => 5, paddingLeft: () => 4, paddingRight: () => 4 };
+  const content = [
+    { columns: [
+      { width: 'auto', svg: LOGO_SVG, fit: [30, 30] },
+      { width: '*', margin: [8, 3, 0, 0], stack: [{ text: 'NERVIA TECNOLOGIA', bold: true, fontSize: 11, characterSpacing: 0.8 }, { text: 'Suporte de TI', fontSize: 8.5, color: muted }] },
+      { width: 'auto', alignment: 'right', stack: [lbl('Ficha de atendimento'), { text: 'Nº ' + c.numero, fontSize: 18, bold: true, color: ink }] }] },
+    { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 1.2, lineColor: teal }], margin: [0, 10, 0, 12] },
+    c.resumo ? { text: c.resumo, fontSize: 14, bold: true, margin: [0, 0, 0, 10] } : null,
+    { table: { widths: [78, '*', 78, '*'], body: infoRows }, layout: box, margin: [0, 0, 0, 14] },
+    { text: 'Solicitação', style: 'h3' }, { text: c.descricao || '—', margin: [0, 0, 0, 14] },
+    eqs.length ? [{ text: 'Equipamentos', style: 'h3' },
+      { table: { headerRows: 1, widths: [70, '*', 90, 100], body: [['Código', 'Equipamento', 'Nº de série', 'Usuário'].map(lbl),
+        ...eqs.map(a => [{ text: a.codigo, bold: true }, a.tipo + (mm(a) ? ' ' + mm(a) : ''), a.serie || '—', usuarioDe(a) || '—'])] }, layout: box, margin: [0, 0, 0, 14] }] : null,
+    { text: `Evolução do atendimento (${ands.length})`, style: 'h3' },
+    ands.length ? { table: { headerRows: 1, widths: [58, 50, '*'], dontBreakRows: true, body: [['Data', 'Situação', 'Descrição'].map(lbl),
+      ...ands.map(a => [br(a.data), { text: a.fechado ? 'Fechado' : 'Aberto', bold: true, color: a.fechado ? teal : '#9A5B00' }, a.texto])] }, layout: box }
+      : { text: 'Nenhum andamento registrado até o momento.', color: muted, italics: true }
+  ].flat().filter(Boolean);
+  return {
+    pageSize: 'A4', pageMargins: [40, 40, 40, 50], content,
+    info: { title: `Ficha de atendimento ${c.numero}`, author: NERVIA.nome },
+    defaultStyle: { font: 'Roboto', fontSize: 9.5, color: ink, lineHeight: 1.25 },
+    styles: { h3: { fontSize: 10.5, bold: true, margin: [0, 0, 0, 5], color: ink } },
+    footer: (p, n) => ({ margin: [40, 16, 40, 0], columns: [
+      { text: `${NERVIA.nome} · ${NERVIA.email} · WhatsApp ${NERVIA.whats} · Emitido em ${br(hoje)}`, fontSize: 7.5, color: muted },
+      { text: `${p}/${n}`, alignment: 'right', fontSize: 7.5, color: muted, width: 30 }] })
+  };
+}
+async function baixarPdf(c, msg, btn) {
+  btn.disabled = true; msg.className = 'msg'; msg.textContent = 'Gerando PDF…';
+  try {
+    await ensurePdfMake();
+    window.pdfMake.createPdf(fichaPdfDef(c)).download(`Ficha atendimento ${c.numero} - ${c.empr}.pdf`);
+    msg.textContent = 'PDF baixado.';
+  } catch (e) {
+    msg.className = 'msg err';
+    msg.textContent = 'Não foi possível gerar o PDF. Tente de novo.';
+  }
+  btn.disabled = false;
+}
+
+/* ---------- quem vê cada empreendimento (equipe Nervia) ---------- */
+function quemTxt(sigla) { const n = [...S.acessos.values()].filter(x => x.has(sigla)).length; return n ? `${n} login${n === 1 ? '' : 's'}` : 'ninguém'; }
+async function carregarAcessos() {
+  const acc = await todos(() => sb.from('atd_acessos').select('user_id, sigla').order('user_id'));
+  S.acessos = new Map(); for (const a of acc) { if (!S.acessos.has(a.user_id)) S.acessos.set(a.user_id, new Set()); S.acessos.get(a.user_id).add(a.sigla); }
+}
+async function quemVe(e) {
+  const dlg = $('#dlg');
+  try {
+    const perfis = (await todos(() => sb.from('perfis').select('user_id, email, nome, admin').order('email'))).filter(p => !p.admin);
+    await carregarAcessos();
+    const marc = new Set(perfis.filter(p => S.acessos.get(p.user_id)?.has(e.sigla)).map(p => p.user_id));
+    const msg = el('span', { class: 'msg' });
+    const caixas = perfis.map(p => el('label', {}, el('input', { type: 'checkbox', value: p.user_id, checked: marc.has(p.user_id) }), `${p.nome || p.email} · ${p.email}`));
+    dlg.replaceChildren(el('h2', { text: `Quem vê ${e.sigla} · ${e.nome}` }),
+      el('p', { class: 'hint', style: 'margin:0', text: 'O login marcado vê os chamados, andamentos e equipamentos deste empreendimento e baixa a ficha em PDF, sem poder alterar. O app Atendimentos de TI é liberado junto. A equipe Nervia vê tudo.' }),
+      el('div', { class: 'quem' }, caixas.length ? caixas : el('p', { class: 'hint', text: 'Nenhum login de cliente. Crie em Administração → Logins.' })),
+      el('div', { class: 'actions' },
+        el('button', { class: 'btn primary', type: 'button', onclick: async ev => {
+          ev.target.disabled = true; msg.className = 'msg'; msg.textContent = 'Salvando…';
+          try {
+            const novos = new Set(caixas.map(c => c.querySelector('input')).filter(i => i.checked).map(i => i.value));
+            for (const u of novos) if (!marc.has(u)) {
+              checar(await sb.from('atd_acessos').insert({ user_id: u, sigla: e.sigla }));
+              checar(await sb.from('app_acessos').upsert({ user_id: u, app_id: 'atendimentos' }, { onConflict: 'user_id,app_id', ignoreDuplicates: true }));
+            }
+            for (const u of marc) if (!novos.has(u)) checar(await sb.from('atd_acessos').delete().match({ user_id: u, sigla: e.sigla }));
+            await carregarAcessos(); dlg.close(); renderEmps();
+          } catch (err) { ev.target.disabled = false; fail(err, msg); }
+        } }, 'Salvar'),
+        el('button', { class: 'btn ghost', type: 'button', onclick: () => dlg.close() }, 'Cancelar'), msg));
+    dlg.showModal();
+  } catch (err) { fail(err, null); }
+}
+
+/* ---------- início ---------- */
+$('#n-data').value = today();
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { $('#at-sub').innerHTML = 'Entre na <a href="/cliente/" target="_top">Área do Cliente</a> para ver os chamados.'; show(); return; }
+  try {
+    const p = checar(await sb.from('perfis').select('admin').eq('user_id', session.user.id).maybeSingle());
+    S.admin = !!(p && p.admin); S.readOnly = !S.admin;
+    for (const a of document.querySelectorAll('.so-equipe')) a.hidden = S.readOnly;
+    await carregar();
+    if (S.admin) await carregarAcessos();
+  } catch (err) { $('#at-sub').textContent = $('#painel-sub').textContent = 'Não foi possível carregar os chamados: ' + (err.message || err); show(); return; }
+  if (S.readOnly && !S.emps.length) { const nt = $('#notice'); nt.hidden = false; nt.textContent = 'Nenhum empreendimento liberado para o seu login. Fale com a Nervia.'; }
+  show();
+  // outra pessoa pode ter registrado algo: relê ao voltar para a aba e a cada 2 min, se nada estiver sendo editado
+  const ocupado = () => S.editing.size || S.editAnd.size || S.eqEdit.size || S.eqNew || S.pickNew.size || fichaAtual || $('#dlg').open
+    || Object.values(S.drafts).some(v => v) || (VIEW === 'novo' && ($('#n-desc').value || $('#n-resumo').value));
+  const talvez = async () => { if (!document.hidden && !ocupado() && Date.now() - S.lido > 20000) { try { await recarregar(); } catch {} } };
+  document.addEventListener('visibilitychange', talvez);
+  setInterval(talvez, 120000);
+})();
+})();
+</script>
+
+
+</body></html>
