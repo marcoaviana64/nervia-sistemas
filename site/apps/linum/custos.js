@@ -4,7 +4,7 @@
 //   modelagem/peça = modelagem ÷ peças do risco; custo = soma de tudo; markup = venda ÷ custo.
 // Lê a tabela lin_custos (RLS: só o Dono) e grava por lin_custo_salvar / lin_custo_excluir (auditoria no servidor).
 // Usa os ajudantes do index.html ($, esc, sb, checar, msg, brl, n, numBR, decBR, quando, todas, PRODUTOS…).
-let CUSTOS = [];
+let CUSTOS = [], CU_PCUSTO = {};   // CU_PCUSTO = preço de custo de cada peça no cadastro (o Dono lê lin_produtos)
 const FCU = { aba: "fichas", q: "", linha: "", copias: false, sel: null, ord: "ficha", desc: false, comp: "" };
 const CU_CUSTOS = [["mp", "Matéria-prima"], ["risco", "Risco"], ["mod", "Modelagem e pilotagem"], ["corte", "Corte"], ["lavanderia", "Lavanderia"],
   ["costura", "Costura"], ["aviamentos", "Aviamentos"], ["passadoria", "Passadoria"], ["logistica", "Logística"], ["comissao", "Comissão"],
@@ -52,7 +52,11 @@ function cuPreco(p) {
 
 async function telaCustos() {
   $("tela").innerHTML = '<div class="card">Carregando…</div>';
-  try { CUSTOS = await todas(() => sb.from("lin_custos").select("*").order("ficha")); }
+  try {
+    let pc;
+    [CUSTOS, pc] = await Promise.all([todas(() => sb.from("lin_custos").select("*").order("ficha")), todas(() => sb.from("lin_produtos").select("id,preco_custo").order("id"))]);
+    CU_PCUSTO = Object.fromEntries(pc.map(p => [p.id, p.preco_custo == null ? null : Number(p.preco_custo)]));
+  }
   catch (e) { $("tela").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; return; }
   const abas = [["fichas", "Fichas"], ["todas", "Todas as peças"], ["margens", "Margens e custos"], ["sistema", "Planilha × Sistema"]];
   $("tela").innerHTML = `<div class="cabtela"><h2>Custos das peças</h2><span class="mut">só o Dono e a equipe Nervia veem esta aba</span></div>
@@ -123,7 +127,7 @@ function cuAbrir(nova) {
   const prods = [...PRODUTOS].sort((a, b) => (a.referencia || "").localeCompare(b.referencia || "", "pt-BR", { numeric: true }));
   $("cuficha").innerHTML = `<div class="card cuficha">
     <div class="cabtela"><h2>${c.id ? "Ficha " + esc(c.ficha) : "Nova ficha de custo"}</h2>
-      <span class="noprint" style="display:flex;gap:8px;flex-wrap:wrap">${c.id ? '<button class="bt" id="cudup">Duplicar</button><button class="bt" id="cuimp">Imprimir</button><button class="bt" id="cuexc" style="color:var(--crit)">Excluir</button>' : ""}
+      <span class="noprint" style="display:flex;gap:8px;flex-wrap:wrap">${c.id && !c.rascunho ? `<button class="bt" id="cuenviar" title="Leva o preço de venda e o custo desta ficha para a peça em Produtos">${cuProduto(c) ? "Atualizar em Produtos" : "Criar em Produtos"}</button>` : ""}${c.id ? '<button class="bt" id="cudup">Duplicar</button><button class="bt" id="cuimp">Imprimir</button><button class="bt" id="cuexc" style="color:var(--crit)">Excluir</button>' : ""}
       <button class="bt pri" id="cusalvar" disabled>Salvar</button></span></div>
     ${c.id ? `<div class="mut">Atualizada em ${quando(c.atualizado_em)}${c.atualizado_nome ? " por " + esc(c.atualizado_nome) : ""}${c.origem && c.origem !== "app" ? " · veio da " + esc(c.origem) : ""}</div>` : ""}
     <div class="cuduas">
@@ -154,6 +158,18 @@ function cuAbrir(nova) {
       FCU.sel = null; cuAbrir({ ...c, id: null, ficha: nome, rascunho: true, origem: "app" }); CU_SUJO = true; $("cusalvar").disabled = false;
       msg("info", "Cópia pronta: altere o que quiser e clique em Salvar. Ela fica marcada como simulação (fora dos números) até você desmarcar."); };
     $("cuimp").onclick = () => window.print();
+    if ($("cuenviar")) $("cuenviar").onclick = async () => {
+      if (CU_SUJO) { msg("err", "Salve a ficha antes de enviar para Produtos."); return; }
+      const p = cuProduto(c), k = cuCalc(c);
+      const txt = p ? `Atualizar a peça ${p.referencia} ${p.descricao} em Produtos?\n\nPreço de venda: ${cuPreco(p).txt} → ${brl(k.venda)}\nCusto: ${CU_PCUSTO[p.id] == null ? "—" : brl(CU_PCUSTO[p.id])} → ${brl(k.custo)}`
+        : `Criar a peça em Produtos?\n\nReferência: ${(c.referencia || "").trim() || "provisória (NOVA-…)"}\nDescrição: ${c.descricao || c.ficha}\nPreço de venda: ${brl(k.venda)} · Custo: ${brl(k.custo)}\n\nDepois, em Produtos, acrescente as cores e os tamanhos.`;
+      if (!confirm(txt)) return;
+      try {
+        const r = checar(await sb.rpc("lin_custo_enviar", { p_id: c.id }));
+        await carregar(); msg("ok", r.criado ? `Peça ${r.referencia} criada em Produtos. Acrescente as cores e os tamanhos na aba Produtos.` : "Peça atualizada em Produtos com o preço de venda e o custo da ficha.");
+        await telaCustos();
+      } catch (e) { msg("err", e.message); }
+    };
     $("cuexc").onclick = async () => {
       if (!confirm(`Excluir a ficha ${c.ficha}? Ela continua registrada na auditoria.`)) return;
       try { checar(await sb.rpc("lin_custo_excluir", { p_id: c.id })); CU_SUJO = false; FCU.sel = null; msg("ok", `Ficha ${c.ficha} excluída.`); telaCustos(); }
@@ -315,12 +331,39 @@ function cuSistema() {
         FCU.aba = "fichas"; FCU.sel = null; telaCustos().then(() => { cuAbrir({ ficha: p.referencia, referencia: p.referencia, descricao: p.descricao, produto_id: p.id, venda: p.preco_venda }); cuSujo(); }); });
       return;
     }
-    const [t, , exp] = SIT[FCU.comp], sel = l.filter(x => x.s === FCU.comp);
-    $("cusis").innerHTML = `<h2>${t}</h2>${exp ? `<div class="mut">${exp}.</div>` : ""}<div class="tw"><table><thead><tr><th>Ficha</th><th>Peça no sistema</th><th class="num">Custo</th><th class="num">Venda na ficha</th><th class="num">Preço no sistema</th></tr></thead><tbody>
-      ${sel.map(x => `<tr class="cuabrir" data-cid="${x.c.id}" style="cursor:pointer"><td><b>${esc(x.c.ficha)}</b> ${esc(x.c.descricao)}</td><td>${x.p ? esc(x.p.referencia + " " + x.p.descricao) : "—"}</td>
-        <td class="num">${brl(x.k.custo)}</td><td class="num">${x.k.venda != null ? brl(x.k.venda) : "—"}</td><td class="num"><b>${x.pr ? esc(x.pr.txt) : "—"}</b></td></tr>`).join("") || '<tr><td colspan="5" class="mut">Nenhuma.</td></tr>'}</tbody></table></div>
-      <div class="mut" style="margin-top:6px">A ficha é ligada à peça pela referência ou pelo campo "Peça no cadastro". Para corrigir um preço, altere a peça na aba Produtos.</div>`;
+    const [t, , exp] = SIT[FCU.comp], sel = l.filter(x => x.s === FCU.comp), marcavel = FCU.comp !== "fora";
+    // peça com mais de uma ficha (ex.: A12 e A12 artesanal): avisa, porque só uma pode valer para o cadastro
+    const porPeca = {}; l.forEach(x => { if (x.p) porPeca[x.p.id] = (porPeca[x.p.id] || 0) + 1; });
+    const custoSis = x => x.p ? CU_PCUSTO[x.p.id] : null;
+    const pode = x => x.p && x.k.venda > 0 && x.k.custo > 0;
+    $("cusis").innerHTML = `<h2>${t}</h2>${exp ? `<div class="mut">${exp}.</div>` : ""}
+      ${marcavel ? `<div class="filtros noprint" style="align-items:center;margin-top:8px"><label class="chk cuchk"><input type="checkbox" id="cutodos"> Marcar todas</label>
+        <button class="bt pri" id="cuaplicar" disabled>Atualizar no cadastro</button><span class="mut" id="cumarc"></span></div>` : ""}
+      <div class="tw"><table><thead><tr>${marcavel ? "<th></th>" : ""}<th>Ficha</th><th>Peça no sistema</th><th class="num">Custo na ficha</th><th class="num">Custo no sistema</th><th class="num">Venda na ficha</th><th class="num">Preço no sistema</th></tr></thead><tbody>
+      ${sel.map(x => { const cs = custoSis(x), difCusto = cs == null || Math.abs(cs - x.k.custo) >= 0.005;
+        return `<tr>${marcavel ? `<td>${pode(x) ? `<input type="checkbox" class="cumarca" data-cid="${x.c.id}" aria-label="Marcar ${esc(x.c.ficha)}">` : ""}</td>` : ""}
+        <td class="cuabrir" data-cid="${x.c.id}" style="cursor:pointer"><b>${esc(x.c.ficha)}</b> ${esc(x.c.descricao)}${x.p && porPeca[x.p.id] > 1 ? ' <span class="tag fora" title="Mais de uma ficha aponta para esta peça: marque só a que vale">outra ficha p/ esta peça</span>' : ""}</td>
+        <td>${x.p ? esc(x.p.referencia + " " + x.p.descricao) : "—"}</td>
+        <td class="num">${brl(x.k.custo)}</td><td class="num" style="${difCusto ? "color:var(--crit)" : ""}">${cs == null ? "—" : brl(cs)}</td>
+        <td class="num">${x.k.venda != null ? brl(x.k.venda) : "—"}</td><td class="num"><b>${x.pr ? esc(x.pr.txt) : "—"}</b></td></tr>`; }).join("")
+        || `<tr><td colspan="${marcavel ? 7 : 6}" class="mut">Nenhuma.</td></tr>`}</tbody></table></div>
+      <div class="mut" style="margin-top:6px">${marcavel ? "Marque as fichas já conferidas e clique em <b>Atualizar no cadastro</b>: a peça passa a ter o preço de venda e o custo da ficha (peças especiais com preço próprio não mudam). Fica na auditoria. " : ""}A ficha é ligada à peça pela referência ou pelo campo "Peça no cadastro" (clique no nome da ficha para abrir).</div>`;
     document.querySelectorAll(".cuabrir").forEach(r => r.onclick = () => { FCU.sel = r.dataset.cid; FCU.aba = "fichas"; telaCustos(); });
+    if (!marcavel) return;
+    const marcadas = () => [...document.querySelectorAll(".cumarca:checked")].map(i => i.dataset.cid);
+    const contar = () => { const m = marcadas().length; $("cuaplicar").disabled = !m; $("cuaplicar").textContent = m ? `Atualizar no cadastro (${m})` : "Atualizar no cadastro"; };
+    document.querySelectorAll(".cumarca").forEach(i => i.onchange = contar);
+    $("cutodos").onchange = e => { document.querySelectorAll(".cumarca").forEach(i => i.checked = e.target.checked); contar(); };
+    $("cuaplicar").onclick = async () => {
+      const ids = marcadas(), lst = sel.filter(x => ids.includes(x.c.id));
+      const linhas = lst.slice(0, 12).map(x => `${x.p.referencia}: venda ${x.pr ? x.pr.txt : "—"} → ${brl(x.k.venda)}; custo ${custoSis(x) == null ? "—" : brl(custoSis(x))} → ${brl(x.k.custo)}`);
+      if (!confirm(`Atualizar ${lst.length} peça(s) no cadastro com o preço de venda e o custo da ficha?\n\n${linhas.join("\n")}${lst.length > 12 ? `\n… e mais ${lst.length - 12}` : ""}`)) return;
+      $("cuaplicar").disabled = true;
+      try {
+        const q = checar(await sb.rpc("lin_custos_aplicar", { p_ids: ids }));
+        await carregar(); msg("ok", `${q} peça(s) atualizada(s) no cadastro.`); await telaCustos();
+      } catch (e) { msg("err", e.message); contar(); }
+    };
   };
   document.querySelectorAll("[data-sit]").forEach(b => b.onclick = () => { FCU.comp = b.dataset.sit; desenhar(); });
   desenhar();
