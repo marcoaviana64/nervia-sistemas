@@ -193,6 +193,7 @@ textarea{min-height:84px;resize:vertical;line-height:1.45}
 
 /* equipamentos */
 .filters.f4{grid-template-columns:1.6fr repeat(3,minmax(0,1fr))}
+.filters.f6{grid-template-columns:1.6fr repeat(5,minmax(0,1fr))}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
 .chip{display:inline-flex;align-items:center;border:1px solid var(--line-strong);border-radius:999px;background:var(--surface);font-size:12.5px;max-width:100%}
 .chip-l{background:none;border:0;padding:3px 4px 3px 10px;cursor:pointer;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
@@ -236,6 +237,7 @@ textarea{min-height:84px;resize:vertical;line-height:1.45}
   .grid2{grid-template-columns:1fr}
   .filters{grid-template-columns:repeat(2,minmax(0,1fr))}
   .filters .field:first-child{grid-column:1/-1}
+  .filters.f6{grid-template-columns:repeat(2,minmax(0,1fr))}
   .thead{display:none}
   .rhead{grid-template-columns:18px auto auto minmax(0,1fr) auto;grid-template-areas:"c n e d s" "c x x x f";row-gap:4px}
   .rhead .fbtn{grid-area:f;align-self:end}
@@ -276,20 +278,21 @@ textarea{min-height:84px;resize:vertical;line-height:1.45}
   <section id="v-painel" hidden>
     <h1>Painel</h1>
     <p class="sub" id="painel-sub">Carregando…</p>
+    <div class="filtro-aqui"></div>
     <div class="kpis" id="kpis"></div>
     <div class="grid2">
       <div class="panel chart">
-        <h2>Chamados abertos por mês</h2>
+        <h2 id="ch-mes-t">Chamados abertos por mês</h2>
         <div id="ch-mes"></div>
       </div>
       <div class="panel chart">
-        <h2>Por empreendimento</h2>
+        <h2>Por empreendimento <span class="hint" style="margin:0;font-weight:400">(todos os em aberto e os do período)</span></h2>
         <div class="legend"><span><i style="background:var(--accent)"></i>Em aberto</span><span><i style="background:var(--bar-closed)"></i>Fechados</span></div>
         <div id="ch-emp"></div>
       </div>
     </div>
     <div class="panel">
-      <h2>Em aberto há mais tempo</h2>
+      <h2>Em aberto há mais tempo <span class="hint" style="margin:0;font-weight:400">(de qualquer data)</span></h2>
       <ul class="olist" id="oldest"></ul>
     </div>
   </section>
@@ -297,12 +300,16 @@ textarea{min-height:84px;resize:vertical;line-height:1.45}
   <section id="v-atendimentos" hidden>
     <h1>Atendimentos</h1>
     <p class="sub" id="at-sub">Carregando…</p>
-    <div class="filters">
+    <div class="filtro-aqui">
+    <!-- filtro único do Painel e da lista (mesmo estado S.filters; show() o leva para a tela aberta) -->
+    <div class="filters f6" id="filtros">
       <div class="field"><label for="f-q">Buscar</label><input type="search" id="f-q" placeholder="Nº, descrição, solicitante…"></div>
       <div class="field"><label for="f-emp">Empreendimento</label><select id="f-emp"></select></div>
       <div class="field"><label for="f-st">Situação</label><select id="f-st"><option value="">Todos</option><option>Aberto</option><option>Fechado</option></select></div>
       <div class="field"><label for="f-tp">Tipo</label><select id="f-tp"></select></div>
+      <div class="field"><label for="f-ano">Ano</label><select id="f-ano"></select></div>
       <div class="field"><label for="f-mes">Mês</label><select id="f-mes"></select></div>
+    </div>
     </div>
     <p class="count" id="count"></p>
     <div class="list" id="list"></div>
@@ -393,7 +400,9 @@ async function todos(mk) { const out = []; for (let i = 0; ; i += 1000) { const 
 
 const tip = document.getElementById('tip');
 const S = { admin: false, acessos: new Map(), chamados: new Map(), emps: [], loaded: false, readOnly: false,
-  open: new Set(), editing: new Set(), editAnd: new Map(), drafts: {}, filters: { q:'', emp:'', st:'', tp:'', mes:'' },
+  open: new Set(), editing: new Set(), editAnd: new Map(), drafts: {},
+  // filtro único do Painel e da lista de chamados; começa no ano em curso
+  filters: { q:'', emp:'', st:'', tp:'', ano: new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date()).slice(0, 4), mes:'' },
   ativos: new Map(), eqf: { q:'', emp:'', tp:'', sit:'' }, eqOpen: new Set(), eqEdit: new Set(), eqNew: false, pickNew: new Set(), novoAtivos: [], empEdit: null };
 
 const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
@@ -441,8 +450,11 @@ function show() {
   const v = currentView();
   for (const x of VIEWS) $('#v-' + x).hidden = x !== v;
   for (const a of document.querySelectorAll('#nav a')) { if (a.dataset.v === v) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); }
+  const alvo = document.querySelector('#v-' + v + ' .filtro-aqui');
+  if (alvo && !alvo.contains($('#filtros'))) alvo.append($('#filtros'));
   render();
 }
+const semFiltro = () => ({ q:'', emp:'', st:'', tp:'', ano:'', mes:'' });
 
 /* ---------- rendering ---------- */
 function list() { return [...S.chamados.values()].sort((a, b) => b.numero - a.numero); }
@@ -481,17 +493,23 @@ function fillOptions() {
   setOptions($('#q-tp'), TIPOS.map(t => [t[0], t[1]]), 'Todos');
   setOptions($('#q-sit'), SITS.map(t => [t, t]), 'Todas');
   $('#dl-sol').replaceChildren(...sols.map(t => el('option', { value: t })));
-  const meses = [...new Set(all.map(c => c.abertura.slice(0,7)))].sort().reverse();
-  setOptions($('#f-mes'), meses.map(m => [m, mesLabel(m)]), 'Todos');
+  const anos = [...new Set([today().slice(0, 4), ...all.map(c => c.abertura.slice(0, 4))])].sort().reverse();
+  setOptions($('#f-ano'), anos.map(a => [a, a]), 'Todos os anos');
+  setOptions($('#f-mes'), MESES.map((m, i) => [String(i + 1).padStart(2, '0'), m]), 'Todos os meses');
+  syncFilterInputs();
 }
 
 function pill(st) { return el('span', { class: 'pill ' + st.toLowerCase(), text: st }); }
 
-function filtered() {
+// período (ano e mês, '' = todos) pela data de abertura; o Painel usa a de fechamento para "Fechados no período"
+function noPeriodo(d) { const f = S.filters; return !!d && (!f.ano || d.startsWith(f.ano)) && (!f.mes || d.slice(5, 7) === f.mes); }
+function periodoTxt() { const f = S.filters; return f.mes ? `${MESES[+f.mes - 1]}/${f.ano || 'todos os anos'}` : f.ano || 'todos os anos'; }
+function filtered(data = 'abertura', comPeriodo = true) {
   const f = S.filters, q = f.q.trim().toLowerCase();
   return list().filter(c =>
-    (!f.emp || c.empr === f.emp) && (!f.st || c.status === f.st) && (!f.tp || c.tipo === f.tp) &&
-    (!f.mes || c.abertura.startsWith(f.mes)) &&
+    (!f.emp || c.empr === f.emp) && (!f.st || c.status === f.st) &&
+    // chamado em aberto aparece sempre (é o que falta fazer): ignora período e tipo
+    (c.status === 'Aberto' || ((!f.tp || c.tipo === f.tp) && (!comPeriodo || noPeriodo(c[data])))) &&
     (!q || String(c.numero) === q.replace('#','') || [c.resumo, c.descricao, c.solicitante, c.empr, ...(c.ativos||[]), ...(c.andamentos||[]).map(a => a.texto)].join(' ').toLowerCase().includes(q)));
 }
 
@@ -501,7 +519,7 @@ function renderList() {
   const act = document.activeElement, actId = act && act.id, selS = act && act.selectionStart, selE = act && act.selectionEnd;
   const rows = filtered();
   $('#at-sub').textContent = `${S.chamados.size} chamados registrados · ${list().filter(c => c.status === 'Aberto').length} em aberto`;
-  $('#count').textContent = rows.length === S.chamados.size ? `Mostrando todos os ${rows.length}` : `${rows.length} de ${S.chamados.size} chamados`;
+  $('#count').textContent = (rows.length === S.chamados.size ? `Mostrando todos os ${rows.length}` : `${rows.length} de ${S.chamados.size} chamados`) + ` · período: ${periodoTxt()}`;
   const head = el('div', { class: 'thead', 'aria-hidden': 'true' }, el('span'), el('span', { text: 'Nº' }), el('span', { text: 'Empr.' }), el('span', { text: 'Abertura' }), el('span', { text: 'Descrição' }), el('span', { text: 'Tipo' }), el('span', { text: 'Solicitante' }), el('span', { text: 'Situação' }), el('span', { text: 'Fechamento' }), el('span'));
   const out = [head];
   if (!rows.length) out.push(el('div', { class: 'empty', text: 'Nenhum chamado com esses filtros.' }));
@@ -675,7 +693,7 @@ $('#novo-form').addEventListener('submit', async e => {
       e.target.reset(); $('#n-data').value = today(); $('#n-emp').value = ''; S.novoAtivos = []; S.pickNew.delete('nv'); clearDrafts('af-nv'); renderNovoAtivos();
       msg.textContent = `Chamado #${numero} aberto.`;
       S.open.clear(); S.open.add(numero);
-      S.filters = { q:'', emp:'', st:'', tp:'', mes:'' }; syncFilterInputs();
+      S.filters = { ...semFiltro(), ano: today().slice(0, 4) }; syncFilterInputs();   // o chamado novo é deste ano
       setTimeout(() => { go('atendimentos'); setTimeout(() => document.getElementById('r' + numero)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 80); }, 700);
     }
   } catch (err) { fail(err, msg); }
@@ -694,8 +712,8 @@ $('#emp-form').addEventListener('submit', async e => {
 });
 
 /* ---------- filters ---------- */
-const FMAP = { q: '#f-q', emp: '#f-emp', st: '#f-st', tp: '#f-tp', mes: '#f-mes' };
-for (const [k, s] of Object.entries(FMAP)) $(s).addEventListener(k === 'q' ? 'input' : 'change', e => { S.filters[k] = e.target.value; renderList(); });
+const FMAP = { q: '#f-q', emp: '#f-emp', st: '#f-st', tp: '#f-tp', ano: '#f-ano', mes: '#f-mes' };
+for (const [k, s] of Object.entries(FMAP)) $(s).addEventListener(k === 'q' ? 'input' : 'change', e => { S.filters[k] = e.target.value; VIEW === 'painel' ? renderPainel() : renderList(); });
 function syncFilterInputs() { for (const [k, s] of Object.entries(FMAP)) $(s).value = S.filters[k]; }
 
 /* ---------- equipamentos e itens ---------- */
@@ -845,7 +863,7 @@ function openAtivo(k) {
   go('equipamentos'); setTimeout(() => document.getElementById('a-' + k)?.scrollIntoView({ block: 'start' }), 60);
 }
 function openChamado(n) {
-  S.open.add(n); S.filters = { q: '', emp: '', st: '', tp: '', mes: '' }; syncFilterInputs();
+  S.open.add(n); S.filters = semFiltro(); syncFilterInputs();
   go('atendimentos'); setTimeout(() => document.getElementById('r' + n)?.scrollIntoView({ block: 'start' }), 60);
 }
 
@@ -931,35 +949,41 @@ const barPath = (x, y, w, h, r) => { r = Math.min(r, h, w / 2); return `M${x},${
 const hBarPath = (x, y, w, h, r) => { r = Math.min(r, w, h / 2); return `M${x},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h - r}Q${x + w},${y + h} ${x + w - r},${y + h}H${x}Z`; };
 const niceMax = m => { if (m <= 5) return 5; const p = Math.pow(10, Math.floor(Math.log10(m))); for (const s of [1, 2, 2.5, 5, 10]) if (s * p >= m) return s * p; return 10 * p; };
 
+// período do Painel (pela data de abertura): ano ('' = todos) e mês ('' = todos)
 function renderPainel() {
   if (!S.loaded) return;
-  const all = list(), t = today(), ym = t.slice(0, 7);
+  const t = today(), ym = t.slice(0, 7), f = S.filters;
+  const tudo = filtered('abertura', false);   // os outros filtros (busca, empreendimento, situação, tipo), sem o período
+  const all = filtered();
   const abertos = all.filter(c => c.status === 'Aberto');
   const velhos = abertos.filter(c => days(c.abertura, t) > 30);
-  const fechMes = all.filter(c => c.status === 'Fechado' && c.fechamento.startsWith(ym));
-  const abMes = all.filter(c => c.abertura.startsWith(ym));
-  const fechados = all.filter(c => c.status === 'Fechado');
-  const tempos = fechados.map(c => Math.max(0, days(c.abertura, c.fechamento))).sort((a, b) => a - b);
+  const fechadosPer = filtered('fechamento').filter(c => c.status === 'Fechado');
+  const tempos = fechadosPer.map(c => Math.max(0, days(c.abertura, c.fechamento))).sort((a, b) => a - b);
   const media = tempos.length ? tempos.reduce((a, b) => a + b, 0) / tempos.length : 0; const mesmoDia = tempos.filter(x => x === 0).length;
-  $('#painel-sub').textContent = `${all.length} chamados desde ${br(all.map(c => c.abertura).sort()[0])}. Dados de ${br(t)}.`;
+  const doPer = all.filter(c => c.status !== 'Aberto' || ((!f.tp || c.tipo === f.tp) && noPeriodo(c.abertura))).length;
+  $('#painel-sub').textContent = `Período: ${periodoTxt()} · ${doPer} chamado${doPer === 1 ? '' : 's'} aberto${doPer === 1 ? '' : 's'} no período; os em aberto aparecem todos, de qualquer data. Dados de ${br(t)}.`;
   const k = (label, v, h, cls, go) => el('div', { class: 'kpi' + (cls ? ' ' + cls : '') }, el('div', { class: 'label', text: label }), el('div', { class: 'v', text: v }), el('div', { class: 'h' }, h));
   $('#kpis').replaceChildren(
-    k('Em aberto', abertos.length, `de ${all.length} chamados`),
+    k('Em aberto', abertos.length, 'todos, de qualquer data'),
     k('Abertos há +30 dias', velhos.length, 'pedem atenção', velhos.length ? 'alert' : ''),
-    k(`Abertos em ${mesLabel(ym)}`, abMes.length, `${fechMes.length} fechados no mês`),
-    k('Tempo médio até fechar', media.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' d', `${Math.round(100 * mesmoDia / (fechados.length || 1))}% fechados no mesmo dia`));
+    k('Fechados no período', fechadosPer.length, 'pela data de fechamento'),
+    k('Tempo médio até fechar', media.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' d', `${Math.round(100 * mesmoDia / (fechadosPer.length || 1))}% fechados no mesmo dia`));
 
-  // por mês: last 12 months
-  const months = []; { let y = +ym.slice(0, 4), m = +ym.slice(5, 7); for (let i = 0; i < 12; i++) { months.unshift(`${y}-${String(m).padStart(2, '0')}`); if (--m === 0) { m = 12; y--; } } }
-  const counts = months.map(m => all.filter(c => c.abertura.startsWith(m)).length);
+  // por mês: os 12 meses do ano escolhido (todos os anos = últimos 12 meses); a barra do mês escolhido (ou do mês atual) em destaque
+  const months = [];
+  if (f.ano) for (let m = 1; m <= 12; m++) months.push(`${f.ano}-${String(m).padStart(2, '0')}`);
+  else { let y = +ym.slice(0, 4), m = +ym.slice(5, 7); for (let i = 0; i < 12; i++) { months.unshift(`${y}-${String(m).padStart(2, '0')}`); if (--m === 0) { m = 12; y--; } } }
+  const realce = f.mes ? months.findIndex(m => m.slice(5, 7) === f.mes) : months.indexOf(ym);
+  $('#ch-mes-t').textContent = `Chamados abertos por mês · ${f.ano || 'últimos 12 meses'}`;
+  const counts = months.map(m => tudo.filter(c => c.abertura.startsWith(m)).length);
   const W = 560, H = 230, L = 30, R = 8, T = 18, B = 26, max = niceMax(Math.max(...counts, 1));
-  const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'Chamados abertos por mês nos últimos 12 meses' });
+  const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': `Chamados abertos por mês · ${f.ano || 'últimos 12 meses'}` });
   const y = v => T + (H - T - B) * (1 - v / max);
   for (let i = 0; i <= 4; i++) { const v = max * i / 4, yy = y(v); svg.append(sv('line', { x1: L, x2: W - R, y1: yy, y2: yy, stroke: 'var(--line)', 'stroke-width': 1 })); const tx = sv('text', { x: L - 6, y: yy + 3.5, 'text-anchor': 'end' }); tx.textContent = Math.round(v); svg.append(tx); }
   const bw = (W - L - R) / 12;
   counts.forEach((v, i) => {
     const x = L + i * bw + bw * .2, w = bw * .6;
-    if (v > 0) { const p = sv('path', { d: barPath(x, y(v), w, y(0) - y(v), 4), fill: i === 11 ? 'var(--accent)' : 'var(--bar-closed)' }); svg.append(p); }
+    if (v > 0) { const p = sv('path', { d: barPath(x, y(v), w, y(0) - y(v), 4), fill: i === realce ? 'var(--accent)' : 'var(--bar-closed)' }); svg.append(p); }
     const hit = sv('rect', { x: L + i * bw, y: T, width: bw, height: H - T - B, fill: 'transparent' }); hover(hit, `${mesLabel(months[i])}: ${v} chamado${v === 1 ? '' : 's'}`); svg.append(hit);
     if (v > 0) { const tv = sv('text', { x: x + w / 2, y: y(v) - 5, 'text-anchor': 'middle', class: 'val' }); tv.textContent = v; svg.append(tv); }
     const tl = sv('text', { x: x + w / 2, y: H - 8, 'text-anchor': 'middle' }); tl.textContent = MESES[+months[i].slice(5, 7) - 1]; svg.append(tl);
@@ -981,7 +1005,7 @@ function renderPainel() {
     const tv = sv('text', { x: L2 + wa + wf + 6, y: by + 11, class: 'val' }); tv.textContent = r.ab ? `${r.ab + r.fe} · ${r.ab} ab.` : r.ab + r.fe; svg2.append(tv);
     const hit = sv('rect', { x: 0, y: yy, width: W2, height: rowH, fill: 'transparent', style: 'cursor:pointer' });
     hover(hit, `${r.n}: ${r.ab} em aberto, ${r.fe} fechados`);
-    hit.addEventListener('click', () => { tip.hidden = true; S.filters = { q:'', emp: r.s, st:'', tp:'', mes:'' }; syncFilterInputs(); go('atendimentos'); });
+    hit.addEventListener('click', () => { tip.hidden = true; S.filters.emp = r.s; syncFilterInputs(); go('atendimentos'); });
     svg2.append(hit);
   });
   $('#ch-emp').replaceChildren(svg2);
@@ -990,7 +1014,7 @@ function renderPainel() {
   const old = [...abertos].sort((a, b) => a.abertura < b.abertura ? -1 : 1).slice(0, 10);
   $('#oldest').replaceChildren(...(old.length ? old.map(c => {
     const d = days(c.abertura, t);
-    return el('li', {}, el('button', { type: 'button', onclick: () => { S.open.add(c.numero); S.filters = { q:'', emp:'', st:'', tp:'', mes:'' }; syncFilterInputs(); go('atendimentos'); setTimeout(() => document.getElementById('r' + c.numero)?.scrollIntoView({ block: 'start' }), 60); } },
+    return el('li', {}, el('button', { type: 'button', onclick: () => { S.open.add(c.numero); go('atendimentos'); setTimeout(() => document.getElementById('r' + c.numero)?.scrollIntoView({ block: 'start' }), 60); } },
       el('span', { class: 'num', text: c.numero }), el('span', { class: 'emp', text: c.empr }),
       el('span', { class: 'desc', text: c.resumo || c.descricao }),
       el('span', { class: 'age' + (d > 30 ? ' old' : ''), style: 'text-align:right;margin:0', text: d + ' dias' })));

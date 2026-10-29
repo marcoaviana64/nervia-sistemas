@@ -160,7 +160,7 @@ const print = async (pg, nome) => { if (SAIDA) await pg.screenshot({ path: path.
   try {
     // ---------------- equipe Nervia
     const { pg, erros } = await pagina(b, 'admin');
-    ok(await pg.locator('#count').innerText() === 'Mostrando todos os 2', 'admin: lista com os 2 chamados');
+    ok((await pg.locator('#count').innerText()).startsWith('Mostrando todos os 2'), 'admin: lista com os 2 chamados');
     ok(await pg.locator('a[data-v=novo]').isVisible() && await pg.locator('a[data-v=empreendimentos]').isVisible(), 'admin: vê Novo atendimento e Empreendimentos');
     ok((await pg.locator('[data-versao=atendimentos]').count()) === 1, 'topo com a versão do app');
     // novo chamado com andamento aberto e equipamento
@@ -215,10 +215,10 @@ const print = async (pg, nome) => { if (SAIDA) await pg.screenshot({ path: path.
     await pg.keyboard.press('Escape');
     // filtros
     await pg.selectOption('#f-st', 'Aberto');
-    ok(await pg.locator('#count').innerText() === '1 de 3 chamados', 'filtro por situação');
+    ok((await pg.locator('#count').innerText()).startsWith('1 de 3 chamados'), 'filtro por situação');
     await pg.selectOption('#f-st', '');
     await pg.fill('#f-q', 'wi-fi');
-    ok(await pg.locator('#count').innerText() === '1 de 3 chamados', 'busca por texto');
+    ok((await pg.locator('#count').innerText()).startsWith('1 de 3 chamados'), 'busca por texto');
     await pg.fill('#f-q', '');
     // equipamentos: cadastrar item instalado e trocar usuário com data
     await pg.click('a[data-v=equipamentos]');
@@ -260,6 +260,24 @@ const print = async (pg, nome) => { if (SAIDA) await pg.screenshot({ path: path.
     // painel
     await pg.click('a[data-v=painel]');
     ok((await pg.locator('#kpis').textContent()).includes('Em aberto') && (await pg.locator('#ch-mes svg').count()) === 1, 'painel com números e gráficos');
+    const anoAtual = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date()).slice(0, 4);
+    ok(await pg.inputValue('#f-ano') === anoAtual && await pg.inputValue('#f-mes') === '', 'painel já vem filtrado no ano em curso');
+    await pg.selectOption('#f-ano', '2026'); await pg.selectOption('#f-mes', '08');
+    ok((await pg.locator('#oldest').innerText()).includes('Wi-Fi lento') && (await pg.locator('#kpis .kpi').nth(2).locator('.v').innerText()) === '1',
+      'ago/2026: o chamado em aberto de setembro continua aparecendo e 1 fechado no período');
+    await pg.selectOption('#f-emp', 'SVS');
+    ok(!(await pg.locator('#oldest').innerText()).includes('Wi-Fi lento'), 'o em aberto respeita o filtro de empreendimento');
+    await pg.selectOption('#f-emp', '');
+    await pg.selectOption('#f-ano', ''); await pg.selectOption('#f-mes', '');
+    ok((await pg.locator('#painel-sub').innerText()).includes('todos os anos · 3 chamados'), 'todos os anos: os 3 chamados');
+    await pg.selectOption('#f-ano', '2026'); await pg.selectOption('#f-mes', '08');
+    await pg.click('a[data-v=atendimentos]');
+    const lista = await pg.locator('#v-atendimentos').innerText();
+    ok(lista.includes('Impressora do financeiro') && lista.includes('Wi-Fi lento') && await pg.inputValue('#f-mes') === '08' && (await pg.locator('#v-atendimentos #filtros').count()) === 1,
+      'o mesmo filtro vale na lista de chamados (agosto: o fechado de agosto e o em aberto de setembro)');
+    await pg.selectOption('#f-tp', 'Suporte TI'); await pg.click('a[data-v=painel]');
+    ok((await pg.locator('#v-painel #filtros').count()) === 1 && await pg.inputValue('#f-tp') === 'Suporte TI', 'e o filtro da lista vale no Painel');
+    await pg.selectOption('#f-mes', ''); await pg.selectOption('#f-tp', '');
     await print(pg, 'atd_painel');
     ok(!erros.length, 'admin: sem erro de JavaScript ' + erros.join(' | '));
     const estado = await pg.evaluate(() => localStorage.getItem('db_teste'));
@@ -267,7 +285,7 @@ const print = async (pg, nome) => { if (SAIDA) await pg.screenshot({ path: path.
     // ---------------- cliente: só lê os empreendimentos liberados
     const cli = await pagina(b, 'cliente');
     await cli.pg.evaluate(e => { localStorage.setItem('db_teste', e); }, estado); await cli.pg.reload(); await cli.pg.waitForTimeout(500);
-    ok(await cli.pg.locator('#count').innerText() === 'Mostrando todos os 3', 'cliente: vê os chamados dos empreendimentos liberados (SVS e Rio2Pom)');
+    ok((await cli.pg.locator('#count').innerText()).startsWith('Mostrando todos os 3'), 'cliente: vê os chamados dos empreendimentos liberados (SVS e Rio2Pom)');
     ok(!(await cli.pg.locator('a[data-v=novo]').isVisible()) && !(await cli.pg.locator('a[data-v=empreendimentos]').isVisible()), 'cliente: sem Novo atendimento e Empreendimentos');
     await cli.pg.locator('#r3 .rhead').click();
     ok(!(await cli.pg.locator('#r3 button:has-text("Editar")').count()) && !(await cli.pg.locator('#r3 button:has-text("Registrar andamento")').count()), 'cliente: sem editar nem registrar andamento');
