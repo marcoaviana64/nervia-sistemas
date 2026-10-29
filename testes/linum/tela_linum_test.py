@@ -497,6 +497,13 @@ try:
         ok("281,40" in pg.text_content("#cures") and pg.is_enabled("#cusalvar"), "Custos: a conta muda enquanto digita (risco por peça digitado)")
         pg.fill("#cu_markup_alvo", "3,4"); pg.fill("#cu_desconto_pct", "20"); pg.wait_for_timeout(200)
         ok("956,76" in pg.text_content("#cures") and "765,41" in pg.text_content("#cures"), "Custos: simulação com markup alvo e desconto")
+        ok("869,00" in pg.text_content(".cuvenda") and "956,76" in pg.text_content(".cucalc"), "Ficha: valor de venda e venda calculada em destaque, como o custo")
+        with pg.expect_popup() as pop: pg.click("#cuimp")
+        fp = pop.value; fp.wait_for_load_state()
+        pdf = os.path.join(SAIDA, "linum_ficha_custo.pdf"); fp.pdf(path=pdf, prefer_css_page_size=True, print_background=True)
+        ok("Ficha de custo" in fp.text_content("header") and "956,76" in fp.text_content("body") and open(pdf, "rb").read().count(b"/Type /Page\n") + open(pdf, "rb").read().count(b"/Type /Page>") + open(pdf, "rb").read().count(b"/Type /Page ") == 1,
+           "Imprimir ficha: cabeçalho, venda calculada e uma folha só (A4 deitada)")
+        fp.close()
         pg.click("#cusalvar"); pg.wait_for_timeout(900)
         ok(psql(f"select round(custo, 2) || ' ' || markup_alvo from lin_custos where ficha = '{ref_cu}'", saida=True) == "281.40 3.4"
            and psql("select count(*) from auditoria where acao = 'linum_custo_alterado'", saida=True) == "1", "Custos: salvar grava e registra na auditoria")

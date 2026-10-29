@@ -189,7 +189,7 @@ function cuAbrir(nova) {
       while (CUSTOS.some(x => x.ficha.toLowerCase() === nome.toLowerCase())) nome = base + " (" + i++ + ")";
       FCU.sel = null; cuAbrir({ ...c, id: null, ficha: nome, rascunho: true, origem: "app" }); CU_SUJO = true; $("cusalvar").disabled = false;
       msg("info", "Cópia pronta: altere o que quiser e clique em Salvar. Ela fica marcada como simulação (fora dos números) até você desmarcar."); };
-    $("cuimp").onclick = () => window.print();
+    $("cuimp").onclick = () => cuImprimir();
     if ($("cuenviar")) $("cuenviar").onclick = async () => {
       if (CU_SUJO) { msg("err", "Salve a ficha antes de enviar para Produtos."); return; }
       const p = cuProduto(c), k = cuCalc(c);
@@ -219,7 +219,11 @@ function cuResumo() {
   const barra = CU_CUSTOS.filter(([x]) => k[x] > 0).map(([x, t]) => `<i style="width:${k.custo ? k[x] / k.custo * 100 : 0}%;background:${CU_CORES[CU_CUSTOS.findIndex(y => y[0] === x)]}" title="${t}: ${brl(k[x])}"></i>`).join("");
   const alerta = pr && pr.v > 0 && Math.abs(pr.v - k.custo) < 0.5 ? '<div class="msg err" style="margin:8px 0 0">O preço desta peça no sistema é igual ao CUSTO, não ao valor de venda.</div>' : "";
   $("cures").innerHTML = `
-    <div class="kpi destaque"><small>Custo total por peça</small><b>${brl(k.custo)}</b><span>${k.markup != null ? "markup " + cuMk(k.markup) : "informe o valor de venda"}</span></div>
+    <div class="cuvalores">
+      <div class="kpi destaque"><small>Custo total por peça</small><b>${brl(k.custo)}</b><span>soma de todos os itens</span></div>
+      <div class="kpi destaque cuvenda"><small>Valor de venda</small><b>${k.venda != null ? brl(k.venda) : "—"}</b><span>${k.markup != null ? "markup " + cuMk(k.markup) + " · margem " + brl(k.margem) : "informe o valor de venda"}</span></div>
+      ${k.sugerido != null ? `<div class="kpi destaque cucalc"><small>Venda calculada (markup ${cuMk(Number(c.markup_alvo))})</small><b>${brl(k.sugerido)}</b><span>${k.com_desc != null ? "com " + cuDec(Number(c.desconto_pct), 1) + "% de desconto: " + brl(k.com_desc) : "custo × markup alvo"}</span></div>` : ""}
+    </div>
     <div class="cubarra">${barra}</div>
     <table class="cutab"><tbody>
       ${CU_CUSTOS.map(([x, t], i) => `<tr><td><span class="cubola" style="background:${CU_CORES[i]}"></span>${t}</td><td class="num">${brl(k[x])}</td><td class="num mut">${k.custo ? cuDec(k[x] / k.custo * 100, 1) + "%" : ""}</td></tr>`).join("")}
@@ -240,6 +244,42 @@ function cuResumo() {
     ${prod ? `<div>${esc(cuNomePeca(c, prod))}<br>Preço de venda: <b>${pr.txt}</b>${k.venda != null && pr.v > 0 && Math.abs(pr.v - k.venda) >= 0.5 ? ` <span class="tag fora">diferente da ficha</span>` : pr.v > 0 && k.venda != null ? ' <span class="tag ok">igual à ficha</span>' : ""}</div>${alerta}`
       : '<div class="mut">Nenhuma peça do cadastro com esta referência. Escolha em "Peça no cadastro" para comparar.</div>'}
     ${prod && !cuEd(c) && (c.versao || "").trim() && cuEdicoes(prod).length ? `<div class="msg info" style="margin:8px 0 0">Esta ficha é de uma versão (“${esc(c.versao)}”)? A ${esc(prod.referencia)} tem peças especiais: escolha em “Peça especial no cadastro” para comparar e atualizar o preço certo.</div>` : ""}`;
+}
+
+// impressão da ficha: uma folha A4 deitada, com cabeçalho (pedido do Marco: "sem cabeçalho e em 2 folhas")
+function cuImprimir() {
+  const c = CU_EDIT, k = cuCalc(c), p = cuProduto(c), pr = cuPrecoFicha(c, p), cs = cuCustoSis(c, p);
+  const w = window.open("", "_blank"); if (!w) return msg("err", "O navegador bloqueou a janela de impressão.");
+  const d = (v, casas = 2) => v == null || v === "" ? "—" : cuDec(Number(v), casas), r = v => v == null ? "—" : brl(v);
+  const base = { mp: `${r(cuNum(c.mp_metro))} × ${d(c.gasto, 3)} m`, risco: c.risco_peca_manual != null && c.risco_peca_manual !== "" ? "valor digitado" : `${r(cuNum(c.risco))} ÷ ${d(c.qtd_risco, 0)} peças`,
+    mod: `${r(cuNum(c.modelagem))} ÷ ${d(c.qtd_risco, 0)} peças` };
+  const linhas = CU_CUSTOS.map(([x, t]) => `<tr><td>${t}</td><td class="mut">${base[x] || ""}</td><td class="n">${brl(k[x])}</td><td class="n mut">${k.custo ? cuDec(k[x] / k.custo * 100, 1) + "%" : ""}</td></tr>`).join("");
+  const dados = [["Referência", c.referencia], ["Descrição", c.descricao], ["Versão", c.versao], ["Tecido", c.materia], ["Quantidade de peças", d(c.qtd, 0)],
+    ["Peça no cadastro", p ? cuNomePeca(c, p) : "—"]].filter(([, v]) => v != null && String(v).trim() !== "");
+  w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Ficha de custo ${esc(c.ficha || "")} — Linum</title>
+    <style>@page{size:A4 landscape;margin:10mm 12mm}*{box-sizing:border-box}body{font:11.5px/1.35 system-ui,"Segoe UI",Arial,sans-serif;margin:0;color:#111}
+    header{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2.5px solid #0b2545;padding-bottom:6px;margin-bottom:8px}
+    h1{font-size:19px;margin:0}h2{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#107e99;margin:8px 0 4px}.mut{color:#666}
+    .cols{display:grid;grid-template-columns:1.25fr 1fr;gap:16px}.dados{display:grid;grid-template-columns:repeat(3,1fr);gap:2px 14px;margin-bottom:6px}.dados b{font-weight:600}
+    table{width:100%;border-collapse:collapse}td{padding:3px 5px;border-bottom:1px solid #ddd}td.n{text-align:right;white-space:nowrap}tr.tot td{font-weight:700;border-top:2px solid #333;border-bottom:0}
+    .box{display:grid;grid-template-columns:repeat(${k.sugerido != null ? 3 : 2},1fr);gap:8px;margin-bottom:6px}.box div{border:1.5px solid #0b2545;border-radius:6px;padding:6px 9px}.box small{display:block;color:#555}.box b{font-size:19px}
+    .obs{border:1px dashed #999;padding:6px;white-space:pre-line;min-height:28px}footer{margin-top:8px;font-size:9.5px;color:#777;border-top:1px solid #ccc;padding-top:4px}</style></head><body>
+    <header><div><h1>LINUM · Ficha de custo — ${esc(c.ficha || "nova")}${c.rascunho ? " (cópia/simulação)" : ""}</h1><div class="mut">${esc([c.referencia, c.descricao].filter(Boolean).join(" · "))}</div></div>
+      <div class="mut" style="text-align:right">Emitida em ${dataBR(hoje())}${c.atualizado_em ? `<br>Atualizada em ${quando(c.atualizado_em)}${c.atualizado_nome ? " por " + esc(c.atualizado_nome) : ""}` : ""}${CU_SUJO ? "<br><b>Alterações ainda não salvas</b>" : ""}</div></header>
+    <div class="dados">${dados.map(([t, v]) => `<div><span class="mut">${t}:</span> <b>${esc(v)}</b></div>`).join("")}</div>
+    <div class="box"><div><small>Custo total por peça</small><b>${brl(k.custo)}</b></div><div><small>Valor de venda</small><b>${k.venda != null ? brl(k.venda) : "—"}</b>${k.markup != null ? `<small>markup ${cuMk(k.markup)} · margem ${brl(k.margem)} (${cuDec(k.margem_pct, 1)}%)</small>` : ""}</div>
+      ${k.sugerido != null ? `<div><small>Venda calculada (markup ${cuMk(Number(c.markup_alvo))})</small><b>${brl(k.sugerido)}</b>${k.com_desc != null ? `<small>com ${cuDec(Number(c.desconto_pct), 1)}% de desconto: ${brl(k.com_desc)} (markup ${cuMk(k.markup_desc)})</small>` : ""}</div>` : ""}</div>
+    <div class="cols"><div><h2>Composição do custo por peça</h2><table>${linhas}<tr class="tot"><td>Custo total</td><td></td><td class="n">${brl(k.custo)}</td><td></td></tr></table></div>
+      <div><h2>Preço</h2><table>
+        <tr><td>Valor de venda</td><td class="n"><b>${k.venda != null ? brl(k.venda) : "—"}</b></td></tr><tr><td>Markup (venda ÷ custo)</td><td class="n">${cuMk(k.markup)}</td></tr>
+        <tr><td>Margem por peça</td><td class="n">${k.margem != null ? brl(k.margem) : "—"}</td></tr></table>
+        ${k.qtd ? `<h2>Lote de ${d(k.qtd, 0)} peça(s)</h2><table><tr><td>Venda total</td><td class="n">${r(k.venda_total)}</td></tr><tr><td>Despesas (custo × peças)</td><td class="n">${brl(k.despesas)}</td></tr>
+          <tr class="tot"><td>Líquido</td><td class="n">${r(k.liquido)}</td></tr></table>` : ""}
+        <h2>No sistema</h2><table><tr><td>Preço de venda cadastrado</td><td class="n">${pr ? esc(pr.txt) : "—"}</td></tr><tr><td>Custo cadastrado</td><td class="n">${r(cs)}</td></tr></table></div></div>
+    ${(c.observacoes || "").trim() ? `<h2>Observações</h2><div class="obs">${esc(c.observacoes)}</div>` : ""}
+    <footer>Sistema Linum · Plataforma Nervia · nervia.com.br · Documento interno com custos — não entregar a clientes.</footer>
+    </body></html>`);
+  w.document.close(); w.focus(); setTimeout(() => w.print(), 300);
 }
 
 async function cuSalvar() {
