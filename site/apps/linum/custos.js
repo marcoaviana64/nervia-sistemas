@@ -4,7 +4,7 @@
 //   modelagem/peça = modelagem ÷ peças do risco; custo = soma de tudo; markup = venda ÷ custo.
 // Lê a tabela lin_custos (RLS: só o Dono) e grava por lin_custo_salvar / lin_custo_excluir (auditoria no servidor).
 // Usa os ajudantes do index.html ($, esc, sb, checar, msg, brl, n, numBR, decBR, quando, todas, PRODUTOS…).
-let CUSTOS = [], CU_PCUSTO = {};   // CU_PCUSTO = preço de custo de cada peça no cadastro (o Dono lê lin_produtos)
+let CUSTOS = [], CU_PCUSTO = {}, CU_VCUSTO = {};   // custo no cadastro: da peça (CU_PCUSTO) e das peças especiais por "peça|edição" (CU_VCUSTO)
 const FCU = { aba: "fichas", q: "", linha: "", copias: false, sel: null, ord: "ficha", desc: false, comp: "" };
 const CU_CUSTOS = [["mp", "Matéria-prima"], ["risco", "Risco"], ["mod", "Modelagem e pilotagem"], ["corte", "Corte"], ["lavanderia", "Lavanderia"],
   ["costura", "Costura"], ["aviamentos", "Aviamentos"], ["passadoria", "Passadoria"], ["logistica", "Logística"], ["comissao", "Comissão"],
@@ -49,13 +49,32 @@ function cuPreco(p) {
   if (vs.length) { const a = Math.min(...vs), b = Math.max(...vs); return { v: a, txt: a === b ? brl(a) : brl(a) + " a " + brl(b) }; }
   return { v: 0, txt: "sem preço" };
 }
+// peça especial (artesanal, bordada…): a ficha diz qual edição ela é; vazio = a peça normal
+const cuEd = c => String(c.edicao || "").trim().toLowerCase();
+const cuEdicoes = p => p ? [...new Map((p.variantes || []).filter(v => (v.edicao || "").trim()).map(v => [v.edicao.trim().toLowerCase(), v.edicao.trim()])).values()].sort((a, b) => a.localeCompare(b, "pt-BR")) : [];
+function cuPrecoFicha(c, p) {
+  if (!p) return null;
+  const ed = cuEd(c);
+  if (!ed) return cuPreco(p);
+  const vs = (p.variantes || []).filter(v => (v.edicao || "").trim().toLowerCase() === ed);
+  if (!vs.length) return { v: 0, txt: `sem a peça especial “${c.edicao}”`, falta: true };
+  const ps = vs.map(v => v.preco_venda).filter(x => x != null).map(Number);
+  if (!ps.length) return { v: 0, txt: "sem preço" };
+  const a = Math.min(...ps), b = Math.max(...ps);
+  return { v: a, txt: a === b ? brl(a) : brl(a) + " a " + brl(b) };
+}
+const cuCustoSis = (c, p) => !p ? null : cuEd(c) ? CU_VCUSTO[p.id + "|" + cuEd(c)] ?? null : CU_PCUSTO[p.id] ?? null;
+const cuNomePeca = (c, p) => p ? p.referencia + " " + p.descricao + (cuEd(c) ? " — ★ " + c.edicao : "") : "—";
 
 async function telaCustos() {
   $("tela").innerHTML = '<div class="card">Carregando…</div>';
   try {
-    let pc;
-    [CUSTOS, pc] = await Promise.all([todas(() => sb.from("lin_custos").select("*").order("ficha")), todas(() => sb.from("lin_produtos").select("id,preco_custo").order("id"))]);
+    let pc, vc;
+    [CUSTOS, pc, vc] = await Promise.all([todas(() => sb.from("lin_custos").select("*").order("ficha")), todas(() => sb.from("lin_produtos").select("id,preco_custo").order("id")),
+      todas(() => sb.from("lin_variantes").select("id,produto_id,edicao,preco_custo").neq("edicao", "").order("id"))]);
     CU_PCUSTO = Object.fromEntries(pc.map(p => [p.id, p.preco_custo == null ? null : Number(p.preco_custo)]));
+    CU_VCUSTO = {};
+    vc.filter(v => v.preco_custo != null).forEach(v => { const k = v.produto_id + "|" + v.edicao.trim().toLowerCase(); CU_VCUSTO[k] = Math.min(CU_VCUSTO[k] ?? Infinity, Number(v.preco_custo)); });
   }
   catch (e) { $("tela").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; return; }
   const abas = [["fichas", "Fichas"], ["todas", "Todas as peças"], ["margens", "Margens e custos"], ["sistema", "Planilha × Sistema"]];
@@ -139,6 +158,8 @@ function cuAbrir(nova) {
           <div class="grade2">${inp("qtd", "Quantidade de peças")}
             <div class="campo"><label for="cu_produto_id">Peça no cadastro</label><select id="cu_produto_id" class="cu-in" data-k="produto_id" data-t="1">
               <option value="">${c.produto_id ? "— nenhuma —" : "pela referência"}</option>${prods.map(p => `<option value="${p.id}" ${p.id === c.produto_id ? "selected" : ""}>${esc(p.referencia + " " + p.descricao)}</option>`).join("")}</select></div></div>
+          <div class="campo"><label for="cu_edicao">Peça especial no cadastro (artesanal, bordada…)</label><select id="cu_edicao" class="cu-in" data-k="edicao" data-t="1"></select>
+            <div class="mut" id="cu_edicao_dica" style="margin-top:3px"></div></div>
           <label class="chk cuchk" style="margin-top:12px"><input type="checkbox" id="cu_rascunho" ${c.rascunho ? "checked" : ""}> Cópia / simulação (fica fora dos números)</label>
         </div>
         ${CU_GRUPOS.map(([t, campos]) => `<div class="caixa"><h4>${t}</h4><div class="grade2">${campos.map(([k, r]) => inp(k, r)).join("")}</div></div>`).join("")}
@@ -151,6 +172,17 @@ function cuAbrir(nova) {
     CU_EDIT[i.dataset.k] = i.dataset.t ? i.value : numBR(i.value); cuSujo();
   }));
   $("cu_rascunho").onchange = e => { CU_EDIT.rascunho = e.target.checked; cuSujo(); };
+  // edições (peças especiais) da peça ligada; trocar a peça limpa a escolha
+  const preencherEd = () => {
+    const p = cuProduto(CU_EDIT), eds = cuEdicoes(p), atual = (CU_EDIT.edicao || "").trim();
+    const lista = atual && !eds.some(e => e.toLowerCase() === atual.toLowerCase()) ? [...eds, atual] : eds;
+    $("cu_edicao").innerHTML = `<option value="">— a peça normal —</option>` + lista.map(e => `<option ${e.toLowerCase() === atual.toLowerCase() ? "selected" : ""}>${esc(e)}</option>`).join("");
+    $("cu_edicao").disabled = !p;
+    $("cu_edicao_dica").textContent = !p ? "Ligue a ficha a uma peça do cadastro para escolher." : !eds.length ? "Esta peça não tem peças especiais. Para a versão artesanal/bordada, crie em Produtos → Nova peça especial."
+      : "Escolha quando a ficha for de uma versão (ex.: artesanal): o preço e o custo vão só para essas peças especiais.";
+  };
+  $("cu_produto_id").addEventListener("change", () => { CU_EDIT.edicao = ""; preencherEd(); cuResumo(); });
+  preencherEd();
   $("cusalvar").onclick = cuSalvar;
   if (c.id) {
     $("cudup").onclick = () => { if (!cuPodeSair()) return; const base = "Cópia de " + c.ficha; let nome = base, i = 2;
@@ -161,7 +193,8 @@ function cuAbrir(nova) {
     if ($("cuenviar")) $("cuenviar").onclick = async () => {
       if (CU_SUJO) { msg("err", "Salve a ficha antes de enviar para Produtos."); return; }
       const p = cuProduto(c), k = cuCalc(c);
-      const txt = p ? `Atualizar a peça ${p.referencia} ${p.descricao} em Produtos?\n\nPreço de venda: ${cuPreco(p).txt} → ${brl(k.venda)}\nCusto: ${CU_PCUSTO[p.id] == null ? "—" : brl(CU_PCUSTO[p.id])} → ${brl(k.custo)}`
+      const cs = cuCustoSis(c, p);
+      const txt = p ? `Atualizar ${cuEd(c) ? "as peças especiais" : "a peça"} ${cuNomePeca(c, p)} em Produtos?\n\nPreço de venda: ${cuPrecoFicha(c, p).txt} → ${brl(k.venda)}\nCusto: ${cs == null ? "—" : brl(cs)} → ${brl(k.custo)}`
         : `Criar a peça em Produtos?\n\nReferência: ${(c.referencia || "").trim() || "provisória (NOVA-…)"}\nDescrição: ${c.descricao || c.ficha}\nPreço de venda: ${brl(k.venda)} · Custo: ${brl(k.custo)}\n\nDepois, em Produtos, acrescente as cores e os tamanhos.`;
       if (!confirm(txt)) return;
       try {
@@ -181,7 +214,7 @@ function cuAbrir(nova) {
 function cuSujo() { CU_SUJO = true; $("cusalvar").disabled = false; cuResumo(); }
 
 function cuResumo() {
-  const c = CU_EDIT, k = cuCalc(c), prod = cuProduto(c), pr = cuPreco(prod);
+  const c = CU_EDIT, k = cuCalc(c), prod = cuProduto(c), pr = cuPrecoFicha(c, prod);
   const ri = $("cu_risco_peca_manual"); if (ri) ri.placeholder = "conta: " + cuDec(k.risco_auto);
   const barra = CU_CUSTOS.filter(([x]) => k[x] > 0).map(([x, t]) => `<i style="width:${k.custo ? k[x] / k.custo * 100 : 0}%;background:${CU_CORES[CU_CUSTOS.findIndex(y => y[0] === x)]}" title="${t}: ${brl(k[x])}"></i>`).join("");
   const alerta = pr && pr.v > 0 && Math.abs(pr.v - k.custo) < 0.5 ? '<div class="msg err" style="margin:8px 0 0">O preço desta peça no sistema é igual ao CUSTO, não ao valor de venda.</div>' : "";
@@ -204,14 +237,15 @@ function cuResumo() {
       ${k.com_desc != null ? `<tr><td>Com ${cuDec(Number(c.desconto_pct), 1)}% de desconto</td><td class="num">${brl(k.com_desc)}</td></tr><tr><td>Markup com o desconto</td><td class="num">${cuMk(k.markup_desc)}</td></tr>` : ""}
       </tbody></table>` : '<div class="mut" style="margin-top:10px">Preencha "Markup alvo" para ver o preço sugerido e "Desconto" para simular uma promoção.</div>'}
     <h4 style="margin:14px 0 4px">No sistema</h4>
-    ${prod ? `<div>${esc(prod.referencia + " " + prod.descricao)}<br>Preço de venda: <b>${pr.txt}</b>${k.venda != null && pr.v > 0 && Math.abs(pr.v - k.venda) >= 0.5 ? ` <span class="tag fora">diferente da ficha</span>` : pr.v > 0 && k.venda != null ? ' <span class="tag ok">igual à ficha</span>' : ""}</div>${alerta}`
-      : '<div class="mut">Nenhuma peça do cadastro com esta referência. Escolha em "Peça no cadastro" para comparar.</div>'}`;
+    ${prod ? `<div>${esc(cuNomePeca(c, prod))}<br>Preço de venda: <b>${pr.txt}</b>${k.venda != null && pr.v > 0 && Math.abs(pr.v - k.venda) >= 0.5 ? ` <span class="tag fora">diferente da ficha</span>` : pr.v > 0 && k.venda != null ? ' <span class="tag ok">igual à ficha</span>' : ""}</div>${alerta}`
+      : '<div class="mut">Nenhuma peça do cadastro com esta referência. Escolha em "Peça no cadastro" para comparar.</div>'}
+    ${prod && !cuEd(c) && (c.versao || "").trim() && cuEdicoes(prod).length ? `<div class="msg info" style="margin:8px 0 0">Esta ficha é de uma versão (“${esc(c.versao)}”)? A ${esc(prod.referencia)} tem peças especiais: escolha em “Peça especial no cadastro” para comparar e atualizar o preço certo.</div>` : ""}`;
 }
 
 async function cuSalvar() {
   const c = CU_EDIT, b = $("cusalvar");
   const p = { id: c.id || null };
-  ["ficha", "referencia", "descricao", "versao", "materia", "observacoes", "produto_id"].forEach(k => p[k] = c[k] == null ? "" : String(c[k]));
+  ["ficha", "referencia", "descricao", "versao", "materia", "observacoes", "produto_id", "edicao"].forEach(k => p[k] = c[k] == null ? "" : String(c[k]));
   ["qtd", "mp_metro", "gasto", "qtd_risco", "risco", "risco_peca_manual", "modelagem", "corte", "lavanderia", "costura", "aviamentos", "passadoria",
     "logistica", "comissao", "pagamento", "venda", "markup_alvo", "desconto_pct"].forEach(k => p[k] = c[k] == null ? "" : String(c[k]));
   p.rascunho = !!c.rascunho;
@@ -231,7 +265,7 @@ function cuTodas() {
     <div class="tw"><table id="cutodas"><thead><tr>${cols.map(([k, t, nm]) => `<th class="${nm ? "num" : ""}" data-o="${k}" style="cursor:pointer">${t}${FCU.ord === k ? (FCU.desc ? " ▼" : " ▲") : ""}</th>`).join("")}</tr></thead><tbody id="cutb"></tbody></table></div></div>`;
   let linhas = [];
   const desenhar = () => {
-    linhas = cuValidas().filter(cuBusca).map(c => { const k = cuCalc(c), pr = cuPreco(cuProduto(c)); return { c, k, mp: k.mp, custo: k.custo, venda: k.venda, markup: k.markup, margem: k.margem,
+    linhas = cuValidas().filter(cuBusca).map(c => { const k = cuCalc(c), pr = cuPrecoFicha(c, cuProduto(c)); return { c, k, mp: k.mp, custo: k.custo, venda: k.venda, markup: k.markup, margem: k.margem,
       sistema: pr ? pr.v : null, sistxt: pr ? pr.txt : "—", ficha: c.ficha, descricao: c.descricao, materia: c.materia }; });
     const o = FCU.ord, s = FCU.desc ? -1 : 1;
     linhas.sort((a, b) => typeof a[o] === "string" || typeof b[o] === "string" ? s * String(a[o] || "").localeCompare(String(b[o] || ""), "pt-BR", { numeric: true })
@@ -308,7 +342,7 @@ function cuMargens() {
 function cuSistema() {
   const fichas = CUSTOS.filter(c => !c.rascunho);
   const usados = new Set();
-  const l = fichas.map(c => { const p = cuProduto(c), pr = cuPreco(p), k = cuCalc(c); if (p) usados.add(p.id);
+  const l = fichas.map(c => { const p = cuProduto(c), pr = cuPrecoFicha(c, p), k = cuCalc(c); if (p) usados.add(p.id);
     let s = "fora";
     if (p) s = !pr || pr.v <= 0 ? "sem_preco" : Math.abs(pr.v - k.custo) < 0.5 ? "custo" : k.venda != null && Math.abs(pr.v - k.venda) < 0.5 ? "igual" : "diferente";
     return { c, p, pr, k, s }; });
@@ -333,21 +367,22 @@ function cuSistema() {
     }
     const [t, , exp] = SIT[FCU.comp], sel = l.filter(x => x.s === FCU.comp), marcavel = FCU.comp !== "fora";
     // peça com mais de uma ficha (ex.: A12 e A12 artesanal): avisa, porque só uma pode valer para o cadastro
-    const porPeca = {}; l.forEach(x => { if (x.p) porPeca[x.p.id] = (porPeca[x.p.id] || 0) + 1; });
-    const custoSis = x => x.p ? CU_PCUSTO[x.p.id] : null;
-    const pode = x => x.p && x.k.venda > 0 && x.k.custo > 0;
+    const chave = x => x.p.id + "|" + cuEd(x.c);
+    const porPeca = {}; l.forEach(x => { if (x.p) porPeca[chave(x)] = (porPeca[chave(x)] || 0) + 1; });
+    const custoSis = x => cuCustoSis(x.c, x.p);
+    const pode = x => x.p && x.k.venda > 0 && x.k.custo > 0 && !(x.pr && x.pr.falta);
     $("cusis").innerHTML = `<h2>${t}</h2>${exp ? `<div class="mut">${exp}.</div>` : ""}
       ${marcavel ? `<div class="filtros noprint" style="align-items:center;margin-top:8px"><label class="chk cuchk"><input type="checkbox" id="cutodos"> Marcar todas</label>
         <button class="bt pri" id="cuaplicar" disabled>Atualizar no cadastro</button><span class="mut" id="cumarc"></span></div>` : ""}
       <div class="tw"><table><thead><tr>${marcavel ? "<th></th>" : ""}<th>Ficha</th><th>Peça no sistema</th><th class="num">Custo na ficha</th><th class="num">Custo no sistema</th><th class="num">Venda na ficha</th><th class="num">Preço no sistema</th></tr></thead><tbody>
       ${sel.map(x => { const cs = custoSis(x), difCusto = cs == null || Math.abs(cs - x.k.custo) >= 0.005;
         return `<tr>${marcavel ? `<td>${pode(x) ? `<input type="checkbox" class="cumarca" data-cid="${x.c.id}" aria-label="Marcar ${esc(x.c.ficha)}">` : ""}</td>` : ""}
-        <td class="cuabrir" data-cid="${x.c.id}" style="cursor:pointer"><b>${esc(x.c.ficha)}</b> ${esc(x.c.descricao)}${x.p && porPeca[x.p.id] > 1 ? ' <span class="tag fora" title="Mais de uma ficha aponta para esta peça: marque só a que vale">outra ficha p/ esta peça</span>' : ""}</td>
-        <td>${x.p ? esc(x.p.referencia + " " + x.p.descricao) : "—"}</td>
+        <td class="cuabrir" data-cid="${x.c.id}" style="cursor:pointer"><b>${esc(x.c.ficha)}</b> ${esc(x.c.descricao)}${x.p && porPeca[chave(x)] > 1 ? ' <span class="tag fora" title="Mais de uma ficha aponta para esta peça: marque só a que vale">outra ficha p/ esta peça</span>' : ""}</td>
+        <td>${esc(cuNomePeca(x.c, x.p))}${x.p && !cuEd(x.c) && (x.c.versao || "").trim() && cuEdicoes(x.p).length ? ' <span class="tag possivel" title="A peça tem peças especiais: abra a ficha e escolha em “Peça especial no cadastro”">versão? escolha a peça especial</span>' : ""}</td>
         <td class="num">${brl(x.k.custo)}</td><td class="num" style="${difCusto ? "color:var(--crit)" : ""}">${cs == null ? "—" : brl(cs)}</td>
         <td class="num">${x.k.venda != null ? brl(x.k.venda) : "—"}</td><td class="num"><b>${x.pr ? esc(x.pr.txt) : "—"}</b></td></tr>`; }).join("")
         || `<tr><td colspan="${marcavel ? 7 : 6}" class="mut">Nenhuma.</td></tr>`}</tbody></table></div>
-      <div class="mut" style="margin-top:6px">${marcavel ? "Marque as fichas já conferidas e clique em <b>Atualizar no cadastro</b>: a peça passa a ter o preço de venda e o custo da ficha (peças especiais com preço próprio não mudam). Fica na auditoria. " : ""}A ficha é ligada à peça pela referência ou pelo campo "Peça no cadastro" (clique no nome da ficha para abrir).</div>`;
+      <div class="mut" style="margin-top:6px">${marcavel ? "Marque as fichas já conferidas e clique em <b>Atualizar no cadastro</b>: a peça passa a ter o preço de venda e o custo da ficha; se a ficha for de uma peça especial (★, ex.: artesanal), só as peças especiais dessa edição mudam. Fica na auditoria. " : ""}A ficha é ligada à peça pela referência ou pelo campo "Peça no cadastro" (clique no nome da ficha para abrir).</div>`;
     document.querySelectorAll(".cuabrir").forEach(r => r.onclick = () => { FCU.sel = r.dataset.cid; FCU.aba = "fichas"; telaCustos(); });
     if (!marcavel) return;
     const marcadas = () => [...document.querySelectorAll(".cumarca:checked")].map(i => i.dataset.cid);

@@ -530,6 +530,21 @@ try:
            and "criada em Produtos" in pg.text_content("#msg"), "Ficha: Criar em Produtos cria a peça com preço de venda e custo")
         pg.wait_for_selector("#cuenviar")
         ok(pg.text_content("#cuenviar") == "Atualizar em Produtos", "Ficha com peça: botão vira Atualizar em Produtos")
+        # 2.20: ficha da versão artesanal = peça especial da mesma referência
+        psql(f"""insert into lin_variantes (produto_id, cor, tamanho, edicao, preco_venda) select id, 'Cru', 'M', 'Pintura Artesanal', 990 from lin_produtos where referencia = '{ref_cu}';
+                 insert into lin_custos (ficha, referencia, descricao, versao, corte, venda) values ('{ref_cu} artesanal', '{ref_cu}', 'Calça artesanal', 'artesanal', 400, 1290)""")
+        pg.evaluate("carregar()"); pg.wait_for_timeout(500)
+        pg.click('[data-ca="todas"]'); pg.wait_for_selector("#cutb tr"); pg.click('[data-ca="fichas"]'); pg.wait_for_selector("#cures")
+        art = psql(f"select id from lin_custos where ficha = '{ref_cu} artesanal'", saida=True)
+        pg.click(f'.cuitem[data-cid="{art}"]'); pg.wait_for_selector("#cu_edicao")
+        ok("tem peças especiais" in pg.text_content("#cures") and "Pintura Artesanal" in pg.text_content("#cu_edicao"),
+           "Ficha de versão: avisa que a peça tem peças especiais e lista as edições")
+        pg.select_option("#cu_edicao", "Pintura Artesanal"); pg.wait_for_timeout(200)
+        ok("Pintura Artesanal" in pg.text_content("#cures") and "990,00" in pg.text_content("#cures").replace("\xa0", " "), "Ficha: compara com o preço da peça especial")
+        pg.click("#cusalvar"); pg.wait_for_timeout(900); pg.wait_for_selector("#cuenviar"); pg.click("#cuenviar"); pg.wait_for_timeout(1200)
+        ok(psql("select preco_venda || ' ' || preco_custo from lin_variantes where edicao = 'Pintura Artesanal'", saida=True) == "1290.00 400.00"
+           and psql(f"select preco_venda from lin_produtos where referencia = '{ref_cu}'", saida=True) == "869.00",
+           "Atualizar em Produtos com peça especial: muda só a peça especial, a peça normal fica")
         pg.click('[data-ca="fichas"]'); pg.wait_for_selector("#cures")
         pg.screenshot(path=os.path.join(SAIDA, "linum_custos.png"), full_page=True)
         ok(not erros, "sem erros de JavaScript (aba Custos)")
@@ -896,7 +911,7 @@ try:
             abrir_ajuda = pg.goto(f"http://127.0.0.1:{PORTA_SITE}/apps/linum/ajuda/{pagina}.html")
             ok(abrir_ajuda.ok and "Sistema Linum" in pg.title() and pg.locator('script[src="/marca-dagua.js"][data-tipo="doc"]').count() == 1, f"ajuda: {pagina} com marca d'água")
         pg.goto(f"http://127.0.0.1:{PORTA_SITE}/ajuda/novidades.html?app=linum&nome=Sistema%20Linum"); pg.wait_for_timeout(400)
-        ok("2.19" in pg.text_content("body"), "novidades do app (versão 2.19)")
+        ok("2.20" in pg.text_content("body"), "novidades do app (versão 2.20)")
         ok(psql("select mapa_url from apps where id = 'linum'", saida=True) == "/apps/linum/ajuda/mapa.html", "botão Mapa ligado no cadastro do app")
         b.close()
     print("TODOS OS TESTES DE TELA DO SISTEMA LINUM OK")
