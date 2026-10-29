@@ -9,6 +9,7 @@
 <script src="/versoes.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="producao.js"></script>
+<script src="custos.js"></script>
 <style>
 /* Sistema Linum (app "linum", tabelas lin_): o sistema da LINUM Roupas de Linho trazido do Lovable para a Plataforma.
    Produtos, estoque das lojas, vendas (boleta) e clientes. Dono: tudo; Estoque: cadastra e movimenta sem custo;
@@ -113,6 +114,22 @@ tr.cancelada td{color:var(--ink-faint);text-decoration:line-through}tr.cancelada
 .kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px}
 .kpi small{display:block;color:var(--ink-soft)}.kpi b{font-size:22px;display:block;font-variant-numeric:tabular-nums}.kpi span{font-size:12px;color:var(--ink-faint)}
 td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+/* custos das peças (2.18) */
+.cugrade{display:grid;grid-template-columns:290px 1fr;gap:12px;align-items:start}
+.culista{padding:10px;position:sticky;top:8px}#culst{max-height:70vh;overflow-y:auto;margin:0 -4px}
+.cuitem{display:flex;justify-content:space-between;gap:8px;width:100%;text-align:left;font:inherit;background:none;border:0;border-radius:8px;padding:7px 8px;cursor:pointer;color:var(--ink)}
+.cuitem:hover{background:var(--surface-2)}.cuitem.on{background:var(--accent-soft)}.cuitem small{color:var(--ink-soft);font-size:11.5px}.cuitem .num{text-align:right;white-space:nowrap}
+.cuduas{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:12px;align-items:start}
+.curesumo{position:sticky;top:8px;margin-top:12px}
+.cubarra{display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--surface-2);margin:10px 0}.cubarra i{display:block;height:100%}
+.cutab td{padding:5px 4px;font-size:13px}.cutab tr.cutot td{font-weight:700;border-top:2px solid var(--border)}
+.cubola{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
+.cufx{display:grid;grid-template-columns:110px 1fr 36px;gap:8px;align-items:center;margin:6px 0;font-size:13px}.cufx b{text-align:right}
+.cufxb{height:12px;background:var(--surface-2);border-radius:6px;overflow:hidden}.cufxb i{display:block;height:100%;background:var(--accent)}
+.cuchk{text-transform:none;letter-spacing:0;font-size:13px;font-weight:600;color:var(--ink)}.cuchk input{width:auto}
+.cukpi.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+@media (max-width:860px){.cugrade,.cuduas{grid-template-columns:1fr}.culista,.curesumo{position:static}#culst{max-height:40vh}}
+@media print{.culista{display:none!important}.cugrade{grid-template-columns:1fr}.cuduas{grid-template-columns:1fr 1fr}.cuficha input,.cuficha select,.cuficha textarea{border:0;padding:2px 0}}
 @media (max-width:640px){.grade3{grid-template-columns:1fr}}
 @media (max-width:520px){.grade2{grid-template-columns:1fr}}
 @media (max-width:520px){.duas{grid-template-columns:1fr}.prod h2{white-space:normal}}
@@ -134,6 +151,7 @@ td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-n
       <button class="aba oculto" data-v="producao" id="abaProducao">Produção</button>
       <button class="aba oculto" data-v="comissoes" id="abaComissoes">Comissões</button>
       <button class="aba oculto" data-v="creditos" id="abaCreditos">Créditos</button>
+      <button class="aba oculto" data-v="custos" id="abaCustos">Custos</button>
       <button class="aba oculto" data-v="horarios" id="abaHorarios">Horários</button>
       <button class="aba oculto" data-v="equipe" id="abaEquipe">Equipe</button>
       <div class="dir" id="quem"></div>
@@ -199,7 +217,7 @@ async function iniciar() {
     $("abaEquipe").classList.toggle("oculto", !ADMIN);
     $("abaProdutos").classList.toggle("oculto", !controla());
     $("abaVendas").classList.toggle("oculto", !vende()); $("abaClientes").classList.toggle("oculto", !vende()); $("abaAjustes").classList.toggle("oculto", !vende());
-    $("abaComissoes").classList.toggle("oculto", !dono()); $("abaHorarios").classList.toggle("oculto", !dono()); $("abaCreditos").classList.toggle("oculto", !dono()); $("abaRanking").classList.toggle("oculto", !vende()); $("abaProducao").classList.toggle("oculto", !PERM.producao);
+    $("abaComissoes").classList.toggle("oculto", !dono()); $("abaHorarios").classList.toggle("oculto", !dono()); $("abaCreditos").classList.toggle("oculto", !dono()); $("abaCustos").classList.toggle("oculto", !dono()); $("abaRanking").classList.toggle("oculto", !vende()); $("abaProducao").classList.toggle("oculto", !PERM.producao);
     $("quem").textContent = ADMIN ? "Equipe Nervia (Dono)" : dono() ? "Dono" : controla() ? "Estoque · sem custos" : "Vendedora" + (MINHA_LOJA ? " · " + loja(MINHA_LOJA).nome : "");
     $("aviso").classList.add("oculto"); $("app").classList.remove("oculto");
     render();
@@ -295,7 +313,7 @@ async function carregar() {
   PAPEL = d.papel; LOJAS = d.lojas || []; PRODUTOS = d.produtos || []; MINHA_LOJA = d.minha_loja || null; MINHA_COMISSAO = Number(d.comissao_pct || 0);
   QTD = new Map((d.estoque || []).map(([v, l, q]) => [chave(v, l), q]));
 }
-document.querySelectorAll(".barra .aba").forEach(b => b.onclick = () => { VISTA = b.dataset.v; limparMsg(); render(); });
+document.querySelectorAll(".barra .aba").forEach(b => b.onclick = () => { if (VISTA === "custos" && b.dataset.v !== "custos" && !cuPodeSair()) return; CU_SUJO = false; VISTA = b.dataset.v; limparMsg(); render(); });
 function render() {
   document.querySelectorAll(".barra .aba").forEach(b => b.classList.toggle("on", b.dataset.v === VISTA));
   if (VISTA === "equipe" && ADMIN) return telaEquipe();
@@ -306,6 +324,7 @@ function render() {
   if (VISTA === "comissoes" && dono()) return telaComissoes();
   if (VISTA === "horarios" && dono()) return telaHorarios();
   if (VISTA === "creditos" && dono()) return telaCreditos();
+  if (VISTA === "custos" && dono()) return telaCustos();
   if (VISTA === "ranking" && vende()) return telaRanking();
   if (VISTA === "producao" && PERM.producao) return telaProducao();
   telaEstoque();
