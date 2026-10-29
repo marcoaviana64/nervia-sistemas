@@ -28,6 +28,7 @@
     <li><a href="#visita">6b. Registrar uma visita sem contato</a></li>
     <li><a href="#clientes">7. Clientes e acompanhamento</a></li>
     <li><a href="#creditos">6c. Créditos das clientes (Dono)</a></li>
+    <li><a href="#custos">6d. Custos das peças (Dono)</a></li>
     <li><a href="#comissoes">7a. Comissões do mês (Dono)</a></li>
     <li><a href="#horarios">7a2. Horário de trabalho (Dono)</a></li>
     <li><a href="#ranking">7b. Ranking das vendedoras</a></li>
@@ -174,6 +175,22 @@
     <li><b>Clientes com saldo</b>: quem tem crédito, o telefone, o último lançamento e o saldo. Clique na cliente para abrir a ficha com o extrato completo.</li>
     <li><b>Lançamentos</b>: escolha o período (De/até), a loja e o tipo. Cada linha mostra quando, a cliente, o quê (com a venda ou troca), a loja, quem fez e o valor (+ entra, − sai).</li>
     <li><b>Baixar CSV</b> para a planilha ou <b>Imprimir</b>.</li>
+  </ol>
+
+  <h2 id="custos">6d. Custos das peças (Dono)</h2>
+  <p>A planilha de custo de cada peça, dentro do app. Só o Dono e a equipe Nervia veem esta aba; vendedoras e Estoque não.</p>
+  <ol>
+    <li>Aba <b>Custos</b> → <b>Fichas</b>. À esquerda, a lista das fichas (busca por referência, peça ou tecido e filtro por linha: A, B, C…), com o custo e o markup de cada uma. Clique numa ficha para abri-la.</li>
+    <li>A ficha tem os mesmos campos da planilha: peça (nome da ficha, referência, descrição, versão, tecido, quantidade de peças), <b>matéria-prima</b> (preço do metro e gasto em metros por peça), <b>risco e modelagem</b> (peças do risco, custo do risco, modelagem e pilotagem), <b>produção</b> (corte, lavanderia, costura, aviamentos, passadoria), <b>venda</b> (logística, comissão, pagamento/cartão/contador) e o <b>valor de venda</b>.</li>
+    <li>As contas são as da planilha e mudam enquanto você digita: matéria-prima por peça = preço do metro × gasto; risco por peça = custo do risco ÷ peças do risco; modelagem por peça = modelagem ÷ peças do risco; <b>custo total</b> = a soma de tudo; <b>markup</b> = venda ÷ custo; margem = venda − custo. Para o lote: venda total, despesas (custo × peças) e líquido.</li>
+    <li><b>Risco por peça</b>: deixe vazio para usar a conta; escreva um valor quando quiser outro (como em algumas abas da planilha).</li>
+    <li><b>Markup alvo</b> mostra o preço sugerido (custo × markup); <b>Desconto (%)</b> simula uma promoção e mostra o markup que sobra.</li>
+    <li><b>Salvar</b> grava (fica na auditoria, com o que mudou). <b>Duplicar</b> faz uma cópia para simular (marcada como “Cópia / simulação”, fica fora dos números até você desmarcar). <b>Excluir</b> apaga a ficha (o registro fica na auditoria). <b>Imprimir</b> sai a ficha em papel ou PDF.</li>
+    <li><b>Peça no cadastro</b>: a ficha se liga à peça do sistema pela referência; escolha outra peça se a referência for diferente. Embaixo do resumo aparece o preço de venda cadastrado e se ele é igual à ficha. A ficha não muda o preço do sistema (isso continua na aba Produtos).</li>
+    <li><b>+ Nova ficha</b>: ficha em branco (dê um nome, por exemplo a referência).</li>
+    <li><b>Todas as peças</b>: tabela com custo, venda, markup (vermelho abaixo de 2×), margem e preço no sistema; clique no título da coluna para ordenar; <b>Baixar CSV</b> ou <b>Imprimir</b>.</li>
+    <li><b>Margens e custos</b>: custo e venda médios, peças por faixa de markup, de que é feito o custo (média por peça), as 10 peças com menor e maior markup e o resumo por tecido.</li>
+    <li><b>Planilha × Sistema</b>: peças cujo preço no sistema é igual ao <b>custo</b> (deveria ser o valor de venda), peças sem preço no sistema, preço diferente da ficha, iguais, fichas sem peça no cadastro e peças do cadastro sem ficha (com “criar ficha”).</li>
   </ol>
 
   <h2 id="comissoes">7a. Comissões do mês (Dono)</h2>

@@ -2018,6 +2018,48 @@ select pg_temp.erro2($$select lin_qr_cadastrar('{"nome":"Pessoa 6","telefone":"2
 reset role; reset request.headers;
 select pg_temp.erro2($$update lin_qr_cadastros set origem = 'x'$$, 'não pode ser alterado', 'linum QR: registro somente inclusão');
 
+-- ---------------------------------------------------------------- linum 2.18: custo das peças (ficha da planilha CUSTO 2025)
+reset role; reset request.headers;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+create temp table lin_cu as select lin_custo_salvar(jsonb_build_object('ficha', 'A48', 'referencia', 'A48', 'descricao', 'Calça Marcel', 'materia', 'linho timotex',
+  'qtd', 20, 'mp_metro', 78, 'gasto', '1.3', 'qtd_risco', 20, 'risco', 90, 'modelagem', 300, 'corte', 5, 'lavanderia', 3, 'costura', 20,
+  'aviamentos', 7, 'passadoria', 3, 'logistica', 3, 'comissao', 34, 'pagamento', 80, 'venda', 869,
+  'produto_id', (select id from lin_produtos order by referencia limit 1))) id;
+select pg_temp.ok((select round(mp_peca, 2) = 101.40 and risco_peca = 4.5 and modelagem_peca = 15 and round(custo, 2) = 275.90 and criado_nome <> ''
+                   from lin_custos where id = (select id from lin_cu)), 'linum custos: contas iguais às da planilha (A48: custo R$ 275,90)');
+select lin_custo_salvar(jsonb_build_object('id', (select id from lin_cu), 'risco_peca_manual', 10));
+select pg_temp.ok((select risco_peca = 10 and round(custo, 2) = 281.40 and descricao = 'Calça Marcel' from lin_custos where id = (select id from lin_cu)),
+  'linum custos: risco por peça digitado vale no lugar da conta; campos não enviados ficam');
+select lin_custo_salvar(jsonb_build_object('id', (select id from lin_cu), 'risco_peca_manual', ''));
+select pg_temp.ok((select risco_peca = 4.5 from lin_custos where id = (select id from lin_cu)), 'linum custos: apagar o risco digitado volta à conta');
+select pg_temp.erro2($$select lin_custo_salvar('{"ficha":"a48"}')$$, 'Já existe uma ficha', 'linum custos: nome de ficha repetido recusado');
+select pg_temp.erro2($$select lin_custo_salvar('{"ficha":"X1","corte":"-2"}')$$, 'não pode ser negativo', 'linum custos: valor negativo recusado');
+select pg_temp.erro2($$select lin_custo_salvar('{"descricao":"sem nome"}')$$, 'Dê um nome', 'linum custos: ficha sem nome recusada');
+select lin_custo_salvar('{"ficha":"Cópia de A48","rascunho":true,"venda":"900"}');
+select lin_custo_excluir((select id from lin_custos where ficha = 'Cópia de A48'));
+reset role;
+select pg_temp.ok((select count(*) = 1 from auditoria where acao = 'linum_custo_criado' and detalhes->>'ficha' = 'A48')
+  and (select (detalhes->'antes'->>'risco_peca_manual') is null and (detalhes->'depois'->>'risco_peca_manual')::numeric = 10 and not (detalhes->'depois') ? 'descricao'
+       from auditoria where acao = 'linum_custo_alterado' order by id limit 1)
+  and (select count(*) = 1 from auditoria where acao = 'linum_custo_excluido' and detalhes->>'ficha' = 'Cópia de A48'),
+  'linum custos: criada, alterada (só o que mudou) e excluída na auditoria');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+select pg_temp.ok((select count(*) = 0 from lin_custos), 'linum custos: Estoque não vê os custos');
+select pg_temp.erro2($$select lin_custo_salvar('{"ficha":"Z"}')$$, 'Somente o Dono', 'linum custos: Estoque não grava');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.ok((select count(*) = 0 from lin_custos), 'linum custos: Vendedora não vê os custos');
+select pg_temp.erro2($$select lin_custo_excluir((select id from lin_cu))$$, 'Somente o Dono', 'linum custos: Vendedora não exclui');
+select pg_temp.erro2($$update lin_custos set venda = 1$$, 'permission denied', 'linum custos: tela não altera a tabela direto');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select pg_temp.ok((select count(*) = 1 from lin_custos), 'linum custos: equipe Nervia vê');
+reset role;
+reset request.jwt.claim.sub;
+set role anon;
+select pg_temp.erro2($$select count(*) from lin_custos$$, 'permission denied', 'linum custos: anon não lê');
+reset role;
+
 -- ================================================================ Atendimentos de TI (atd_)
 reset role; reset request.headers;
 select pg_temp.ok((select situacao = 'oculto' and manual_url like '/apps/atendimentos/ajuda/%' from apps where id = 'atendimentos'),
