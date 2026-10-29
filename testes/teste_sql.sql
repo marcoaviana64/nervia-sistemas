@@ -2087,6 +2087,26 @@ select pg_temp.ok((select p.preco_venda = 100 and p.preco_custo = 10 and p.codig
   and (select produto_id is not null from lin_custos where ficha = 'SemPeca')
   and (select count(*) = 1 from auditoria where acao = 'linum_produto_criado' and detalhes->>'pela_ficha_custo' = 'SemPeca'),
   'linum 2.19: peça nova com preço, custo, código de barras, ligada à ficha e na auditoria');
+-- linum 2.20: ficha de peça especial (artesanal) atualiza só as variações com essa edição
+insert into lin_variantes (produto_id, cor, tamanho, edicao, preco_venda)
+  select produto_id, 'Cru', t, 'Pintura Artesanal', 900 from lin_custos, unnest(array['P','M']) t where ficha = 'A48';
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select lin_custo_salvar(jsonb_build_object('ficha', 'A48 artesanal', 'produto_id', (select produto_id from lin_custos where ficha = 'A48'), 'edicao', 'pintura artesanal ',
+  'venda', 1299, 'corte', 400));
+select lin_custo_salvar(jsonb_build_object('ficha', 'A48 bordada', 'produto_id', (select produto_id from lin_custos where ficha = 'A48'), 'edicao', 'Bordada', 'venda', 999, 'corte', 300));
+select pg_temp.erro2($$select lin_custos_aplicar(array[(select id from lin_custos where ficha = 'A48 bordada')])$$, 'não tem peças especiais', 'linum 2.20: edição que a peça não tem é recusada');
+select pg_temp.ok((select lin_custos_aplicar(array(select id from lin_custos where ficha in ('A48', 'A48 artesanal')))) = 2, 'linum 2.20: a peça normal e a artesanal juntas (não conflitam)');
+reset role;
+select pg_temp.ok((select count(*) = 2 from lin_variantes v where v.edicao = 'Pintura Artesanal' and v.preco_venda = 1299 and v.preco_custo = 400)
+  and (select p.preco_venda = 869 from lin_produtos p where p.id = (select produto_id from lin_custos where ficha = 'A48'))
+  and (select count(*) = 1 from auditoria where acao = 'linum_variante_alterada' and detalhes->>'pela_ficha_custo' = 'A48 artesanal' and (detalhes->>'variacoes')::int = 2),
+  'linum 2.20: preço e custo só nas peças especiais da edição; a peça normal fica com o preço dela; auditoria');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select lin_custo_salvar('{"ficha":"Nova artesanal","referencia":"ZZ888","edicao":"Artesanal","venda":500,"corte":100}');
+select pg_temp.erro2($$select lin_custo_enviar((select id from lin_custos where ficha = 'Nova artesanal'))$$, 'cadastre a peça em Produtos primeiro', 'linum 2.20: peça especial de peça inexistente não cria peça');
+reset role;
 set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
 reset role;
