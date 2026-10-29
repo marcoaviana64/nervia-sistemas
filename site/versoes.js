@@ -45,6 +45,7 @@ window.NERVIA_VERSOES = {
     ["1.0", "Lançamento: contas e licenças de cada unidade, mudanças entre exportações e licenças pagas sem uso."],
   ],
   "atendimentos": [
+    ["1.1", "Um filtro só para o Painel e a lista de chamados (busca, empreendimento, situação, tipo, ano e mês), que já vem no ano em curso: o que você filtra numa tela vale na outra, e os números, gráficos e a lista dos abertos há mais tempo do Painel seguem o filtro."],
     ["1.0", "Lançamento na Plataforma: os chamados de suporte de TI da Nervia por empreendimento, com o histórico de andamentos, a ficha do atendimento em PDF e os equipamentos com código e histórico de usuários."],
   ],
   "linum": [
