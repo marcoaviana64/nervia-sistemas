@@ -2059,6 +2059,37 @@ reset request.jwt.claim.sub;
 set role anon;
 select pg_temp.erro2($$select count(*) from lin_custos$$, 'permission denied', 'linum custos: anon não lê');
 reset role;
+-- linum 2.19: levar preço e custo da ficha para o cadastro da peça
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select lin_custo_salvar(jsonb_build_object('ficha', 'SemPeca', 'referencia', 'ZZ999', 'venda', 100, 'corte', 10));
+select lin_custo_salvar(jsonb_build_object('ficha', 'Dupla', 'produto_id', (select produto_id from lin_custos where ficha = 'A48'), 'venda', 100, 'corte', 10));
+select lin_custo_salvar(jsonb_build_object('ficha', 'Simulação', 'rascunho', true, 'produto_id', (select produto_id from lin_custos where ficha = 'A48'), 'venda', 100, 'corte', 10));
+select pg_temp.erro2($$select lin_custos_aplicar(array[(select id from lin_custos where ficha = 'SemPeca')])$$, 'não tem peça no cadastro', 'linum 2.19: ficha sem peça recusada');
+select pg_temp.erro2($$select lin_custos_aplicar(array[(select id from lin_custos where ficha = 'Simulação')])$$, 'cópia/simulação', 'linum 2.19: cópia não atualiza o cadastro');
+select pg_temp.erro2($$select lin_custos_aplicar(array(select id from lin_custos where ficha in ('A48', 'Dupla')))$$, 'mesma peça', 'linum 2.19: duas fichas da mesma peça recusadas');
+select pg_temp.ok((select lin_custos_aplicar(array[(select id from lin_custos where ficha = 'A48')])) = 1, 'linum 2.19: ficha aplicada');
+reset role;
+select pg_temp.ok((select p.preco_venda = 869 and p.preco_custo = 275.90 from lin_produtos p where p.id = (select produto_id from lin_custos where ficha = 'A48')),
+  'linum 2.19: peça com o preço de venda e o custo da ficha');
+select pg_temp.ok((select detalhes->>'pela_ficha_custo' = 'A48' and (detalhes->'depois'->>'preco_custo')::numeric = 275.90 from auditoria where acao = 'linum_produto_alterado' order by id desc limit 1),
+  'linum 2.19: auditoria com a ficha, antes e depois');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+select pg_temp.erro2($$select lin_custos_aplicar(array[(select id from lin_custos limit 1)])$$, 'Somente o Dono', 'linum 2.19: Estoque não aplica');
+select pg_temp.erro2($$select lin_custo_enviar((select id from lin_custos where ficha = 'SemPeca'))$$, 'Somente o Dono', 'linum 2.19: Estoque não envia para Produtos');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok((lin_custo_enviar((select id from lin_custos where ficha = 'SemPeca'))->>'criado')::boolean, 'linum 2.19: ficha sem peça cria a peça em Produtos');
+select pg_temp.ok((lin_custo_enviar((select id from lin_custos where ficha = 'SemPeca'))->>'criado')::boolean = false, 'linum 2.19: enviar de novo só atualiza');
+select pg_temp.erro2($$select lin_custo_enviar((select id from lin_custos where ficha = 'Simulação'))$$, 'cópia/simulação', 'linum 2.19: cópia não vai para Produtos');
+reset role;
+select pg_temp.ok((select p.preco_venda = 100 and p.preco_custo = 10 and p.codigo_barras is not null and p.ativo from lin_produtos p where p.referencia = 'ZZ999')
+  and (select produto_id is not null from lin_custos where ficha = 'SemPeca')
+  and (select count(*) = 1 from auditoria where acao = 'linum_produto_criado' and detalhes->>'pela_ficha_custo' = 'SemPeca'),
+  'linum 2.19: peça nova com preço, custo, código de barras, ligada à ficha e na auditoria');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+reset role;
 
 -- ================================================================ Atendimentos de TI (atd_)
 reset role; reset request.headers;
