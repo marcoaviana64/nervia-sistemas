@@ -2,8 +2,8 @@
 -- a vendedora só consegue lançar até 7 dias atrás e gravou 29/10, "e eu não consigo alterar a data nem como admin").
 --   * A venda continua imutável; a ÚNICA exceção é a data, e só pela lin_venda_corrigir_data (marca lin.corrigir_data
 --     na transação, que o gatilho lin_vendas_imutavel aceita só para a coluna data).
---   * Só o Dono (inclui a equipe Nervia), venda não cancelada, motivo com pelo menos 5 letras, data entre 1 ano antes e o
---     dia em que a venda foi registrada (horário de Brasília).
+--   * Só o Dono (inclui a equipe Nervia), venda não cancelada, motivo com pelo menos 5 letras, data até o
+--     dia em que a venda foi registrada (horário de Brasília), sem limite para trás (como a boleta antiga do Dono).
 --   * Não mexe no estoque, na comissão (o % e o valor ficam), nem no histórico do CRM (o registro "comprou" fica como foi).
 --   * Auditoria linum_venda_data_corrigida com a data antes/depois e o motivo.
 
@@ -35,7 +35,6 @@ begin
   if length(v_motivo) < 5 then raise exception 'Escreva o motivo da correção'; end if;
   v_reg := (v.criado_em at time zone 'America/Sao_Paulo')::date;
   if p_data > v_reg then raise exception 'A data não pode ser depois do dia em que a venda foi registrada (%)', to_char(v_reg, 'DD/MM/YYYY'); end if;
-  if p_data < v_reg - 366 then raise exception 'A data não pode ser mais de 1 ano antes do registro da venda'; end if;
   if p_data = v.data then raise exception 'A venda já está com essa data'; end if;
   perform set_config('lin.corrigir_data', 'sim', true);
   update public.lin_vendas set data = p_data where id = p_venda;
