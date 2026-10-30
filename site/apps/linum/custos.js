@@ -93,9 +93,9 @@ async function telaCustos() {
 // fichas que entram nos números (as cópias/simulações só se pedir)
 const cuValidas = () => CUSTOS.filter(c => FCU.copias || !c.rascunho);
 const cuBusca = c => {
-  const q = FCU.q.trim().toLowerCase();
+  const q = semAc(FCU.q);
   if (FCU.linha && cuLinha(c) !== FCU.linha) return false;
-  return !q || [c.ficha, c.referencia, c.descricao, c.materia, c.versao].some(x => String(x || "").toLowerCase().includes(q));
+  return !q || [c.ficha, c.referencia, c.descricao, c.materia, c.versao].some(x => semAc(x).includes(q));
 };
 function cuFiltros(id) {
   const linhas = [...new Set(CUSTOS.map(cuLinha).filter(Boolean))].sort();
