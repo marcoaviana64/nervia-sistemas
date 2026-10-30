@@ -2154,6 +2154,22 @@ select pg_temp.ok((select count(*) = 0 from lin_precos_hist), 'linum 2.22: Estoq
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
 select pg_temp.erro2($$select lin_precos_historico((select id from lin_produtos limit 1))$$, 'Somente o Dono ou o Estoque', 'linum 2.22: Vendedora não vê o histórico');
 reset role;
+-- linum 2.25: lucro das vendas (custo valendo na hora da venda)
+select pg_temp.ok(_lin_custo_em(current_setting('teste.pid')::uuid, null, now()) = 275.9
+  and _lin_custo_em(current_setting('teste.pid')::uuid, null, '2000-01-01') is not distinct from
+      (select preco_custo_antes from lin_precos_hist where produto_id = current_setting('teste.pid')::uuid and variante_id is null order by vale_desde, id limit 1),
+  'linum 2.25: custo na hora da venda pelo histórico (depois e antes do primeiro registro)');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok((select count(*) > 0 and sum(vendido) = (select sum(valor_total) from lin_vendas where cancelada_em is null and data >= current_date - 60)
+                     and bool_and(tabela >= vendido) from lin_lucro_itens(current_date - 60, current_date)),
+  'linum 2.25: Dono vê o lucro: vendido por peça soma o valor pago das vendas (desconto geral rateado)');
+select pg_temp.erro2($$select * from lin_lucro_itens(current_date, current_date - 1)$$, 'Informe o período', 'linum 2.25: período invertido recusado');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.erro2($$select * from lin_lucro_itens(current_date - 60, current_date)$$, 'Somente o Dono', 'linum 2.25: vendedora não vê o lucro');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+select pg_temp.erro2($$select * from lin_lucro_itens(current_date - 60, current_date)$$, 'Somente o Dono', 'linum 2.25: Estoque não vê o lucro');
+reset role;
 set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
 reset role;

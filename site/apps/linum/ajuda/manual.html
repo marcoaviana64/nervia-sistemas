@@ -30,6 +30,7 @@
     <li><a href="#creditos">6c. Créditos das clientes (Dono)</a></li>
     <li><a href="#custos">6d. Custos das peças (Dono)</a></li>
     <li><a href="#comissoes">7a. Comissões do mês (Dono)</a></li>
+    <li><a href="#lucro">7a1. Lucro das vendas (Dono)</a></li>
     <li><a href="#horarios">7a2. Horário de trabalho (Dono)</a></li>
     <li><a href="#ranking">7b. Ranking das vendedoras</a></li>
     <li><a href="#producao">7c. Produção: rolos, fichas e etapas</a></li>
@@ -210,6 +211,16 @@
     <li><b>Baixar CSV</b> para a planilha do pagamento ou <b>Imprimir</b>.</li>
   </ol>
   <p>A comissão de cada venda é o % que a pessoa tinha no dia da venda (aba Equipe) sobre o valor pago; mudar o % depois não muda as vendas antigas. Venda cancelada não entra; troca não muda a comissão; na venda com crédito da cliente, a comissão é só sobre o valor pago a mais.</p>
+
+  <h2 id="lucro">7a1. Lucro das vendas (Dono)</h2>
+  <p>Só a Dona e os administradores veem a aba <b>Lucro</b>. Ela compara, para as vendas do período (sem as canceladas):</p>
+  <ul>
+    <li><b>Queria vender (tabela)</b>: o preço de etiqueta de cada peça vezes a quantidade, sem nenhum desconto;</li>
+    <li><b>Vendido</b>: o que a cliente pagou pela peça, já com o desconto da peça e a parte dela no desconto geral da venda (o desconto geral é dividido entre as peças pelo valor de cada uma);</li>
+    <li><b>Custo</b>: o preço de custo do cadastro <b>valendo no dia da venda</b> (pelo histórico de preços; a peça especial com custo próprio usa o dela). Vendas de antes de 30/10/2026, quando o histórico começou, usam o primeiro custo registrado;</li>
+    <li><b>Lucro direto</b> = vendido − custo, sem os outros custos da loja (aluguel, salários, cartão…); <b>margem</b> = lucro ÷ vendido e <b>markup</b> = vendido ÷ custo.</li>
+  </ul>
+  <p>Escolha o período, a loja, quem vendeu e como agrupar (por peça, venda, quem vendeu, loja ou mês). Peças vendidas sem preço de custo aparecem num aviso e ficam fora do custo, do lucro e da margem: cadastre o custo em Produtos ou pela ficha de custo. Trocas e devoluções não mudam a venda neste relatório. <b>Baixar CSV</b> traz uma linha por peça vendida.</p>
 
   <h2 id="horarios">7a2. Horário de trabalho (Dono)</h2>
   <p>Cada pessoa da equipe só consegue abrir o Sistema Linum no horário de trabalho dela, de qualquer aparelho. Fora dele nada abre: nem estoque, nem vendas, nem clientes, e a tentativa fica registrada na auditoria com o endereço (IP) de onde veio. O Dono não tem restrição.</p>
