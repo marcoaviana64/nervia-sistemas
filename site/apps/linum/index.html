@@ -813,13 +813,26 @@ function verVenda(id) {
     <div class="mut campo">Registrada por ${esc(v.criado_nome)} em ${new Date(v.criado_em).toLocaleString("pt-BR", { timeZone: TZ })}</div>
     ${v.cancelada_em ? `<div class="msg err">Cancelada por ${esc(v.cancelada_nome || "")} em ${new Date(v.cancelada_em).toLocaleString("pt-BR", { timeZone: TZ })}: ${esc(v.motivo_cancelamento)}</div>` : ""}
     <div id="verr"></div>
-    <div class="acoes">${dono() && !v.cancelada_em ? '<button type="button" class="bt" id="vcanc" style="color:var(--crit);border-color:var(--crit)">Cancelar venda</button>' : ""}<button type="button" class="bt pri" id="vfechar">Fechar</button></div>`;
+    <div id="vdatabox" class="campo" hidden><b>Corrigir a data da venda</b>
+      <div class="duas"><div><label for="vdnova">Data correta</label><input type="date" id="vdnova" value="${v.data}" max="${new Date(v.criado_em).toLocaleDateString("sv-SE", { timeZone: TZ })}"></div>
+      <div><label for="vdmot">Motivo</label><input id="vdmot" maxlength="300" placeholder="ex.: a venda foi no dia 22, lançada depois"></div></div>
+      <div class="mut">Só a data muda: peças, valores, comissão e o histórico da cliente ficam como estão. Fica registrado na auditoria.</div>
+      <div class="acoes"><button type="button" class="bt pri" id="vdsalvar">Salvar a data</button></div></div>
+    <div class="acoes">${dono() && !v.cancelada_em ? '<button type="button" class="bt" id="vdata">Corrigir data</button><button type="button" class="bt" id="vcanc" style="color:var(--crit);border-color:var(--crit)">Cancelar venda</button>' : ""}<button type="button" class="bt pri" id="vfechar">Fechar</button></div>`;
   $("vfechar").onclick = () => $("dlg").close();
   f.querySelectorAll("[data-ajuste]").forEach(b => b.onclick = () => novoAjuste(v, its.find(i => i.id === +b.dataset.ajuste), () => verVenda(id)));
   sb.from("lin_ajustes").select("*").eq("venda_id", v.id).order("id").then(({ data }) => {
     if (!data || !data.length || !$("vajustes")) return;
     $("vajustes").innerHTML = `<div class="campo"><b>Ajustes</b>${data.map(a => `<div class="vlin"><span>${esc(a.peca)} · ${esc(a.servico)} · ${esc(a.costureira)}</span><span>${AJ_SIT[a.situacao]}${a.situacao === "na_costureira" ? ` · volta ${dataBR(a.prazo)}` : ""}</span></div>`).join("")}</div>`;
   });
+  if ($("vdata")) $("vdata").onclick = () => { $("vdatabox").hidden = false; $("vdnova").focus(); };
+  if ($("vdsalvar")) $("vdsalvar").onclick = async () => {
+    const d = $("vdnova").value;
+    try {
+      checar(await sb.rpc("lin_venda_corrigir_data", { p_venda: v.id, p_data: d || null, p_motivo: $("vdmot").value }));
+      $("dlg").close(); await carregar(); await telaVendas(); msg("ok", `Venda nº ${v.id}: data corrigida para ${dataBR(d)}.`);
+    } catch (e) { $("verr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+  };
   if ($("vcanc")) $("vcanc").onclick = async () => {
     const motivo = prompt("Motivo do cancelamento (as peças voltam para o estoque da loja):");
     if (motivo === null) return;
