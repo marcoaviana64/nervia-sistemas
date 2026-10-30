@@ -560,9 +560,18 @@ try:
            "Atualizar em Produtos com peça especial: muda só a peça especial, a peça normal fica")
         pg.click("#abaProdutos"); pg.wait_for_selector("#plista")
         pid_cu = psql(f"select id from lin_produtos where referencia = '{ref_cu}'", saida=True)
+        pg.fill("#pq", "calca areia"); pg.wait_for_timeout(400)
+        ok(pg.locator("#plista .prod").count() >= 1 and "Calça Areia" in pg.text_content("#plista"), "Busca sem acento acha \"Calça\" digitando \"calca\"")
+        pg.fill("#pq", ref_cu); pg.wait_for_timeout(400)
+        card = pg.locator("#plista .prod").first
+        ok(card.locator(".esplinha").count() == 1 and "Pintura Artesanal" in card.locator(".esplinha").text_content() and "Bordada" in card.locator(".esplinha").text_content()
+           and "Pintura Artesanal" not in card.locator("div[style*='margin-top:8px']").first.text_content(),
+           "Produtos: todas as peças especiais num bloco só, separado das comuns")
+        card.screenshot(path=os.path.join(SAIDA, "linum_produtos_especiais.png"))
         pg.evaluate(f"editarProduto('{pid_cu}')"); pg.wait_for_selector("#phist table")
         ok("ficha de custo" in pg.text_content("#phist") and "Pintura Artesanal" in pg.text_content("#phist") and "1.290,00" in pg.text_content("#phist").replace("\xa0", " "),
            "Ficha do produto: histórico de preços com a peça e a peça especial, origem e valores")
+        ok(pg.locator("#dlgf .esptit").count() >= 1, "Ficha do produto: peças especiais separadas por edição")
         pg.eval_on_selector("#phist", "e => e.scrollIntoView()"); pg.locator("#phist").screenshot(path=os.path.join(SAIDA, "linum_hist_precos.png"))
         pg.click("#pfx"); pg.wait_for_timeout(200)
         pg.click("#abaCustos"); pg.wait_for_selector("#cures")
@@ -932,7 +941,7 @@ try:
             abrir_ajuda = pg.goto(f"http://127.0.0.1:{PORTA_SITE}/apps/linum/ajuda/{pagina}.html")
             ok(abrir_ajuda.ok and "Sistema Linum" in pg.title() and pg.locator('script[src="/marca-dagua.js"][data-tipo="doc"]').count() == 1, f"ajuda: {pagina} com marca d'água")
         pg.goto(f"http://127.0.0.1:{PORTA_SITE}/ajuda/novidades.html?app=linum&nome=Sistema%20Linum"); pg.wait_for_timeout(400)
-        ok("2.22" in pg.text_content("body"), "novidades do app (versão 2.22)")
+        ok("2.23" in pg.text_content("body"), "novidades do app (versão 2.23)")
         ok(psql("select mapa_url from apps where id = 'linum'", saida=True) == "/apps/linum/ajuda/mapa.html", "botão Mapa ligado no cadastro do app")
         b.close()
     print("TODOS OS TESTES DE TELA DO SISTEMA LINUM OK")

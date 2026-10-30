@@ -95,6 +95,7 @@ dialog h3{margin:0 0 4px;font-size:17px}
 .chip.esp b::before,.vtag.esp::before,.vlin.esp>span:first-child::before{content:"★";color:#c9a227;font-size:.9em;margin-right:3px}
 h2.temesp::after{content:"★";color:#c9a227;font-size:.7em;margin-left:5px;vertical-align:.15em}
 .vtag{display:inline-block;font-size:12px;padding:2px 8px;border:1px solid var(--border);border-radius:7px;margin:2px 4px 2px 0}
+.esplinha{margin-top:8px;padding:6px 8px;border-left:3px solid #c9a227;background:rgba(201,162,39,.07);border-radius:0 8px 8px 0}.esptit{font-size:12px;font-weight:700;color:#8a6d12;margin-bottom:4px}.prod .loja .esplinha .chips{margin-top:4px}
 .vtag.off{opacity:.5;text-decoration:line-through}
 .prod .rodape{display:flex;gap:14px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
 .lnk{background:none;border:0;padding:0;color:var(--accent);cursor:pointer;font:inherit;font-size:13px;font-weight:600}
@@ -358,12 +359,12 @@ function telaEstoque() {
   lista();
 }
 function lista() {
-  const termo = F.q.trim().toLowerCase();
+  const termo = semAc(F.q);
   const lojas = F.loja ? LOJAS.filter(l => l.id === F.loja) : LOJAS;
   const cartoes = []; let pecas = 0;
   const prods = new Set();
   for (const p of PRODUTOS) {
-    if (termo && !p.descricao.toLowerCase().includes(termo) && !p.referencia.toLowerCase().includes(termo)) continue;
+    if (termo && !semAc(p.descricao).includes(termo) && !semAc(p.referencia).includes(termo)) continue;
     if (F.cat && p.categoria !== F.cat) continue;
     if (F.prov && !refProvisoria(p)) continue;
     const vars = p.variantes.filter(v => (!F.cor || v.cor === F.cor) && (!F.tam || v.tamanho === F.tam)).sort(ordemVar);
@@ -386,12 +387,22 @@ function lista() {
     : (controla() ? "Nenhum produto cadastrado ainda. Cadastre as peças na aba Produtos." : "Nenhum produto cadastrado ainda.")}</div>`;
   document.querySelectorAll("#lista button.chip").forEach(b => b.onclick = () => movimentar(b.dataset.p, b.dataset.v, b.dataset.l));
 }
+// peças especiais separadas das comuns (pedido do Marco: "estava confundindo com as normais"):
+// [comuns, especiais]: todas as especiais juntas num bloco só (pedido do Marco), na ordem edição → tamanho → cor
+function separarEsp(vs) {
+  const comuns = vs.filter(v => !(v.edicao || "").trim());
+  const esp = vs.filter(v => (v.edicao || "").trim())
+    .sort((a, b) => a.edicao.trim().localeCompare(b.edicao.trim(), "pt-BR") || ordemTam(a.tamanho || "", b.tamanho || "") || (a.cor || "").localeCompare(b.cor || "", "pt-BR"));
+  return [comuns, esp];
+}
 function cartao(p, grupos) {
   const temEsp = grupos.some(([, vs]) => vs.some(v => v.edicao));
   return `<div class="prod">
     <div class="cab"><h2 class="${temEsp ? "temesp" : ""}" title="${esc(p.descricao)}${temEsp ? " · tem peça especial" : ""}">${esc(p.descricao)}</h2><span class="preco">${p.preco_venda != null ? brl(p.preco_venda) : "Preço não cadastrado"}</span></div>
     <div class="info"><span>Ref: ${esc(p.referencia || "—")}${refProvisoria(p) ? '<span class="tag">provisória</span>' : ""}</span><span>·</span><span>Peça: ${esc(p.categoria || "—")}</span></div>
-    ${grupos.map(([l, vs]) => `<div class="loja" data-loja="${l.id}"><span class="selo">${esc(l.nome)}</span><div class="chips">${chipsLoja(p, l, vs)}</div></div>`).join("")}</div>`;
+    ${grupos.map(([l, vs]) => { const [comuns, esp] = separarEsp(vs);
+      return `<div class="loja" data-loja="${l.id}"><span class="selo">${esc(l.nome)}</span>${comuns.length ? `<div class="chips">${chipsLoja(p, l, comuns)}</div>` : ""}
+        ${esp.length ? `<div class="esplinha"><div class="esptit">★ Peças especiais</div><div class="chips">${chipsLoja(p, l, esp)}</div></div>` : ""}</div>`; }).join("")}</div>`;
 }
 function chipsLoja(p, l, vars) {
   let ant = null;
@@ -513,10 +524,10 @@ async function telaProdutos() {
   listaProdutos();
 }
 function listaProdutos() {
-  const termo = FP.q.trim().toLowerCase();
+  const termo = semAc(FP.q);
   const l = PRODS.filter(p => {
     const vs = varsDe(p.id);
-    if (termo && ![p.descricao, p.referencia, p.codigo_barras, ...vs.map(v => v.codigo_barras)].some(x => String(x || "").toLowerCase().includes(termo))) return false;
+    if (termo && ![p.descricao, p.referencia, p.codigo_barras, ...vs.map(v => v.codigo_barras)].some(x => semAc(x).includes(termo))) return false;
     if (FP.cat && p.categoria !== FP.cat) return false;
     if (FP.forn && p.fornecedor !== FP.forn) return false;
     if (FP.prov && !refProvisoria(p)) return false;
@@ -532,7 +543,12 @@ function listaProdutos() {
         <span class="preco">${brl(p.preco_venda)}</span></div>
       <div class="info"><span>${esc([p.referencia, p.categoria, p.fornecedor].filter(Boolean).join(" · "))}</span>
         ${p.codigo_barras ? `<span>· cód. ${esc(p.codigo_barras)}</span>` : ""}${p.preco_custo != null ? `<span>· custo ${brl(p.preco_custo)}</span>` : ""}</div>
-      <div style="margin-top:8px">${vs.length ? vs.map(v => `<span class="vtag ${v.ativo ? "" : "off"}${v.edicao ? " esp" : ""}" title="${[v.edicao ? "Peça especial: " + esc(v.edicao) : "", v.ativo ? "" : "inativa"].filter(Boolean).join(" · ")}">${esc(nomeVar(v))}${v.preco_venda != null ? " · " + brl(v.preco_venda) : ""}</span>`).join("") : '<span class="mut">Sem cores e tamanhos ainda.</span>'}</div>
+      ${(() => {
+        const [comuns, esp] = separarEsp(vs);
+        const tag = v => `<span class="vtag ${v.ativo ? "" : "off"}" title="${v.ativo ? "" : "inativa"}">${esc(nomeVar(v))}${v.preco_venda != null ? " · " + brl(v.preco_venda) : ""}</span>`;
+        return `<div style="margin-top:8px">${comuns.length ? comuns.map(tag).join("") : `<span class="mut">${vs.length ? "Só peças especiais." : "Sem cores e tamanhos ainda."}</span>`}</div>`
+          + (esp.length ? `<div class="esplinha"><div class="esptit">★ Peças especiais (${esp.length})</div><div>${esp.map(tag).join("")}</div></div>` : "");
+      })()}
       <div class="rodape"><button class="lnk" data-ed="${p.id}">Editar peça</button><button class="lnk perigo" data-ex="${p.id}">Excluir peça</button></div></div>`;
   }).join("") + (l.length > 300 ? `<div class="mut">Mostrando 300 de ${n(l.length)}. Use a busca para achar os outros.</div>` : "")
     : `<div class="vazio">${PRODS.length ? "Nenhum produto com esses filtros." : "Catálogo vazio. Cadastre a primeira peça em “+ Novo produto”."}</div>`;
@@ -582,6 +598,9 @@ function editarProduto(pid) {
   };
   const desenhar = (erro, ok) => {
     const vs = p ? varsDe(p.id) : [];
+    // comuns primeiro; peças especiais depois, cada edição com um título (não confundir com as comuns)
+    const [vComuns, vEsp] = separarEsp(vs), vsOrd = [...vComuns, ...vEsp];
+    const primeiros = new Set(vEsp.length ? [vEsp[0].id] : []);
     f.innerHTML = `<h3>${p ? "Editar produto" : "Novo produto"}</h3>
       <div class="campo grade2">${campo("referencia", "Código / Referência", p ? "" : 'placeholder="Vazio = provisória (NOVA-…)"')}${campo("categoria", "Categoria")}</div>
       <div class="campo">${campo("descricao", "Descrição (nome da peça)")}</div>
@@ -594,7 +613,7 @@ function editarProduto(pid) {
       <div class="caixa"><h4>Cores e tamanhos</h4><div class="mut">Separe por vírgula. Os tamanhos já vêm com a grade da Linum (${TAMANHOS_PADRAO}): apague os que a peça não tem e digite as cores. Cada cor × tamanho vira uma variação com estoque próprio; as que já existem não se repetem.</div>
         <div class="campo grade2"><div><label for="nv_c">Cores</label><input id="nv_c" data-n="cores" value="${esc(novas.cores)}" placeholder="Ex.: Areia, Preto"></div>
           <div><label for="nv_t">Tamanhos</label><input id="nv_t" data-n="tamanhos" value="${esc(novas.tamanhos)}" placeholder="Ex.: P, M, G"></div></div>
-        ${vs.length ? `<div class="campo">${vs.map(v => editando === v.id
+        ${vs.length ? `<div class="campo">${vsOrd.map(v => (primeiros.has(v.id) ? `<div class="esptit" style="margin-top:12px;padding-top:8px;border-top:2px solid #c9a227">★ Peças especiais (${vEsp.length})</div>` : "") + (editando === v.id
           ? `<div class="vlin"><span><label>Cor</label><input data-x="cor" value="${esc(v.cor)}"></span>
               <span><label>Tamanho</label><input data-x="tamanho" value="${esc(v.tamanho)}" style="max-width:90px"></span>
               <span><label>Edição</label><input data-x="edicao" value="${esc(v.edicao)}" placeholder="peça comum"></span>
@@ -602,7 +621,7 @@ function editarProduto(pid) {
               ${dono() ? `<span><label>Custo (R$)</label><input data-x="preco_custo" inputmode="decimal" value="${esc(moeda(v.preco_custo))}" placeholder="do produto"></span>` : ""}
               <span class="acs"><button type="button" class="lnk" data-vsalvar="${v.id}">Salvar</button><button type="button" class="lnk" data-vcancel="1">Cancelar</button></span></div>`
           : `<div class="vlin${v.edicao ? " esp" : ""}"><span>${esc(nomeVar(v))}${v.preco_venda != null ? " · " + brl(v.preco_venda) : ""}${v.codigo_barras ? ` <span class="mut">cód. ${esc(v.codigo_barras)}</span>` : ""}${v.ativo ? "" : '<span class="tag">inativa</span>'}</span>
-              <span class="acs"><button type="button" class="lnk" data-veditar="${v.id}" title="Corrigir cor, tamanho, edição ou preço">Editar</button><button type="button" class="lnk" data-vativo="${v.id}">${v.ativo ? "Desativar" : "Reativar"}</button><button type="button" class="lnk perigo" data-vexcluir="${v.id}">Excluir</button></span></div>`).join("")}</div>` : ""}
+              <span class="acs"><button type="button" class="lnk" data-veditar="${v.id}" title="Corrigir cor, tamanho, edição ou preço">Editar</button><button type="button" class="lnk" data-vativo="${v.id}">${v.ativo ? "Desativar" : "Reativar"}</button><button type="button" class="lnk perigo" data-vexcluir="${v.id}">Excluir</button></span></div>`)).join("")}</div>` : ""}
       </div>
       ${p ? `<div class="caixa"><h4>Nova peça especial</h4><div class="mut">Peça única (bordada, pintura artística…) com preço e código de barras próprios. Pode repetir cor e tamanho de outra variação. Várias cores e tamanhos separados por vírgula: cada cor × tamanho vira uma peça especial, todas com o mesmo preço (depois dá para mudar em "Editar"). Preço vazio = preço do produto.</div>
         <div class="campo grade2"><div><label>Cores</label><input data-e="cor" value="${esc(esp.cor)}" placeholder="Ex.: Natural (o bordado vai na Edição)"></div><div><label>Tamanhos</label><input data-e="tamanho" value="${esc(esp.tamanho)}" placeholder="Ex.: PP, P, M, G, GG"></div></div>
@@ -860,9 +879,9 @@ function novaVisita() {
     $("vispecas").querySelectorAll("[data-vrm]").forEach(b => b.onclick = () => { V.pecas.splice(Number(b.dataset.vrm), 1); desenharPecas(); });
   };
   $("vispq").oninput = () => {
-    const t = $("vispq").value.trim().toLowerCase(), r = [];
+    const t = semAc($("vispq").value), r = [];
     if (t.length >= 2) for (const p of PRODUTOS) {
-      const casaP = p.referencia.toLowerCase().includes(t) || p.descricao.toLowerCase().includes(t);
+      const casaP = semAc(p.referencia).includes(t) || semAc(p.descricao).includes(t);
       for (const v of p.variantes) if ((casaP || (v.codigo_barras || "") === t) && !V.pecas.includes(v.id)) r.push([p, v]);
       if (r.length > 30) break;
     }
@@ -992,11 +1011,11 @@ async function novaVenda(pre = {}) {
     $("nvpq").value = ""; $("nvres").innerHTML = ""; desenharItens(); $("nvpq").focus();
   };
   const buscaPeca = () => {
-    const t = $("nvpq").value.trim().toLowerCase();
+    const t = semAc($("nvpq").value);
     if (t.length < 2) { $("nvres").innerHTML = ""; return []; }
     const r = [];
     for (const p of PRODUTOS) {
-      const casaP = p.referencia.toLowerCase().includes(t) || p.descricao.toLowerCase().includes(t) || (p.codigo_barras || "") === t;
+      const casaP = semAc(p.referencia).includes(t) || semAc(p.descricao).includes(t) || (p.codigo_barras || "") === t;
       for (const v of p.variantes) if ((casaP || (v.codigo_barras || "") === t) && disp(v.id) > 0) r.push([p, v]);
       if (r.length > 40) break;
     }
@@ -1233,10 +1252,10 @@ async function novaTroca() {
   const somaDev = () => r2(TR.dev.reduce((s, i) => s + numV(i.vu) * (Number(i.q) || 0), 0));
   const somaNov = () => r2(TR.novas.reduce((s, i) => s + numV(i.vu) * (Number(i.q) || 0), 0));
   const busca = (t, comEstoque) => {
-    t = t.trim().toLowerCase(); const r = [];
+    t = semAc(t); const r = [];
     if (t.length < 2) return r;
     for (const p of PRODUTOS) {
-      const casaP = p.referencia.toLowerCase().includes(t) || p.descricao.toLowerCase().includes(t) || (p.codigo_barras || "") === t;
+      const casaP = semAc(p.referencia).includes(t) || semAc(p.descricao).includes(t) || (p.codigo_barras || "") === t;
       for (const v of p.variantes) if ((casaP || (v.codigo_barras || "") === t) && (!comEstoque || disp(v.id) > 0)) r.push([p, v]);
       if (r.length > 40) break;
     }

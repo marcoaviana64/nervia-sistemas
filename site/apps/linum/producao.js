@@ -134,8 +134,8 @@ function novaFicha() {
   };
   const totais = () => { let t = 0; NF.itens.forEach((it, i) => { const x = (Number(it.q) || 0) * numV(it.c); t += x; const el = f.querySelector(`[data-tot="${i}"]`); if (el) el.textContent = met(x); }); $("nftot").textContent = met(+t.toFixed(2)); };
   $("nfq").oninput = () => {
-    const t = $("nfq").value.trim().toLowerCase();
-    const l = t.length < 2 ? [] : PD.produtos.filter(p => p.referencia.toLowerCase().includes(t) || p.descricao.toLowerCase().includes(t)).slice(0, 8);
+    const t = semAc($("nfq").value);
+    const l = t.length < 2 ? [] : PD.produtos.filter(p => semAc(p.referencia).includes(t) || semAc(p.descricao).includes(t)).slice(0, 8);
     $("nfres").innerHTML = l.map(p => `<div class="caixa"><b>${esc(p.referencia)}</b> ${esc(p.descricao)} <span class="mut">· ${p.consumo ? met(p.consumo) + " por peça" : "sem metragem cadastrada"}</span>
       <div class="filtros" style="margin:6px 0 0">${p.variantes.map(v => `<button type="button" class="pilula" data-p="${p.id}" data-v="${v.id}">+ ${esc([v.cor, v.tamanho, v.edicao].filter(Boolean).join(" "))}</button>`).join("")}
         ${p.variantes.length ? "" : '<span class="mut">Peça ainda sem cores e tamanhos: cadastre aqui.</span>'}
@@ -496,8 +496,8 @@ function pdMetragem() {
   $("pdtela").innerHTML = `<div class="card"><p class="mut">Quantos metros de tecido cada peça gasta (a peça é sempre medida em metros, mesmo quando o tecido é comprado por quilo). Se um tamanho gasta diferente, informe no tamanho; vazio = usa a da peça. A ficha copia a metragem do momento, e na própria ficha dá para trocar e "Atualizar na peça".</p>
     <input id="mtq" type="search" placeholder="Procurar peça" style="margin-bottom:8px"><div id="mtlista"></div></div>`;
   const lista = () => {
-    const t = $("mtq").value.trim().toLowerCase();
-    const l = PD.produtos.filter(p => !t || p.referencia.toLowerCase().includes(t) || p.descricao.toLowerCase().includes(t)).slice(0, 60);
+    const t = semAc($("mtq").value);
+    const l = PD.produtos.filter(p => !t || semAc(p.referencia).includes(t) || semAc(p.descricao).includes(t)).slice(0, 60);
     $("mtlista").innerHTML = l.map(p => `<div class="caixa mtprod" data-p="${p.id}"><div class="vlin"><span><b>${esc(p.referencia)}</b> ${esc(p.descricao)}</span>
         <span class="acs"><input inputmode="decimal" data-mt="${p.id}" value="${esc(decBR(p.consumo || ""))}" placeholder="metros" style="width:90px" aria-label="Metros por peça de ${esc(p.referencia)}"><button type="button" class="lnk" data-mtok="${p.id}">Salvar</button></span></div>
       ${p.variantes.length ? `<details><summary class="mut">Por tamanho (${p.variantes.filter(v => v.consumo).length} diferente(s))</summary>${p.variantes.map(v => `<div class="vlin"><span>${esc([v.cor, v.tamanho, v.edicao].filter(Boolean).join(" "))}</span>
