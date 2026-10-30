@@ -546,6 +546,27 @@ function listaProdutos() {
 }
 async function atualizarTudo() { await carregar(); if (VISTA === "produtos") await telaProdutos(); }
 
+// histórico de preços da peça e das peças especiais (2.22): cada mudança com o valor antes e depois, desde quando vale,
+// de onde veio e quem fez; variações com o mesmo preço mudadas juntas aparecem numa linha só
+async function historicoPrecos(pid, caixa) {
+  let h;
+  try { h = checar(await sb.rpc("lin_precos_historico", { p_produto: pid })) || []; }
+  catch (e) { caixa.innerHTML = `<h4>Histórico de preços</h4><div class="msg err">${esc(e.message)}</div>`; return; }
+  const grupos = [];
+  h.forEach(x => {
+    const k = [String(x.vale_desde).slice(0, 16), x.variante_id ? "v" : "p", x.edicao, x.preco_venda, x.preco_venda_antes, x.preco_custo, x.preco_custo_antes, x.origem, x.quem].join("|");
+    const g = grupos.find(y => y.k === k);
+    if (g) g.pecas.push(x.peca); else grupos.push({ k, x, pecas: [x.peca] });
+  });
+  const val = (a, d) => a == null && d == null ? "—" : a == null || Number(a) === Number(d) ? brl(d) : `${brl(a)} → <b>${d == null ? "—" : brl(d)}</b>`;
+  const qual = g => !g.x.variante_id ? "A peça" : `<span class="vtag esp">${esc(g.x.edicao || "preço próprio")}</span> <span class="mut">${esc(g.pecas.filter(Boolean).join(", "))}</span>`;
+  caixa.innerHTML = `<h4>Histórico de preços</h4>${grupos.length ? `<div class="tw"><table><thead><tr><th>Vale desde</th><th>Peça</th><th class="num">Venda</th>${dono() ? '<th class="num">Custo</th>' : ""}<th>De onde / quem</th></tr></thead><tbody>
+    ${grupos.map(g => `<tr><td style="white-space:nowrap">${quando(g.x.vale_desde)}</td><td>${qual(g)}</td><td class="num">${val(g.x.preco_venda_antes, g.x.preco_venda)}</td>
+      ${dono() ? `<td class="num">${val(g.x.preco_custo_antes, g.x.preco_custo)}</td>` : ""}<td class="mut">${esc(g.x.origem)}${g.x.quem ? " · " + esc(g.x.quem) : ""}</td></tr>`).join("")}</tbody></table></div>
+    <div class="mut" style="margin-top:4px">O preço vale da data da linha até a mudança seguinte. Peças especiais (★) têm a sua própria linha.</div>`
+    : '<div class="mut">Nenhuma mudança de preço registrada ainda.</div>'}`;
+}
+
 function editarProduto(pid) {
   const f = $("dlgf");
   let p = pid ? PRODS.find(x => x.id === pid) : null;
@@ -590,7 +611,9 @@ function editarProduto(pid) {
         <div class="acoes" style="margin-top:8px"><button type="button" class="bt" id="espadd">Acrescentar peça(s) especial(is)</button></div></div>` : ""}
       ${erro ? `<div class="msg err">${esc(erro)}</div>` : ""}${ok ? `<div class="msg ok">${esc(ok)}</div>` : ""}
       <div class="acoes"><button type="button" class="bt" id="pfx">Fechar</button><button type="button" class="bt pri" id="pfs">Salvar produto</button></div>
-      ${p ? '<div class="mut" style="margin-top:8px">Para lançar as quantidades: aba Estoque, desligue “Ocultar zerados” e clique no quadrado vermelho da variação (Entrada).</div>' : ""}`;
+      ${p ? '<div class="mut" style="margin-top:8px">Para lançar as quantidades: aba Estoque, desligue “Ocultar zerados” e clique no quadrado vermelho da variação (Entrada).</div>' : ""}
+      ${p ? '<div class="caixa" id="phist"><h4>Histórico de preços</h4><div class="mut">Carregando…</div></div>' : ""}`;
+    if (p) historicoPrecos(p.id, $("phist"));
     $("pfx").onclick = () => $("dlg").close();
     $("pfs").onclick = salvar;
     const acao = async (fn, okmsg) => { ler(); try { await fn(); await recarregar(); desenhar(null, typeof okmsg === "function" ? (nEsp === 1 ? "Peça especial acrescentada." : `${nEsp} peças especiais acrescentadas.`) : okmsg); }
@@ -647,6 +670,7 @@ function editarProduto(pid) {
     } catch (e) { desenhar(e.message); }
   };
   desenhar();
+  if (p) $("dlg").classList.add("largo");
   $("dlg").showModal();
 }
 

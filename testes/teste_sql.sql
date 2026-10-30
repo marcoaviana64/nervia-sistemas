@@ -2117,6 +2117,28 @@ select lin_custo_salvar(jsonb_build_object('id', (select id from lin_custos wher
 select pg_temp.ok((select lin_custos_aplicar(array[(select id from lin_custos where ficha = 'A48')])) = 1, 'linum 2.21: versão igual ao nome da ficha não trava');
 reset role;
 select pg_temp.ok((select preco_venda = 869 from lin_produtos where id = (select produto_id from lin_custos where ficha = 'A48')), 'linum 2.21: a peça normal continua com o preço dela');
+-- linum 2.22: histórico de preços (gatilhos em lin_produtos e lin_variantes)
+select pg_temp.ok((select count(*) >= 1 from lin_precos_hist where produto_id = (select produto_id from lin_custos where ficha = 'A48') and variante_id is null and origem = 'ficha de custo A48' and preco_venda = 869)
+  and (select count(*) = 2 from lin_precos_hist where edicao = 'Pintura Artesanal' and origem = 'ficha de custo A48 artesanal' and preco_venda = 1299 and preco_venda_antes = 900),
+  'linum 2.22: preço da ficha de custo vai para o histórico, da peça e das peças especiais, com antes e origem');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select lin_produto_salvar(jsonb_build_object('id', (select produto_id from lin_custos where ficha = 'A48'), 'referencia', (select referencia from lin_produtos where id = (select produto_id from lin_custos where ficha = 'A48')),
+  'descricao', (select descricao from lin_produtos where id = (select produto_id from lin_custos where ficha = 'A48')), 'preco_venda', '899', 'preco_custo', '275.9'));
+reset role;
+select pg_temp.ok((select origem = 'cadastro' and preco_venda_antes = 869 and preco_venda = 899 and quem_nome <> '' from lin_precos_hist
+                    where produto_id = (select produto_id from lin_custos where ficha = 'A48') and variante_id is null order by id desc limit 1),
+  'linum 2.22: mudança pelo cadastro entra no histórico com quem fez');
+select pg_temp.erro2($$update lin_precos_hist set preco_venda = 1$$, 'não pode ser alterado', 'linum 2.22: histórico somente inclusão');
+select set_config('teste.pid', (select produto_id::text from lin_custos where ficha = 'A48'), false);
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+select pg_temp.ok((select jsonb_array_length(h) > 0 and not (h->0 ? 'preco_custo') from (select lin_precos_historico(current_setting('teste.pid')::uuid) h) x),
+  'linum 2.22: Estoque vê o histórico de venda, sem o custo');
+select pg_temp.ok((select count(*) = 0 from lin_precos_hist), 'linum 2.22: Estoque não lê a tabela (custo)');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.erro2($$select lin_precos_historico((select id from lin_produtos limit 1))$$, 'Somente o Dono ou o Estoque', 'linum 2.22: Vendedora não vê o histórico');
+reset role;
 set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
 reset role;

@@ -497,6 +497,9 @@ try:
         ok("281,40" in pg.text_content("#cures") and pg.is_enabled("#cusalvar"), "Custos: a conta muda enquanto digita (risco por peça digitado)")
         pg.fill("#cu_markup_alvo", "3,4"); pg.fill("#cu_desconto_pct", "20"); pg.wait_for_timeout(200)
         ok("956,76" in pg.text_content("#cures") and "765,41" in pg.text_content("#cures"), "Custos: simulação com markup alvo e desconto")
+        itens = pg.eval_on_selector_all("#cures .cutab:first-of-type tbody tr", "rs => rs.filter(r => r.querySelector('.cubola')).map(r => r.querySelector('td:nth-child(2)').textContent)")
+        vals = [float(x.replace("R$", "").replace("\xa0", "").replace(".", "").replace(",", ".").strip()) for x in itens]
+        ok(len(vals) == 11 and vals == sorted(vals, reverse=True) and "Matéria-prima" in pg.text_content("#cures .cutab tr:first-child"), "Ficha: itens do custo do maior para o menor")
         ok("869,00" in pg.text_content(".cuvenda") and "956,76" in pg.text_content(".cucalc"), "Ficha: valor de venda e venda calculada em destaque, como o custo")
         with pg.expect_popup() as pop: pg.click("#cuimp")
         fp = pop.value; fp.wait_for_load_state()
@@ -555,6 +558,14 @@ try:
         ok(psql("select preco_venda || ' ' || preco_custo from lin_variantes where edicao = 'Pintura Artesanal'", saida=True) == "1290.00 400.00"
            and psql(f"select preco_venda from lin_produtos where referencia = '{ref_cu}'", saida=True) == "869.00",
            "Atualizar em Produtos com peça especial: muda só a peça especial, a peça normal fica")
+        pg.click("#abaProdutos"); pg.wait_for_selector("#plista")
+        pid_cu = psql(f"select id from lin_produtos where referencia = '{ref_cu}'", saida=True)
+        pg.evaluate(f"editarProduto('{pid_cu}')"); pg.wait_for_selector("#phist table")
+        ok("ficha de custo" in pg.text_content("#phist") and "Pintura Artesanal" in pg.text_content("#phist") and "1.290,00" in pg.text_content("#phist").replace("\xa0", " "),
+           "Ficha do produto: histórico de preços com a peça e a peça especial, origem e valores")
+        pg.eval_on_selector("#phist", "e => e.scrollIntoView()"); pg.locator("#phist").screenshot(path=os.path.join(SAIDA, "linum_hist_precos.png"))
+        pg.click("#pfx"); pg.wait_for_timeout(200)
+        pg.click("#abaCustos"); pg.wait_for_selector("#cures")
         pg.click('[data-ca="fichas"]'); pg.wait_for_selector("#cures")
         pg.screenshot(path=os.path.join(SAIDA, "linum_custos.png"), full_page=True)
         ok(not erros, "sem erros de JavaScript (aba Custos)")
@@ -921,7 +932,7 @@ try:
             abrir_ajuda = pg.goto(f"http://127.0.0.1:{PORTA_SITE}/apps/linum/ajuda/{pagina}.html")
             ok(abrir_ajuda.ok and "Sistema Linum" in pg.title() and pg.locator('script[src="/marca-dagua.js"][data-tipo="doc"]').count() == 1, f"ajuda: {pagina} com marca d'água")
         pg.goto(f"http://127.0.0.1:{PORTA_SITE}/ajuda/novidades.html?app=linum&nome=Sistema%20Linum"); pg.wait_for_timeout(400)
-        ok("2.21" in pg.text_content("body"), "novidades do app (versão 2.21)")
+        ok("2.22" in pg.text_content("body"), "novidades do app (versão 2.22)")
         ok(psql("select mapa_url from apps where id = 'linum'", saida=True) == "/apps/linum/ajuda/mapa.html", "botão Mapa ligado no cadastro do app")
         b.close()
     print("TODOS OS TESTES DE TELA DO SISTEMA LINUM OK")

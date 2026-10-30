@@ -15,6 +15,8 @@ const cuDec = (v, c = 2) => v == null || !isFinite(v) ? "—" : Number(v).toLoca
 const cuMk = v => v == null || !isFinite(v) ? "—" : Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "×";
 const cuLinha = c => (String(c.referencia || c.ficha).trim().match(/^[A-Za-z]+/) || [""])[0].toUpperCase();
 
+// itens do custo do maior para o menor (pedido do Marco); [chave, nome, índice da cor]
+const cuOrdem = k => CU_CUSTOS.map(([x, t], i) => [x, t, i]).sort((a, b) => (k[b[0]] || 0) - (k[a[0]] || 0) || a[2] - b[2]);
 // as contas da planilha (as mesmas colunas geradas no banco)
 function cuCalc(c) {
   const v = k => Number(c[k] || 0), qr = v("qtd_risco");
@@ -220,7 +222,7 @@ function cuSujo() { CU_SUJO = true; $("cusalvar").disabled = false; cuResumo(); 
 function cuResumo() {
   const c = CU_EDIT, k = cuCalc(c), prod = cuProduto(c), pr = cuPrecoFicha(c, prod);
   const ri = $("cu_risco_peca_manual"); if (ri) ri.placeholder = "conta: " + cuDec(k.risco_auto);
-  const barra = CU_CUSTOS.filter(([x]) => k[x] > 0).map(([x, t]) => `<i style="width:${k.custo ? k[x] / k.custo * 100 : 0}%;background:${CU_CORES[CU_CUSTOS.findIndex(y => y[0] === x)]}" title="${t}: ${brl(k[x])}"></i>`).join("");
+  const barra = cuOrdem(k).filter(([x]) => k[x] > 0).map(([x, t, i]) => `<i style="width:${k.custo ? k[x] / k.custo * 100 : 0}%;background:${CU_CORES[i]}" title="${t}: ${brl(k[x])}"></i>`).join("");
   const alerta = pr && pr.v > 0 && Math.abs(pr.v - k.custo) < 0.5 ? '<div class="msg err" style="margin:8px 0 0">O preço desta peça no sistema é igual ao CUSTO, não ao valor de venda.</div>' : "";
   $("cures").innerHTML = `
     <div class="cuvalores">
@@ -230,7 +232,7 @@ function cuResumo() {
     </div>
     <div class="cubarra">${barra}</div>
     <table class="cutab"><tbody>
-      ${CU_CUSTOS.map(([x, t], i) => `<tr><td><span class="cubola" style="background:${CU_CORES[i]}"></span>${t}</td><td class="num">${brl(k[x])}</td><td class="num mut">${k.custo ? cuDec(k[x] / k.custo * 100, 1) + "%" : ""}</td></tr>`).join("")}
+      ${cuOrdem(k).map(([x, t, i]) => `<tr><td><span class="cubola" style="background:${CU_CORES[i]}"></span>${t}</td><td class="num">${brl(k[x])}</td><td class="num mut">${k.custo ? cuDec(k[x] / k.custo * 100, 1) + "%" : ""}</td></tr>`).join("")}
       <tr class="cutot"><td>Custo total</td><td class="num">${brl(k.custo)}</td><td></td></tr>
       <tr><td>Valor de venda</td><td class="num"><b>${k.venda != null ? brl(k.venda) : "—"}</b></td><td></td></tr>
       <tr><td>Markup (venda ÷ custo)</td><td class="num"><b>${cuMk(k.markup)}</b></td><td></td></tr>
@@ -257,7 +259,7 @@ function cuImprimir() {
   const d = (v, casas = 2) => v == null || v === "" ? "—" : cuDec(Number(v), casas), r = v => v == null ? "—" : brl(v);
   const base = { mp: `${r(cuNum(c.mp_metro))} × ${d(c.gasto, 3)} m`, risco: c.risco_peca_manual != null && c.risco_peca_manual !== "" ? "valor digitado" : `${r(cuNum(c.risco))} ÷ ${d(c.qtd_risco, 0)} peças`,
     mod: `${r(cuNum(c.modelagem))} ÷ ${d(c.qtd_risco, 0)} peças` };
-  const linhas = CU_CUSTOS.map(([x, t]) => `<tr><td>${t}</td><td class="mut">${base[x] || ""}</td><td class="n">${brl(k[x])}</td><td class="n mut">${k.custo ? cuDec(k[x] / k.custo * 100, 1) + "%" : ""}</td></tr>`).join("");
+  const linhas = cuOrdem(k).map(([x, t]) => `<tr><td>${t}</td><td class="mut">${base[x] || ""}</td><td class="n">${brl(k[x])}</td><td class="n mut">${k.custo ? cuDec(k[x] / k.custo * 100, 1) + "%" : ""}</td></tr>`).join("");
   const dados = [["Referência", c.referencia], ["Descrição", c.descricao], ["Versão", c.versao], ["Tecido", c.materia], ["Quantidade de peças", d(c.qtd, 0)],
     ["Peça no cadastro", p ? cuNomePeca(c, p) : "—"]].filter(([, v]) => v != null && String(v).trim() !== "");
   w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Ficha de custo ${esc(c.ficha || "")} — Linum</title>
