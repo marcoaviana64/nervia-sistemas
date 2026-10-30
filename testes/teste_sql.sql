@@ -1261,6 +1261,21 @@ insert into lin_vd values ('v3', lin_venda_registrar(jsonb_build_object('loja_id
   'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 1, 'valor_unitario', '0')), 'pagamentos', '[]'::jsonb))::text);
 select pg_temp.ok((select vendedora_nome <> '' and data = current_date - 17 and jsonb_array_length(pagamentos) = 2 from lin_vendas where id = (select v from lin_vd where k = 'v2')::bigint)
   and (select count(*) = 3 from lin_vendas), 'linum vendas: Dono lança boleta antiga em nome da vendedora, com duas formas de pagamento');
+-- 2.24: o Dono corrige a data da venda (só a data, com motivo, auditoria)
+select pg_temp.erro2($$select lin_venda_corrigir_data((select v from lin_vd where k = 'v2')::bigint, current_date + 1, 'lançada com a data errada')$$, 'não pode ser depois', 'linum vendas: data corrigida não passa do dia do registro');
+select pg_temp.erro2($$select lin_venda_corrigir_data((select v from lin_vd where k = 'v2')::bigint, current_date - 20, 'x')$$, 'motivo', 'linum vendas: corrigir a data exige motivo');
+select lin_venda_corrigir_data((select v from lin_vd where k = 'v2')::bigint, current_date - 20, 'Boleta era de três dias antes');
+select pg_temp.ok((select data = current_date - 20 and valor_total = 489 from lin_vendas where id = (select v from lin_vd where k = 'v2')::bigint),
+  'linum vendas: Dono corrige a data da venda');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.erro2($$select lin_venda_corrigir_data((select v from lin_vd where k = 'v2')::bigint, current_date - 18, 'vendedora tentando')$$, 'Somente o Dono', 'linum vendas: vendedora não corrige a data');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+reset role;
+select pg_temp.ok(exists (select 1 from auditoria where acao = 'linum_venda_data_corrigida' and detalhes -> 'depois' ->> 'data' = (current_date - 20)::text
+              and detalhes -> 'antes' ->> 'data' = (current_date - 17)::text and detalhes ->> 'motivo' = 'Boleta era de três dias antes'),
+  'linum vendas: correção da data na auditoria, com antes/depois e motivo');
+select pg_temp.erro2($$update lin_vendas set data = current_date - 19 where id = (select v from lin_vd where k = 'v2')::bigint$$, 'Não pode ser alterada', 'linum vendas: fora da função a data continua imutável');
+set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
 select pg_temp.ok((select count(*) = 2 from lin_vendas) and (select count(*) = 2 from lin_venda_itens), 'linum vendas: vendedora vê só as vendas dela');
 select pg_temp.erro2($$select lin_venda_cancelar((select v from lin_vd where k = 'v1')::bigint, 'cliente desistiu')$$, 'Somente o Dono', 'linum vendas: vendedora não cancela');

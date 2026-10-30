@@ -353,7 +353,7 @@ try:
         ok(pg.locator("#cniver.on").count() == 1, "filtro de aniversariantes do mês")
         ok(not erros, "sem erros de JavaScript (vendas da vendedora)")
         pg.click("#abaVendas"); pg.wait_for_selector(".vrow"); pg.click(".vrow"); pg.wait_for_selector("#dlg[open]")
-        ok(pg.locator("#vcanc").count() == 0 and "Em 6x" not in pg.text_content("#dlgf") and "em 6x" in pg.text_content("#dlgf"), "vendedora vê a boleta mas não cancela")
+        ok(pg.locator("#vcanc").count() == 0 and pg.locator("#vdata").count() == 0 and "Em 6x" not in pg.text_content("#dlgf") and "em 6x" in pg.text_content("#dlgf"), "vendedora vê a boleta mas não cancela")
         pg.click("#vfechar")
 
         # ---------------------------------------------------------------- dono: vê todas e cancela
@@ -361,6 +361,14 @@ try:
         pg.on("dialog", lambda d: d.accept("Cliente desistiu da compra"))
         pg.click("#abaVendas"); pg.wait_for_selector(".vrow")
         ok("Por vendedora" in pg.text_content("#tela") and "Vera Vendedora" in pg.text_content("#tela"), "Dono vê o resumo por loja e por vendedora")
+        # 2.24: o Dono corrige a data da venda (só a data)
+        ontem = psql("select ((now() at time zone 'America/Sao_Paulo')::date - 1)::text", saida=True)
+        pg.click(".vrow"); pg.wait_for_selector("#vdata"); pg.click("#vdata")
+        pg.fill("#vdnova", ontem); pg.click("#vdsalvar"); pg.wait_for_timeout(600)
+        ok("motivo" in pg.text_content("#verr"), "corrigir a data sem motivo: recusa")
+        pg.fill("#vdmot", "Venda foi ontem, lançada hoje"); pg.click("#vdsalvar"); pg.wait_for_timeout(1000)
+        ok("data corrigida" in pg.text_content("#msg") and psql("select data::text from lin_vendas", saida=True) == ontem
+           and psql("select count(*) from auditoria where acao = 'linum_venda_data_corrigida'", saida=True) == "1", "Dono corrige a data da venda (auditoria)")
         pg.click(".vrow"); pg.wait_for_selector("#vcanc"); pg.click("#vcanc"); pg.wait_for_timeout(1000)
         ok("cancelada" in pg.text_content("#msg") and qtd_banco(V_AZUL_P, "Ipanema") == 3
            and psql("select motivo_cancelamento from lin_vendas", saida=True) == "Cliente desistiu da compra", "Dono cancela: peças voltam e o motivo fica")
