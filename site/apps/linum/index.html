@@ -820,8 +820,9 @@ function verVenda(id) {
       <div><label for="vdmot">Motivo</label><input id="vdmot" maxlength="300" placeholder="ex.: a venda foi no dia 22, lançada depois"></div></div>
       <div class="mut">Só a data muda: peças, valores, comissão e o histórico da cliente ficam como estão. Fica registrado na auditoria.</div>
       <div class="acoes"><button type="button" class="bt pri" id="vdsalvar">Salvar a data</button></div></div>
-    <div class="acoes">${dono() && !v.cancelada_em ? '<button type="button" class="bt" id="vdata">Corrigir data</button><button type="button" class="bt" id="vcanc" style="color:var(--crit);border-color:var(--crit)">Cancelar venda</button>' : ""}<button type="button" class="bt pri" id="vfechar">Fechar</button></div>`;
+    <div class="acoes">${dono() && !v.cancelada_em ? '<button type="button" class="bt" id="vdata">Corrigir data</button><button type="button" class="bt" id="vcanc" style="color:var(--crit);border-color:var(--crit)">Cancelar venda</button>' : ""}<button type="button" class="bt" id="vimp">Imprimir ficha</button><button type="button" class="bt pri" id="vfechar">Fechar</button></div>`;
   $("vfechar").onclick = () => $("dlg").close();
+  $("vimp").onclick = () => imprimirVenda(v, its, c);
   f.querySelectorAll("[data-ajuste]").forEach(b => b.onclick = () => novoAjuste(v, its.find(i => i.id === +b.dataset.ajuste), () => verVenda(id)));
   sb.from("lin_ajustes").select("*").eq("venda_id", v.id).order("id").then(({ data }) => {
     if (!data || !data.length || !$("vajustes")) return;
@@ -1099,6 +1100,47 @@ const zapAjusteCliente = a => { const c = cliente(a.cliente_id); if (!c || !c.te
   window.open(`https://wa.me/55${c.telefone}?text=${encodeURIComponent(txt)}`, "_blank", "noopener"); };
 
 // ficha de ajuste para a costureira (imprimir ou salvar em PDF); várias de uma vez = uma folha com todas
+// ficha da venda para imprimir / PDF, no jeito do espelho da nota (pedido do Marco em 30/10/2026); não é documento fiscal
+function imprimirVenda(v, its, c) {
+  const w = window.open("", "_blank"); if (!w) return msg("err", "O navegador bloqueou a janela de impressão.");
+  const cpf = x => x && x.length === 11 ? `${x.slice(0, 3)}.${x.slice(3, 6)}.${x.slice(6, 9)}-${x.slice(9)}` : (x || "");
+  const cx = (rot, val, est = "") => `<div class="cx" style="${est}"><small>${rot}</small><div>${val || "&nbsp;"}</div></div>`;
+  const descPecas = Number(v.valor_bruto) - Number(v.valor_itens);
+  w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Venda nº ${v.id} — Linum</title>
+    <style>@page{size:A4;margin:12mm}*{box-sizing:border-box}body{font:12px system-ui,sans-serif;margin:0;color:#111}
+    .lin{display:flex;gap:0;margin-top:-1px}.cx{border:1px solid #444;padding:3px 6px;flex:1;margin-left:-1px;min-height:34px}.cx:first-child{margin-left:0}
+    .cx small{display:block;font-size:9px;text-transform:uppercase;color:#555;letter-spacing:.3px}.cx div{font-size:12px}
+    .tit{font-size:10px;font-weight:700;text-transform:uppercase;margin:10px 0 2px}
+    .cab{display:flex;border:1px solid #444}.cab .emp{flex:2;padding:8px 10px}.cab .emp b{font-size:22px;letter-spacing:2px}.cab .doc{flex:1;border-left:1px solid #444;padding:8px 10px;text-align:center}
+    .cab .doc b{font-size:15px;display:block}.aviso{font-size:10px;color:#555}
+    table{width:100%;border-collapse:collapse}th,td{border:1px solid #444;padding:3px 5px;vertical-align:top}th{font-size:9px;text-transform:uppercase;color:#333;text-align:left;font-weight:600}
+    .n{text-align:right;white-space:nowrap}.canc{position:fixed;top:40%;left:0;right:0;text-align:center;font-size:90px;font-weight:800;color:rgba(200,0,0,.18);transform:rotate(-25deg)}
+    .obs{white-space:pre-line}.ass{margin-top:36px;display:flex;gap:40px}.ass div{flex:1;border-top:1px solid #444;padding-top:3px;text-align:center;font-size:10px}</style></head><body>
+    ${v.cancelada_em ? '<div class="canc">CANCELADA</div>' : ""}
+    <div class="cab"><div class="emp"><b>LINUM</b><div>Roupas de Linho · loja ${esc(loja(v.loja_id).nome)}</div></div>
+      <div class="doc"><span class="aviso">FICHA DA VENDA</span><b>Nº ${v.id}</b><span class="aviso">Espelho para conferência e controle — não é documento fiscal</span></div></div>
+    <div class="lin">${cx("Data da venda", dataBR(v.data))}${cx("Loja", esc(loja(v.loja_id).nome))}${cx("Vendedora", esc(v.vendedora_nome))}${cx("Registrada em", quando(v.criado_em) + (v.criado_nome && v.criado_nome !== v.vendedora_nome ? " por " + esc(v.criado_nome) : ""))}</div>
+    <div class="tit">Cliente</div>
+    <div class="lin">${cx("Nome", c ? `<b>${esc(c.nome)}</b>` : "não informado", "flex:3")}${cx("CPF", esc(cpf(c && c.cpf)))}${cx("Telefone", c && c.telefone ? esc(fone(c.telefone)) : "")}</div>
+    <div class="lin">${cx("Endereço", esc(c ? c.endereco : ""), "flex:3")}${cx("E-mail", esc(c ? c.email : ""), "flex:2")}</div>
+    <div class="tit">Peças</div>
+    <table><thead><tr><th>Referência</th><th>Descrição</th><th>Cor</th><th>Tam.</th><th>Peça especial</th><th class="n">Qtd</th><th class="n">Preço de tabela</th><th class="n">Desc.</th><th class="n">Valor unit.</th><th class="n">Total</th></tr></thead><tbody>
+      ${its.map(i => `<tr><td>${esc(i.referencia)}</td><td>${esc(i.descricao)}</td><td>${esc(i.cor)}</td><td>${esc(i.tamanho)}</td><td>${esc(i.edicao)}</td><td class="n">${n(i.quantidade)}</td>
+        <td class="n">${brl(i.preco_tabela)}</td><td class="n">${Number(i.desconto_pct) ? decBR(Number(i.desconto_pct)) + "%" : "—"}</td><td class="n">${brl(i.valor_unitario)}</td><td class="n">${brl(i.valor_total)}</td></tr>`).join("")}
+    </tbody></table>
+    <div class="tit">Valores</div>
+    <div class="lin">${cx("Valor de tabela", brl(v.valor_bruto))}${cx("Desconto nas peças", brl(descPecas))}${cx("Desconto geral", brl(v.desconto))}${cx("Valor pago", `<b>${brl(v.valor_total)}</b>`)}
+      ${Number(v.credito_usado) ? cx("Crédito da cliente usado", brl(v.credito_usado)) + cx("Valor da nota fiscal", `<b>${brl(v.valor_nf)}</b>`) : ""}</div>
+    <div class="tit">Pagamento</div>
+    <div class="lin">${(v.pagamentos || []).length ? v.pagamentos.map(p => cx(esc(FORMAS[p.forma] || p.forma) + (p.forma === "credito" ? ` em ${p.parcelas}x` : ""), brl(p.valor))).join("") : cx("Forma", "—")}</div>
+    ${v.observacao ? `<div class="tit">Observações</div><div class="cx obs">${esc(v.observacao)}</div>` : ""}
+    ${v.cancelada_em ? `<div class="tit">Cancelamento</div><div class="cx">Cancelada por ${esc(v.cancelada_nome || "")} em ${quando(v.cancelada_em)}: ${esc(v.motivo_cancelamento || "")}</div>` : ""}
+    <div class="ass"><div>Cliente</div><div>Vendedora</div></div>
+    <div class="aviso" style="margin-top:10px">Emitida em ${quando(new Date().toISOString())} · Sistema Linum</div>
+    </body></html>`);
+  w.document.close(); w.focus(); w.print();
+}
+
 function imprimirAjustes(lista) {
   const w = window.open("", "_blank"); if (!w) return msg("err", "O navegador bloqueou a janela de impressão.");
   const nome = c => c ? c.nome.split(" ")[0] : "—";

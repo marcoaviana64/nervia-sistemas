@@ -354,6 +354,12 @@ try:
         ok(not erros, "sem erros de JavaScript (vendas da vendedora)")
         pg.click("#abaVendas"); pg.wait_for_selector(".vrow"); pg.click(".vrow"); pg.wait_for_selector("#dlg[open]")
         ok(pg.locator("#vcanc").count() == 0 and pg.locator("#vdata").count() == 0 and not pg.is_visible("#abaLucro") and "Em 6x" not in pg.text_content("#dlgf") and "em 6x" in pg.text_content("#dlgf"), "vendedora vê a boleta mas não cancela")
+        with pg.expect_popup() as pop: pg.click("#vimp")
+        fp = pop.value; fp.wait_for_load_state(); ft = fp.text_content("body")
+        fp.pdf(path=os.path.join(SAIDA, "linum_ficha_venda.pdf"), prefer_css_page_size=True, print_background=True)
+        ok("FICHA DA VENDA" in ft and "não é documento fiscal" in ft and "Carmen Fictícia" in ft and "Valor pago" in ft and "omiss" not in ft,
+           "ficha da venda impressa (espelho, sem a comissão)")
+        fp.close()
         pg.click("#vfechar")
 
         # ---------------------------------------------------------------- dono: vê todas e cancela
