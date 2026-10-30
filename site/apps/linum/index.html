@@ -152,6 +152,7 @@ td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-n
       <button class="aba oculto" data-v="ranking" id="abaRanking">Ranking</button>
       <button class="aba oculto" data-v="producao" id="abaProducao">Produção</button>
       <button class="aba oculto" data-v="comissoes" id="abaComissoes">Comissões</button>
+      <button class="aba oculto" data-v="lucro" id="abaLucro">Lucro</button>
       <button class="aba oculto" data-v="creditos" id="abaCreditos">Créditos</button>
       <button class="aba oculto" data-v="custos" id="abaCustos">Custos</button>
       <button class="aba oculto" data-v="horarios" id="abaHorarios">Horários</button>
@@ -219,7 +220,7 @@ async function iniciar() {
     $("abaEquipe").classList.toggle("oculto", !ADMIN);
     $("abaProdutos").classList.toggle("oculto", !controla());
     $("abaVendas").classList.toggle("oculto", !vende()); $("abaClientes").classList.toggle("oculto", !vende()); $("abaAjustes").classList.toggle("oculto", !vende());
-    $("abaComissoes").classList.toggle("oculto", !dono()); $("abaHorarios").classList.toggle("oculto", !dono()); $("abaCreditos").classList.toggle("oculto", !dono()); $("abaCustos").classList.toggle("oculto", !dono()); $("abaRanking").classList.toggle("oculto", !vende()); $("abaProducao").classList.toggle("oculto", !PERM.producao);
+    $("abaComissoes").classList.toggle("oculto", !dono()); $("abaLucro").classList.toggle("oculto", !dono()); $("abaHorarios").classList.toggle("oculto", !dono()); $("abaCreditos").classList.toggle("oculto", !dono()); $("abaCustos").classList.toggle("oculto", !dono()); $("abaRanking").classList.toggle("oculto", !vende()); $("abaProducao").classList.toggle("oculto", !PERM.producao);
     $("quem").textContent = ADMIN ? "Equipe Nervia (Dono)" : dono() ? "Dono" : controla() ? "Estoque · sem custos" : "Vendedora" + (MINHA_LOJA ? " · " + loja(MINHA_LOJA).nome : "");
     $("aviso").classList.add("oculto"); $("app").classList.remove("oculto");
     render();
@@ -324,6 +325,7 @@ function render() {
   if (VISTA === "clientes" && vende()) return telaClientes();
   if (VISTA === "ajustes" && vende()) return telaAjustes();
   if (VISTA === "comissoes" && dono()) return telaComissoes();
+  if (VISTA === "lucro" && dono()) return telaLucro();
   if (VISTA === "horarios" && dono()) return telaHorarios();
   if (VISTA === "creditos" && dono()) return telaCreditos();
   if (VISTA === "custos" && dono()) return telaCustos();
@@ -818,8 +820,9 @@ function verVenda(id) {
       <div><label for="vdmot">Motivo</label><input id="vdmot" maxlength="300" placeholder="ex.: a venda foi no dia 22, lançada depois"></div></div>
       <div class="mut">Só a data muda: peças, valores, comissão e o histórico da cliente ficam como estão. Fica registrado na auditoria.</div>
       <div class="acoes"><button type="button" class="bt pri" id="vdsalvar">Salvar a data</button></div></div>
-    <div class="acoes">${dono() && !v.cancelada_em ? '<button type="button" class="bt" id="vdata">Corrigir data</button><button type="button" class="bt" id="vcanc" style="color:var(--crit);border-color:var(--crit)">Cancelar venda</button>' : ""}<button type="button" class="bt pri" id="vfechar">Fechar</button></div>`;
+    <div class="acoes">${dono() && !v.cancelada_em ? '<button type="button" class="bt" id="vdata">Corrigir data</button><button type="button" class="bt" id="vcanc" style="color:var(--crit);border-color:var(--crit)">Cancelar venda</button>' : ""}<button type="button" class="bt" id="vimp">Imprimir ficha</button><button type="button" class="bt pri" id="vfechar">Fechar</button></div>`;
   $("vfechar").onclick = () => $("dlg").close();
+  $("vimp").onclick = () => imprimirVenda(v, its, c);
   f.querySelectorAll("[data-ajuste]").forEach(b => b.onclick = () => novoAjuste(v, its.find(i => i.id === +b.dataset.ajuste), () => verVenda(id)));
   sb.from("lin_ajustes").select("*").eq("venda_id", v.id).order("id").then(({ data }) => {
     if (!data || !data.length || !$("vajustes")) return;
@@ -1097,6 +1100,47 @@ const zapAjusteCliente = a => { const c = cliente(a.cliente_id); if (!c || !c.te
   window.open(`https://wa.me/55${c.telefone}?text=${encodeURIComponent(txt)}`, "_blank", "noopener"); };
 
 // ficha de ajuste para a costureira (imprimir ou salvar em PDF); várias de uma vez = uma folha com todas
+// ficha da venda para imprimir / PDF, no jeito do espelho da nota (pedido do Marco em 30/10/2026); não é documento fiscal
+function imprimirVenda(v, its, c) {
+  const w = window.open("", "_blank"); if (!w) return msg("err", "O navegador bloqueou a janela de impressão.");
+  const cpf = x => x && x.length === 11 ? `${x.slice(0, 3)}.${x.slice(3, 6)}.${x.slice(6, 9)}-${x.slice(9)}` : (x || "");
+  const cx = (rot, val, est = "") => `<div class="cx" style="${est}"><small>${rot}</small><div>${val || "&nbsp;"}</div></div>`;
+  const descPecas = Number(v.valor_bruto) - Number(v.valor_itens);
+  w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Venda nº ${v.id} — Linum</title>
+    <style>@page{size:A4;margin:12mm}*{box-sizing:border-box}body{font:12px system-ui,sans-serif;margin:0;color:#111}
+    .lin{display:flex;gap:0;margin-top:-1px}.cx{border:1px solid #444;padding:3px 6px;flex:1;margin-left:-1px;min-height:34px}.cx:first-child{margin-left:0}
+    .cx small{display:block;font-size:9px;text-transform:uppercase;color:#555;letter-spacing:.3px}.cx div{font-size:12px}
+    .tit{font-size:10px;font-weight:700;text-transform:uppercase;margin:10px 0 2px}
+    .cab{display:flex;border:1px solid #444}.cab .emp{flex:2;padding:8px 10px}.cab .emp b{font-size:22px;letter-spacing:2px}.cab .doc{flex:1;border-left:1px solid #444;padding:8px 10px;text-align:center}
+    .cab .doc b{font-size:15px;display:block}.aviso{font-size:10px;color:#555}
+    table{width:100%;border-collapse:collapse}th,td{border:1px solid #444;padding:3px 5px;vertical-align:top}th{font-size:9px;text-transform:uppercase;color:#333;text-align:left;font-weight:600}
+    .n{text-align:right;white-space:nowrap}.canc{position:fixed;top:40%;left:0;right:0;text-align:center;font-size:90px;font-weight:800;color:rgba(200,0,0,.18);transform:rotate(-25deg)}
+    .obs{white-space:pre-line}.ass{margin-top:36px;display:flex;gap:40px}.ass div{flex:1;border-top:1px solid #444;padding-top:3px;text-align:center;font-size:10px}</style></head><body>
+    ${v.cancelada_em ? '<div class="canc">CANCELADA</div>' : ""}
+    <div class="cab"><div class="emp"><b>LINUM</b><div>Roupas de Linho · loja ${esc(loja(v.loja_id).nome)}</div></div>
+      <div class="doc"><span class="aviso">FICHA DA VENDA</span><b>Nº ${v.id}</b><span class="aviso">Espelho para conferência e controle — não é documento fiscal</span></div></div>
+    <div class="lin">${cx("Data da venda", dataBR(v.data))}${cx("Loja", esc(loja(v.loja_id).nome))}${cx("Vendedora", esc(v.vendedora_nome))}${cx("Registrada em", quando(v.criado_em) + (v.criado_nome && v.criado_nome !== v.vendedora_nome ? " por " + esc(v.criado_nome) : ""))}</div>
+    <div class="tit">Cliente</div>
+    <div class="lin">${cx("Nome", c ? `<b>${esc(c.nome)}</b>` : "não informado", "flex:3")}${cx("CPF", esc(cpf(c && c.cpf)))}${cx("Telefone", c && c.telefone ? esc(fone(c.telefone)) : "")}</div>
+    <div class="lin">${cx("Endereço", esc(c ? c.endereco : ""), "flex:3")}${cx("E-mail", esc(c ? c.email : ""), "flex:2")}</div>
+    <div class="tit">Peças</div>
+    <table><thead><tr><th>Referência</th><th>Descrição</th><th>Cor</th><th>Tam.</th><th>Peça especial</th><th class="n">Qtd</th><th class="n">Preço de tabela</th><th class="n">Desc.</th><th class="n">Valor unit.</th><th class="n">Total</th></tr></thead><tbody>
+      ${its.map(i => `<tr><td>${esc(i.referencia)}</td><td>${esc(i.descricao)}</td><td>${esc(i.cor)}</td><td>${esc(i.tamanho)}</td><td>${esc(i.edicao)}</td><td class="n">${n(i.quantidade)}</td>
+        <td class="n">${brl(i.preco_tabela)}</td><td class="n">${Number(i.desconto_pct) ? decBR(Number(i.desconto_pct)) + "%" : "—"}</td><td class="n">${brl(i.valor_unitario)}</td><td class="n">${brl(i.valor_total)}</td></tr>`).join("")}
+    </tbody></table>
+    <div class="tit">Valores</div>
+    <div class="lin">${cx("Valor de tabela", brl(v.valor_bruto))}${cx("Desconto nas peças", brl(descPecas))}${cx("Desconto geral", brl(v.desconto))}${cx("Valor pago", `<b>${brl(v.valor_total)}</b>`)}
+      ${Number(v.credito_usado) ? cx("Crédito da cliente usado", brl(v.credito_usado)) + cx("Valor da nota fiscal", `<b>${brl(v.valor_nf)}</b>`) : ""}</div>
+    <div class="tit">Pagamento</div>
+    <div class="lin">${(v.pagamentos || []).length ? v.pagamentos.map(p => cx(esc(FORMAS[p.forma] || p.forma) + (p.forma === "credito" ? ` em ${p.parcelas}x` : ""), brl(p.valor))).join("") : cx("Forma", "—")}</div>
+    ${v.observacao ? `<div class="tit">Observações</div><div class="cx obs">${esc(v.observacao)}</div>` : ""}
+    ${v.cancelada_em ? `<div class="tit">Cancelamento</div><div class="cx">Cancelada por ${esc(v.cancelada_nome || "")} em ${quando(v.cancelada_em)}: ${esc(v.motivo_cancelamento || "")}</div>` : ""}
+    <div class="ass"><div>Cliente</div><div>Vendedora</div></div>
+    <div class="aviso" style="margin-top:10px">Emitida em ${quando(new Date().toISOString())} · Sistema Linum</div>
+    </body></html>`);
+  w.document.close(); w.focus(); w.print();
+}
+
 function imprimirAjustes(lista) {
   const w = window.open("", "_blank"); if (!w) return msg("err", "O navegador bloqueou a janela de impressão.");
   const nome = c => c ? c.nome.split(" ")[0] : "—";
@@ -1695,6 +1739,80 @@ async function telaComissoes() {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob(["\ufeff" + linhas.join("\r\n")], { type: "text/csv;charset=utf-8" }));
     a.download = `comissoes-linum-${FCM.mes}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+}
+
+// ---------------------------------------------------------------- lucro das vendas (Dono; pedido do Marco: por quanto vendi, quanto queria vender, custo, lucro direto)
+const FLU = { de: "", ate: "", loja: "", vend: "", por: "peca" };
+const LU_POR = { peca: "Peça", venda: "Venda", vendedora: "Quem vendeu", loja: "Loja", mes: "Mês" };
+async function telaLucro() {
+  FLU.de = FLU.de || hoje().slice(0, 8) + "01"; FLU.ate = FLU.ate || hoje();
+  $("tela").innerHTML = '<div class="card">Carregando…</div>';
+  let its;
+  try { its = await todas(() => sb.rpc("lin_lucro_itens", { p_de: FLU.de, p_ate: FLU.ate })); }
+  catch (e) { $("tela").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; return; }
+  const vends = [...new Map(its.map(i => [i.vendedora_id, i.vendedora_nome])).entries()].sort((a, b) => a[1].localeCompare(b[1], "pt-BR"));
+  its = its.filter(i => (!FLU.loja || i.loja_id === FLU.loja) && (!FLU.vend || i.vendedora_id === FLU.vend));
+  const peca = i => [i.referencia, i.descricao].filter(Boolean).join(" ") + (i.edicao ? ` · ★ ${i.edicao}` : "");
+  const chave = { peca, venda: i => `Nº ${i.venda_id} · ${dataBR(i.data)} · ${loja(i.loja_id).nome} · ${i.vendedora_nome}`,
+    vendedora: i => i.vendedora_nome, loja: i => loja(i.loja_id).nome, mes: i => mesTxt(i.data.slice(0, 7)) }[FLU.por];
+  const soma = l => { const t = { q: 0, tab: 0, vend: 0, cus: 0, vcc: 0, sem: 0, semq: 0, n: new Set() };
+    l.forEach(i => { t.q += i.quantidade; t.tab += Number(i.tabela); t.vend += Number(i.vendido); t.n.add(i.venda_id);
+      if (i.custo == null) { t.sem += Number(i.vendido); t.semq += i.quantidade; } else { t.cus += Number(i.custo); t.vcc += Number(i.vendido); } });
+    t.luc = t.vcc - t.cus; return t; };
+  const pc = (a, b) => b ? decBR((100 * a / b).toFixed(1)) + "%" : "—";
+  const mk = (a, b) => b ? decBR((a / b).toFixed(2)) : "—";
+  const grupos = {};
+  its.forEach(i => (grupos[chave(i)] = grupos[chave(i)] || []).push(i));
+  const linhas = Object.entries(grupos).map(([k, l]) => ({ k, t: soma(l), d: l[0] }));
+  if (FLU.por === "venda" || FLU.por === "mes") linhas.sort((a, b) => a.d.data.localeCompare(b.d.data) || a.d.venda_id - b.d.venda_id);
+  else linhas.sort((a, b) => b.t.luc - a.t.luc || b.t.vend - a.t.vend);
+  const T = soma(its);
+  const semCusto = its.filter(i => i.custo == null);
+  $("tela").innerHTML = `
+    <div class="cabtela"><h2>Lucro das vendas</h2><span class="noprint" style="display:flex;gap:8px"><button class="bt" id="lucsv">Baixar CSV</button><button class="bt" id="luimp">Imprimir</button></span></div>
+    <div class="filtros">
+      <label class="chk">De <input type="date" id="lude" value="${esc(FLU.de)}" style="width:auto"></label>
+      <label class="chk">Até <input type="date" id="luate" value="${esc(FLU.ate)}" max="${hoje()}" style="width:auto"></label>
+      <select id="luloja" aria-label="Loja"><option value="">Todas as lojas</option>${LOJAS.map(l => `<option value="${l.id}" ${l.id === FLU.loja ? "selected" : ""}>${esc(l.nome)}</option>`).join("")}</select>
+      <select id="luvend" aria-label="Quem vendeu"><option value="">Todos que venderam</option>${vends.map(([id, nm]) => `<option value="${id}" ${id === FLU.vend ? "selected" : ""}>${esc(nm)}</option>`).join("")}</select>
+      <select id="lupor" aria-label="Agrupar por">${Object.entries(LU_POR).map(([k, t]) => `<option value="${k}" ${k === FLU.por ? "selected" : ""}>Por ${t.toLowerCase()}</option>`).join("")}</select>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><small>Queria vender (tabela)</small><b>${brl(T.tab)}</b><span>${n(T.q)} peça(s) em ${n(T.n.size)} venda(s)</span></div>
+      <div class="kpi"><small>Vendido</small><b>${brl(T.vend)}</b><span>com os descontos</span></div>
+      <div class="kpi"><small>Descontos</small><b>${brl(T.tab - T.vend)}</b><span>${pc(T.tab - T.vend, T.tab)} da tabela</span></div>
+      <div class="kpi"><small>Custo das peças</small><b>${brl(T.cus)}</b><span>${T.semq ? `${n(T.semq)} peça(s) sem custo` : "custo do cadastro na data da venda"}</span></div>
+      <div class="kpi"><small>Lucro direto</small><b>${brl(T.luc)}</b><span>margem ${pc(T.luc, T.vcc)} · markup ${mk(T.vcc, T.cus)}</span></div>
+    </div>
+    ${T.semq ? `<div class="msg">${n(T.semq)} peça(s) vendida(s) sem preço de custo no cadastro (${brl(T.sem)} vendidos) não entram no custo, no lucro nem na margem: ${esc([...new Set(semCusto.map(peca))].slice(0, 12).join("; "))}${new Set(semCusto.map(peca)).size > 12 ? "…" : ""}. Cadastre o custo em Produtos (ou pela ficha de custo).</div>` : ""}
+    <div class="card"><h2>Por ${LU_POR[FLU.por].toLowerCase()}</h2><div class="tw"><table id="lutab"><thead><tr><th>${LU_POR[FLU.por]}</th><th class="num">Peças</th><th class="num">Tabela</th><th class="num">Vendido</th><th class="num">Desconto</th><th class="num">Custo</th><th class="num">Lucro direto</th><th class="num">Margem</th><th class="num">Markup</th></tr></thead><tbody>
+      ${linhas.length ? linhas.map(({ k, t, d }) => `<tr${FLU.por === "venda" ? ` class="lurow" data-v="${d.venda_id}" style="cursor:pointer"` : ""}><td>${esc(k)}</td><td class="num">${n(t.q)}</td><td class="num">${brl(t.tab)}</td><td class="num">${brl(t.vend)}</td>
+        <td class="num">${pc(t.tab - t.vend, t.tab)}</td><td class="num">${t.semq === t.q ? '<span class="mut">sem custo</span>' : brl(t.cus) + (t.semq ? ' <span class="mut">*</span>' : "")}</td>
+        <td class="num"><b${t.luc < 0 ? ' style="color:var(--crit)"' : ""}>${t.semq === t.q ? "—" : brl(t.luc)}</b></td><td class="num">${pc(t.luc, t.vcc)}</td><td class="num">${mk(t.vcc, t.cus)}</td></tr>`).join("")
+        + `<tr><td><b>Total</b></td><td class="num"><b>${n(T.q)}</b></td><td class="num"><b>${brl(T.tab)}</b></td><td class="num"><b>${brl(T.vend)}</b></td><td class="num"><b>${pc(T.tab - T.vend, T.tab)}</b></td><td class="num"><b>${brl(T.cus)}</b></td><td class="num"><b>${brl(T.luc)}</b></td><td class="num"><b>${pc(T.luc, T.vcc)}</b></td><td class="num"><b>${mk(T.vcc, T.cus)}</b></td></tr>`
+      : '<tr><td colspan="9" class="mut">Nenhuma venda no período.</td></tr>'}
+    </tbody></table></div>
+    <div class="mut" style="margin-top:6px">Tabela = preço de etiqueta × peças (o que queria vender). Vendido = o que a cliente pagou pela peça, já com o desconto da peça e a parte dela do desconto geral da venda. Custo = preço de custo do cadastro valendo no dia da venda. Lucro direto = vendido − custo, sem os outros custos da loja. Margem = lucro ÷ vendido; markup = vendido ÷ custo (só peças com custo). * = parte das peças sem custo. Vendas canceladas não entram; trocas e devoluções não mudam a venda.</div></div>`;
+  $("lude").onchange = e => { FLU.de = e.target.value || FLU.de; telaLucro(); };
+  $("luate").onchange = e => { FLU.ate = e.target.value || FLU.ate; telaLucro(); };
+  $("luloja").onchange = e => { FLU.loja = e.target.value; telaLucro(); };
+  $("luvend").onchange = e => { FLU.vend = e.target.value; telaLucro(); };
+  $("lupor").onchange = e => { FLU.por = e.target.value; telaLucro(); };
+  $("luimp").onclick = () => window.print();
+  document.querySelectorAll(".lurow").forEach(r => r.onclick = async () => {
+    const id = Number(r.dataset.v);
+    if (!VENDAS.find(v => v.id === id)) { try { VENDAS.push(...checar(await sb.from("lin_vendas").select("*").eq("id", id))); ITENS.push(...checar(await sb.from("lin_venda_itens").select("*").eq("venda_id", id))); await carregarClientes(); } catch (e) { msg("err", e.message); return; } }
+    verVenda(id);
+  });
+  $("lucsv").onclick = () => {
+    const c = x => `"${String(x ?? "").replace(/"/g, '""')}"`, num = x => x == null ? "" : Number(x).toFixed(2).replace(".", ",");
+    const l = [["Venda nº", "Data", "Loja", "Quem vendeu", "Referência", "Descrição", "Cor", "Tamanho", "Peça especial", "Quantidade", "Tabela", "Vendido", "Custo unitário", "Custo", "Lucro direto"].map(c).join(";"),
+      ...its.map(i => [i.venda_id, dataBR(i.data), loja(i.loja_id).nome, i.vendedora_nome, i.referencia, i.descricao, i.cor, i.tamanho, i.edicao, i.quantidade,
+        num(i.tabela), num(i.vendido), num(i.custo_unitario), num(i.custo), i.custo == null ? "" : num(Number(i.vendido) - Number(i.custo))].map(c).join(";"))];
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob(["﻿" + l.join("\r\n")], { type: "text/csv;charset=utf-8" }));
+    a.download = `lucro-linum-${FLU.de}-a-${FLU.ate}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   };
 }
 

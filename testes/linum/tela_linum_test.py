@@ -353,7 +353,13 @@ try:
         ok(pg.locator("#cniver.on").count() == 1, "filtro de aniversariantes do mês")
         ok(not erros, "sem erros de JavaScript (vendas da vendedora)")
         pg.click("#abaVendas"); pg.wait_for_selector(".vrow"); pg.click(".vrow"); pg.wait_for_selector("#dlg[open]")
-        ok(pg.locator("#vcanc").count() == 0 and pg.locator("#vdata").count() == 0 and "Em 6x" not in pg.text_content("#dlgf") and "em 6x" in pg.text_content("#dlgf"), "vendedora vê a boleta mas não cancela")
+        ok(pg.locator("#vcanc").count() == 0 and pg.locator("#vdata").count() == 0 and not pg.is_visible("#abaLucro") and "Em 6x" not in pg.text_content("#dlgf") and "em 6x" in pg.text_content("#dlgf"), "vendedora vê a boleta mas não cancela")
+        with pg.expect_popup() as pop: pg.click("#vimp")
+        fp = pop.value; fp.wait_for_load_state(); ft = fp.text_content("body")
+        fp.pdf(path=os.path.join(SAIDA, "linum_ficha_venda.pdf"), prefer_css_page_size=True, print_background=True)
+        ok("FICHA DA VENDA" in ft and "não é documento fiscal" in ft and "Carmen Fictícia" in ft and "Valor pago" in ft and "omiss" not in ft,
+           "ficha da venda impressa (espelho, sem a comissão)")
+        fp.close()
         pg.click("#vfechar")
 
         # ---------------------------------------------------------------- dono: vê todas e cancela
@@ -369,6 +375,16 @@ try:
         pg.fill("#vdmot", "Venda foi ontem, lançada hoje"); pg.click("#vdsalvar"); pg.wait_for_timeout(1000)
         ok("data corrigida" in pg.text_content("#msg") and psql("select data::text from lin_vendas", saida=True) == ontem
            and psql("select count(*) from auditoria where acao = 'linum_venda_data_corrigida'", saida=True) == "1", "Dono corrige a data da venda (auditoria)")
+        # 2.25: relatório de lucro (só Dono)
+        pg.click("#abaLucro"); pg.wait_for_selector("#lutab")
+        pg.fill("#lude", psql("select ((now() at time zone 'America/Sao_Paulo')::date - 60)::text", saida=True)); pg.dispatch_event("#lude", "change"); pg.wait_for_timeout(800)
+        pago = psql("select to_char(sum(valor_total), 'FM999990D00') from lin_vendas where cancelada_em is null", saida=True).replace(".", ",")
+        t = pg.text_content("#tela").replace("\xa0", " ")
+        ok("Queria vender (tabela)" in t and "Lucro direto" in t and pago in t and "Nº " not in t, "aba Lucro: tabela, vendido, custo e lucro por peça")
+        pg.select_option("#lupor", "venda"); pg.wait_for_selector(".lurow")
+        pg.click(".lurow"); pg.wait_for_selector("#dlg[open]")
+        ok("Venda nº" in pg.text_content("#dlgf"), "aba Lucro por venda: clique abre a boleta")
+        pg.click("#vfechar"); pg.click("#abaVendas"); pg.wait_for_selector(".vrow")
         pg.click(".vrow"); pg.wait_for_selector("#vcanc"); pg.click("#vcanc"); pg.wait_for_timeout(1000)
         ok("cancelada" in pg.text_content("#msg") and qtd_banco(V_AZUL_P, "Ipanema") == 3
            and psql("select motivo_cancelamento from lin_vendas", saida=True) == "Cliente desistiu da compra", "Dono cancela: peças voltam e o motivo fica")
