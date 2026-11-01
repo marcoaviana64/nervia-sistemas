@@ -10,6 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="producao.js"></script>
 <script src="custos.js"></script>
+<script src="etiquetas.js"></script>
 <style>
 /* Sistema Linum (app "linum", tabelas lin_): o sistema da LINUM Roupas de Linho trazido do Lovable para a Plataforma.
    Produtos, estoque das lojas, vendas (boleta) e clientes. Dono: tudo; Estoque: cadastra e movimenta sem custo;
@@ -151,6 +152,7 @@ td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-n
       <button class="aba oculto" data-v="ajustes" id="abaAjustes">Ajustes</button>
       <button class="aba oculto" data-v="ranking" id="abaRanking">Ranking</button>
       <button class="aba oculto" data-v="producao" id="abaProducao">Produção</button>
+      <button class="aba oculto" data-v="etiquetas" id="abaEtiquetas">Etiquetas</button>
       <button class="aba oculto" data-v="comissoes" id="abaComissoes">Comissões</button>
       <button class="aba oculto" data-v="lucro" id="abaLucro">Lucro</button>
       <button class="aba oculto" data-v="creditos" id="abaCreditos">Créditos</button>
@@ -220,7 +222,7 @@ async function iniciar() {
     $("abaEquipe").classList.toggle("oculto", !ADMIN);
     $("abaProdutos").classList.toggle("oculto", !controla());
     $("abaVendas").classList.toggle("oculto", !vende()); $("abaClientes").classList.toggle("oculto", !vende()); $("abaAjustes").classList.toggle("oculto", !vende());
-    $("abaComissoes").classList.toggle("oculto", !dono()); $("abaLucro").classList.toggle("oculto", !dono()); $("abaHorarios").classList.toggle("oculto", !dono()); $("abaCreditos").classList.toggle("oculto", !dono()); $("abaCustos").classList.toggle("oculto", !dono()); $("abaRanking").classList.toggle("oculto", !vende()); $("abaProducao").classList.toggle("oculto", !PERM.producao);
+    $("abaComissoes").classList.toggle("oculto", !dono()); $("abaLucro").classList.toggle("oculto", !dono()); $("abaHorarios").classList.toggle("oculto", !dono()); $("abaCreditos").classList.toggle("oculto", !dono()); $("abaCustos").classList.toggle("oculto", !dono()); $("abaRanking").classList.toggle("oculto", !vende()); $("abaEtiquetas").classList.toggle("oculto", !vende()); $("abaProducao").classList.toggle("oculto", !PERM.producao);
     $("quem").textContent = ADMIN ? "Equipe Nervia (Dono)" : dono() ? "Dono" : controla() ? "Estoque · sem custos" : "Vendedora" + (MINHA_LOJA ? " · " + loja(MINHA_LOJA).nome : "");
     $("aviso").classList.add("oculto"); $("app").classList.remove("oculto");
     render();
@@ -331,6 +333,7 @@ function render() {
   if (VISTA === "custos" && dono()) return telaCustos();
   if (VISTA === "ranking" && vende()) return telaRanking();
   if (VISTA === "producao" && PERM.producao) return telaProducao();
+  if (VISTA === "etiquetas" && vende()) return telaEtiquetas();
   telaEstoque();
 }
 

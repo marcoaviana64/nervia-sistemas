@@ -33,6 +33,7 @@
     <li><a href="#lucro">7a1. Lucro das vendas (Dono)</a></li>
     <li><a href="#horarios">7a2. Horário de trabalho (Dono)</a></li>
     <li><a href="#ranking">7b. Ranking das vendedoras</a></li>
+    <li><a href="#etiquetas">7b1. Etiquetas de preço</a></li>
     <li><a href="#producao">7c. Produção: rolos, fichas e etapas</a></li>
     <li><a href="#xml">7d. Compra de tecido pelo XML da nota</a></li>
     <li><a href="#problemas">8. Mensagens e o que fazer</a></li>
@@ -248,6 +249,19 @@
     <li>Todas veem a classificação e as notas de todas. Valores em reais e número de vendas: o Dono vê de todas; cada vendedora vê só os seus.</li>
   </ol>
 
+  <h2 id="etiquetas">7b1. Etiquetas de preço</h2>
+  <p>Toda a equipe gera as etiquetas no papel <b>Etiqueta Tripla</b> (folha Carta, 12 por folha), o mesmo de sempre. Cada etiqueta tem o cabeçalho da loja e duas partes de baixo iguais, com referência, tamanho, descrição, tecido, preço e o código de barras.</p>
+  <ol>
+    <li>Aba <b>Etiquetas</b> → em <b>Do cadastro</b>, digite a referência ou o nome da peça (sem acento serve) e clique nela. Com o leitor de código de barras, a peça abre sozinha.</li>
+    <li>Confira o <b>Tecido na etiqueta</b> (vem do cadastro; se estiver vazio, sugere 100% Linho).</li>
+    <li>Em cada cor e tamanho, informe quantas <b>Etiquetas</b>. Para etiquetar tudo o que está na loja, escolha a loja em <b>Estoque da loja</b> e clique em <b>Uma por peça em estoque</b>.</li>
+    <li>Clique em <b>Adicionar à lista</b>. Repita com as outras peças: a mesma etiqueta soma a quantidade.</li>
+    <li>Peça que ainda não está no cadastro: use <b>Digitar à mão</b> (o código de barras é opcional; sem ele, a etiqueta sai sem as barras).</li>
+    <li>Confira a <b>Lista para imprimir</b>: pode mudar a <b>Qtd.</b> ou <b>tirar</b> uma linha. Os <b>Espaços vazios</b> mostram quantas etiquetas sobram na última folha.</li>
+    <li>Clique em <b>Gerar PDF para imprimir</b> e imprima em <b>tamanho real (100%)</b>, sem "ajustar à página". Na primeira vez, imprima numa folha comum e confira contra a luz, por cima do papel de etiquetas.</li>
+  </ol>
+  <div class="nota">O código de barras é o da peça especial ou, nas outras peças, o do produto: é o mesmo que a venda procura quando você lê a etiqueta. A lista fica guardada neste navegador até você limpar.</div>
+
   <h2 id="producao">7c. Produção: rolos, fichas e etapas</h2>
   <p>Aba <b>Produção</b> (Dono e quem tem a permissão Produção). O caminho de uma peça: <b>linho → corte → conferência → costura → conferência → estoque</b> (lavagem e passadoria não têm remessa: só se marcam na ficha, se quiser). Quem não tem a permissão <b>Valores da produção</b> usa tudo igual, mas não vê valor pago, preço por peça nem custo. O <a href="mapa-producao.html"><b>Mapa da produção</b></a> mostra o processo inteiro numa página (botão no alto da aba Produção).</p>
   <ol>
@@ -283,6 +297,8 @@
   <table>
     <tr><th>Mensagem</th><th>O que fazer</th></tr>
     <tr><td>Entre na Área do Cliente para ver o estoque</td><td>A sessão expirou: entre de novo em nervia.com.br/cliente.</td></tr>
+    <tr><td>Não foi possível gerar o PDF: não foi possível carregar o gerador de PDF</td><td>Etiquetas: o gerador vem da internet. Confira a conexão e clique de novo em Gerar PDF.</td></tr>
+    <tr><td>O código de barras só pode ter letras sem acento, números e símbolos simples</td><td>Etiqueta à mão: tire acentos e "ç" do código, ou deixe o código em branco.</td></tr>
     <tr><td>Seu login não tem acesso ao Sistema Linum</td><td>O login ainda não tem papel (Dono, Estoque ou Vendedora). Fale com a Nervia.</td></tr>
     <tr><td>Fora do seu horário de trabalho</td><td>O sistema só abre no seu horário (mais 15 minutos antes e depois). Precisa usar agora? Peça ao Dono uma liberação extra na aba Horários.</td></tr>
     <tr><td>Nenhum produto cadastrado ainda</td><td>Cadastre na aba Produtos (Dono ou Estoque).</td></tr>
@@ -328,7 +344,7 @@
     <tr><td>Libere o app Sistema Linum para este login … <span class="eq">EQUIPE NERVIA</span></td><td>Marque o app no login (Área do Cliente → Administração → Logins) e tente de novo.</td></tr>
     <tr><td>Comissão: de 0 a 100% <span class="eq">EQUIPE NERVIA</span></td><td>Digite o percentual (ex.: 3,5).</td></tr>
   </table>
-  <div class="rodape">Dúvidas: WhatsApp (21) 96686-9374 · atendimento@nervia.com.br<br>Nervia Tecnologia · Manual do app Sistema Linum · atualizado em 22/10/2026</div>
+  <div class="rodape">Dúvidas: WhatsApp (21) 96686-9374 · atendimento@nervia.com.br<br>Nervia Tecnologia · Manual do app Sistema Linum · atualizado em 01/11/2026</div>
 </div>
 <script src="/marca-dagua.js" data-tipo="doc"></script>
 </body>

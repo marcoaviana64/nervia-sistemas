@@ -1047,6 +1047,8 @@ select pg_temp.ok((select e->>'papel' = 'dono' and jsonb_array_length(e->'lojas'
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
 select pg_temp.ok((select e->>'papel' = 'vendedora' and jsonb_array_length(e->'produtos') = 2 and position('custo' in e::text) = 0 from (select lin_estoque_ler() e) x),
   'linum: vendedora consulta o estoque sem preço de custo');
+select pg_temp.ok((select bool_and(p ? 'tecido' and p ? 'codigo_barras') from jsonb_array_elements((select lin_estoque_ler())->'produtos') p),
+  'linum: a vendedora recebe tecido e código de barras para as etiquetas');
 select pg_temp.ok((select count(*) = 0 from lin_produtos) and (select count(*) = 0 from lin_variantes) and (select count(*) = 0 from lin_movimentos)
   and (select count(*) = 0 from lin_estoque) and (select count(*) = 2 from lin_lojas), 'linum: vendedora não lê tabelas com custo nem o histórico');
 select pg_temp.erro2($$select lin_movimentar('20000000-0000-0000-0000-000000000001', (select v from lin_ids where k = 'gav'), 'entrada', 1)$$, 'Somente o Dono', 'linum: vendedora não movimenta');
