@@ -63,13 +63,21 @@ function etqCabecalho(doc, logo, ox, oy) {   // igual ao gerador antigo
   doc.text("Rua Visconde de Pirajá, 444, loja 111", 51.8 + ox, 137.2 + oy);
   doc.text("Telefones: (21) 3734-1350 - (21) 97437-4263", 42.1 + ox, 144.8 + oy);
 }
-// uma parte de baixo: referência e tamanho | descrição | tecido e preço | código de barras
+// uma parte de baixo: referência e quadro do tamanho | descrição | tecido e preço | código de barras
+// Por enquanto (pedido do Marco em 31/10/2026) o tamanho NÃO é impresso: um quadro de linha bem clara, à direita da
+// referência, para escrever o tamanho à caneta. Fica dentro da área do texto antigo (de r − 5,6 a r + 2,4).
+const ETQ_QUADRO = { larg: 26, alt: 8 };
 function etqParte(doc, it, parte, ox, oy) {
   const M = ETQ_M, L = M.LEFT_X + ox, R = M.RIGHT_X + ox, r = parte.r + oy;
-  const tam = it.tamanho ? "Tam. " + it.tamanho : "";
-  doc.setFont("helvetica", "bold"); doc.setFontSize(7.5);
-  const lt = tam ? doc.getTextWidth(tam) : 0;
-  if (tam) doc.text(tam, R, r, { align: "right" });
+  const Q = ETQ_QUADRO;
+  doc.setDrawColor(190, 190, 190); doc.setLineWidth(0.35);
+  doc.rect(R - Q.larg, r - 5.6, Q.larg, Q.alt, "S");
+  doc.setDrawColor(0, 0, 0);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(5.5); doc.setTextColor(150, 150, 150);
+  const rotulo = "Tam.", lr = doc.getTextWidth(rotulo);
+  doc.text(rotulo, R - Q.larg - 2, r, { align: "right" });
+  doc.setTextColor(0, 0, 0);
+  const lt = Q.larg + 2 + lr;
   etqCaber(doc, it.ref, 6.74, R - L - lt - 4);
   doc.text(etqCortar(doc, it.ref, R - L - lt - 4), L, r);
   etqCaber(doc, it.desc, 9, M.LARG + 30, "normal", 5.5);
