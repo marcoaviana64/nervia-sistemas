@@ -65,7 +65,7 @@ function etqCabecalho(doc, logo, ox, oy) {   // igual ao gerador antigo
 }
 // uma parte de baixo: referência e quadro do tamanho | descrição | tecido e preço | código de barras
 // Por enquanto (pedido do Marco em 31/10/2026) o tamanho NÃO é impresso: um quadro de linha bem clara, à direita da
-// referência, para escrever o tamanho à caneta. Fica dentro da área do texto antigo (de r − 5,6 a r + 2,4).
+// referência, sem rótulo, para escrever o tamanho à caneta. Fica dentro da área do texto antigo (de r − 5,6 a r + 2,4).
 const ETQ_QUADRO = { larg: 26, alt: 8 };
 function etqParte(doc, it, parte, ox, oy) {
   const M = ETQ_M, L = M.LEFT_X + ox, R = M.RIGHT_X + ox, r = parte.r + oy;
@@ -73,11 +73,7 @@ function etqParte(doc, it, parte, ox, oy) {
   doc.setDrawColor(190, 190, 190); doc.setLineWidth(0.35);
   doc.rect(R - Q.larg, r - 5.6, Q.larg, Q.alt, "S");
   doc.setDrawColor(0, 0, 0);
-  doc.setFont("helvetica", "normal"); doc.setFontSize(5.5); doc.setTextColor(150, 150, 150);
-  const rotulo = "Tam.", lr = doc.getTextWidth(rotulo);
-  doc.text(rotulo, R - Q.larg - 2, r, { align: "right" });
-  doc.setTextColor(0, 0, 0);
-  const lt = Q.larg + 2 + lr;
+  const lt = Q.larg;
   etqCaber(doc, it.ref, 6.74, R - L - lt - 4);
   doc.text(etqCortar(doc, it.ref, R - L - lt - 4), L, r);
   etqCaber(doc, it.desc, 9, M.LARG + 30, "normal", 5.5);
