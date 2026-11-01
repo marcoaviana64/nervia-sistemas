@@ -28,7 +28,9 @@
     <li><a href="#visita">6b. Registrar uma visita sem contato</a></li>
     <li><a href="#clientes">7. Clientes e acompanhamento</a></li>
     <li><a href="#creditos">6c. Créditos das clientes (Dono)</a></li>
+    <li><a href="#custos">6d. Custos das peças (Dono)</a></li>
     <li><a href="#comissoes">7a. Comissões do mês (Dono)</a></li>
+    <li><a href="#lucro">7a1. Lucro das vendas (Dono)</a></li>
     <li><a href="#horarios">7a2. Horário de trabalho (Dono)</a></li>
     <li><a href="#ranking">7b. Ranking das vendedoras</a></li>
     <li><a href="#producao">7c. Produção: rolos, fichas e etapas</a></li>
@@ -104,11 +106,16 @@
   <h3>Comissão</h3>
   <p>Cada venda guarda a comissão de quem vendeu: o % cadastrado na Equipe sobre o valor pago (ex.: 3,5% de R$ 898,00 = R$ 31,43). Na aba Vendas, cada um vê a própria comissão do período; o Dono vê o total e a de cada pessoa. Venda cancelada não conta.</p>
 
+  <h3>Ficha da venda (imprimir ou PDF)</h3>
+  <p>Na aba <b>Vendas</b>, abra a venda e clique em <b>Imprimir ficha</b>. Sai uma folha A4 no jeito do espelho da nota: loja, nº e data da venda, vendedora, dados da cliente (nome, CPF, telefone, endereço, e-mail), as peças com preço de tabela, desconto e valor, os totais (com o crédito usado e o valor da nota fiscal, quando houver), as formas de pagamento, as observações e linhas para a assinatura da cliente e da vendedora. Para PDF, escolha “Salvar como PDF” na janela de impressão. A comissão não aparece na ficha. <b>Não é documento fiscal.</b></p>
+
   <h2 id="cancelar">6. Cancelar uma venda (Dono)</h2>
   <ol>
     <li>Na aba <b>Vendas</b>, clique na venda e em <b>Cancelar venda</b>.</li>
     <li>Escreva o motivo. As peças voltam para o estoque da loja; a venda continua na lista, riscada, com quem cancelou, quando e por quê.</li>
   </ol>
+  <h3>Corrigir a data da venda (Dono)</h3>
+  <p>A vendedora só consegue lançar venda até 7 dias atrás. Se a venda ficou com a data errada, o Dono abre a venda na aba <b>Vendas</b>, clica em <b>Corrigir data</b>, escolhe a data correta, escreve o motivo e clica em <b>Salvar a data</b>. Só a data muda: peças, valores, comissão e o histórico da cliente ficam como estão, e a correção fica na auditoria (com a data antes e depois). A data não pode ser depois do dia em que a venda foi lançada.</p>
 
   <h2 id="ajustes">6. Ajustes da peça vendida (bainha, apertar…)</h2>
   <p>A cliente comprou e a peça precisa de ajuste: a loja segura a peça, marca o que fazer e manda para a costureira. O prazo normal é de até 10 dias úteis contados a partir do dia seguinte à compra.</p>
@@ -176,6 +183,28 @@
     <li><b>Baixar CSV</b> para a planilha ou <b>Imprimir</b>.</li>
   </ol>
 
+  <h2 id="historico-precos">Histórico de preços da peça</h2>
+  <p>Na aba Produtos, ao abrir uma peça (Dono e Estoque), a caixa <b>Histórico de preços</b> mostra cada mudança do preço de venda (e do custo, só para o Dono): da peça e de cada peça especial (★ artesanal, bordada…), com o valor antes → depois, a data e hora em que passou a valer, de onde veio (cadastro ou ficha de custo) e quem fez. O preço vale da data da linha até a mudança seguinte. Ninguém apaga nem altera o histórico.</p>
+
+  <h2 id="custos">6d. Custos das peças (Dono)</h2>
+  <p>A planilha de custo de cada peça, dentro do app. Só o Dono e a equipe Nervia veem esta aba; vendedoras e Estoque não.</p>
+  <ol>
+    <li>Aba <b>Custos</b> → <b>Fichas</b>. À esquerda, a lista das fichas (busca por referência, peça ou tecido e filtro por linha: A, B, C…), com o custo e o markup de cada uma. Clique numa ficha para abri-la.</li>
+    <li>A ficha tem os mesmos campos da planilha: peça (nome da ficha, referência, descrição, versão, tecido, quantidade de peças), <b>matéria-prima</b> (preço do metro e gasto em metros por peça), <b>risco e modelagem</b> (peças do risco, custo do risco, modelagem e pilotagem), <b>produção</b> (corte, lavanderia, costura, aviamentos, passadoria), <b>venda</b> (logística, comissão, pagamento/cartão/contador) e o <b>valor de venda</b>.</li>
+    <li>As contas são as da planilha e mudam enquanto você digita: matéria-prima por peça = preço do metro × gasto; risco por peça = custo do risco ÷ peças do risco; modelagem por peça = modelagem ÷ peças do risco; <b>custo total</b> = a soma de tudo; <b>markup</b> = venda ÷ custo; margem = venda − custo. Para o lote: venda total, despesas (custo × peças) e líquido.</li>
+    <li><b>Risco por peça</b>: deixe vazio para usar a conta; escreva um valor quando quiser outro (como em algumas abas da planilha).</li>
+    <li><b>Markup alvo</b> mostra o preço sugerido (custo × markup); <b>Desconto (%)</b> simula uma promoção e mostra o markup que sobra.</li>
+    <li><b>Salvar</b> grava (fica na auditoria, com o que mudou). <b>Duplicar</b> faz uma cópia para simular (marcada como “Cópia / simulação”, fica fora dos números até você desmarcar). <b>Excluir</b> apaga a ficha (o registro fica na auditoria). <b>Imprimir</b> sai a ficha em uma folha A4 deitada, com cabeçalho (ficha, referência, data, quem atualizou), custo, valor de venda e venda calculada em destaque, a composição do custo e o preço no sistema — em papel ou PDF (escolha "Salvar como PDF"). Se houver alterações não salvas, a folha avisa.</li>
+    <li><b>Peça no cadastro</b>: a ficha se liga à peça do sistema pela referência; escolha outra peça se a referência for diferente. Embaixo do resumo aparece o preço de venda cadastrado e se ele é igual à ficha. A ficha não muda o preço do sistema (isso continua na aba Produtos).</li>
+    <li><b>Peça especial no cadastro</b>: no sistema, a versão artesanal/bordada/pintada de uma peça é uma <b>peça especial</b> (★) da mesma referência, com edição e preço próprios. Se a ficha é dessa versão, escolha a edição neste campo: a comparação e o envio passam a usar o preço dessas peças especiais e mudam só elas (a peça normal continua com o preço dela). Se a peça ainda não tem a peça especial, crie em Produtos → Nova peça especial e volte à ficha. <b>Trava:</b> ficha com o campo Versão preenchido e sem a peça especial escolhida não atualiza o cadastro (aparece "versão? escolha a peça especial" e não dá para marcar); se a ficha é a da peça normal, apague o campo Versão.</li>
+    <li><b>Atualizar em Produtos</b> / <b>Criar em Produtos</b> (no alto da ficha, depois de salvar): se a peça já está cadastrada, ela passa a ter o preço de venda e o custo da ficha; se ainda não existe, é criada em Produtos com a referência (vazia = provisória NOVA-…), a descrição, o tecido, a metragem por peça (gasto), o preço de venda e o custo — depois acrescente as cores e os tamanhos na aba Produtos. Cópias/simulações não têm o botão.</li>
+    <li><b>+ Nova ficha</b>: ficha em branco (dê um nome, por exemplo a referência).</li>
+    <li><b>Todas as peças</b>: tabela com custo, venda, markup (vermelho abaixo de 2×), margem e preço no sistema; clique no título da coluna para ordenar; <b>Baixar CSV</b> ou <b>Imprimir</b>.</li>
+    <li><b>Margens e custos</b>: custo e venda médios, peças por faixa de markup, de que é feito o custo (média por peça), as 10 peças com menor e maior markup e o resumo por tecido.</li>
+    <li><b>Planilha × Sistema</b>: peças cujo preço no sistema é igual ao <b>custo</b> (deveria ser o valor de venda), peças sem preço no sistema, preço diferente da ficha, iguais, fichas sem peça no cadastro e peças do cadastro sem ficha (com “criar ficha”).</li>
+    <li><b>Atualizar no cadastro</b>: nas listas da Planilha × Sistema, marque as peças que você já conferiu (ou “Marcar todas”) e clique em <b>Atualizar no cadastro</b>. Depois de confirmar, cada peça passa a ter o <b>preço de venda</b> e o <b>custo</b> da ficha (peças especiais com preço próprio não mudam). Fica na auditoria. Não é possível marcar ficha sem valor de venda; cópias/simulações não entram. Se duas fichas forem da mesma peça (por exemplo, a normal e a artesanal), aparece o aviso “outra ficha p/ esta peça”: marque só a que vale.</li>
+  </ol>
+
   <h2 id="comissoes">7a. Comissões do mês (Dono)</h2>
   <ol>
     <li>Aba <b>Comissões</b> (só o Dono e a equipe Nervia; as vendedoras ainda não veem este relatório).</li>
@@ -185,6 +214,16 @@
     <li><b>Baixar CSV</b> para a planilha do pagamento ou <b>Imprimir</b>.</li>
   </ol>
   <p>A comissão de cada venda é o % que a pessoa tinha no dia da venda (aba Equipe) sobre o valor pago; mudar o % depois não muda as vendas antigas. Venda cancelada não entra; troca não muda a comissão; na venda com crédito da cliente, a comissão é só sobre o valor pago a mais.</p>
+
+  <h2 id="lucro">7a1. Lucro das vendas (Dono)</h2>
+  <p>Só a Dona e os administradores veem a aba <b>Lucro</b>. Ela compara, para as vendas do período (sem as canceladas):</p>
+  <ul>
+    <li><b>Queria vender (tabela)</b>: o preço de etiqueta de cada peça vezes a quantidade, sem nenhum desconto;</li>
+    <li><b>Vendido</b>: o que a cliente pagou pela peça, já com o desconto da peça e a parte dela no desconto geral da venda (o desconto geral é dividido entre as peças pelo valor de cada uma);</li>
+    <li><b>Custo</b>: o preço de custo do cadastro <b>valendo no dia da venda</b> (pelo histórico de preços; a peça especial com custo próprio usa o dela). Vendas de antes de 30/10/2026, quando o histórico começou, usam o primeiro custo registrado;</li>
+    <li><b>Lucro direto</b> = vendido − custo, sem os outros custos da loja (aluguel, salários, cartão…); <b>margem</b> = lucro ÷ vendido e <b>markup</b> = vendido ÷ custo.</li>
+  </ul>
+  <p>Escolha o período, a loja, quem vendeu e como agrupar (por peça, venda, quem vendeu, loja ou mês). Peças vendidas sem preço de custo aparecem num aviso e ficam fora do custo, do lucro e da margem: cadastre o custo em Produtos ou pela ficha de custo. Trocas e devoluções não mudam a venda neste relatório. <b>Baixar CSV</b> traz uma linha por peça vendida.</p>
 
   <h2 id="horarios">7a2. Horário de trabalho (Dono)</h2>
   <p>Cada pessoa da equipe só consegue abrir o Sistema Linum no horário de trabalho dela, de qualquer aparelho. Fora dele nada abre: nem estoque, nem vendas, nem clientes, e a tentativa fica registrada na auditoria com o endereço (IP) de onde veio. O Dono não tem restrição.</p>

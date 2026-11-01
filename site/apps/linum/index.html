@@ -9,6 +9,7 @@
 <script src="/versoes.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="producao.js"></script>
+<script src="custos.js"></script>
 <style>
 /* Sistema Linum (app "linum", tabelas lin_): o sistema da LINUM Roupas de Linho trazido do Lovable para a Plataforma.
    Produtos, estoque das lojas, vendas (boleta) e clientes. Dono: tudo; Estoque: cadastra e movimenta sem custo;
@@ -94,6 +95,7 @@ dialog h3{margin:0 0 4px;font-size:17px}
 .chip.esp b::before,.vtag.esp::before,.vlin.esp>span:first-child::before{content:"★";color:#c9a227;font-size:.9em;margin-right:3px}
 h2.temesp::after{content:"★";color:#c9a227;font-size:.7em;margin-left:5px;vertical-align:.15em}
 .vtag{display:inline-block;font-size:12px;padding:2px 8px;border:1px solid var(--border);border-radius:7px;margin:2px 4px 2px 0}
+.esplinha{margin-top:8px;padding:6px 8px;border-left:3px solid #c9a227;background:rgba(201,162,39,.07);border-radius:0 8px 8px 0}.esptit{font-size:12px;font-weight:700;color:#8a6d12;margin-bottom:4px}.prod .loja .esplinha .chips{margin-top:4px}
 .vtag.off{opacity:.5;text-decoration:line-through}
 .prod .rodape{display:flex;gap:14px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
 .lnk{background:none;border:0;padding:0;color:var(--accent);cursor:pointer;font:inherit;font-size:13px;font-weight:600}
@@ -113,6 +115,23 @@ tr.cancelada td{color:var(--ink-faint);text-decoration:line-through}tr.cancelada
 .kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px}
 .kpi small{display:block;color:var(--ink-soft)}.kpi b{font-size:22px;display:block;font-variant-numeric:tabular-nums}.kpi span{font-size:12px;color:var(--ink-faint)}
 td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+/* custos das peças (2.18) */
+.cugrade{display:grid;grid-template-columns:290px 1fr;gap:12px;align-items:start}
+.culista{padding:10px;position:sticky;top:8px}#culst{max-height:70vh;overflow-y:auto;margin:0 -4px}
+.cuitem{display:flex;justify-content:space-between;gap:8px;width:100%;text-align:left;font:inherit;background:none;border:0;border-radius:8px;padding:7px 8px;cursor:pointer;color:var(--ink)}
+.cuitem:hover{background:var(--surface-2)}.cuitem.on{background:var(--accent-soft)}.cuitem small{color:var(--ink-soft);font-size:11.5px}.cuitem .num{text-align:right;white-space:nowrap}
+.cuduas{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:12px;align-items:start}
+.curesumo{position:sticky;top:8px;margin-top:12px}
+.cubarra{display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--surface-2);margin:10px 0}.cubarra i{display:block;height:100%}
+.cutab td{padding:5px 4px;font-size:13px}.cutab tr.cutot td{font-weight:700;border-top:2px solid var(--border)}
+.cubola{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
+.cufx{display:grid;grid-template-columns:110px 1fr 36px;gap:8px;align-items:center;margin:6px 0;font-size:13px}.cufx b{text-align:right}
+.cufxb{height:12px;background:var(--surface-2);border-radius:6px;overflow:hidden}.cufxb i{display:block;height:100%;background:var(--accent)}
+.cuvalores{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}.cuvalores .kpi b{font-size:20px}.cuvenda{border-color:var(--ok);background:linear-gradient(135deg,var(--ok-bg),var(--surface))}.cucalc{border-color:#c9a227}
+.cuchk{text-transform:none;letter-spacing:0;font-size:13px;font-weight:600;color:var(--ink)}.cuchk input{width:auto}
+.cukpi.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+@media (max-width:860px){.cugrade,.cuduas{grid-template-columns:1fr}.culista,.curesumo{position:static}#culst{max-height:40vh}}
+@media print{.culista{display:none!important}.cugrade{grid-template-columns:1fr}.cuduas{grid-template-columns:1fr 1fr}.cuficha input,.cuficha select,.cuficha textarea{border:0;padding:2px 0}}
 @media (max-width:640px){.grade3{grid-template-columns:1fr}}
 @media (max-width:520px){.grade2{grid-template-columns:1fr}}
 @media (max-width:520px){.duas{grid-template-columns:1fr}.prod h2{white-space:normal}}
@@ -133,7 +152,9 @@ td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-n
       <button class="aba oculto" data-v="ranking" id="abaRanking">Ranking</button>
       <button class="aba oculto" data-v="producao" id="abaProducao">Produção</button>
       <button class="aba oculto" data-v="comissoes" id="abaComissoes">Comissões</button>
+      <button class="aba oculto" data-v="lucro" id="abaLucro">Lucro</button>
       <button class="aba oculto" data-v="creditos" id="abaCreditos">Créditos</button>
+      <button class="aba oculto" data-v="custos" id="abaCustos">Custos</button>
       <button class="aba oculto" data-v="horarios" id="abaHorarios">Horários</button>
       <button class="aba oculto" data-v="equipe" id="abaEquipe">Equipe</button>
       <div class="dir" id="quem"></div>
@@ -199,7 +220,7 @@ async function iniciar() {
     $("abaEquipe").classList.toggle("oculto", !ADMIN);
     $("abaProdutos").classList.toggle("oculto", !controla());
     $("abaVendas").classList.toggle("oculto", !vende()); $("abaClientes").classList.toggle("oculto", !vende()); $("abaAjustes").classList.toggle("oculto", !vende());
-    $("abaComissoes").classList.toggle("oculto", !dono()); $("abaHorarios").classList.toggle("oculto", !dono()); $("abaCreditos").classList.toggle("oculto", !dono()); $("abaRanking").classList.toggle("oculto", !vende()); $("abaProducao").classList.toggle("oculto", !PERM.producao);
+    $("abaComissoes").classList.toggle("oculto", !dono()); $("abaLucro").classList.toggle("oculto", !dono()); $("abaHorarios").classList.toggle("oculto", !dono()); $("abaCreditos").classList.toggle("oculto", !dono()); $("abaCustos").classList.toggle("oculto", !dono()); $("abaRanking").classList.toggle("oculto", !vende()); $("abaProducao").classList.toggle("oculto", !PERM.producao);
     $("quem").textContent = ADMIN ? "Equipe Nervia (Dono)" : dono() ? "Dono" : controla() ? "Estoque · sem custos" : "Vendedora" + (MINHA_LOJA ? " · " + loja(MINHA_LOJA).nome : "");
     $("aviso").classList.add("oculto"); $("app").classList.remove("oculto");
     render();
@@ -295,7 +316,7 @@ async function carregar() {
   PAPEL = d.papel; LOJAS = d.lojas || []; PRODUTOS = d.produtos || []; MINHA_LOJA = d.minha_loja || null; MINHA_COMISSAO = Number(d.comissao_pct || 0);
   QTD = new Map((d.estoque || []).map(([v, l, q]) => [chave(v, l), q]));
 }
-document.querySelectorAll(".barra .aba").forEach(b => b.onclick = () => { VISTA = b.dataset.v; limparMsg(); render(); });
+document.querySelectorAll(".barra .aba").forEach(b => b.onclick = () => { if (VISTA === "custos" && b.dataset.v !== "custos" && !cuPodeSair()) return; CU_SUJO = false; VISTA = b.dataset.v; limparMsg(); render(); });
 function render() {
   document.querySelectorAll(".barra .aba").forEach(b => b.classList.toggle("on", b.dataset.v === VISTA));
   if (VISTA === "equipe" && ADMIN) return telaEquipe();
@@ -304,8 +325,10 @@ function render() {
   if (VISTA === "clientes" && vende()) return telaClientes();
   if (VISTA === "ajustes" && vende()) return telaAjustes();
   if (VISTA === "comissoes" && dono()) return telaComissoes();
+  if (VISTA === "lucro" && dono()) return telaLucro();
   if (VISTA === "horarios" && dono()) return telaHorarios();
   if (VISTA === "creditos" && dono()) return telaCreditos();
+  if (VISTA === "custos" && dono()) return telaCustos();
   if (VISTA === "ranking" && vende()) return telaRanking();
   if (VISTA === "producao" && PERM.producao) return telaProducao();
   telaEstoque();
@@ -338,12 +361,12 @@ function telaEstoque() {
   lista();
 }
 function lista() {
-  const termo = F.q.trim().toLowerCase();
+  const termo = semAc(F.q);
   const lojas = F.loja ? LOJAS.filter(l => l.id === F.loja) : LOJAS;
   const cartoes = []; let pecas = 0;
   const prods = new Set();
   for (const p of PRODUTOS) {
-    if (termo && !p.descricao.toLowerCase().includes(termo) && !p.referencia.toLowerCase().includes(termo)) continue;
+    if (termo && !semAc(p.descricao).includes(termo) && !semAc(p.referencia).includes(termo)) continue;
     if (F.cat && p.categoria !== F.cat) continue;
     if (F.prov && !refProvisoria(p)) continue;
     const vars = p.variantes.filter(v => (!F.cor || v.cor === F.cor) && (!F.tam || v.tamanho === F.tam)).sort(ordemVar);
@@ -366,12 +389,22 @@ function lista() {
     : (controla() ? "Nenhum produto cadastrado ainda. Cadastre as peças na aba Produtos." : "Nenhum produto cadastrado ainda.")}</div>`;
   document.querySelectorAll("#lista button.chip").forEach(b => b.onclick = () => movimentar(b.dataset.p, b.dataset.v, b.dataset.l));
 }
+// peças especiais separadas das comuns (pedido do Marco: "estava confundindo com as normais"):
+// [comuns, especiais]: todas as especiais juntas num bloco só (pedido do Marco), na ordem edição → tamanho → cor
+function separarEsp(vs) {
+  const comuns = vs.filter(v => !(v.edicao || "").trim());
+  const esp = vs.filter(v => (v.edicao || "").trim())
+    .sort((a, b) => a.edicao.trim().localeCompare(b.edicao.trim(), "pt-BR") || ordemTam(a.tamanho || "", b.tamanho || "") || (a.cor || "").localeCompare(b.cor || "", "pt-BR"));
+  return [comuns, esp];
+}
 function cartao(p, grupos) {
   const temEsp = grupos.some(([, vs]) => vs.some(v => v.edicao));
   return `<div class="prod">
     <div class="cab"><h2 class="${temEsp ? "temesp" : ""}" title="${esc(p.descricao)}${temEsp ? " · tem peça especial" : ""}">${esc(p.descricao)}</h2><span class="preco">${p.preco_venda != null ? brl(p.preco_venda) : "Preço não cadastrado"}</span></div>
     <div class="info"><span>Ref: ${esc(p.referencia || "—")}${refProvisoria(p) ? '<span class="tag">provisória</span>' : ""}</span><span>·</span><span>Peça: ${esc(p.categoria || "—")}</span></div>
-    ${grupos.map(([l, vs]) => `<div class="loja" data-loja="${l.id}"><span class="selo">${esc(l.nome)}</span><div class="chips">${chipsLoja(p, l, vs)}</div></div>`).join("")}</div>`;
+    ${grupos.map(([l, vs]) => { const [comuns, esp] = separarEsp(vs);
+      return `<div class="loja" data-loja="${l.id}"><span class="selo">${esc(l.nome)}</span>${comuns.length ? `<div class="chips">${chipsLoja(p, l, comuns)}</div>` : ""}
+        ${esp.length ? `<div class="esplinha"><div class="esptit">★ Peças especiais</div><div class="chips">${chipsLoja(p, l, esp)}</div></div>` : ""}</div>`; }).join("")}</div>`;
 }
 function chipsLoja(p, l, vars) {
   let ant = null;
@@ -493,10 +526,10 @@ async function telaProdutos() {
   listaProdutos();
 }
 function listaProdutos() {
-  const termo = FP.q.trim().toLowerCase();
+  const termo = semAc(FP.q);
   const l = PRODS.filter(p => {
     const vs = varsDe(p.id);
-    if (termo && ![p.descricao, p.referencia, p.codigo_barras, ...vs.map(v => v.codigo_barras)].some(x => String(x || "").toLowerCase().includes(termo))) return false;
+    if (termo && ![p.descricao, p.referencia, p.codigo_barras, ...vs.map(v => v.codigo_barras)].some(x => semAc(x).includes(termo))) return false;
     if (FP.cat && p.categoria !== FP.cat) return false;
     if (FP.forn && p.fornecedor !== FP.forn) return false;
     if (FP.prov && !refProvisoria(p)) return false;
@@ -512,7 +545,12 @@ function listaProdutos() {
         <span class="preco">${brl(p.preco_venda)}</span></div>
       <div class="info"><span>${esc([p.referencia, p.categoria, p.fornecedor].filter(Boolean).join(" · "))}</span>
         ${p.codigo_barras ? `<span>· cód. ${esc(p.codigo_barras)}</span>` : ""}${p.preco_custo != null ? `<span>· custo ${brl(p.preco_custo)}</span>` : ""}</div>
-      <div style="margin-top:8px">${vs.length ? vs.map(v => `<span class="vtag ${v.ativo ? "" : "off"}${v.edicao ? " esp" : ""}" title="${[v.edicao ? "Peça especial: " + esc(v.edicao) : "", v.ativo ? "" : "inativa"].filter(Boolean).join(" · ")}">${esc(nomeVar(v))}${v.preco_venda != null ? " · " + brl(v.preco_venda) : ""}</span>`).join("") : '<span class="mut">Sem cores e tamanhos ainda.</span>'}</div>
+      ${(() => {
+        const [comuns, esp] = separarEsp(vs);
+        const tag = v => `<span class="vtag ${v.ativo ? "" : "off"}" title="${v.ativo ? "" : "inativa"}">${esc(nomeVar(v))}${v.preco_venda != null ? " · " + brl(v.preco_venda) : ""}</span>`;
+        return `<div style="margin-top:8px">${comuns.length ? comuns.map(tag).join("") : `<span class="mut">${vs.length ? "Só peças especiais." : "Sem cores e tamanhos ainda."}</span>`}</div>`
+          + (esp.length ? `<div class="esplinha"><div class="esptit">★ Peças especiais (${esp.length})</div><div>${esp.map(tag).join("")}</div></div>` : "");
+      })()}
       <div class="rodape"><button class="lnk" data-ed="${p.id}">Editar peça</button><button class="lnk perigo" data-ex="${p.id}">Excluir peça</button></div></div>`;
   }).join("") + (l.length > 300 ? `<div class="mut">Mostrando 300 de ${n(l.length)}. Use a busca para achar os outros.</div>` : "")
     : `<div class="vazio">${PRODS.length ? "Nenhum produto com esses filtros." : "Catálogo vazio. Cadastre a primeira peça em “+ Novo produto”."}</div>`;
@@ -525,6 +563,27 @@ function listaProdutos() {
   });
 }
 async function atualizarTudo() { await carregar(); if (VISTA === "produtos") await telaProdutos(); }
+
+// histórico de preços da peça e das peças especiais (2.22): cada mudança com o valor antes e depois, desde quando vale,
+// de onde veio e quem fez; variações com o mesmo preço mudadas juntas aparecem numa linha só
+async function historicoPrecos(pid, caixa) {
+  let h;
+  try { h = checar(await sb.rpc("lin_precos_historico", { p_produto: pid })) || []; }
+  catch (e) { caixa.innerHTML = `<h4>Histórico de preços</h4><div class="msg err">${esc(e.message)}</div>`; return; }
+  const grupos = [];
+  h.forEach(x => {
+    const k = [String(x.vale_desde).slice(0, 16), x.variante_id ? "v" : "p", x.edicao, x.preco_venda, x.preco_venda_antes, x.preco_custo, x.preco_custo_antes, x.origem, x.quem].join("|");
+    const g = grupos.find(y => y.k === k);
+    if (g) g.pecas.push(x.peca); else grupos.push({ k, x, pecas: [x.peca] });
+  });
+  const val = (a, d) => a == null && d == null ? "—" : a == null || Number(a) === Number(d) ? brl(d) : `${brl(a)} → <b>${d == null ? "—" : brl(d)}</b>`;
+  const qual = g => !g.x.variante_id ? "A peça" : `<span class="vtag esp">${esc(g.x.edicao || "preço próprio")}</span> <span class="mut">${esc(g.pecas.filter(Boolean).join(", "))}</span>`;
+  caixa.innerHTML = `<h4>Histórico de preços</h4>${grupos.length ? `<div class="tw"><table><thead><tr><th>Vale desde</th><th>Peça</th><th class="num">Venda</th>${dono() ? '<th class="num">Custo</th>' : ""}<th>De onde / quem</th></tr></thead><tbody>
+    ${grupos.map(g => `<tr><td style="white-space:nowrap">${quando(g.x.vale_desde)}</td><td>${qual(g)}</td><td class="num">${val(g.x.preco_venda_antes, g.x.preco_venda)}</td>
+      ${dono() ? `<td class="num">${val(g.x.preco_custo_antes, g.x.preco_custo)}</td>` : ""}<td class="mut">${esc(g.x.origem)}${g.x.quem ? " · " + esc(g.x.quem) : ""}</td></tr>`).join("")}</tbody></table></div>
+    <div class="mut" style="margin-top:4px">O preço vale da data da linha até a mudança seguinte. Peças especiais (★) têm a sua própria linha.</div>`
+    : '<div class="mut">Nenhuma mudança de preço registrada ainda.</div>'}`;
+}
 
 function editarProduto(pid) {
   const f = $("dlgf");
@@ -541,6 +600,9 @@ function editarProduto(pid) {
   };
   const desenhar = (erro, ok) => {
     const vs = p ? varsDe(p.id) : [];
+    // comuns primeiro; peças especiais depois, cada edição com um título (não confundir com as comuns)
+    const [vComuns, vEsp] = separarEsp(vs), vsOrd = [...vComuns, ...vEsp];
+    const primeiros = new Set(vEsp.length ? [vEsp[0].id] : []);
     f.innerHTML = `<h3>${p ? "Editar produto" : "Novo produto"}</h3>
       <div class="campo grade2">${campo("referencia", "Código / Referência", p ? "" : 'placeholder="Vazio = provisória (NOVA-…)"')}${campo("categoria", "Categoria")}</div>
       <div class="campo">${campo("descricao", "Descrição (nome da peça)")}</div>
@@ -553,7 +615,7 @@ function editarProduto(pid) {
       <div class="caixa"><h4>Cores e tamanhos</h4><div class="mut">Separe por vírgula. Os tamanhos já vêm com a grade da Linum (${TAMANHOS_PADRAO}): apague os que a peça não tem e digite as cores. Cada cor × tamanho vira uma variação com estoque próprio; as que já existem não se repetem.</div>
         <div class="campo grade2"><div><label for="nv_c">Cores</label><input id="nv_c" data-n="cores" value="${esc(novas.cores)}" placeholder="Ex.: Areia, Preto"></div>
           <div><label for="nv_t">Tamanhos</label><input id="nv_t" data-n="tamanhos" value="${esc(novas.tamanhos)}" placeholder="Ex.: P, M, G"></div></div>
-        ${vs.length ? `<div class="campo">${vs.map(v => editando === v.id
+        ${vs.length ? `<div class="campo">${vsOrd.map(v => (primeiros.has(v.id) ? `<div class="esptit" style="margin-top:12px;padding-top:8px;border-top:2px solid #c9a227">★ Peças especiais (${vEsp.length})</div>` : "") + (editando === v.id
           ? `<div class="vlin"><span><label>Cor</label><input data-x="cor" value="${esc(v.cor)}"></span>
               <span><label>Tamanho</label><input data-x="tamanho" value="${esc(v.tamanho)}" style="max-width:90px"></span>
               <span><label>Edição</label><input data-x="edicao" value="${esc(v.edicao)}" placeholder="peça comum"></span>
@@ -561,7 +623,7 @@ function editarProduto(pid) {
               ${dono() ? `<span><label>Custo (R$)</label><input data-x="preco_custo" inputmode="decimal" value="${esc(moeda(v.preco_custo))}" placeholder="do produto"></span>` : ""}
               <span class="acs"><button type="button" class="lnk" data-vsalvar="${v.id}">Salvar</button><button type="button" class="lnk" data-vcancel="1">Cancelar</button></span></div>`
           : `<div class="vlin${v.edicao ? " esp" : ""}"><span>${esc(nomeVar(v))}${v.preco_venda != null ? " · " + brl(v.preco_venda) : ""}${v.codigo_barras ? ` <span class="mut">cód. ${esc(v.codigo_barras)}</span>` : ""}${v.ativo ? "" : '<span class="tag">inativa</span>'}</span>
-              <span class="acs"><button type="button" class="lnk" data-veditar="${v.id}" title="Corrigir cor, tamanho, edição ou preço">Editar</button><button type="button" class="lnk" data-vativo="${v.id}">${v.ativo ? "Desativar" : "Reativar"}</button><button type="button" class="lnk perigo" data-vexcluir="${v.id}">Excluir</button></span></div>`).join("")}</div>` : ""}
+              <span class="acs"><button type="button" class="lnk" data-veditar="${v.id}" title="Corrigir cor, tamanho, edição ou preço">Editar</button><button type="button" class="lnk" data-vativo="${v.id}">${v.ativo ? "Desativar" : "Reativar"}</button><button type="button" class="lnk perigo" data-vexcluir="${v.id}">Excluir</button></span></div>`)).join("")}</div>` : ""}
       </div>
       ${p ? `<div class="caixa"><h4>Nova peça especial</h4><div class="mut">Peça única (bordada, pintura artística…) com preço e código de barras próprios. Pode repetir cor e tamanho de outra variação. Várias cores e tamanhos separados por vírgula: cada cor × tamanho vira uma peça especial, todas com o mesmo preço (depois dá para mudar em "Editar"). Preço vazio = preço do produto.</div>
         <div class="campo grade2"><div><label>Cores</label><input data-e="cor" value="${esc(esp.cor)}" placeholder="Ex.: Natural (o bordado vai na Edição)"></div><div><label>Tamanhos</label><input data-e="tamanho" value="${esc(esp.tamanho)}" placeholder="Ex.: PP, P, M, G, GG"></div></div>
@@ -570,7 +632,9 @@ function editarProduto(pid) {
         <div class="acoes" style="margin-top:8px"><button type="button" class="bt" id="espadd">Acrescentar peça(s) especial(is)</button></div></div>` : ""}
       ${erro ? `<div class="msg err">${esc(erro)}</div>` : ""}${ok ? `<div class="msg ok">${esc(ok)}</div>` : ""}
       <div class="acoes"><button type="button" class="bt" id="pfx">Fechar</button><button type="button" class="bt pri" id="pfs">Salvar produto</button></div>
-      ${p ? '<div class="mut" style="margin-top:8px">Para lançar as quantidades: aba Estoque, desligue “Ocultar zerados” e clique no quadrado vermelho da variação (Entrada).</div>' : ""}`;
+      ${p ? '<div class="mut" style="margin-top:8px">Para lançar as quantidades: aba Estoque, desligue “Ocultar zerados” e clique no quadrado vermelho da variação (Entrada).</div>' : ""}
+      ${p ? '<div class="caixa" id="phist"><h4>Histórico de preços</h4><div class="mut">Carregando…</div></div>' : ""}`;
+    if (p) historicoPrecos(p.id, $("phist"));
     $("pfx").onclick = () => $("dlg").close();
     $("pfs").onclick = salvar;
     const acao = async (fn, okmsg) => { ler(); try { await fn(); await recarregar(); desenhar(null, typeof okmsg === "function" ? (nEsp === 1 ? "Peça especial acrescentada." : `${nEsp} peças especiais acrescentadas.`) : okmsg); }
@@ -627,6 +691,7 @@ function editarProduto(pid) {
     } catch (e) { desenhar(e.message); }
   };
   desenhar();
+  if (p) $("dlg").classList.add("largo");
   $("dlg").showModal();
 }
 
@@ -750,13 +815,27 @@ function verVenda(id) {
     <div class="mut campo">Registrada por ${esc(v.criado_nome)} em ${new Date(v.criado_em).toLocaleString("pt-BR", { timeZone: TZ })}</div>
     ${v.cancelada_em ? `<div class="msg err">Cancelada por ${esc(v.cancelada_nome || "")} em ${new Date(v.cancelada_em).toLocaleString("pt-BR", { timeZone: TZ })}: ${esc(v.motivo_cancelamento)}</div>` : ""}
     <div id="verr"></div>
-    <div class="acoes">${dono() && !v.cancelada_em ? '<button type="button" class="bt" id="vcanc" style="color:var(--crit);border-color:var(--crit)">Cancelar venda</button>' : ""}<button type="button" class="bt pri" id="vfechar">Fechar</button></div>`;
+    <div id="vdatabox" class="campo" hidden><b>Corrigir a data da venda</b>
+      <div class="duas"><div><label for="vdnova">Data correta</label><input type="date" id="vdnova" value="${v.data}" max="${new Date(v.criado_em).toLocaleDateString("sv-SE", { timeZone: TZ })}"></div>
+      <div><label for="vdmot">Motivo</label><input id="vdmot" maxlength="300" placeholder="ex.: a venda foi no dia 22, lançada depois"></div></div>
+      <div class="mut">Só a data muda: peças, valores, comissão e o histórico da cliente ficam como estão. Fica registrado na auditoria.</div>
+      <div class="acoes"><button type="button" class="bt pri" id="vdsalvar">Salvar a data</button></div></div>
+    <div class="acoes">${dono() && !v.cancelada_em ? '<button type="button" class="bt" id="vdata">Corrigir data</button><button type="button" class="bt" id="vcanc" style="color:var(--crit);border-color:var(--crit)">Cancelar venda</button>' : ""}<button type="button" class="bt" id="vimp">Imprimir ficha</button><button type="button" class="bt pri" id="vfechar">Fechar</button></div>`;
   $("vfechar").onclick = () => $("dlg").close();
+  $("vimp").onclick = () => imprimirVenda(v, its, c);
   f.querySelectorAll("[data-ajuste]").forEach(b => b.onclick = () => novoAjuste(v, its.find(i => i.id === +b.dataset.ajuste), () => verVenda(id)));
   sb.from("lin_ajustes").select("*").eq("venda_id", v.id).order("id").then(({ data }) => {
     if (!data || !data.length || !$("vajustes")) return;
     $("vajustes").innerHTML = `<div class="campo"><b>Ajustes</b>${data.map(a => `<div class="vlin"><span>${esc(a.peca)} · ${esc(a.servico)} · ${esc(a.costureira)}</span><span>${AJ_SIT[a.situacao]}${a.situacao === "na_costureira" ? ` · volta ${dataBR(a.prazo)}` : ""}</span></div>`).join("")}</div>`;
   });
+  if ($("vdata")) $("vdata").onclick = () => { $("vdatabox").hidden = false; $("vdnova").focus(); };
+  if ($("vdsalvar")) $("vdsalvar").onclick = async () => {
+    const d = $("vdnova").value;
+    try {
+      checar(await sb.rpc("lin_venda_corrigir_data", { p_venda: v.id, p_data: d || null, p_motivo: $("vdmot").value }));
+      $("dlg").close(); await carregar(); await telaVendas(); msg("ok", `Venda nº ${v.id}: data corrigida para ${dataBR(d)}.`);
+    } catch (e) { $("verr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+  };
   if ($("vcanc")) $("vcanc").onclick = async () => {
     const motivo = prompt("Motivo do cancelamento (as peças voltam para o estoque da loja):");
     if (motivo === null) return;
@@ -816,9 +895,9 @@ function novaVisita() {
     $("vispecas").querySelectorAll("[data-vrm]").forEach(b => b.onclick = () => { V.pecas.splice(Number(b.dataset.vrm), 1); desenharPecas(); });
   };
   $("vispq").oninput = () => {
-    const t = $("vispq").value.trim().toLowerCase(), r = [];
+    const t = semAc($("vispq").value), r = [];
     if (t.length >= 2) for (const p of PRODUTOS) {
-      const casaP = p.referencia.toLowerCase().includes(t) || p.descricao.toLowerCase().includes(t);
+      const casaP = semAc(p.referencia).includes(t) || semAc(p.descricao).includes(t);
       for (const v of p.variantes) if ((casaP || (v.codigo_barras || "") === t) && !V.pecas.includes(v.id)) r.push([p, v]);
       if (r.length > 30) break;
     }
@@ -948,11 +1027,11 @@ async function novaVenda(pre = {}) {
     $("nvpq").value = ""; $("nvres").innerHTML = ""; desenharItens(); $("nvpq").focus();
   };
   const buscaPeca = () => {
-    const t = $("nvpq").value.trim().toLowerCase();
+    const t = semAc($("nvpq").value);
     if (t.length < 2) { $("nvres").innerHTML = ""; return []; }
     const r = [];
     for (const p of PRODUTOS) {
-      const casaP = p.referencia.toLowerCase().includes(t) || p.descricao.toLowerCase().includes(t) || (p.codigo_barras || "") === t;
+      const casaP = semAc(p.referencia).includes(t) || semAc(p.descricao).includes(t) || (p.codigo_barras || "") === t;
       for (const v of p.variantes) if ((casaP || (v.codigo_barras || "") === t) && disp(v.id) > 0) r.push([p, v]);
       if (r.length > 40) break;
     }
@@ -1021,6 +1100,47 @@ const zapAjusteCliente = a => { const c = cliente(a.cliente_id); if (!c || !c.te
   window.open(`https://wa.me/55${c.telefone}?text=${encodeURIComponent(txt)}`, "_blank", "noopener"); };
 
 // ficha de ajuste para a costureira (imprimir ou salvar em PDF); várias de uma vez = uma folha com todas
+// ficha da venda para imprimir / PDF, no jeito do espelho da nota (pedido do Marco em 30/10/2026); não é documento fiscal
+function imprimirVenda(v, its, c) {
+  const w = window.open("", "_blank"); if (!w) return msg("err", "O navegador bloqueou a janela de impressão.");
+  const cpf = x => x && x.length === 11 ? `${x.slice(0, 3)}.${x.slice(3, 6)}.${x.slice(6, 9)}-${x.slice(9)}` : (x || "");
+  const cx = (rot, val, est = "") => `<div class="cx" style="${est}"><small>${rot}</small><div>${val || "&nbsp;"}</div></div>`;
+  const descPecas = Number(v.valor_bruto) - Number(v.valor_itens);
+  w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Venda nº ${v.id} — Linum</title>
+    <style>@page{size:A4;margin:12mm}*{box-sizing:border-box}body{font:12px system-ui,sans-serif;margin:0;color:#111}
+    .lin{display:flex;gap:0;margin-top:-1px}.cx{border:1px solid #444;padding:3px 6px;flex:1;margin-left:-1px;min-height:34px}.cx:first-child{margin-left:0}
+    .cx small{display:block;font-size:9px;text-transform:uppercase;color:#555;letter-spacing:.3px}.cx div{font-size:12px}
+    .tit{font-size:10px;font-weight:700;text-transform:uppercase;margin:10px 0 2px}
+    .cab{display:flex;border:1px solid #444}.cab .emp{flex:2;padding:8px 10px}.cab .emp b{font-size:22px;letter-spacing:2px}.cab .doc{flex:1;border-left:1px solid #444;padding:8px 10px;text-align:center}
+    .cab .doc b{font-size:15px;display:block}.aviso{font-size:10px;color:#555}
+    table{width:100%;border-collapse:collapse}th,td{border:1px solid #444;padding:3px 5px;vertical-align:top}th{font-size:9px;text-transform:uppercase;color:#333;text-align:left;font-weight:600}
+    .n{text-align:right;white-space:nowrap}.canc{position:fixed;top:40%;left:0;right:0;text-align:center;font-size:90px;font-weight:800;color:rgba(200,0,0,.18);transform:rotate(-25deg)}
+    .obs{white-space:pre-line}.ass{margin-top:36px;display:flex;gap:40px}.ass div{flex:1;border-top:1px solid #444;padding-top:3px;text-align:center;font-size:10px}</style></head><body>
+    ${v.cancelada_em ? '<div class="canc">CANCELADA</div>' : ""}
+    <div class="cab"><div class="emp"><b>LINUM</b><div>Roupas de Linho · loja ${esc(loja(v.loja_id).nome)}</div></div>
+      <div class="doc"><span class="aviso">FICHA DA VENDA</span><b>Nº ${v.id}</b><span class="aviso">Espelho para conferência e controle — não é documento fiscal</span></div></div>
+    <div class="lin">${cx("Data da venda", dataBR(v.data))}${cx("Loja", esc(loja(v.loja_id).nome))}${cx("Vendedora", esc(v.vendedora_nome))}${cx("Registrada em", quando(v.criado_em) + (v.criado_nome && v.criado_nome !== v.vendedora_nome ? " por " + esc(v.criado_nome) : ""))}</div>
+    <div class="tit">Cliente</div>
+    <div class="lin">${cx("Nome", c ? `<b>${esc(c.nome)}</b>` : "não informado", "flex:3")}${cx("CPF", esc(cpf(c && c.cpf)))}${cx("Telefone", c && c.telefone ? esc(fone(c.telefone)) : "")}</div>
+    <div class="lin">${cx("Endereço", esc(c ? c.endereco : ""), "flex:3")}${cx("E-mail", esc(c ? c.email : ""), "flex:2")}</div>
+    <div class="tit">Peças</div>
+    <table><thead><tr><th>Referência</th><th>Descrição</th><th>Cor</th><th>Tam.</th><th>Peça especial</th><th class="n">Qtd</th><th class="n">Preço de tabela</th><th class="n">Desc.</th><th class="n">Valor unit.</th><th class="n">Total</th></tr></thead><tbody>
+      ${its.map(i => `<tr><td>${esc(i.referencia)}</td><td>${esc(i.descricao)}</td><td>${esc(i.cor)}</td><td>${esc(i.tamanho)}</td><td>${esc(i.edicao)}</td><td class="n">${n(i.quantidade)}</td>
+        <td class="n">${brl(i.preco_tabela)}</td><td class="n">${Number(i.desconto_pct) ? decBR(Number(i.desconto_pct)) + "%" : "—"}</td><td class="n">${brl(i.valor_unitario)}</td><td class="n">${brl(i.valor_total)}</td></tr>`).join("")}
+    </tbody></table>
+    <div class="tit">Valores</div>
+    <div class="lin">${cx("Valor de tabela", brl(v.valor_bruto))}${cx("Desconto nas peças", brl(descPecas))}${cx("Desconto geral", brl(v.desconto))}${cx("Valor pago", `<b>${brl(v.valor_total)}</b>`)}
+      ${Number(v.credito_usado) ? cx("Crédito da cliente usado", brl(v.credito_usado)) + cx("Valor da nota fiscal", `<b>${brl(v.valor_nf)}</b>`) : ""}</div>
+    <div class="tit">Pagamento</div>
+    <div class="lin">${(v.pagamentos || []).length ? v.pagamentos.map(p => cx(esc(FORMAS[p.forma] || p.forma) + (p.forma === "credito" ? ` em ${p.parcelas}x` : ""), brl(p.valor))).join("") : cx("Forma", "—")}</div>
+    ${v.observacao ? `<div class="tit">Observações</div><div class="cx obs">${esc(v.observacao)}</div>` : ""}
+    ${v.cancelada_em ? `<div class="tit">Cancelamento</div><div class="cx">Cancelada por ${esc(v.cancelada_nome || "")} em ${quando(v.cancelada_em)}: ${esc(v.motivo_cancelamento || "")}</div>` : ""}
+    <div class="ass"><div>Cliente</div><div>Vendedora</div></div>
+    <div class="aviso" style="margin-top:10px">Emitida em ${quando(new Date().toISOString())} · Sistema Linum</div>
+    </body></html>`);
+  w.document.close(); w.focus(); w.print();
+}
+
 function imprimirAjustes(lista) {
   const w = window.open("", "_blank"); if (!w) return msg("err", "O navegador bloqueou a janela de impressão.");
   const nome = c => c ? c.nome.split(" ")[0] : "—";
@@ -1189,10 +1309,10 @@ async function novaTroca() {
   const somaDev = () => r2(TR.dev.reduce((s, i) => s + numV(i.vu) * (Number(i.q) || 0), 0));
   const somaNov = () => r2(TR.novas.reduce((s, i) => s + numV(i.vu) * (Number(i.q) || 0), 0));
   const busca = (t, comEstoque) => {
-    t = t.trim().toLowerCase(); const r = [];
+    t = semAc(t); const r = [];
     if (t.length < 2) return r;
     for (const p of PRODUTOS) {
-      const casaP = p.referencia.toLowerCase().includes(t) || p.descricao.toLowerCase().includes(t) || (p.codigo_barras || "") === t;
+      const casaP = semAc(p.referencia).includes(t) || semAc(p.descricao).includes(t) || (p.codigo_barras || "") === t;
       for (const v of p.variantes) if ((casaP || (v.codigo_barras || "") === t) && (!comEstoque || disp(v.id) > 0)) r.push([p, v]);
       if (r.length > 40) break;
     }
@@ -1619,6 +1739,80 @@ async function telaComissoes() {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob(["\ufeff" + linhas.join("\r\n")], { type: "text/csv;charset=utf-8" }));
     a.download = `comissoes-linum-${FCM.mes}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+}
+
+// ---------------------------------------------------------------- lucro das vendas (Dono; pedido do Marco: por quanto vendi, quanto queria vender, custo, lucro direto)
+const FLU = { de: "", ate: "", loja: "", vend: "", por: "peca" };
+const LU_POR = { peca: "Peça", venda: "Venda", vendedora: "Quem vendeu", loja: "Loja", mes: "Mês" };
+async function telaLucro() {
+  FLU.de = FLU.de || hoje().slice(0, 8) + "01"; FLU.ate = FLU.ate || hoje();
+  $("tela").innerHTML = '<div class="card">Carregando…</div>';
+  let its;
+  try { its = await todas(() => sb.rpc("lin_lucro_itens", { p_de: FLU.de, p_ate: FLU.ate })); }
+  catch (e) { $("tela").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; return; }
+  const vends = [...new Map(its.map(i => [i.vendedora_id, i.vendedora_nome])).entries()].sort((a, b) => a[1].localeCompare(b[1], "pt-BR"));
+  its = its.filter(i => (!FLU.loja || i.loja_id === FLU.loja) && (!FLU.vend || i.vendedora_id === FLU.vend));
+  const peca = i => [i.referencia, i.descricao].filter(Boolean).join(" ") + (i.edicao ? ` · ★ ${i.edicao}` : "");
+  const chave = { peca, venda: i => `Nº ${i.venda_id} · ${dataBR(i.data)} · ${loja(i.loja_id).nome} · ${i.vendedora_nome}`,
+    vendedora: i => i.vendedora_nome, loja: i => loja(i.loja_id).nome, mes: i => mesTxt(i.data.slice(0, 7)) }[FLU.por];
+  const soma = l => { const t = { q: 0, tab: 0, vend: 0, cus: 0, vcc: 0, sem: 0, semq: 0, n: new Set() };
+    l.forEach(i => { t.q += i.quantidade; t.tab += Number(i.tabela); t.vend += Number(i.vendido); t.n.add(i.venda_id);
+      if (i.custo == null) { t.sem += Number(i.vendido); t.semq += i.quantidade; } else { t.cus += Number(i.custo); t.vcc += Number(i.vendido); } });
+    t.luc = t.vcc - t.cus; return t; };
+  const pc = (a, b) => b ? decBR((100 * a / b).toFixed(1)) + "%" : "—";
+  const mk = (a, b) => b ? decBR((a / b).toFixed(2)) : "—";
+  const grupos = {};
+  its.forEach(i => (grupos[chave(i)] = grupos[chave(i)] || []).push(i));
+  const linhas = Object.entries(grupos).map(([k, l]) => ({ k, t: soma(l), d: l[0] }));
+  if (FLU.por === "venda" || FLU.por === "mes") linhas.sort((a, b) => a.d.data.localeCompare(b.d.data) || a.d.venda_id - b.d.venda_id);
+  else linhas.sort((a, b) => b.t.luc - a.t.luc || b.t.vend - a.t.vend);
+  const T = soma(its);
+  const semCusto = its.filter(i => i.custo == null);
+  $("tela").innerHTML = `
+    <div class="cabtela"><h2>Lucro das vendas</h2><span class="noprint" style="display:flex;gap:8px"><button class="bt" id="lucsv">Baixar CSV</button><button class="bt" id="luimp">Imprimir</button></span></div>
+    <div class="filtros">
+      <label class="chk">De <input type="date" id="lude" value="${esc(FLU.de)}" style="width:auto"></label>
+      <label class="chk">Até <input type="date" id="luate" value="${esc(FLU.ate)}" max="${hoje()}" style="width:auto"></label>
+      <select id="luloja" aria-label="Loja"><option value="">Todas as lojas</option>${LOJAS.map(l => `<option value="${l.id}" ${l.id === FLU.loja ? "selected" : ""}>${esc(l.nome)}</option>`).join("")}</select>
+      <select id="luvend" aria-label="Quem vendeu"><option value="">Todos que venderam</option>${vends.map(([id, nm]) => `<option value="${id}" ${id === FLU.vend ? "selected" : ""}>${esc(nm)}</option>`).join("")}</select>
+      <select id="lupor" aria-label="Agrupar por">${Object.entries(LU_POR).map(([k, t]) => `<option value="${k}" ${k === FLU.por ? "selected" : ""}>Por ${t.toLowerCase()}</option>`).join("")}</select>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><small>Queria vender (tabela)</small><b>${brl(T.tab)}</b><span>${n(T.q)} peça(s) em ${n(T.n.size)} venda(s)</span></div>
+      <div class="kpi"><small>Vendido</small><b>${brl(T.vend)}</b><span>com os descontos</span></div>
+      <div class="kpi"><small>Descontos</small><b>${brl(T.tab - T.vend)}</b><span>${pc(T.tab - T.vend, T.tab)} da tabela</span></div>
+      <div class="kpi"><small>Custo das peças</small><b>${brl(T.cus)}</b><span>${T.semq ? `${n(T.semq)} peça(s) sem custo` : "custo do cadastro na data da venda"}</span></div>
+      <div class="kpi"><small>Lucro direto</small><b>${brl(T.luc)}</b><span>margem ${pc(T.luc, T.vcc)} · markup ${mk(T.vcc, T.cus)}</span></div>
+    </div>
+    ${T.semq ? `<div class="msg">${n(T.semq)} peça(s) vendida(s) sem preço de custo no cadastro (${brl(T.sem)} vendidos) não entram no custo, no lucro nem na margem: ${esc([...new Set(semCusto.map(peca))].slice(0, 12).join("; "))}${new Set(semCusto.map(peca)).size > 12 ? "…" : ""}. Cadastre o custo em Produtos (ou pela ficha de custo).</div>` : ""}
+    <div class="card"><h2>Por ${LU_POR[FLU.por].toLowerCase()}</h2><div class="tw"><table id="lutab"><thead><tr><th>${LU_POR[FLU.por]}</th><th class="num">Peças</th><th class="num">Tabela</th><th class="num">Vendido</th><th class="num">Desconto</th><th class="num">Custo</th><th class="num">Lucro direto</th><th class="num">Margem</th><th class="num">Markup</th></tr></thead><tbody>
+      ${linhas.length ? linhas.map(({ k, t, d }) => `<tr${FLU.por === "venda" ? ` class="lurow" data-v="${d.venda_id}" style="cursor:pointer"` : ""}><td>${esc(k)}</td><td class="num">${n(t.q)}</td><td class="num">${brl(t.tab)}</td><td class="num">${brl(t.vend)}</td>
+        <td class="num">${pc(t.tab - t.vend, t.tab)}</td><td class="num">${t.semq === t.q ? '<span class="mut">sem custo</span>' : brl(t.cus) + (t.semq ? ' <span class="mut">*</span>' : "")}</td>
+        <td class="num"><b${t.luc < 0 ? ' style="color:var(--crit)"' : ""}>${t.semq === t.q ? "—" : brl(t.luc)}</b></td><td class="num">${pc(t.luc, t.vcc)}</td><td class="num">${mk(t.vcc, t.cus)}</td></tr>`).join("")
+        + `<tr><td><b>Total</b></td><td class="num"><b>${n(T.q)}</b></td><td class="num"><b>${brl(T.tab)}</b></td><td class="num"><b>${brl(T.vend)}</b></td><td class="num"><b>${pc(T.tab - T.vend, T.tab)}</b></td><td class="num"><b>${brl(T.cus)}</b></td><td class="num"><b>${brl(T.luc)}</b></td><td class="num"><b>${pc(T.luc, T.vcc)}</b></td><td class="num"><b>${mk(T.vcc, T.cus)}</b></td></tr>`
+      : '<tr><td colspan="9" class="mut">Nenhuma venda no período.</td></tr>'}
+    </tbody></table></div>
+    <div class="mut" style="margin-top:6px">Tabela = preço de etiqueta × peças (o que queria vender). Vendido = o que a cliente pagou pela peça, já com o desconto da peça e a parte dela do desconto geral da venda. Custo = preço de custo do cadastro valendo no dia da venda. Lucro direto = vendido − custo, sem os outros custos da loja. Margem = lucro ÷ vendido; markup = vendido ÷ custo (só peças com custo). * = parte das peças sem custo. Vendas canceladas não entram; trocas e devoluções não mudam a venda.</div></div>`;
+  $("lude").onchange = e => { FLU.de = e.target.value || FLU.de; telaLucro(); };
+  $("luate").onchange = e => { FLU.ate = e.target.value || FLU.ate; telaLucro(); };
+  $("luloja").onchange = e => { FLU.loja = e.target.value; telaLucro(); };
+  $("luvend").onchange = e => { FLU.vend = e.target.value; telaLucro(); };
+  $("lupor").onchange = e => { FLU.por = e.target.value; telaLucro(); };
+  $("luimp").onclick = () => window.print();
+  document.querySelectorAll(".lurow").forEach(r => r.onclick = async () => {
+    const id = Number(r.dataset.v);
+    if (!VENDAS.find(v => v.id === id)) { try { VENDAS.push(...checar(await sb.from("lin_vendas").select("*").eq("id", id))); ITENS.push(...checar(await sb.from("lin_venda_itens").select("*").eq("venda_id", id))); await carregarClientes(); } catch (e) { msg("err", e.message); return; } }
+    verVenda(id);
+  });
+  $("lucsv").onclick = () => {
+    const c = x => `"${String(x ?? "").replace(/"/g, '""')}"`, num = x => x == null ? "" : Number(x).toFixed(2).replace(".", ",");
+    const l = [["Venda nº", "Data", "Loja", "Quem vendeu", "Referência", "Descrição", "Cor", "Tamanho", "Peça especial", "Quantidade", "Tabela", "Vendido", "Custo unitário", "Custo", "Lucro direto"].map(c).join(";"),
+      ...its.map(i => [i.venda_id, dataBR(i.data), loja(i.loja_id).nome, i.vendedora_nome, i.referencia, i.descricao, i.cor, i.tamanho, i.edicao, i.quantidade,
+        num(i.tabela), num(i.vendido), num(i.custo_unitario), num(i.custo), i.custo == null ? "" : num(Number(i.vendido) - Number(i.custo))].map(c).join(";"))];
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob(["﻿" + l.join("\r\n")], { type: "text/csv;charset=utf-8" }));
+    a.download = `lucro-linum-${FLU.de}-a-${FLU.ate}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   };
 }
 

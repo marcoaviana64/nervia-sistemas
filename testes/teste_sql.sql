@@ -1261,6 +1261,21 @@ insert into lin_vd values ('v3', lin_venda_registrar(jsonb_build_object('loja_id
   'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 1, 'valor_unitario', '0')), 'pagamentos', '[]'::jsonb))::text);
 select pg_temp.ok((select vendedora_nome <> '' and data = current_date - 17 and jsonb_array_length(pagamentos) = 2 from lin_vendas where id = (select v from lin_vd where k = 'v2')::bigint)
   and (select count(*) = 3 from lin_vendas), 'linum vendas: Dono lança boleta antiga em nome da vendedora, com duas formas de pagamento');
+-- 2.24: o Dono corrige a data da venda (só a data, com motivo, auditoria)
+select pg_temp.erro2($$select lin_venda_corrigir_data((select v from lin_vd where k = 'v2')::bigint, current_date + 1, 'lançada com a data errada')$$, 'não pode ser depois', 'linum vendas: data corrigida não passa do dia do registro');
+select pg_temp.erro2($$select lin_venda_corrigir_data((select v from lin_vd where k = 'v2')::bigint, current_date - 20, 'x')$$, 'motivo', 'linum vendas: corrigir a data exige motivo');
+select lin_venda_corrigir_data((select v from lin_vd where k = 'v2')::bigint, current_date - 20, 'Boleta era de três dias antes');
+select pg_temp.ok((select data = current_date - 20 and valor_total = 489 from lin_vendas where id = (select v from lin_vd where k = 'v2')::bigint),
+  'linum vendas: Dono corrige a data da venda');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.erro2($$select lin_venda_corrigir_data((select v from lin_vd where k = 'v2')::bigint, current_date - 18, 'vendedora tentando')$$, 'Somente o Dono', 'linum vendas: vendedora não corrige a data');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+reset role;
+select pg_temp.ok(exists (select 1 from auditoria where acao = 'linum_venda_data_corrigida' and detalhes -> 'depois' ->> 'data' = (current_date - 20)::text
+              and detalhes -> 'antes' ->> 'data' = (current_date - 17)::text and detalhes ->> 'motivo' = 'Boleta era de três dias antes'),
+  'linum vendas: correção da data na auditoria, com antes/depois e motivo');
+select pg_temp.erro2($$update lin_vendas set data = current_date - 19 where id = (select v from lin_vd where k = 'v2')::bigint$$, 'Não pode ser alterada', 'linum vendas: fora da função a data continua imutável');
+set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
 select pg_temp.ok((select count(*) = 2 from lin_vendas) and (select count(*) = 2 from lin_venda_itens), 'linum vendas: vendedora vê só as vendas dela');
 select pg_temp.erro2($$select lin_venda_cancelar((select v from lin_vd where k = 'v1')::bigint, 'cliente desistiu')$$, 'Somente o Dono', 'linum vendas: vendedora não cancela');
@@ -2017,6 +2032,147 @@ select lin_qr_cadastrar(jsonb_build_object('nome', 'Pessoa ' || i, 'telefone', '
 select pg_temp.erro2($$select lin_qr_cadastrar('{"nome":"Pessoa 6","telefone":"21900000006","aceite":true}')$$, 'Muitos envios', 'linum QR: no máximo 5 envios por hora por IP');
 reset role; reset request.headers;
 select pg_temp.erro2($$update lin_qr_cadastros set origem = 'x'$$, 'não pode ser alterado', 'linum QR: registro somente inclusão');
+
+-- ---------------------------------------------------------------- linum 2.18: custo das peças (ficha da planilha CUSTO 2025)
+reset role; reset request.headers;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+create temp table lin_cu as select lin_custo_salvar(jsonb_build_object('ficha', 'A48', 'referencia', 'A48', 'descricao', 'Calça Marcel', 'materia', 'linho timotex',
+  'qtd', 20, 'mp_metro', 78, 'gasto', '1.3', 'qtd_risco', 20, 'risco', 90, 'modelagem', 300, 'corte', 5, 'lavanderia', 3, 'costura', 20,
+  'aviamentos', 7, 'passadoria', 3, 'logistica', 3, 'comissao', 34, 'pagamento', 80, 'venda', 869,
+  'produto_id', (select id from lin_produtos order by referencia limit 1))) id;
+select pg_temp.ok((select round(mp_peca, 2) = 101.40 and risco_peca = 4.5 and modelagem_peca = 15 and round(custo, 2) = 275.90 and criado_nome <> ''
+                   from lin_custos where id = (select id from lin_cu)), 'linum custos: contas iguais às da planilha (A48: custo R$ 275,90)');
+select lin_custo_salvar(jsonb_build_object('id', (select id from lin_cu), 'risco_peca_manual', 10));
+select pg_temp.ok((select risco_peca = 10 and round(custo, 2) = 281.40 and descricao = 'Calça Marcel' from lin_custos where id = (select id from lin_cu)),
+  'linum custos: risco por peça digitado vale no lugar da conta; campos não enviados ficam');
+select lin_custo_salvar(jsonb_build_object('id', (select id from lin_cu), 'risco_peca_manual', ''));
+select pg_temp.ok((select risco_peca = 4.5 from lin_custos where id = (select id from lin_cu)), 'linum custos: apagar o risco digitado volta à conta');
+select pg_temp.erro2($$select lin_custo_salvar('{"ficha":"a48"}')$$, 'Já existe uma ficha', 'linum custos: nome de ficha repetido recusado');
+select pg_temp.erro2($$select lin_custo_salvar('{"ficha":"X1","corte":"-2"}')$$, 'não pode ser negativo', 'linum custos: valor negativo recusado');
+select pg_temp.erro2($$select lin_custo_salvar('{"descricao":"sem nome"}')$$, 'Dê um nome', 'linum custos: ficha sem nome recusada');
+select lin_custo_salvar('{"ficha":"Cópia de A48","rascunho":true,"venda":"900"}');
+select lin_custo_excluir((select id from lin_custos where ficha = 'Cópia de A48'));
+reset role;
+select pg_temp.ok((select count(*) = 1 from auditoria where acao = 'linum_custo_criado' and detalhes->>'ficha' = 'A48')
+  and (select (detalhes->'antes'->>'risco_peca_manual') is null and (detalhes->'depois'->>'risco_peca_manual')::numeric = 10 and not (detalhes->'depois') ? 'descricao'
+       from auditoria where acao = 'linum_custo_alterado' order by id limit 1)
+  and (select count(*) = 1 from auditoria where acao = 'linum_custo_excluido' and detalhes->>'ficha' = 'Cópia de A48'),
+  'linum custos: criada, alterada (só o que mudou) e excluída na auditoria');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+select pg_temp.ok((select count(*) = 0 from lin_custos), 'linum custos: Estoque não vê os custos');
+select pg_temp.erro2($$select lin_custo_salvar('{"ficha":"Z"}')$$, 'Somente o Dono', 'linum custos: Estoque não grava');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.ok((select count(*) = 0 from lin_custos), 'linum custos: Vendedora não vê os custos');
+select pg_temp.erro2($$select lin_custo_excluir((select id from lin_cu))$$, 'Somente o Dono', 'linum custos: Vendedora não exclui');
+select pg_temp.erro2($$update lin_custos set venda = 1$$, 'permission denied', 'linum custos: tela não altera a tabela direto');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select pg_temp.ok((select count(*) = 1 from lin_custos), 'linum custos: equipe Nervia vê');
+reset role;
+reset request.jwt.claim.sub;
+set role anon;
+select pg_temp.erro2($$select count(*) from lin_custos$$, 'permission denied', 'linum custos: anon não lê');
+reset role;
+-- linum 2.19: levar preço e custo da ficha para o cadastro da peça
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select lin_custo_salvar(jsonb_build_object('ficha', 'SemPeca', 'referencia', 'ZZ999', 'venda', 100, 'corte', 10));
+select lin_custo_salvar(jsonb_build_object('ficha', 'Dupla', 'produto_id', (select produto_id from lin_custos where ficha = 'A48'), 'venda', 100, 'corte', 10));
+select lin_custo_salvar(jsonb_build_object('ficha', 'Simulação', 'rascunho', true, 'produto_id', (select produto_id from lin_custos where ficha = 'A48'), 'venda', 100, 'corte', 10));
+select pg_temp.erro2($$select lin_custos_aplicar(array[(select id from lin_custos where ficha = 'SemPeca')])$$, 'não tem peça no cadastro', 'linum 2.19: ficha sem peça recusada');
+select pg_temp.erro2($$select lin_custos_aplicar(array[(select id from lin_custos where ficha = 'Simulação')])$$, 'cópia/simulação', 'linum 2.19: cópia não atualiza o cadastro');
+select pg_temp.erro2($$select lin_custos_aplicar(array(select id from lin_custos where ficha in ('A48', 'Dupla')))$$, 'mesma peça', 'linum 2.19: duas fichas da mesma peça recusadas');
+select pg_temp.ok((select lin_custos_aplicar(array[(select id from lin_custos where ficha = 'A48')])) = 1, 'linum 2.19: ficha aplicada');
+reset role;
+select pg_temp.ok((select p.preco_venda = 869 and p.preco_custo = 275.90 from lin_produtos p where p.id = (select produto_id from lin_custos where ficha = 'A48')),
+  'linum 2.19: peça com o preço de venda e o custo da ficha');
+select pg_temp.ok((select detalhes->>'pela_ficha_custo' = 'A48' and (detalhes->'depois'->>'preco_custo')::numeric = 275.90 from auditoria where acao = 'linum_produto_alterado' order by id desc limit 1),
+  'linum 2.19: auditoria com a ficha, antes e depois');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+select pg_temp.erro2($$select lin_custos_aplicar(array[(select id from lin_custos limit 1)])$$, 'Somente o Dono', 'linum 2.19: Estoque não aplica');
+select pg_temp.erro2($$select lin_custo_enviar((select id from lin_custos where ficha = 'SemPeca'))$$, 'Somente o Dono', 'linum 2.19: Estoque não envia para Produtos');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok((lin_custo_enviar((select id from lin_custos where ficha = 'SemPeca'))->>'criado')::boolean, 'linum 2.19: ficha sem peça cria a peça em Produtos');
+select pg_temp.ok((lin_custo_enviar((select id from lin_custos where ficha = 'SemPeca'))->>'criado')::boolean = false, 'linum 2.19: enviar de novo só atualiza');
+select pg_temp.erro2($$select lin_custo_enviar((select id from lin_custos where ficha = 'Simulação'))$$, 'cópia/simulação', 'linum 2.19: cópia não vai para Produtos');
+reset role;
+select pg_temp.ok((select p.preco_venda = 100 and p.preco_custo = 10 and p.codigo_barras is not null and p.ativo from lin_produtos p where p.referencia = 'ZZ999')
+  and (select produto_id is not null from lin_custos where ficha = 'SemPeca')
+  and (select count(*) = 1 from auditoria where acao = 'linum_produto_criado' and detalhes->>'pela_ficha_custo' = 'SemPeca'),
+  'linum 2.19: peça nova com preço, custo, código de barras, ligada à ficha e na auditoria');
+-- linum 2.20: ficha de peça especial (artesanal) atualiza só as variações com essa edição
+insert into lin_variantes (produto_id, cor, tamanho, edicao, preco_venda)
+  select produto_id, 'Cru', t, 'Pintura Artesanal', 900 from lin_custos, unnest(array['P','M']) t where ficha = 'A48';
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select lin_custo_salvar(jsonb_build_object('ficha', 'A48 artesanal', 'produto_id', (select produto_id from lin_custos where ficha = 'A48'), 'edicao', 'pintura artesanal ',
+  'venda', 1299, 'corte', 400));
+select lin_custo_salvar(jsonb_build_object('ficha', 'A48 bordada', 'produto_id', (select produto_id from lin_custos where ficha = 'A48'), 'edicao', 'Bordada', 'venda', 999, 'corte', 300));
+select pg_temp.erro2($$select lin_custos_aplicar(array[(select id from lin_custos where ficha = 'A48 bordada')])$$, 'não tem peças especiais', 'linum 2.20: edição que a peça não tem é recusada');
+select pg_temp.ok((select lin_custos_aplicar(array(select id from lin_custos where ficha in ('A48', 'A48 artesanal')))) = 2, 'linum 2.20: a peça normal e a artesanal juntas (não conflitam)');
+reset role;
+select pg_temp.ok((select count(*) = 2 from lin_variantes v where v.edicao = 'Pintura Artesanal' and v.preco_venda = 1299 and v.preco_custo = 400)
+  and (select p.preco_venda = 869 from lin_produtos p where p.id = (select produto_id from lin_custos where ficha = 'A48'))
+  and (select count(*) = 1 from auditoria where acao = 'linum_variante_alterada' and detalhes->>'pela_ficha_custo' = 'A48 artesanal' and (detalhes->>'variacoes')::int = 2),
+  'linum 2.20: preço e custo só nas peças especiais da edição; a peça normal fica com o preço dela; auditoria');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select lin_custo_salvar('{"ficha":"Nova artesanal","referencia":"ZZ888","edicao":"Artesanal","venda":500,"corte":100}');
+select pg_temp.erro2($$select lin_custo_enviar((select id from lin_custos where ficha = 'Nova artesanal'))$$, 'cadastre a peça em Produtos primeiro', 'linum 2.20: peça especial de peça inexistente não cria peça');
+reset role;
+-- linum 2.21: ficha de versão sem a peça especial escolhida não mexe na peça normal
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select lin_custo_salvar(jsonb_build_object('ficha', 'A48 bordada2', 'versao', 'bordada', 'produto_id', (select produto_id from lin_custos where ficha = 'A48'), 'venda', 1999, 'corte', 500));
+select pg_temp.erro2($$select lin_custos_aplicar(array[(select id from lin_custos where ficha = 'A48 bordada2')])$$, 'escolha na ficha a peça especial', 'linum 2.21: versão sem peça especial é recusada (aplicar)');
+select pg_temp.erro2($$select lin_custo_enviar((select id from lin_custos where ficha = 'A48 bordada2'))$$, 'escolha na ficha a peça especial', 'linum 2.21: versão sem peça especial é recusada (enviar)');
+select lin_custo_salvar(jsonb_build_object('id', (select id from lin_custos where ficha = 'A48'), 'versao', 'A48'));
+select pg_temp.ok((select lin_custos_aplicar(array[(select id from lin_custos where ficha = 'A48')])) = 1, 'linum 2.21: versão igual ao nome da ficha não trava');
+reset role;
+select pg_temp.ok((select preco_venda = 869 from lin_produtos where id = (select produto_id from lin_custos where ficha = 'A48')), 'linum 2.21: a peça normal continua com o preço dela');
+-- linum 2.22: histórico de preços (gatilhos em lin_produtos e lin_variantes)
+select pg_temp.ok((select count(*) >= 1 from lin_precos_hist where produto_id = (select produto_id from lin_custos where ficha = 'A48') and variante_id is null and origem = 'ficha de custo A48' and preco_venda = 869)
+  and (select count(*) = 2 from lin_precos_hist where edicao = 'Pintura Artesanal' and origem = 'ficha de custo A48 artesanal' and preco_venda = 1299 and preco_venda_antes = 900),
+  'linum 2.22: preço da ficha de custo vai para o histórico, da peça e das peças especiais, com antes e origem');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select lin_produto_salvar(jsonb_build_object('id', (select produto_id from lin_custos where ficha = 'A48'), 'referencia', (select referencia from lin_produtos where id = (select produto_id from lin_custos where ficha = 'A48')),
+  'descricao', (select descricao from lin_produtos where id = (select produto_id from lin_custos where ficha = 'A48')), 'preco_venda', '899', 'preco_custo', '275.9'));
+reset role;
+select pg_temp.ok((select origem = 'cadastro' and preco_venda_antes = 869 and preco_venda = 899 and quem_nome <> '' from lin_precos_hist
+                    where produto_id = (select produto_id from lin_custos where ficha = 'A48') and variante_id is null order by id desc limit 1),
+  'linum 2.22: mudança pelo cadastro entra no histórico com quem fez');
+select pg_temp.erro2($$update lin_precos_hist set preco_venda = 1$$, 'não pode ser alterado', 'linum 2.22: histórico somente inclusão');
+select set_config('teste.pid', (select produto_id::text from lin_custos where ficha = 'A48'), false);
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+select pg_temp.ok((select jsonb_array_length(h) > 0 and not (h->0 ? 'preco_custo') from (select lin_precos_historico(current_setting('teste.pid')::uuid) h) x),
+  'linum 2.22: Estoque vê o histórico de venda, sem o custo');
+select pg_temp.ok((select count(*) = 0 from lin_precos_hist), 'linum 2.22: Estoque não lê a tabela (custo)');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.erro2($$select lin_precos_historico((select id from lin_produtos limit 1))$$, 'Somente o Dono ou o Estoque', 'linum 2.22: Vendedora não vê o histórico');
+reset role;
+-- linum 2.25: lucro das vendas (custo valendo na hora da venda)
+select pg_temp.ok(_lin_custo_em(current_setting('teste.pid')::uuid, null, now()) = 275.9
+  and _lin_custo_em(current_setting('teste.pid')::uuid, null, '2000-01-01') is not distinct from
+      (select preco_custo_antes from lin_precos_hist where produto_id = current_setting('teste.pid')::uuid and variante_id is null order by vale_desde, id limit 1),
+  'linum 2.25: custo na hora da venda pelo histórico (depois e antes do primeiro registro)');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok((select count(*) > 0 and sum(vendido) = (select sum(valor_total) from lin_vendas where cancelada_em is null and data >= current_date - 60)
+                     and bool_and(tabela >= vendido) from lin_lucro_itens(current_date - 60, current_date)),
+  'linum 2.25: Dono vê o lucro: vendido por peça soma o valor pago das vendas (desconto geral rateado)');
+select pg_temp.erro2($$select * from lin_lucro_itens(current_date, current_date - 1)$$, 'Informe o período', 'linum 2.25: período invertido recusado');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.erro2($$select * from lin_lucro_itens(current_date - 60, current_date)$$, 'Somente o Dono', 'linum 2.25: vendedora não vê o lucro');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+select pg_temp.erro2($$select * from lin_lucro_itens(current_date - 60, current_date)$$, 'Somente o Dono', 'linum 2.25: Estoque não vê o lucro');
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+reset role;
 
 -- ================================================================ Atendimentos de TI (atd_)
 reset role; reset request.headers;
