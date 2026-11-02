@@ -53,7 +53,7 @@ No *SQL Editor*, abra `supabase/agendar_busca.sql`, troque `<URL_DO_PROJETO>` e 
 2. Na Cloudflare, abra *Workers & Pages → Create → Import a repository*:
    - escolha `nervia-sistemas`;
    - *Deploy command* = `npx wrangler deploy`;
-   - sem comando de build.
+   - sem comando de build no painel: o `wrangler.jsonc` já tem o `build.command`, que monta `publicado/` (o site sem comentários) e confere antes de enviar.
 
    Isso publica a cada push. Também dá para publicar à mão com `npx wrangler@4 deploy` na pasta do projeto, como no sistema da Linum.
 3. Ligue o domínio: no worker `nervia-site`, abra *Settings → Domains & Routes → Add → Custom domain* e informe `nervia.com.br` (e `www.nervia.com.br`). O DNS do domínio precisa estar na Cloudflare.

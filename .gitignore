@@ -14,3 +14,7 @@ testes/*.png
 __pycache__/
 dados/
 testes/fixtures/
+
+# cópia publicada (gerada a cada deploy por ferramentas/publicar/limpar.mjs)
+publicado/
+ferramentas/publicar/node_modules/
