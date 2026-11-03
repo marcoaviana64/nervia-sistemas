@@ -147,6 +147,7 @@ td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-n
     <div class="barra">
       <button class="aba oculto" data-v="produtos" id="abaProdutos">Produtos</button>
       <button class="aba on" data-v="estoque">Estoque</button>
+      <button class="aba oculto" data-v="movimentos" id="abaMovimentos">Movimentações</button>
       <button class="aba oculto" data-v="vendas" id="abaVendas">Vendas</button>
       <button class="aba oculto" data-v="clientes" id="abaClientes">Clientes</button>
       <button class="aba oculto" data-v="ajustes" id="abaAjustes">Ajustes</button>
@@ -220,7 +221,7 @@ async function iniciar() {
     await carregar();
     PERM = checar(await sb.rpc("lin_minhas_permissoes")) || PERM;
     $("abaEquipe").classList.toggle("oculto", !ADMIN);
-    $("abaProdutos").classList.toggle("oculto", !controla());
+    $("abaProdutos").classList.toggle("oculto", !controla()); $("abaMovimentos").classList.toggle("oculto", !controla());
     $("abaVendas").classList.toggle("oculto", !vende()); $("abaClientes").classList.toggle("oculto", !vende()); $("abaAjustes").classList.toggle("oculto", !vende());
     $("abaComissoes").classList.toggle("oculto", !dono()); $("abaLucro").classList.toggle("oculto", !dono()); $("abaHorarios").classList.toggle("oculto", !dono()); $("abaCreditos").classList.toggle("oculto", !dono()); $("abaCustos").classList.toggle("oculto", !dono()); $("abaRanking").classList.toggle("oculto", !vende()); $("abaEtiquetas").classList.toggle("oculto", !vende()); $("abaProducao").classList.toggle("oculto", !PERM.producao);
     $("quem").textContent = ADMIN ? "Equipe Nervia (Dono)" : dono() ? "Dono" : controla() ? "Estoque · sem custos" : "Vendedora" + (MINHA_LOJA ? " · " + loja(MINHA_LOJA).nome : "");
@@ -323,6 +324,7 @@ function render() {
   document.querySelectorAll(".barra .aba").forEach(b => b.classList.toggle("on", b.dataset.v === VISTA));
   if (VISTA === "equipe" && ADMIN) return telaEquipe();
   if (VISTA === "produtos" && controla()) return telaProdutos();
+  if (VISTA === "movimentos" && controla()) return telaMovimentos();
   if (VISTA === "vendas" && vende()) return telaVendas();
   if (VISTA === "clientes" && vende()) return telaClientes();
   if (VISTA === "ajustes" && vende()) return telaAjustes();
@@ -1878,6 +1880,87 @@ async function telaCreditos() {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob(["\ufeff" + linhas.join("\r\n")], { type: "text/csv;charset=utf-8" }));
     a.download = `creditos-linum-${FCR.de}-a-${FCR.ate}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+}
+
+// ---------------------------------------------------------------- movimentações (Dono e Estoque; versão 2.29)
+// Todas as movimentações de estoque num período (lin_movimentos: a policy já libera Dono e Estoque; sem custo).
+// "Por descrição" junta as linhas da mesma ação (ex.: um levantamento de estoque) para ver o total de uma vez.
+const FMV = { de: "", ate: "", loja: "", tipo: "", q: "", obs: null };
+const MV_TIPO = { entrada: "Entrada", saida: "Saída", transferencia: "Transferência", ajuste: "Ajuste", venda: "Venda", devolucao: "Devolução", producao: "Produção" };
+function mvEfeito(m, lj) {   // quanto a movimentação mudou o estoque (da loja lj ou, sem loja, de todas)
+  const q = Number(m.quantidade || 0);
+  if (m.tipo === "ajuste") return (!lj || m.loja_id === lj) ? Number(m.depois) - Number(m.antes) : 0;
+  if (m.tipo === "transferencia") return !lj ? 0 : (m.loja_id === lj ? -q : 0) + (m.loja_destino_id === lj ? q : 0);
+  if (lj && m.loja_id !== lj) return 0;
+  return ["saida", "venda"].includes(m.tipo) ? -q : q;
+}
+async function telaMovimentos() {
+  if (!FMV.de) { const d = new Date(hoje() + "T12:00:00"); d.setDate(d.getDate() - 6); FMV.de = d.toISOString().slice(0, 10); FMV.ate = hoje(); }
+  $("tela").innerHTML = '<div class="card">Carregando…</div>';
+  let ms;
+  try {
+    [ms] = await Promise.all([todas(() => sb.from("lin_movimentos").select("id, variante_id, tipo, quantidade, antes, depois, loja_id, loja_destino_id, data, observacao, criado_nome, criado_em")
+      .gte("data", FMV.de).lte("data", FMV.ate).order("criado_em", { ascending: false }).order("id", { ascending: false })), PRODS.length ? null : carregarProdutos()]);
+  } catch (e) { $("tela").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; return; }
+  const vmap = new Map(VARS.map(v => [v.id, v])), pmap = new Map(PRODS.map(p => [p.id, p]));
+  PRODUTOS.forEach(p => { if (!pmap.has(p.id)) pmap.set(p.id, p); (p.variantes || []).forEach(v => { if (!vmap.has(v.id)) vmap.set(v.id, { ...v, produto_id: p.id }); }); });
+  const peca = m => { const v = vmap.get(m.variante_id) || {}, p = pmap.get(v.produto_id) || {}; return { ref: p.referencia || "?", desc: p.descricao || "(peça não encontrada)", var: v.id ? nomeVar(v) : "" }; };
+  const t = semAc(FMV.q);
+  const base = ms.filter(m => (!FMV.loja || m.loja_id === FMV.loja || m.loja_destino_id === FMV.loja) && (!FMV.tipo || m.tipo === FMV.tipo)
+    && (!t || semAc([peca(m).ref, peca(m).desc, peca(m).var, m.observacao, m.criado_nome].join(" ")).includes(t)));
+  const lista = FMV.obs == null ? base : base.filter(m => (m.observacao || "") === FMV.obs);
+  const ef = m => mvEfeito(m, FMV.loja);
+  const ent = lista.reduce((s, m) => s + Math.max(ef(m), 0), 0), sai = lista.reduce((s, m) => s + Math.min(ef(m), 0), 0);
+  // resumo por descrição (observação) e tipo
+  const grupos = new Map();
+  base.forEach(m => { const k = m.observacao || ""; const g = grupos.get(k) || { obs: k, n: 0, pecas: new Set(), efeito: 0, tipos: new Set(), quem: new Set(), de: m.data, ate: m.data };
+    g.n++; g.pecas.add(m.variante_id); g.efeito += ef(m); g.tipos.add(MV_TIPO[m.tipo] || m.tipo); if (m.criado_nome) g.quem.add(m.criado_nome);
+    if (m.data < g.de) g.de = m.data; if (m.data > g.ate) g.ate = m.data; grupos.set(k, g); });
+  const gl = [...grupos.values()].sort((a, b) => b.n - a.n);
+  const MAX = 1500, mostra = lista.slice(0, MAX);
+  const kb = v => `<b style="color:${v < 0 ? "var(--crit)" : v > 0 ? "var(--ok)" : "inherit"}">${v > 0 ? "+" : ""}${n(v)}</b>`;   // KPI (o span da .kpi é o texto pequeno)
+  const sinal = v => `<span style="color:${v < 0 ? "var(--crit)" : v > 0 ? "var(--ok)" : "inherit"}">${v > 0 ? "+" : ""}${n(v)}</span>`;
+  $("tela").innerHTML = `
+    <div class="cabtela"><h2>Movimentações do estoque</h2><span class="noprint" style="display:flex;gap:8px"><button class="bt" id="mvcsv">Baixar CSV</button><button class="bt" id="mvimp">Imprimir</button></span></div>
+    <div class="card noprint"><div class="filtros">
+      <label class="chk">De <input type="date" id="mvde" value="${FMV.de}" style="width:auto"></label>
+      <label class="chk">até <input type="date" id="mvate" value="${FMV.ate}" style="width:auto"></label>
+      <select id="mvloja" aria-label="Loja"><option value="">Todas as lojas</option>${LOJAS.map(l => `<option value="${l.id}" ${l.id === FMV.loja ? "selected" : ""}>${esc(l.nome)}</option>`).join("")}</select>
+      <select id="mvtipo" aria-label="Tipo"><option value="">Todos os tipos</option>${Object.entries(MV_TIPO).map(([k, x]) => `<option value="${k}" ${k === FMV.tipo ? "selected" : ""}>${x}</option>`).join("")}</select>
+      <input id="mvq" type="search" placeholder="Peça, descrição ou quem fez" value="${esc(FMV.q)}" style="min-width:220px">
+    </div><div class="mut">A data é a do movimento. Transferência: com uma loja escolhida conta como saída de uma e entrada na outra; com todas as lojas, não muda o total.</div></div>
+    <div class="kpis">
+      <div class="kpi"><small>Movimentações</small><b>${n(lista.length)}</b><span>${n(new Set(lista.map(m => m.variante_id)).size)} peça(s) (cor e tamanho)</span></div>
+      <div class="kpi"><small>Peças que entraram</small>${kb(ent)}<span>entradas, devoluções, produção e ajustes para cima</span></div>
+      <div class="kpi"><small>Peças que saíram</small>${kb(sai)}<span>saídas, vendas e ajustes para baixo</span></div>
+      <div class="kpi"><small>Resultado no estoque</small>${kb(ent + sai)}<span>${FMV.loja ? esc(loja(FMV.loja).nome) : "todas as lojas"}</span></div>
+    </div>
+    <div class="card"><h2>Por descrição</h2><div class="tw"><table id="mvgrupos"><thead><tr><th>Descrição</th><th>Tipos</th><th>Quem</th><th>Datas</th><th class="num">Movimentações</th><th class="num">Peças</th><th class="num">Resultado</th></tr></thead><tbody>
+      ${gl.length ? gl.map((g, i) => `<tr class="mvgr${FMV.obs === g.obs ? " sel" : ""}" data-i="${i}" style="cursor:pointer${FMV.obs === g.obs ? ";background:var(--fundo2,#eef6f8)" : ""}"><td><b>${esc(g.obs || "(sem descrição)")}</b></td><td>${esc([...g.tipos].join(", "))}</td><td>${esc([...g.quem].join(", ") || "—")}</td>
+        <td>${g.de === g.ate ? dataBR(g.de) : dataBR(g.de) + " a " + dataBR(g.ate)}</td><td class="num">${n(g.n)}</td><td class="num">${n(g.pecas.size)}</td><td class="num">${sinal(g.efeito)}</td></tr>`).join("")
+      : '<tr><td colspan="7" class="mut">Nenhuma movimentação neste período.</td></tr>'}
+    </tbody></table></div><div class="mut" style="margin-top:6px">${FMV.obs == null ? "Clique numa descrição para ver só as movimentações dela." : `Mostrando só "${esc(FMV.obs || "(sem descrição)")}". <button type="button" class="lnk" id="mvtodas">Ver todas</button>`}</div></div>
+    <div class="card"><h2>Movimentações${FMV.obs == null ? "" : " · " + esc(FMV.obs || "(sem descrição)")}</h2><div class="tw"><table id="mvlista"><thead><tr><th>Data</th><th>Peça</th><th>Tipo</th><th>Loja</th><th class="num">Quantidade</th><th class="num">Antes → depois</th><th>Descrição</th><th>Quem · registrado em</th></tr></thead><tbody>
+      ${mostra.length ? mostra.map(m => { const pc = peca(m); return `<tr><td>${dataBR(m.data)}</td><td><b>${esc(pc.ref)}</b> ${esc(pc.desc)}${pc.var ? ` <span class="mut">— ${esc(pc.var)}</span>` : ""}</td>
+        <td>${esc(MV_TIPO[m.tipo] || m.tipo)}</td><td>${esc(loja(m.loja_id).nome)}${m.loja_destino_id ? " → " + esc(loja(m.loja_destino_id).nome) : ""}</td>
+        <td class="num">${m.tipo === "transferencia" && !FMV.loja ? n(m.quantidade) : sinal(ef(m))}</td><td class="num">${m.tipo === "ajuste" ? `${n(m.antes)} → ${n(m.depois)}` : "—"}</td>
+        <td>${esc(m.observacao || "")}</td><td>${esc(m.criado_nome || "—")}<br><span class="mut">${quando(m.criado_em)}</span></td></tr>`; }).join("")
+      : '<tr><td colspan="8" class="mut">Nenhuma movimentação com estes filtros.</td></tr>'}
+    </tbody></table></div>${lista.length > MAX ? `<div class="mut" style="margin-top:6px">Mostrando as ${n(MAX)} mais recentes de ${n(lista.length)}. O CSV traz todas.</div>` : ""}</div>`;
+  [["mvde", "de"], ["mvate", "ate"], ["mvloja", "loja"], ["mvtipo", "tipo"]].forEach(([id, k]) => $(id).onchange = e => { FMV[k] = e.target.value; if (k === "de" || k === "ate") FMV.obs = null; telaMovimentos(); });
+  let tq; $("mvq").oninput = e => { clearTimeout(tq); tq = setTimeout(() => { FMV.q = e.target.value; telaMovimentos().then(() => { const c = $("mvq"); if (c) { c.focus(); c.setSelectionRange(c.value.length, c.value.length); } }); }, 400); };
+  document.querySelectorAll(".mvgr").forEach(r => r.onclick = () => { const g = gl[r.dataset.i]; FMV.obs = FMV.obs === g.obs ? null : g.obs; telaMovimentos(); });
+  if ($("mvtodas")) $("mvtodas").onclick = () => { FMV.obs = null; telaMovimentos(); };
+  $("mvimp").onclick = () => window.print();
+  $("mvcsv").onclick = () => {
+    const c = x => `"${String(x ?? "").replace(/"/g, '""')}"`;
+    const linhas = [["Data", "Referência", "Peça", "Cor e tamanho", "Tipo", "Loja", "Loja destino", "Quantidade", "Efeito no estoque", "Antes", "Depois", "Descrição", "Quem", "Registrado em"].map(c).join(";"),
+      ...lista.map(m => { const pc = peca(m); return [dataBR(m.data), pc.ref, pc.desc, pc.var, MV_TIPO[m.tipo] || m.tipo, loja(m.loja_id).nome, m.loja_destino_id ? loja(m.loja_destino_id).nome : "",
+        m.quantidade, ef(m), m.tipo === "ajuste" ? m.antes : "", m.tipo === "ajuste" ? m.depois : "", m.observacao || "", m.criado_nome || "", quando(m.criado_em)].map(c).join(";"); })];
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob(["﻿" + linhas.join("\r\n")], { type: "text/csv;charset=utf-8" }));
+    a.download = `movimentacoes-linum-${FMV.de}-a-${FMV.ate}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   };
 }
 
