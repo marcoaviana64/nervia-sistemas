@@ -63,15 +63,13 @@ function etqCabecalho(doc, logo, ox, oy) {   // igual ao gerador antigo
   doc.text("Rua Visconde de Pirajá, 444, loja 111", 51.8 + ox, 137.2 + oy);
   doc.text("Telefones: (21) 3734-1350 - (21) 97437-4263", 42.1 + ox, 144.8 + oy);
 }
-// uma parte de baixo: referência e tamanho | descrição | tecido e preço | código de barras
+// uma parte de baixo: referência | descrição | tecido e preço | código de barras
+// Sem tamanho (decisão do Marco em 02/11/2026): a mesma etiqueta serve para qualquer tamanho da peça, então a
+// referência usa a largura toda (a 2.27 imprimia "Tam. M" e a 2.28 tinha um quadro para escrever à caneta).
 function etqParte(doc, it, parte, ox, oy) {
   const M = ETQ_M, L = M.LEFT_X + ox, R = M.RIGHT_X + ox, r = parte.r + oy;
-  const tam = it.tamanho ? "Tam. " + it.tamanho : "";
-  doc.setFont("helvetica", "bold"); doc.setFontSize(7.5);
-  const lt = tam ? doc.getTextWidth(tam) : 0;
-  if (tam) doc.text(tam, R, r, { align: "right" });
-  etqCaber(doc, it.ref, 6.74, R - L - lt - 4);
-  doc.text(etqCortar(doc, it.ref, R - L - lt - 4), L, r);
+  etqCaber(doc, it.ref, 6.74, R - L);
+  doc.text(etqCortar(doc, it.ref, R - L), L, r);
   etqCaber(doc, it.desc, 9, M.LARG + 30, "normal", 5.5);
   doc.text(etqCortar(doc, it.desc, M.LARG + 30), M.CENTER_X + ox, r + 9.2, { align: "center" });
   const preco = it.valorFmt;
