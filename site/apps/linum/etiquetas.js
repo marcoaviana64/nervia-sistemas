@@ -64,7 +64,7 @@ function etqCabecalho(doc, logo, ox, oy) {   // igual ao gerador antigo
   doc.text("Telefones: (21) 3734-1350 - (21) 97437-4263", 42.1 + ox, 144.8 + oy);
 }
 // uma parte de baixo: referência | descrição | tecido e preço | código de barras
-// Sem tamanho (decisão do Marco em 03/11/2026): a mesma etiqueta serve para qualquer tamanho da peça, então a
+// Sem tamanho (decisão do Marco em 02/11/2026): a mesma etiqueta serve para qualquer tamanho da peça, então a
 // referência usa a largura toda (a 2.27 imprimia "Tam. M" e a 2.28 tinha um quadro para escrever à caneta).
 function etqParte(doc, it, parte, ox, oy) {
   const M = ETQ_M, L = M.LEFT_X + ox, R = M.RIGHT_X + ox, r = parte.r + oy;
