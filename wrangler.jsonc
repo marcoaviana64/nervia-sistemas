@@ -3,12 +3,17 @@
 // As páginas são servidas direto dos arquivos de site/ (grátis, sem limite). O worker (worker/index.js)
 // só roda em /registrar-acesso, que conta os acessos do site (ver supabase/migrations/..._site_acessos.sql).
 // Segredo, só no painel da Cloudflare (Settings → Variables and Secrets): ACESSOS_SEGREDO.
+// Publica-se a pasta publicado/, montada a cada deploy a partir de site/ SEM os comentários do
+// código (ferramentas/publicar/limpar.mjs; pedido do Marco em 02/11/2026). Editar sempre em site/.
 {
   "name": "nervia-site",
   "main": "worker/index.js",
   "compatibility_date": "2026-09-01",
+  "build": {
+    "command": "npm ci --prefix ferramentas/publicar --no-audit --no-fund && node ferramentas/publicar/limpar.mjs && node ferramentas/publicar/conferir.cjs"
+  },
   "assets": {
-    "directory": "./site",
+    "directory": "./publicado",
     "binding": "ASSETS",
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "404-page",
