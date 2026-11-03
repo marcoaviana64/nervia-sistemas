@@ -142,7 +142,7 @@ const linhas = pg => pg.$$eval('#etqlista table tr', trs => trs.slice(1).map(tr 
     ok(/Pages:\s+2/.test(info) && /612 x 792/.test(info), 'PDF Carta com 2 folhas');
     const txt = execFileSync('pdftotext', ['-layout', pdf, '-']).toString();
     ok(!/Tam\./.test(txt) && txt.includes('Calça Areia Bordada') && txt.includes('R$ 1.590') && txt.includes('Kimono Avulso'),
-      'o PDF sai sem o tamanho impresso (só o quadro em branco), a peça especial e a etiqueta digitada');
+      'o PDF sai sem o tamanho, a peça especial e a etiqueta digitada');
     ok((txt.match(/Prazo de troca: 30 dias/g) || []).length === 15, 'um cabeçalho por etiqueta (15)');
     execFileSync('pdftoppm', ['-r', '300', '-png', pdf, path.join(pasta, 'p')]);
     const leitura = execFileSync('python3', ['-c', `
