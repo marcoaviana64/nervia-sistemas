@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Compatibilidade das TVs · Mídia Indoor | Nervia</title>
+<link rel="stylesheet" href="/ajuda/ajuda.css">
+<style>
+/* Quais TVs e aparelhos rodam o app Mídia Indoor Nervia, pré-requisitos e a mensagem de WhatsApp para levantar as TVs
+   do cliente antes da visita (equipe Nervia). Lista de marcas = conhecimento geral: o que decide é o teste da Play Store. */
+.sim{color:#1d7f46;font-weight:700}.nao{color:#b3261e;font-weight:700}.talvez{color:#8a5200;font-weight:700}
+.teste{border:2px solid var(--acento);border-radius:10px;padding:10px 14px;margin:10px 0}
+.teste b.g{font-size:1.02rem}
+.msg{white-space:pre-wrap;font:13px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#e7f7ec;border:1px solid #bfe3cb;border-radius:10px;padding:12px 14px;margin:8px 0}
+.bts{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 4px}
+.bts button,.bts a{font:inherit;font-size:.85rem;font-weight:600;border:1px solid var(--acento);color:var(--acento);background:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;text-decoration:none}
+.bts .pri{background:var(--acento);color:#fff}
+#copiado{color:#1d7f46;font-size:.85rem;align-self:center}
+td.c{text-align:center;white-space:nowrap;width:14%}
+.quebra{break-before:page}
+@media print{.bts{display:none}.msg{font-size:11px}h2{break-after:avoid}table,tr{break-inside:avoid}}
+</style>
+</head>
+<body>
+<div class="pagina">
+  <div class="cab">
+    <img src="/img/nervia-logo.png" alt="Nervia">
+    <div><div class="t">Mídia Indoor · Compatibilidade das TVs</div><div class="s">O que precisa ter antes de instalar e como perguntar ao cliente</div></div>
+    <div class="acoes"><a href="instalacao.html">Instalação na TV</a><a href="manual.html">Manual</a><button onclick="print()">Imprimir</button></div>
+  </div>
+
+  <p class="lead">O app roda em TVs com <b>Android TV / Google TV</b> e em <b>aparelhos Android ligados no HDMI</b> (TV box ou stick), com Android 7.0 ou mais novo. Samsung, LG e TVs Roku não rodam o app: nelas vai um aparelho externo.</p>
+
+  <div class="teste">
+    <b class="g">O teste que decide: a TV tem a Google Play Store?</b>
+    <ul>
+      <li><span class="sim">Tem</span> → é Android TV / Google TV: o app funciona direto na TV.</li>
+      <li><span class="nao">Não tem</span> → não funciona na TV: usar um aparelho Android no HDMI.</li>
+      <li>Para confirmar: <i>Configurações → Sobre</i> mostra <b>"Android TV OS"</b> ou <b>Google TV</b>, versão <b>7.0 ou mais nova</b>.</li>
+    </ul>
+  </div>
+
+  <h2>1. Por sistema da TV</h2>
+  <table>
+    <tr><th>Sistema da TV</th><th>Marcas e linhas típicas</th><th class="c">Funciona?</th></tr>
+    <tr><td>Google TV / Android TV</td><td>Sony (Bravia), TCL (linhas Google TV), Xiaomi, parte da Philips, parte da Hisense</td><td class="c"><span class="sim">Sim</span></td></tr>
+    <tr><td>Tizen</td><td>Samsung</td><td class="c"><span class="nao">Não</span> → aparelho</td></tr>
+    <tr><td>webOS</td><td>LG</td><td class="c"><span class="nao">Não</span> → aparelho</td></tr>
+    <tr><td>Roku TV</td><td>Semp, AOC, Philco, TCL (linhas Roku)</td><td class="c"><span class="nao">Não</span> → aparelho</td></tr>
+    <tr><td>VIDAA</td><td>maioria da Hisense</td><td class="c"><span class="nao">Não</span> → aparelho</td></tr>
+    <tr><td>Fire TV (Amazon)</td><td>Fire TV Stick com Fire OS (Android modificado). As versões novas com sistema Vega não rodam apps Android</td><td class="c"><span class="talvez">Ainda não testado</span></td></tr>
+    <tr><td>Outros sistemas próprios</td><td>TVs mais baratas e modelos antigos</td><td class="c"><span class="nao">Em geral não</span> → aparelho</td></tr>
+  </table>
+  <p class="lead">A mesma marca vende linhas com sistemas diferentes: confirme sempre pelo teste da Play Store ou pela tela <i>Sobre</i> do modelo.</p>
+
+  <h2>2. Aparelho externo (quando a TV não roda o app)</h2>
+  <ul>
+    <li><b>Prefira aparelho certificado pelo Google e homologado pela Anatel</b>: linhas de marca com Google TV (por exemplo Google TV Streamer / Chromecast com Google TV, Xiaomi TV Box ou TV Stick com Google TV).</li>
+    <li><b>Evite TV box genérico de marketplace</b> (MXQ, X96, Tanix e parecidos): costuma vir sem certificação e com sistema modificado, e a Anatel vem bloqueando e apreendendo aparelhos não homologados. Não é o que se instala num cliente.</li>
+    <li><b>Padronize um modelo</b> para a Nervia, testado no piloto, e compre sempre o mesmo: o roteiro de instalação e os problemas conhecidos passam a valer para todas as TVs.</li>
+    <li>Precisa de uma <b>entrada HDMI livre</b> e de uma <b>tomada</b> (ou USB da TV que dê energia suficiente; na dúvida, fonte na tomada).</li>
+  </ul>
+
+  <h2>3. Pré-requisitos do aparelho</h2>
+  <table>
+    <tr><th>Item</th><th>Mínimo</th><th>Recomendado</th></tr>
+    <tr><td>Sistema</td><td>Android 7.0 (Android TV / Google TV)</td><td>Android 11 ou mais novo</td></tr>
+    <tr><td>Espaço livre</td><td>limite da conta + 1 GB (padrão: 5 GB → 6 GB livres)</td><td>8 GB ou mais</td></tr>
+    <tr><td>Memória (RAM)</td><td>1 GB</td><td>2 GB ou mais</td></tr>
+    <tr><td>Vídeo</td><td>H.264 até 1080p (praticamente todo aparelho)</td><td>—</td></tr>
+    <tr><td>Rede</td><td>Wi-Fi ou cabo com internet (só para baixar e atualizar; sem internet continua passando)</td><td>Cabo de rede, quando houver ponto</td></tr>
+    <tr><td>Configurações</td><td>Opções do desenvolvedor e ADB disponíveis; protetor de tela e desligamento automático que possam ser desligados</td><td>—</td></tr>
+    <tr><td>Rede com bloqueio de sites</td><td>Liberar o Google (googleapis.com) e o endereço do Supabase da Nervia (<code>*.supabase.co</code>)</td><td>—</td></tr>
+  </table>
+
+  <h2>4. Antes da visita: o que perguntar ao cliente</h2>
+  <ol>
+    <li>Quantas TVs e onde ficam (para dar nome a cada uma no painel).</li>
+    <li>Marca e modelo de cada TV. Melhor ainda: foto da tela <i>Configurações → Sobre</i>.</li>
+    <li>Se a TV tem a Play Store.</li>
+    <li>Se há internet perto da TV (Wi-Fi ou ponto de rede).</li>
+    <li>Se há tomada e entrada HDMI livres atrás da TV.</li>
+    <li>Como a TV liga e desliga hoje (alguém liga pelo controle, timer, fica ligada direto).</li>
+    <li>Se a empresa bloqueia sites na rede (TI própria, firewall).</li>
+  </ol>
+
+  <h2 class="quebra">5. Mensagem para mandar ao cliente pelo WhatsApp</h2>
+  <p class="lead">Mande antes de marcar a visita. Com as respostas, dá para saber se cada TV roda o app direto ou se precisa de aparelho, e levar tudo na primeira ida.</p>
+  <div class="msg" id="msg">Olá! Aqui é da Nervia. Para prepararmos a instalação do Mídia Indoor, precisamos de algumas informações sobre as TVs onde os vídeos vão passar:
+
+1. Quantas TVs são e em que local fica cada uma (ex.: recepção, hall, praça de alimentação)?
+2. Qual a marca e o modelo de cada TV? Se puder, mande uma foto da tela Configurações → Sobre (ou da etiqueta atrás da TV).
+3. A TV tem a loja de aplicativos Google Play?
+4. Perto da TV tem internet? Wi-Fi ou ponto de cabo de rede?
+5. Atrás da TV tem uma tomada livre e uma entrada HDMI livre?
+6. Hoje a TV fica ligada o dia todo, ou alguém liga e desliga?
+7. A empresa tem bloqueio de sites na rede (TI própria ou firewall)? Se tiver, qual o contato do responsável?
+
+Com isso conseguimos saber se a TV já roda o aplicativo ou se vamos levar um aparelho para ligar nela. Obrigado!</div>
+  <div class="bts">
+    <button class="pri" onclick="copiar()">Copiar mensagem</button>
+    <a id="wa" href="#" target="_blank" rel="noopener">Abrir no WhatsApp</a>
+    <span id="copiado"></span>
+  </div>
+
+  <h2>6. Com as respostas na mão</h2>
+  <table>
+    <tr><th>Resposta do cliente</th><th>O que levar / fazer</th></tr>
+    <tr><td>TV com Play Store, Android 7+</td><td>Instalar direto na TV (roteiro de instalação).</td></tr>
+    <tr><td>Samsung, LG, Roku, VIDAA ou sem Play Store</td><td>Levar o aparelho Android padrão da Nervia, um por TV, com cabo HDMI e fonte.</td></tr>
+    <tr><td>Sem internet perto da TV</td><td>Combinar com o cliente um ponto de Wi-Fi ou cabo antes da instalação. Sem internet a TV não recebe as mídias pela primeira vez.</td></tr>
+    <tr><td>Sem tomada ou HDMI livre</td><td>Levar filtro de linha / extensão; ver se dá para liberar uma entrada HDMI.</td></tr>
+    <tr><td>Rede com bloqueio de sites</td><td>Pedir à TI do cliente para liberar googleapis.com e *.supabase.co antes da visita.</td></tr>
+    <tr><td>TV desligada fora do horário</td><td>Sem problema: quando a TV liga, o app abre sozinho (confirmar no teste de reinício).</td></tr>
+  </table>
+
+  <div class="rodape">Nervia Tecnologia · Compatibilidade das TVs do app Mídia Indoor · atualizado em 04/11/2026 · A lista de marcas é uma referência geral: o que decide é o teste da Play Store no modelo do cliente.</div>
+</div>
+<script>
+const texto = () => document.getElementById("msg").innerText.trim();
+document.getElementById("wa").href = "https://wa.me/?text=" + encodeURIComponent(texto());
+async function copiar() {
+  const aviso = document.getElementById("copiado");
+  try { await navigator.clipboard.writeText(texto()); aviso.textContent = "Mensagem copiada."; }
+  catch { const r = document.createRange(); r.selectNodeContents(document.getElementById("msg")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); aviso.textContent = "Selecionada: use Ctrl+C."; }
+  setTimeout(() => aviso.textContent = "", 4000);
+}
+</script>
+<script src="/marca-dagua.js" data-tipo="doc"></script>
+</body>
+</html>
