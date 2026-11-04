@@ -29,7 +29,6 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -58,6 +57,9 @@ class MainActivity : Activity() {
     private val baixador by lazy { Baixador(File(filesDir, "midia")) }
     private val handler = Handler(Looper.getMainLooper())
 
+    private lateinit var raiz: FrameLayout
+    private lateinit var palco: FrameLayout       // tudo o que aparece; gira quando a TV está em pé
+    private var rotacao = 0
     private lateinit var playerView: PlayerView
     private lateinit var imagem: ImageView
     private lateinit var painel: LinearLayout     // código / espera
@@ -130,14 +132,9 @@ class MainActivity : Activity() {
 
     @OptIn(UnstableApi::class)
     private fun montarTela() {
-        val raiz = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
-        playerView = PlayerView(this).apply {
-            useController = false
-            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-            setShutterBackgroundColor(Color.BLACK)
-            setKeepContentOnPlayerReset(true)
-            visibility = View.GONE
-        }
+        raiz = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
+        palco = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
+        playerView = layoutInflater.inflate(R.layout.player, palco, false) as PlayerView
         imagem = ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_CENTER; setBackgroundColor(Color.BLACK); visibility = View.GONE }
         titulo = texto(18f, Color.rgb(154, 170, 176)).apply { text = "NERVIA • Mídia Indoor" }
         grande = texto(64f, Color.rgb(95, 211, 211), negrito = true).apply { letterSpacing = 0.3f }
@@ -150,11 +147,26 @@ class MainActivity : Activity() {
                 addView(v, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { setMargins(m * 3, m, m * 3, m) })
             }
         }
-        raiz.addView(playerView, FrameLayout.LayoutParams(-1, -1))
-        raiz.addView(imagem, FrameLayout.LayoutParams(-1, -1))
-        raiz.addView(painel, FrameLayout.LayoutParams(-1, -1))
+        palco.addView(playerView, FrameLayout.LayoutParams(-1, -1))
+        palco.addView(imagem, FrameLayout.LayoutParams(-1, -1))
+        palco.addView(painel, FrameLayout.LayoutParams(-1, -1))
+        raiz.addView(palco, FrameLayout.LayoutParams(-1, -1))
+        raiz.addOnLayoutChangeListener { _, l, t, r, b, ol, ot, or_, ob -> if (r - l != or_ - ol || b - t != ob - ot) raiz.post { aplicarRotacao(rotacao) } }
         setContentView(raiz)
+        aplicarRotacao(prefs.getInt("rotacao", 0))
         mostrarPainel("", "Iniciando…", "")
+    }
+
+    /** Gira o palco (vídeo, imagem e telas do app) para a TV montada em pé ou de cabeça para baixo. */
+    private fun aplicarRotacao(graus: Int) {
+        rotacao = graus
+        val w = raiz.width.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels
+        val h = raiz.height.takeIf { it > 0 } ?: resources.displayMetrics.heightPixels
+        val deitada = graus == 90 || graus == 270
+        palco.layoutParams = if (deitada) FrameLayout.LayoutParams(h, w, Gravity.CENTER) else FrameLayout.LayoutParams(-1, -1)
+        palco.rotation = graus.toFloat()
+        // com a imagem girada, a amostragem da imagem usa o tamanho do palco
+        palco.requestLayout()
     }
 
     private fun mostrarPainel(codigo: String, linha: String, baixo: String) {
@@ -240,6 +252,7 @@ class MainActivity : Activity() {
                     delay(60_000); continue
                 }
                 nomeTela = p.tela; intervaloSinal = p.intervaloSinalS
+                if (p.rotacao != rotacao) { prefs.edit { putInt("rotacao", p.rotacao) }; aplicarRotacao(p.rotacao) }
                 prefs.edit { putString("playlist", playlistJson(p)) }
                 if (p.itens.isEmpty()) {
                     lista = emptyList(); pendente = null
@@ -258,15 +271,17 @@ class MainActivity : Activity() {
         }
     }
 
-    /** Baixa o que falta, um por vez; a lista nova entra no fim do item que está passando. */
+    /** Baixa o que falta, um por vez. Parada (sem nada tocando), começa a tocar assim que o 1º arquivo fica pronto;
+     *  tocando, a lista nova entra no fim do item que está passando, quando tudo terminar de baixar. */
     private suspend fun baixarTodos(p: Playlist) {
         val faltam = p.itens.filter { !baixador.pronto(it) }.distinctBy { it.arquivo }
         baixando = faltam.size
-        if (faltam.isNotEmpty() && lista.isEmpty() && atual == null) mostrarPainel("", p.tela, "Baixando ${faltam.size} arquivo(s)…")
-        for (i in faltam) {
+        faltam.forEachIndexed { n, i ->
+            if (atual == null) mostrarPainel("", p.tela, "Baixando ${n + 1} de ${faltam.size}: ${i.nome}")
             try {
                 withContext(Dispatchers.IO) { baixador.baixar(i, p.chaveApi) }
                 erros.remove(i.nome)
+                if (atual == null) atualizarLista(p.itens.filter { baixador.pronto(it) })
             } catch (e: Exception) {
                 Log.w(TAG, "download ${i.nome}: ${e.message}")
                 erros[i.nome] = "não baixou: ${e.message}"
@@ -274,7 +289,7 @@ class MainActivity : Activity() {
             baixando--
         }
         baixando = p.itens.count { !baixador.pronto(it) }
-        // lista nova com o que já está no aparelho (o que falhou entra na próxima rodada)
+        // lista completa com o que está no aparelho (o que falhou entra na próxima rodada)
         atualizarLista(p.itens.filter { baixador.pronto(it) })
     }
 
@@ -347,7 +362,9 @@ class MainActivity : Activity() {
     private fun decodificar(f: File): Bitmap? = runCatching {
         val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(f.path, o)
-        val w = resources.displayMetrics.widthPixels.coerceAtLeast(1280); val h = resources.displayMetrics.heightPixels.coerceAtLeast(720)
+        val larga = palco.width.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels
+        val alta = palco.height.takeIf { it > 0 } ?: resources.displayMetrics.heightPixels
+        val w = larga.coerceAtLeast(720); val h = alta.coerceAtLeast(720)
         var amostra = 1
         while (o.outWidth / (amostra * 2) >= w && o.outHeight / (amostra * 2) >= h) amostra *= 2
         BitmapFactory.decodeFile(f.path, BitmapFactory.Options().apply { inSampleSize = amostra })
@@ -376,7 +393,7 @@ class MainActivity : Activity() {
 
     private fun playlistJson(p: Playlist) = JSONObject()
         .put("tela", p.tela).put("playlist", p.playlist).put("conteudo", p.conteudo).put("chave_api", p.chaveApi)
-        .put("intervalo_playlist_s", p.intervaloPlaylistS).put("intervalo_sinal_s", p.intervaloSinalS)
+        .put("intervalo_playlist_s", p.intervaloPlaylistS).put("intervalo_sinal_s", p.intervaloSinalS).put("rotacao", p.rotacao)
         .put("itens", JSONArray(p.itens.map {
             JSONObject().put("id", it.id).put("nome", it.nome).put("tipo", it.tipo).put("md5", it.md5).put("tamanho", it.tamanho)
                 .put("tempo_s", it.tempoS ?: JSONObject.NULL).put("url", it.url).put("chave_recurso", it.chaveRecurso ?: JSONObject.NULL)

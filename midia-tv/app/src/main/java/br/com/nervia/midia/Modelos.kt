@@ -32,6 +32,7 @@ data class Playlist(
     val chaveApi: String,
     val intervaloPlaylistS: Int,
     val intervaloSinalS: Int,
+    val rotacao: Int,            // graus no sentido horário: 0, 90, 180, 270 (posição da TV, escolhida no painel)
 ) {
     companion object {
         fun deJson(j: JSONObject): Playlist {
@@ -47,8 +48,9 @@ data class Playlist(
             return Playlist(
                 tela = j.optString("tela"), playlist = j.optString("playlist"), itens = itens, conteudo = j.optString("conteudo"),
                 chaveApi = j.optString("chave_api"),
-                intervaloPlaylistS = j.optInt("intervalo_playlist_s", 300).coerceIn(60, 3600),
+                intervaloPlaylistS = j.optInt("intervalo_playlist_s", 300).coerceIn(20, 3600),
                 intervaloSinalS = j.optInt("intervalo_sinal_s", 180).coerceIn(60, 3600),
+                rotacao = j.optInt("rotacao", 0).let { if (it in listOf(0, 90, 180, 270)) it else 0 },
             )
         }
     }

@@ -28,7 +28,7 @@ const FALSO = `(() => {
       { id: 'm4', playlist_id: 'p2', drive_id: 'F4', nome: '01_cardapio.jpg', tipo: 'imagem', situacao: 'ok', motivo: '', tamanho: 2202009, posicao: 1, tempo_s: 12 }],
     mi_telas: [
       { id: 't1', conta_id: 'c1', nome: 'Hall de entrada', playlist_id: 'p1', ultimo_sinal: min(1), versao_app: '1.0', modelo: 'TV box X96', android: '9', tocando: '01_black-friday.mp4', espaco_livre_mb: 6200, baixando: 0, erros: [] },
-      { id: 't2', conta_id: 'c1', nome: 'Estacionamento', playlist_id: 'p2', ultimo_sinal: min(190), versao_app: '1.0', modelo: 'Google TV', android: '12', tocando: '', espaco_livre_mb: 3000, baixando: 0, erros: [{ nome: 'promo.mp4', erro: 'este aparelho não toca o vídeo' }] }],
+      { id: 't2', conta_id: 'c1', nome: 'Estacionamento', playlist_id: 'p2', ultimo_sinal: min(190), versao_app: '1.0', modelo: 'Google TV', android: '12', tocando: '', espaco_livre_mb: 300, baixando: 0, erros: [{ nome: 'promo.mp4', erro: 'este aparelho não toca o vídeo' }] }],
     codigos: { 'ABC234': 'livre' },
     log: []
   };
@@ -79,6 +79,7 @@ const FALSO = `(() => {
       db.log.push('vincular'); return ok(id);
     },
     mi_tela_salvar(p) { const t = db.mi_telas.find(x => x.id === p.p_tela); if (!t || !pode(t.conta_id)) return erro('TV não encontrada.'); t.nome = p.p_nome; t.playlist_id = p.p_playlist; db.log.push('tela'); return ok(null); },
+    mi_tela_girar(p) { const t = db.mi_telas.find(x => x.id === p.p_tela); if (!t || !pode(t.conta_id)) return erro('TV não encontrada.'); t.rotacao = p.p_rotacao; return ok(null); },
     mi_desvincular(p) { const t = db.mi_telas.find(x => x.id === p.p_tela); if (!t || !pode(t.conta_id)) return erro('TV não encontrada.'); db.mi_telas = db.mi_telas.filter(x => x !== t); return ok(null); },
     mi_midia_tempo(p) { const m = db.mi_midias.find(x => x.id === p.p_midia); m.tempo_s = p.p_tempo; return ok(null); },
     mi_conta_salvar(p) {
@@ -147,12 +148,18 @@ const db = pg => pg.evaluate(() => window.__db);
     ok(kpi.includes('1 de 2'), 'KPI: 1 de 2 TVs online');
     ok((await pg.locator('.aviso.warn').innerText()).includes('Estacionamento'), 'aviso da TV offline');
     ok((await pg.locator('#tela').innerText()).includes('este aparelho não toca o vídeo'), 'erro informado pela TV aparece');
+    ok((await pg.locator('#tela').innerText()).includes('pouco espaço: 0,3 GB livres'), 'aviso de pouco espaço na TV');
     await print(pg, 'midia_tvs');
     // trocar playlist
     await pg.selectOption('select[data-pl=t1]', 'p2');
     await pg.waitForTimeout(200);
     ok((await db(pg)).mi_telas.find(t => t.id === 't1').playlist_id === 'p2', 'troca de playlist grava pela rpc');
     ok((await pg.locator('#msg').innerText()).includes('no fim do item'), 'mensagem da troca no fim do item');
+    // posição da TV
+    await pg.selectOption('select[data-rot=t1]', '90');
+    await pg.waitForTimeout(200);
+    ok((await db(pg)).mi_telas.find(t => t.id === 't1').rotacao === 90 && (await pg.locator('#msg').innerText()).includes('em pé'), 'posição da TV (em pé) grava pela rpc');
+    ok(!(await pg.locator('tr', { has: pg.locator('select[data-rot=t1]') }).innerText()).includes('pouco espaço'), 'sem aviso de espaço na TV com espaço sobrando');
     // adicionar TV: código inválido, código usado, ok
     await pg.click('[data-acao=addTv]');
     await pg.fill('#fCod', 'AB'); await pg.fill('#fNome', 'Vitrine'); await pg.click('#fOk');

@@ -149,6 +149,7 @@ Deno.test({ name: "Mídia Indoor de ponta a ponta", sanitizeOps: false, sanitize
     eq(r.j.itens.map((i: { nome: string }) => i.nome), ["01_promo.mp4", "02_horario.png"]);
     eq(r.j.itens[1].tempo_s, 9, "imagem com o tempo padrão da conta");
     eq(r.j.chave_api, "CHAVE-TESTE");
+    eq([r.j.rotacao, r.j.intervalo_playlist_s], [0, 300], "posição normal e consulta a cada 5 min com conteúdo");
     eq(r.j.itens[0].md5, md5(h264));
     // a TV baixa pela URL + chave (o Drive imitado devolve o vídeo e o md5 confere)
     const baixado = new Uint8Array(await (await fetch(r.j.itens[0].url + "&key=" + r.j.chave_api)).arrayBuffer());
@@ -177,6 +178,11 @@ Deno.test({ name: "Mídia Indoor de ponta a ponta", sanitizeOps: false, sanitize
     eq(r.j.itens.map((i: { nome: string; tempo_s: number | null }) => [i.nome, i.tempo_s]), [["00_abertura.jpg", 9], ["01_promo.mp4", null], ["02_horario.png", 20]]);
     assert(r.j.conteudo !== conteudo1);
   });
+  await t.step("posição da TV (em pé) chega à TV", async () => {
+    const [tela] = await rest(T.cli, "/mi_telas?select=id");
+    await rpc(T.cli, "mi_tela_girar", { p_tela: tela.id, p_rotacao: 90 });
+    eq((await tv({ acao: "playlist", token })).j.rotacao, 90);
+  });
   await t.step("troca de playlist chega à TV", async () => {
     const [tela] = await rest(T.cli, "/mi_telas?select=id");
     const [praca] = await rest(T.cli, `/mi_playlists?select=id&nome=eq.Pra%C3%A7a`);
@@ -187,7 +193,7 @@ Deno.test({ name: "Mídia Indoor de ponta a ponta", sanitizeOps: false, sanitize
   await t.step("conta suspensa: TV recebe playlist vazia (tela de espera)", async () => {
     await rest(T.admin, `/mi_contas?id=eq.${conta}`, { method: "PATCH", body: JSON.stringify({ ativo: false }) });
     const r = await tv({ acao: "playlist", token });
-    eq([r.j.conta_ativa, r.j.itens.length], [false, 0]);
+    eq([r.j.conta_ativa, r.j.itens.length, r.j.intervalo_playlist_s], [false, 0, 30], "sem conteúdo: pergunta de novo em 30 s");
     await rest(T.admin, `/mi_contas?id=eq.${conta}`, { method: "PATCH", body: JSON.stringify({ ativo: true }) });
   });
   await t.step("desvincular: TV recebe 401 na playlist e no sinal", async () => {

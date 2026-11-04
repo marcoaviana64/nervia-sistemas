@@ -22,6 +22,15 @@ class ModelosTest {
         assertEquals("0-rk", p.itens[1].chaveRecurso)
         assertNull(p.itens[0].chaveRecurso)
         assertEquals(60, p.intervaloSinalS)                              // mínimo de 60 s
+        assertEquals(0, p.rotacao)
+    }
+
+    @Test fun rotacaoEIntervaloSemConteudo() {
+        val j = JSONObject(json).put("rotacao", 90).put("intervalo_playlist_s", 30)
+        val p = Playlist.deJson(j)
+        assertEquals(90, p.rotacao)
+        assertEquals(30, p.intervaloPlaylistS)
+        assertEquals(0, Playlist.deJson(JSONObject(json).put("rotacao", 45)).rotacao)   // valor estranho = normal
     }
 
     @Test fun nomeNoAparelhoMudaComOConteudo() {

@@ -124,7 +124,8 @@ const minTxt = m => { m = Math.max(0, Math.round(m)); return m < 1 ? "agora" : m
 const desde = v => v ? minTxt((Date.now() - new Date(v)) / 6e4) : "";
 const durTxt = s => { s = Math.round(s || 0); return s >= 60 ? `${Math.floor(s / 60)} min${s % 60 ? " " + (s % 60) + " s" : ""}` : `${s} s`; };
 const mbTxt = b => { const mb = (b || 0) / 1048576; return mb >= 1000 ? (mb / 1024).toFixed(2).replace(".", ",") + " GB" : (mb < 10 ? mb.toFixed(1) : Math.round(mb)).toString().replace(".", ",") + " MB"; };
-const ONLINE_MIN = 10;   // sem sinal há mais de 10 min = offline (a TV manda a cada 3 min)
+const ONLINE_MIN = 10;
+const POSICOES = [[0, "Deitada (normal)"], [90, "Em pé, girada para a direita"], [270, "Em pé, girada para a esquerda"], [180, "De cabeça para baixo"]];   // sem sinal há mais de 10 min = offline (a TV manda a cada 3 min)
 function msg(tipo, texto) { const m = $("msg"); m.className = "msg " + tipo; m.textContent = texto; if (tipo === "ok") setTimeout(() => m.classList.add("oculto"), 6000); }
 function limparMsg() { $("msg").className = "msg oculto"; }
 async function funcao(nome, corpo) {
@@ -166,7 +167,7 @@ async function carregar() {
   const [c, p, t] = await Promise.all([
     sb.from("mi_contas").select("*").eq("id", CONTA.id).single().then(checar),
     sb.from("mi_playlists").select("*").eq("conta_id", CONTA.id).order("raiz", { ascending: false }).order("nome").then(checar),
-    sb.from("mi_telas").select("id, conta_id, nome, playlist_id, aparelho, vinculada_em, ultimo_sinal, versao_app, modelo, android, tocando, conteudo, espaco_livre_mb, baixando, erros").eq("conta_id", CONTA.id).order("nome").then(checar)]);
+    sb.from("mi_telas").select("id, conta_id, nome, playlist_id, rotacao, aparelho, vinculada_em, ultimo_sinal, versao_app, modelo, android, tocando, conteudo, espaco_livre_mb, baixando, erros").eq("conta_id", CONTA.id).order("nome").then(checar)]);
   CONTA = c; PLS = p; TELAS = t;
   MIDIAS = PLS.length ? checar(await sb.from("mi_midias").select("*").in("playlist_id", PLS.map(x => x.id)).order("posicao")) : [];
   if (!PLS.some(x => x.id === PLSEL)) PLSEL = (PLS[0] || {}).id || null;
@@ -204,19 +205,21 @@ function vTelas() {
     </div>
     ${off.length ? `<div class="aviso warn">${off.map(t => `<b>${esc(t.nome)}</b> sem sinal ${desde(t.ultimo_sinal)}`).join(" · ")}. A TV continua tocando o que já baixou, mas não recebe alterações. Confira se está ligada e com internet.</div>` : ""}
     <div class="card"><h2>TVs<span class="dir"><button class="bt pri" data-acao="addTv">+ Adicionar TV</button></span></h2>
-    ${TELAS.length ? `<div class="tw"><table><tr><th>TV</th><th>Status</th><th>Playlist</th><th class="esc-m">Aparelho</th><th class="esc-m">Situação</th><th></th></tr>
+    ${TELAS.length ? `<div class="tw"><table><tr><th>TV</th><th>Status</th><th>Playlist</th><th>Posição da TV</th><th class="esc-m">Aparelho</th><th class="esc-m">Situação</th><th></th></tr>
     ${TELAS.map(t => {
       const erros = Array.isArray(t.erros) ? t.erros : [];
       const st = !t.ultimo_sinal ? `${tag("aguardando 1º sinal", "t-mut")}` : online(t) ? `<span class="dot" style="background:var(--ok)"></span>Online` : `<span class="dot" style="background:var(--crit)"></span>Offline`;
       return `<tr><td><b>${esc(t.nome)}</b>${t.tocando ? `<div class="mut">tocando: ${esc(t.tocando)}</div>` : ""}</td>
         <td>${st}${t.ultimo_sinal ? `<div class="mut">sinal ${desde(t.ultimo_sinal)}</div>` : ""}</td>
         <td><select data-pl="${t.id}"><option value="">— nenhuma (tela de espera) —</option>${PLS.map(p => `<option value="${p.id}" ${p.id === t.playlist_id ? "selected" : ""}>${esc(p.nome)}</option>`).join("")}</select></td>
+        <td><select data-rot="${t.id}" title="Como a TV está instalada: o app gira a imagem para ficar certa">${POSICOES.map(([g, n]) => `<option value="${g}" ${g === (t.rotacao || 0) ? "selected" : ""}>${n}</option>`).join("")}</select></td>
         <td class="esc-m">${esc(t.modelo || "—")}<div class="mut">${t.android ? "Android " + esc(t.android) : ""}${t.versao_app ? " · app " + esc(t.versao_app) : ""}${t.espaco_livre_mb != null ? ` · ${(t.espaco_livre_mb / 1024).toFixed(1).replace(".", ",")} GB livres` : ""}</div></td>
         <td class="esc-m">${t.baixando ? tag(`baixando ${t.baixando} arquivo(s)`, "t-info") : t.ultimo_sinal ? tag("em dia", "t-ok") : ""}
+          ${t.espaco_livre_mb != null && t.espaco_livre_mb * 1048576 < usado() + 524288000 ? tag(`pouco espaço: ${(t.espaco_livre_mb / 1024).toFixed(1).replace(".", ",")} GB livres`, "t-warn") : ""}
           ${erros.map(e => `<div class="mut" style="color:var(--crit)">${esc(e.nome)}: ${esc(e.erro)}</div>`).join("")}</td>
         <td style="white-space:nowrap"><button class="bt peq" data-acao="renomear" data-id="${t.id}">Renomear</button> <button class="bt peq perigo" data-acao="desvincular" data-id="${t.id}">Desvincular</button></td></tr>`;
     }).join("")}</table></div>` : `<div class="vazio">Nenhuma TV ainda. Instale o app <b>Mídia Indoor Nervia</b> na TV ou no TV box: ele mostra um código de 6 caracteres. Depois clique em <b>+ Adicionar TV</b>.</div>`}
-    <p class="mut">A troca de playlist chega à TV em até 5 minutos e acontece no fim do item que está passando.</p></div>`;
+    <p class="mut">A troca de playlist e de posição chega à TV em até 5 minutos (TV sem nada para passar: em até 30 segundos). A playlist troca no fim do item que está passando. <b>Posição da TV:</b> para TV instalada em pé, escolha para que lado ela foi girada; o app gira a imagem, sem precisar de vídeo rotacionado.</p></div>`;
 }
 function dlgAddTv() {
   if (!PLS.length) { msg("info", "Ligue a pasta do Drive antes (aba Pasta do Drive), para escolher a playlist da TV. Dá para vincular agora e escolher depois."); }
@@ -396,6 +399,11 @@ document.addEventListener("change", async e => {
       checar(await sb.rpc("mi_tela_salvar", { p_tela: t.id, p_nome: t.nome, p_playlist: s.value || null }));
       t.playlist_id = s.value || null; render();
       msg("ok", `Playlist de "${t.nome}" trocada. A TV muda em até 5 minutos, no fim do item que está passando.`);
+    } else if (s.dataset.rot) {
+      const t = TELAS.find(x => x.id === s.dataset.rot), g = parseInt(s.value, 10);
+      checar(await sb.rpc("mi_tela_girar", { p_tela: t.id, p_rotacao: g }));
+      t.rotacao = g; render();
+      msg("ok", `Posição de "${t.nome}" salva: ${POSICOES.find(x => x[0] === g)[1].toLowerCase()}. A TV gira a imagem em até 5 minutos.`);
     } else if (s.dataset.tempo) {
       const v = s.value.trim() === "" ? null : parseInt(s.value, 10);
       checar(await sb.rpc("mi_midia_tempo", { p_midia: s.dataset.tempo, p_tempo: v }));
