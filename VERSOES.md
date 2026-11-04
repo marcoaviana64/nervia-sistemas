@@ -119,6 +119,7 @@ Ao publicar mudança num app: linha nova no topo do app aqui (com a data) e em `
 
 | Versão | Data | O que mudou |
 |---|---|---|
+| 1.3 | 04/11/2026 | O app da TV pode ser baixado direto no endereço nervia.com.br/tv.apk, que se digita no Downloader da TV; o roteiro de instalação ganhou o caminho sem notebook. |
 | 1.2 | 04/11/2026 | Página de compatibilidade das TVs: quais TVs e aparelhos rodam o app, pré-requisitos e a mensagem pronta para pedir as informações ao cliente pelo WhatsApp. |
 | 1.1 | 04/11/2026 | Roteiro de instalação na TV para imprimir, com a conferência antes de sair e a ficha da instalação. |
 | 1.0 | 04/11/2026 | Lançamento: vídeos e imagens nas TVs da empresa a partir de uma pasta do Google Drive (cada subpasta é uma playlist), TVs vinculadas por código, status online/offline e conferência automática dos arquivos. |

@@ -24,6 +24,9 @@ Precisa de JDK 17+ e do Android SDK (platform 36, build-tools 36). `local.proper
 ```
 O APK sai em `app/build/outputs/apk/release/app-release.apk`. A URL do Supabase e a chave publicável vêm de `../site/config.js`.
 
+## Publicar para as instalações
+Copiar `app/build/outputs/apk/release/app-release.apk` para `site/tv.apk` (https://nervia.com.br/tv.apk, o endereço que se digita no Downloader da TV). O APK sobe a cada versão nova (subir `versionCode` antes).
+
 ## Assinatura
 `assinatura.properties` (fora do git) com `arquivo`, `senha`, `apelido` (e `senha_chave`, se diferente). Sem ele o APK sai com a
 chave de depuração, só para piloto. **Guardar a chave de produção com cuidado**: sem ela não dá para atualizar o app nas TVs.
