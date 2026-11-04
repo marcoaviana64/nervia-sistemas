@@ -49,9 +49,10 @@ td.c{text-align:center;white-space:nowrap;width:14%}
     <tr><td>webOS</td><td>LG</td><td class="c"><span class="nao">Não</span> → aparelho</td></tr>
     <tr><td>Roku TV</td><td>Semp, AOC, Philco, TCL (linhas Roku)</td><td class="c"><span class="nao">Não</span> → aparelho</td></tr>
     <tr><td>VIDAA</td><td>maioria da Hisense</td><td class="c"><span class="nao">Não</span> → aparelho</td></tr>
-    <tr><td>Fire TV (Amazon)</td><td>Fire TV Stick com Fire OS (Android modificado); instala pelo Downloader em <code>nervia.com.br/tv.apk</code> ou por ADB. As versões novas com sistema Vega não rodam apps Android</td><td class="c"><span class="talvez">Ainda não testado</span></td></tr>
+    <tr><td>Fire TV (Amazon)</td><td>Fire TV Stick com Fire OS (Android modificado); instala pelo Downloader em <code>nervia.com.br/tv.apk</code> ou por ADB. Testado no piloto (Fire TV Stick com Android 11). As versões novas com sistema Vega não rodam apps Android: confira em <i>Configurações → Minha Fire TV → Sobre</i></td><td class="c"><span class="sim">Sim</span> (testado)</td></tr>
     <tr><td>Outros sistemas próprios</td><td>TVs mais baratas e modelos antigos</td><td class="c"><span class="nao">Em geral não</span> → aparelho</td></tr>
   </table>
+  <p class="lead"><b>Fire TV sem internet:</b> a tela inicial da Amazon não abre ("Tela inicial indisponível") e não dá para escolher app nenhum por ali. O Mídia Indoor não depende dela: abre sozinho ao ligar (com a permissão "Sobrepor a outros apps") e continua passando o que já baixou. Para abrir à mão sem internet: <i>Configurações → Aplicativos → Gerenciar aplicativos instalados → Mídia Indoor → Abrir aplicativo</i>. Nos aparelhos com Google TV / Android TV isso pesa menos: por isso o aparelho padrão da Nervia continua sendo um Google TV.</p>
   <p class="lead">A mesma marca vende linhas com sistemas diferentes: confirme sempre pelo teste da Play Store ou pela tela <i>Sobre</i> do modelo.</p>
 
   <h2>2. Aparelho externo (quando a TV não roda o app)</h2>
@@ -115,7 +116,7 @@ Com isso conseguimos saber se a TV já roda o aplicativo ou se vamos levar um ap
     <tr><td>TV desligada fora do horário</td><td>Sem problema: quando a TV liga, o app abre sozinho (confirmar no teste de reinício).</td></tr>
   </table>
 
-  <div class="rodape">Nervia Tecnologia · Compatibilidade das TVs do app Mídia Indoor · atualizado em 04/11/2026 · A lista de marcas é uma referência geral: o que decide é o teste da Play Store no modelo do cliente.</div>
+  <div class="rodape">Nervia Tecnologia · Compatibilidade das TVs do app Mídia Indoor · atualizado em 04/11/2026 (Fire TV testado) · A lista de marcas é uma referência geral: o que decide é o teste da Play Store no modelo do cliente.</div>
 </div>
 <script>
 const texto = () => document.getElementById("msg").innerText.trim();
