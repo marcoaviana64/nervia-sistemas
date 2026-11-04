@@ -44,7 +44,7 @@ pre.cmd{font:12.5px/1.45 ui-monospace,Consolas,monospace;background:#f3f5f8;bord
   <h2 id="levar">0. O que levar</h2>
   <ul class="chk">
     <li>Notebook com as <b>Android SDK Platform-Tools</b> (developer.android.com/tools/releases/platform-tools), descompactadas em <code>C:\platform-tools</code>.</li>
-    <li>O arquivo do app (<code>midia-indoor-….apk</code>) copiado para dentro de <code>C:\platform-tools</code>.</li>
+    <li>O arquivo do app, baixado de <b><code>nervia.com.br/tv.apk</code></b>, copiado para dentro de <code>C:\platform-tools</code> (nome sugerido: <code>midia-indoor.apk</code>).</li>
     <li>O controle remoto da TV / TV box.</li>
     <li>Acesso à rede do cliente (Wi-Fi ou cabo) para o notebook e para a TV, <b>na mesma rede</b>.</li>
     <li>Login de admin na Área do Cliente (celular ou notebook), para vincular a TV.</li>
@@ -77,13 +77,15 @@ pre.cmd{font:12.5px/1.45 ui-monospace,Consolas,monospace;background:#f3f5f8;bord
   </div>
   <p>Na TV aparece <b>"Permitir depuração?"</b>: marque <i>Sempre permitir deste computador</i> e aceite.</p>
   <p><b>Instalar o app:</b></p>
-  <pre class="cmd">adb install -r midia-indoor-1.0-piloto.apk</pre>
+  <pre class="cmd">adb install -r midia-indoor.apk</pre>
   <p><b>Permitir que o app abra sozinho</b> (Android 10 ou mais novo; sem isso ele não abre quando a TV liga nem volta depois de uma falha):</p>
   <pre class="cmd">adb shell appops set br.com.nervia.midia SYSTEM_ALERT_WINDOW allow</pre>
   <p>Conferir (tem de responder <code>allow</code>):</p>
   <pre class="cmd">adb shell appops get br.com.nervia.midia SYSTEM_ALERT_WINDOW</pre>
   <p><b>Abrir o app:</b></p>
   <pre class="cmd">adb shell am start -n br.com.nervia.midia/.MainActivity</pre>
+
+  <div class="nota"><b>Sem notebook (instalação rápida, para testar):</b> instale o app <b>Downloader</b> na TV (loja da TV), digite o endereço <b><code>nervia.com.br/tv.apk</code></b>, permita "Instalar apps desconhecidos" para o Downloader quando a TV pedir e clique em <b>Install</b>. Assim o app funciona, mas fica sem a permissão de abrir sozinho ao ligar (só o ADB acima dá essa permissão na maioria dos aparelhos): use para teste ou junte com o <code>appops</code> pelo notebook depois. Links do OneDrive não servem (o Downloader baixa a página, não o app).</div>
 
   <h2 id="vincular">3. Vincular no painel</h2>
   <ol>
@@ -117,6 +119,7 @@ pre.cmd{font:12.5px/1.45 ui-monospace,Consolas,monospace;background:#f3f5f8;bord
   <table>
     <tr><td><code>adb connect</code>: "failed to connect" / "connection refused"</td><td>Confira o IP, se a TV e o notebook estão na mesma rede e se a Depuração por rede está ligada. No Android 11+, use o par <code>adb pair</code> + <code>adb connect</code> da Depuração sem fio.</td></tr>
     <tr><td>"unauthorized"</td><td>A TV está pedindo "Permitir depuração?": aceite na tela da TV (marque "Sempre permitir").</td></tr>
+    <tr><td>Downloader baixou um arquivo <code>.aspx</code> ou <code>.html</code></td><td>O link abriu uma página, não o arquivo (acontece com OneDrive). Use <code>nervia.com.br/tv.apk</code>.</td></tr>
     <tr><td><code>adb install</code>: "INSTALL_FAILED_UPDATE_INCOMPATIBLE"</td><td>Já há uma versão assinada com outra chave (ex.: piloto × produção). Desinstale (<code>adb uninstall br.com.nervia.midia</code>), instale de novo e vincule a TV outra vez.</td></tr>
     <tr><td>"INSTALL_FAILED_INSUFFICIENT_STORAGE"</td><td>Pouco espaço no aparelho: apague apps que o cliente não usa ou use um TV box com mais memória.</td></tr>
     <tr><td><code>appops get</code> não responde <code>allow</code></td><td>Repita o <code>appops set</code>. Se a TV tiver a opção, também dá para permitir em <i>Configurações → Apps → Acesso especial → Sobrepor a outros apps</i>. Anote o modelo e avise para registrarmos.</td></tr>

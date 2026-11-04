@@ -157,20 +157,21 @@ As mídias ficam na pasta do Google Drive de cada cliente (cada subpasta = uma p
 1. Área do Cliente → abrir **Mídia Indoor** → aba **Contas** → *+ Nova conta* (nome, limite em GB) → **quem vê** (libera o app junto).
 2. O cliente (ou a Nervia) cola o link da pasta na aba **Pasta do Drive** (pasta compartilhada com "Qualquer pessoa com o link", Leitor).
 
-**C. Gerar o APK** (pasta `midia-tv/`; precisa de JDK 17+ e Android SDK; ver `midia-tv/LEIAME.md`)
+**C. Gerar e publicar o APK** (pasta `midia-tv/`; precisa de JDK 17+ e Android SDK; ver `midia-tv/LEIAME.md`)
 - `./gradlew assembleRelease` → `app/build/outputs/apk/release/app-release.apk`.
+- Publicar para as instalações: copiar esse arquivo para `site/tv.apk` (endereço curto https://nervia.com.br/tv.apk, cabeçalhos em `site/_headers`) e subir `versionCode`/`versionName` antes. O endereço é público, mas o app só funciona com um código vinculado no painel.
 - **Chave de assinatura de produção**: antes do primeiro cliente pagante, criar uma vez (`keytool -genkeypair -v -keystore nervia-midia.jks -alias midia -keyalg RSA -keysize 4096 -validity 10000`) e o `midia-tv/assinatura.properties` (fora do git). Guardar o `.jks` e a senha em dois lugares seguros: **sem ela não dá para atualizar o app nas TVs** (só desinstalando e vinculando de novo). O APK do piloto sai com a chave de depuração.
 
 **D. Instalar numa TV / TV box** (versão para imprimir, com checklist e ficha: `site/apps/midia/ajuda/instalacao.html`, em https://nervia.com.br/apps/midia/ajuda/instalacao.html) (pelo ADB, a partir de um notebook na mesma rede; ADB é isento da verificação de desenvolvedor do Google e permite dar a permissão de abrir sozinho)
 1. Na TV: *Configurações → Sistema → Sobre* → clicar 7 vezes em **Build do SO** (Android TV) até "Você é um desenvolvedor". Em *Opções do desenvolvedor*, ligar **Depuração USB** e **Depuração por rede/ADB** (Android 11+: *Depuração sem fio*, que pede pareamento). Anotar o IP (*Configurações → Rede*).
 2. No notebook ([platform-tools](https://developer.android.com/tools/releases/platform-tools)):
    - Android até 10: `adb connect IP:5555` (aceitar o aviso na TV). Android 11+: `adb pair IP:PORTA` com o código da tela *Depuração sem fio*, depois `adb connect IP:PORTA`.
-   - `adb install -r midia-indoor.apk`
+   - `adb install -r midia-indoor.apk` (o APK atual fica em https://nervia.com.br/tv.apk)
    - `adb shell appops set br.com.nervia.midia SYSTEM_ALERT_WINDOW allow` (Android 10+: sem isso o app NÃO abre sozinho quando a TV liga nem volta depois de travar; conferir com `adb shell appops get br.com.nervia.midia SYSTEM_ALERT_WINDOW`).
    - `adb shell am start -n br.com.nervia.midia/.MainActivity` → a TV mostra o código de 6 caracteres → vincular no painel.
 3. Na TV: desligar protetor de tela/tela ambiente e o desligamento automático (*Configurações → Sistema → Energia e economia*, ou *Tela → Protetor de tela → Nunca*). Os nomes mudam por fabricante.
 4. Teste: `adb reboot` → o app tem de abrir sozinho e voltar a tocar. Depois **desligar a depuração por rede** (ADB ligado na rede do cliente deixa a TV controlável por qualquer um na rede); religar só para atualizar o app.
-- Sem notebook (não recomendado): instalar pelo app *Downloader* ou gerenciador de arquivos, liberando "Instalar apps desconhecidos" para ele; o Play Protect pode avisar ("Instalar mesmo assim"). Assim a permissão de abrir sozinho fica faltando em boa parte dos aparelhos Android 10+ (a TV mostra o aviso na tela do código).
+- Sem notebook (só para teste): app *Downloader* na TV → endereço `nervia.com.br/tv.apk` (link do OneDrive NÃO serve: baixa a página). Ou gerenciador de arquivos, liberando "Instalar apps desconhecidos" para ele; o Play Protect pode avisar ("Instalar mesmo assim"). Assim a permissão de abrir sozinho fica faltando em boa parte dos aparelhos Android 10+ (a TV mostra o aviso na tela do código).
 - Samsung (Tizen) e LG (webOS) não rodam o app: usar TV box Android ou stick no HDMI.
 
 ## Sem a integração (alternativa pela linha de comando)
