@@ -141,7 +141,7 @@ end $$;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
 select pg_temp.ok((select count(*) = 0 from apps), 'login sem app liberado não vê apps');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
-select pg_temp.ok((select count(*) = 11 from apps), 'admin vê todos os apps, inclusive inativos');
+select pg_temp.ok((select count(*) = 12 from apps), 'admin vê todos os apps, inclusive inativos');
 insert into app_acessos values ('00000000-0000-0000-0000-00000000000c', 'chamados');
 update apps set ativo = false where id = 'chamados';
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
@@ -2272,6 +2272,97 @@ insert into atd_chamados (sigla, abertura, descricao) values ('SVS', '2026-10-29
 insert into atd_equipamentos (sigla, prefixo) values ('SVS', 'DT');
 select pg_temp.ok((select max(numero) = 301 from atd_chamados) and exists (select 1 from atd_equipamentos where codigo = 'DTSVS0008'),
   'atendimentos: depois da carga a numeração continua');
+reset role;
+
+-- ---------------------------------------------------------------- Mídia Indoor (mi_)
+reset role;
+create temp table mit (k text primary key, v text);
+grant all on mit to anon, authenticated, service_role;
+select pg_temp.ok((select count(*) = 1 from apps where id = 'midia' and situacao = 'oculto' and manual_url = '/apps/midia/ajuda/manual.html'), 'midia: app cadastrado, oculto, com cartão e manual');
+select pg_temp.ok((select pasta_id = '1AbC_def-GHIjkl' and chave = '0-xYz' from mi_pasta_do_link('https://drive.google.com/drive/u/0/folders/1AbC_def-GHIjkl?resourcekey=0-xYz&usp=sharing'))
+  and (select pasta_id = '1AbC_def-GHIjkl' from mi_pasta_do_link('https://drive.google.com/open?id=1AbC_def-GHIjkl'))
+  and (select pasta_id = '' from mi_pasta_do_link('https://exemplo.com/x')), 'midia: link da pasta do Drive reconhecido');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+insert into mi_contas (id, nome) values ('40000000-0000-0000-0000-000000000001', 'Loja A'), ('40000000-0000-0000-0000-000000000002', 'Loja B');
+insert into mi_acessos values ('00000000-0000-0000-0000-00000000000b', '40000000-0000-0000-0000-000000000001');
+select pg_temp.ok(exists (select 1 from auditoria where acao = 'midia_conta_criada') and exists (select 1 from auditoria where acao = 'midia_acesso_liberado'), 'midia: conta e acesso auditados');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok((select count(*) = 1 from mi_contas), 'midia: cliente vê só a conta liberada');
+select pg_temp.erro2('select mi_conta_salvar(''40000000-0000-0000-0000-000000000001'', ''https://exemplo.com'', 10)', 'não reconhecido', 'midia: link que não é de pasta é recusado');
+select pg_temp.erro2('select mi_conta_salvar(''40000000-0000-0000-0000-000000000002'', '''', 10)', 'Sem acesso', 'midia: cliente não mexe na conta de outro');
+select pg_temp.erro2('insert into mi_contas (nome) values (''X'')', 'row-level', 'midia: cliente não cria conta');
+select mi_conta_salvar('40000000-0000-0000-0000-000000000001', 'https://drive.google.com/drive/folders/PASTAprincipal01?usp=sharing', 12);
+reset role;
+select pg_temp.ok((select pasta_id = 'PASTAprincipal01' and tempo_imagem_s = 12 from mi_contas where id = '40000000-0000-0000-0000-000000000001')
+  and exists (select 1 from auditoria where acao = 'midia_pasta_alterada'), 'midia: cliente cola o link da pasta (auditado)');
+set role authenticated;
+select pg_temp.erro2('select mi_sinc_gravar(''40000000-0000-0000-0000-000000000001'', ''[]'', null)', 'permission', 'midia: tela não grava a sincronização');
+reset role;
+set role service_role;
+select pg_temp.ok(mi_sinc_reservar('40000000-0000-0000-0000-000000000001', 300) and not mi_sinc_reservar('40000000-0000-0000-0000-000000000001', 300)
+  and not mi_sinc_reservar('40000000-0000-0000-0000-000000000002', 300), 'midia: uma sincronização por vez; conta sem pasta não sincroniza');
+select mi_sinc_gravar('40000000-0000-0000-0000-000000000001', '[
+  {"drive_id":"PASTAprincipal01","nome":"Pasta principal","raiz":true,"arquivos":[]},
+  {"drive_id":"SUBhall","nome":"Hall","arquivos":[
+    {"drive_id":"F1","nome":"01_promo.mp4","mime":"video/mp4","md5":"aa","tamanho":1000,"tipo":"video","situacao":"ok","largura":1920,"altura":1080,"duracao_s":30,"codec":"H.264"},
+    {"drive_id":"F2","nome":"02_cardapio.jpg","mime":"image/jpeg","md5":"bb","tamanho":10,"tipo":"imagem","situacao":"ok"},
+    {"drive_id":"F3","nome":"03_iphone.mp4","mime":"video/mp4","md5":"cc","tamanho":10,"tipo":"video","situacao":"recusado","motivo":"H.265"}]}]', null);
+select pg_temp.ok((select count(*) = 2 from mi_playlists) and (select string_agg(nome, ',' order by posicao) from mi_midias) = '01_promo.mp4,02_cardapio.jpg,03_iphone.mp4',
+  'midia: subpastas viram playlists e arquivos ficam na ordem');
+select pg_temp.ok((mi_tv_codigo('aparelho-teste-01', '1.2.3.4') ->> 'codigo') = (mi_tv_codigo('aparelho-teste-01', '1.2.3.4') ->> 'codigo'), 'midia: TV recebe o mesmo código enquanto vale');
+insert into mit select 'cod', mi_tv_codigo('aparelho-teste-01', '1.2.3.4') ->> 'codigo';
+select pg_temp.ok((select v ~ '^[A-HJ-NP-Z2-9]{6}$' from mit where k = 'cod'), 'midia: código de 6 caracteres sem 0/O/1/I');
+select pg_temp.ok((mi_tv_aguardar('aparelho-teste-01', (select v from mit where k = 'cod')) ->> 'situacao') = 'aguardando', 'midia: TV aguarda o vínculo');
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.erro2('select * from mi_codigos_vinculo', 'permission', 'midia: tela não lê os códigos');
+select pg_temp.erro2('select mi_vincular(''ZZZZZZ'', ''40000000-0000-0000-0000-000000000001'', ''Hall'', null)', 'não encontrado', 'midia: código errado é recusado');
+insert into mit select 'tela', mi_vincular(lower((select v from mit where k = 'cod')), '40000000-0000-0000-0000-000000000001', 'Hall de entrada',
+  (select id from mi_playlists where drive_id = 'SUBhall'));
+reset role;
+select pg_temp.ok(exists (select 1 from auditoria where acao = 'midia_tv_vinculada' and detalhes->>'playlist' = 'Hall'), 'midia: cliente vincula a TV pelo código (auditado)');
+set role authenticated;
+select pg_temp.erro2('select mi_vincular(''' || (select v from mit where k = 'cod') || ''', ''40000000-0000-0000-0000-000000000001'', ''Outra'', null)', 'já foi usado', 'midia: código só vale uma vez');
+select pg_temp.erro2('select token_hash from mi_telas', 'permission', 'midia: tela não lê o hash do token');
+select pg_temp.erro2('update mi_telas set nome = ''x''', 'permission', 'midia: TV só muda pelas funções');
+reset role;
+set role service_role;
+insert into mit select 'tok', mi_tv_aguardar('aparelho-teste-01', (select v from mit where k = 'cod')) ->> 'token';
+select pg_temp.ok((select length(v) = 64 from mit where k = 'tok'), 'midia: TV recebe o token depois do vínculo');
+select pg_temp.ok((mi_tv_aguardar('aparelho-teste-01', (select v from mit where k = 'cod')) ->> 'situacao') = 'usado', 'midia: token entregue uma vez só');
+select pg_temp.ok(mi_tv_tela((select v from mit where k = 'tok')) = (select v::uuid from mit where k = 'tela') and mi_tv_tela('errado') is null, 'midia: token identifica a TV');
+select pg_temp.ok(mi_tv_sinal((select v from mit where k = 'tok'), '{"versao_app":"1.0","modelo":"Box X","espaco_livre_mb":"5000","erros":[{"nome":"a.mp4","erro":"não toca"}]}'), 'midia: sinal de vida aceito');
+select pg_temp.ok((select ultimo_sinal is not null and modelo = 'Box X' and espaco_livre_mb = 5000 and jsonb_array_length(erros) = 1 from mi_telas), 'midia: sinal grava aparelho, espaço e erros');
+reset role;
+-- código vencido
+update mi_codigos_vinculo set expira_em = now() - interval '1 minute', tela_id = null, entregue = false where codigo = (select v from mit where k = 'cod');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.erro2('select mi_vincular(''' || (select v from mit where k = 'cod') || ''', ''40000000-0000-0000-0000-000000000001'', ''Outra'', null)', 'venceu', 'midia: código vencido é recusado');
+select mi_midia_tempo((select id from mi_midias where drive_id = 'F2'), 20);
+select pg_temp.erro2('select mi_midia_tempo((select id from mi_midias where drive_id = ''F1''), 20)', 'Só imagens', 'midia: tempo só para imagem');
+select pg_temp.ok((select tempo_s = 20 from mi_midias where drive_id = 'F2'), 'midia: tempo próprio da imagem');
+select mi_tela_salvar((select v::uuid from mit where k = 'tela'), 'Hall L1', null);
+reset role;
+select pg_temp.ok(exists (select 1 from auditoria where acao = 'midia_playlist_trocada'), 'midia: troca de playlist auditada');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.ok((select count(*) = 0 from mi_telas) and (select count(*) = 0 from mi_midias), 'midia: login sem acesso não vê nada');
+select pg_temp.erro2('select mi_desvincular((select v::uuid from mit where k = ''tela''))', 'não encontrada', 'midia: outro login não desvincula');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select mi_desvincular((select v::uuid from mit where k = 'tela'));
+reset role;
+set role service_role;
+select pg_temp.ok(mi_tv_tela((select v from mit where k = 'tok')) is null and not mi_tv_sinal((select v from mit where k = 'tok'), '{}'), 'midia: TV desvinculada perde o token');
+reset role;
+select pg_temp.ok(exists (select 1 from auditoria where acao = 'midia_tv_desvinculada'), 'midia: desvínculo auditado');
+-- pasta trocada: playlists da pasta antiga somem
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select mi_conta_salvar('40000000-0000-0000-0000-000000000001', 'https://drive.google.com/drive/folders/OUTRApasta0001', 12);
+select pg_temp.ok((select count(*) = 0 from mi_playlists), 'midia: trocar a pasta limpa as playlists antigas');
 reset role;
 
 reset request.jwt.claim.sub;

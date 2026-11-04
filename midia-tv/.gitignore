@@ -1,0 +1,8 @@
+.gradle/
+build/
+app/build/
+local.properties
+# chave de assinatura do APK: NUNCA no GitHub (ver midia-tv/LEIAME.md)
+assinatura.properties
+*.jks
+*.keystore

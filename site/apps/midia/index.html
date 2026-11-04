@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Mídia Indoor | Nervia</title>
+<script src="/config.js"></script>
+<script src="/versoes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<style>
+/* Mídia Indoor (app "midia", tabelas mi_). As mídias ficam na pasta do Google Drive do cliente (uma subpasta = uma
+   playlist); a Edge Function "midia" lê a pasta e confere os arquivos; as TVs (app Android) falam com "midia-tv".
+   Esta tela lê as tabelas (RLS por conta) e grava só pelas funções mi_* (com auditoria). */
+:root{
+  --bg:#f3f6f8;--surface:#fff;--surface-2:#eaf1f4;--border:#dde6ec;--ink:#0f1b2d;--ink-soft:#4f5f73;--ink-faint:#8796a8;
+  --accent:#107e99;--accent-soft:#e3f3f7;--primary:#0b2545;
+  --ok:#1d7f46;--ok-bg:#e6f4ec;--crit:#b3261e;--crit-bg:#fbeaea;--warn:#a86400;--warn-bg:#fff3e0;--info:#2568a8;--info-bg:#e7f1fa;
+  color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0c1620;--surface:#122130;--surface-2:#18293a;--border:#24394e;--ink:#eef4f8;--ink-soft:#b3c3d1;--ink-faint:#7f93a6;
+  --accent:#3fc1dd;--accent-soft:rgba(63,193,221,.15);--primary:#cfe3f0;
+  --ok:#43c07e;--ok-bg:rgba(67,192,126,.14);--crit:#f07a72;--crit-bg:rgba(240,122,114,.14);--warn:#e3ad57;--warn-bg:rgba(227,173,87,.14);--info:#5eabe8;--info-bg:rgba(94,171,232,.14);color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.oculto{display:none!important}
+.casca{max-width:1200px;margin:0 auto;padding:12px 16px 40px}
+.topo{display:flex;align-items:center;gap:12px;padding:6px 0 10px}
+.topo .marca{width:34px;height:34px;border-radius:10px;background:linear-gradient(155deg,#107e99,#0b2545);color:#fff;display:grid;place-items:center;font-weight:800;font-size:.82rem}
+.topo span{color:var(--ink-soft);font-size:.8rem}
+.embutido .topo{display:none}
+.barra{display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:6px 8px;margin-bottom:12px}
+.barra .aba{border:0;background:none;padding:8px 12px;border-radius:8px;cursor:pointer;font:inherit;color:var(--ink-soft)}
+.barra .aba.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.barra .aba .n{font-size:11.5px;opacity:.75;margin-left:4px}
+.barra .dir{margin-left:auto;display:flex;gap:8px;align-items:center;font-size:12px;color:var(--ink-soft)}
+.barra .dir select{width:auto;max-width:240px}
+select,input,textarea{font:inherit;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink);width:100%}
+label{display:block;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);margin:10px 0 3px}
+.bt{font:inherit;font-size:13px;font-weight:600;padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--ink);cursor:pointer;white-space:nowrap}
+.bt:hover{border-color:var(--ink-soft)}.bt.pri{background:var(--accent);border-color:var(--accent);color:#fff}.bt.perigo{color:var(--crit);border-color:var(--crit)}
+.bt.peq{padding:4px 9px;font-size:12px}a.bt{text-decoration:none;display:inline-block}.bt:disabled{opacity:.55;cursor:default}
+.lnk{background:none;border:0;padding:0;color:var(--accent);cursor:pointer;font:inherit;text-decoration:underline}
+.msg{margin:8px 0;padding:9px 12px;border-radius:8px;font-size:13px;white-space:pre-line}
+.msg.ok{background:var(--ok-bg);color:var(--ok)}.msg.err{background:var(--crit-bg);color:var(--crit)}.msg.info{background:var(--info-bg);color:var(--info)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px}
+.kpi b{font-size:22px;display:block}.kpi span{font-size:12px;color:var(--ink-soft)}
+.kpi.crit b{color:var(--crit)}.kpi.ok b{color:var(--ok)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px}
+.card h2{font-size:16px;margin:0 0 10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.card h2 .dir{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{text-align:left;padding:9px 6px;border-bottom:1px solid var(--border);vertical-align:top}
+th{color:var(--ink-soft);font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
+td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+td select{min-width:150px}
+.tag{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:999px;font-weight:600;white-space:nowrap;margin:1px 2px 1px 0}
+.t-crit{background:var(--crit-bg);color:var(--crit)}.t-warn{background:var(--warn-bg);color:var(--warn)}.t-ok{background:var(--ok-bg);color:var(--ok)}
+.t-info{background:var(--info-bg);color:var(--info)}.t-mut{background:var(--surface-2);color:var(--ink-soft)}
+.mut{color:var(--ink-soft);font-size:12.5px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.aviso{border-radius:10px;padding:10px 12px;font-size:13.5px;margin:0 0 12px}
+.aviso.crit{background:var(--crit-bg);color:var(--crit)}.aviso.info{background:var(--info-bg);color:var(--info)}.aviso.warn{background:var(--warn-bg);color:var(--warn)}
+.dois{display:grid;grid-template-columns:270px 1fr;gap:14px;align-items:start}
+.pls button{all:unset;display:block;width:100%;box-sizing:border-box;padding:9px 11px;border-radius:8px;cursor:pointer;margin-bottom:3px}
+.pls button:hover{background:var(--surface-2)}
+.pls button.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.pls button small{display:block;color:var(--ink-soft);font-weight:400;font-size:12px}
+.item{display:grid;grid-template-columns:26px 64px 1fr auto;gap:12px;align-items:center;padding:9px 0;border-bottom:1px solid var(--border)}
+.item:last-child{border-bottom:0}
+.item .pos{color:var(--ink-faint);text-align:center;font-variant-numeric:tabular-nums}
+.item .mini{width:64px;aspect-ratio:16/9;border-radius:6px;display:grid;place-items:center;color:#fff;font-size:11px;font-weight:700;background:linear-gradient(135deg,#107e99,#0b2545)}
+.item .mini.img{background:linear-gradient(135deg,#a35c00,#3b2a6b)}.item .mini.bad{background:var(--crit-bg);color:var(--crit)}
+.item .nome{font-weight:600;word-break:break-word}
+.item.recusado .nome{color:var(--ink-soft)}
+.item input{width:70px;padding:4px 6px}
+.tempo{display:flex;align-items:center;gap:5px;font-size:12.5px;color:var(--ink-soft);white-space:nowrap}
+.vazio{color:var(--ink-soft);text-align:center;padding:26px}
+.passos{margin:6px 0 0 18px;padding:0}.passos li{margin:4px 0}
+dialog{border:0;border-radius:14px;padding:20px;max-width:460px;width:calc(100% - 24px);background:var(--surface);color:var(--ink)}
+dialog::backdrop{background:#0008}
+dialog h3{margin:0 0 4px}
+.codigo{letter-spacing:.35em;text-transform:uppercase;font-size:22px!important;text-align:center;font-weight:800}
+.fim{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.chk{display:flex;gap:6px;align-items:center;margin:4px 0;font-size:13px;text-transform:none;letter-spacing:0;font-weight:400;color:var(--ink)}
+.chk input{width:auto}
+.centro{padding:60px 16px;text-align:center;color:var(--ink-soft)}
+@media (max-width:820px){.dois{grid-template-columns:1fr}.item{grid-template-columns:22px 48px 1fr}.item .tempo,.item .lado{grid-column:3}.esc-m{display:none}}
+</style>
+</head>
+<body>
+<div class="casca">
+  <div class="topo"><div class="marca">MI</div><div><b>Mídia Indoor</b><br><span>Vídeos e imagens nas TVs da empresa, pela pasta do Google Drive</span><br><span data-versao="midia"></span></div></div>
+  <div id="aviso" class="centro">Carregando…</div>
+  <div id="app" class="oculto">
+    <div class="barra">
+      <button class="aba on" data-v="telas">TVs<span class="n" id="nTelas"></span></button>
+      <button class="aba" data-v="playlists">Playlists<span class="n" id="nPls"></span></button>
+      <button class="aba" data-v="config">Pasta do Drive</button>
+      <button class="aba" data-v="admin" id="abaAdmin">Contas</button>
+      <div class="dir"><select id="selConta" title="Conta"></select></div>
+    </div>
+    <div id="msg" class="msg oculto"></div>
+    <div id="tela"></div>
+  </div>
+</div>
+<dialog id="dlg"><form method="dialog" id="dlgf"></form></dialog>
+
+<script>
+const CFG = window.NERVIA_CONFIG || {};
+const EMBUTIDO = window.self !== window.top;
+if (EMBUTIDO) document.documentElement.classList.add("embutido");
+const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const checar = r => { if (r.error) throw new Error(traduzir(r.error.message)); return r.data; };
+const traduzir = m => /permission denied|row-level/i.test(m) ? "Sem permissão para esta ação." : m;
+const TZ = "America/Sao_Paulo";
+const dataHora = v => v ? new Date(v).toLocaleString("pt-BR", { timeZone: TZ, day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—";
+const tag = (t, c) => `<span class="tag ${c}">${esc(t)}</span>`;
+const minTxt = m => { m = Math.max(0, Math.round(m)); return m < 1 ? "agora" : m < 60 ? `há ${m} min` : m < 1440 ? `há ${Math.floor(m / 60)} h` : `há ${Math.floor(m / 1440)} d`; };
+const desde = v => v ? minTxt((Date.now() - new Date(v)) / 6e4) : "";
+const durTxt = s => { s = Math.round(s || 0); return s >= 60 ? `${Math.floor(s / 60)} min${s % 60 ? " " + (s % 60) + " s" : ""}` : `${s} s`; };
+const mbTxt = b => { const mb = (b || 0) / 1048576; return mb >= 1000 ? (mb / 1024).toFixed(2).replace(".", ",") + " GB" : (mb < 10 ? mb.toFixed(1) : Math.round(mb)).toString().replace(".", ",") + " MB"; };
+const ONLINE_MIN = 10;   // sem sinal há mais de 10 min = offline (a TV manda a cada 3 min)
+function msg(tipo, texto) { const m = $("msg"); m.className = "msg " + tipo; m.textContent = texto; if (tipo === "ok") setTimeout(() => m.classList.add("oculto"), 6000); }
+function limparMsg() { $("msg").className = "msg oculto"; }
+async function funcao(nome, corpo) {
+  const { data, error } = await sb.functions.invoke(nome, { body: corpo });
+  if (error) { let m = error.message; try { const j = await error.context.json(); m = j.mensagem || m; } catch {} throw new Error(m); }
+  if (data && data.ok === false) throw new Error(data.mensagem);
+  return data;
+}
+const lsGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
+
+let ADMIN = false, CONTAS = [], CONTA = null, PLS = [], MIDIAS = [], TELAS = [], VISTA = "telas", PLSEL = null;
+
+async function iniciar() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { $("aviso").innerHTML = 'Entre na <a href="/cliente/" target="_top">Área do Cliente</a> para usar o Mídia Indoor.'; return; }
+  try {
+    const p = checar(await sb.from("perfis").select("admin").eq("user_id", session.user.id).maybeSingle());
+    ADMIN = !!(p && p.admin);
+    $("abaAdmin").classList.toggle("oculto", !ADMIN);
+    await carregarContas();
+    if (!CONTAS.length && !ADMIN) { $("aviso").textContent = "Nenhuma conta do Mídia Indoor liberada para o seu login. Fale com a Nervia."; return; }
+    if (!CONTAS.length) VISTA = "admin";
+    await carregar();
+    $("aviso").classList.add("oculto"); $("app").classList.remove("oculto");
+    render();
+    setInterval(async () => { if (!document.hidden && !$("dlg").open && VISTA !== "admin" && !document.activeElement?.matches("input,select")) { await carregar().catch(() => {}); render(); } }, 60000);
+  } catch (e) { $("aviso").textContent = "Não foi possível carregar: " + e.message; }
+}
+async function carregarContas() {
+  CONTAS = checar(await sb.from("mi_contas").select("*").order("nome"));
+  const salva = lsGet("midia-conta");
+  CONTA = CONTAS.find(c => c.id === (CONTA && CONTA.id)) || CONTAS.find(c => c.id === salva) || CONTAS[0] || null;
+  $("selConta").innerHTML = CONTAS.map(c => `<option value="${c.id}" ${CONTA && c.id === CONTA.id ? "selected" : ""}>${esc(c.nome)}${c.ativo ? "" : " (inativa)"}</option>`).join("");
+  $("selConta").classList.toggle("oculto", CONTAS.length < 2);
+}
+async function carregar() {
+  if (!CONTA) { PLS = MIDIAS = TELAS = []; return; }
+  const [c, p, t] = await Promise.all([
+    sb.from("mi_contas").select("*").eq("id", CONTA.id).single().then(checar),
+    sb.from("mi_playlists").select("*").eq("conta_id", CONTA.id).order("raiz", { ascending: false }).order("nome").then(checar),
+    sb.from("mi_telas").select("id, conta_id, nome, playlist_id, aparelho, vinculada_em, ultimo_sinal, versao_app, modelo, android, tocando, conteudo, espaco_livre_mb, baixando, erros").eq("conta_id", CONTA.id).order("nome").then(checar)]);
+  CONTA = c; PLS = p; TELAS = t;
+  MIDIAS = PLS.length ? checar(await sb.from("mi_midias").select("*").in("playlist_id", PLS.map(x => x.id)).order("posicao")) : [];
+  if (!PLS.some(x => x.id === PLSEL)) PLSEL = (PLS[0] || {}).id || null;
+}
+const online = t => t.ultimo_sinal && (Date.now() - new Date(t.ultimo_sinal)) / 6e4 <= ONLINE_MIN;
+const itensDe = id => MIDIAS.filter(m => m.playlist_id === id);
+const okDe = id => itensDe(id).filter(m => m.situacao === "ok");
+const tempoDe = m => m.tipo === "imagem" ? (m.tempo_s || CONTA.tempo_imagem_s) : (m.duracao_s || 0);
+const ciclo = id => okDe(id).reduce((a, m) => a + Number(tempoDe(m)), 0);
+const plNome = id => (PLS.find(p => p.id === id) || {}).nome;
+const usado = () => { const v = new Map(); MIDIAS.filter(m => m.situacao === "ok").forEach(m => v.set(m.drive_id, m.tamanho)); return [...v.values()].reduce((a, b) => a + Number(b), 0); };
+
+function render() {
+  document.querySelectorAll(".aba").forEach(b => b.classList.toggle("on", b.dataset.v === VISTA));
+  $("nTelas").textContent = TELAS.length || ""; $("nPls").textContent = PLS.length || "";
+  $("tela").innerHTML = ({ telas: vTelas, playlists: vPlaylists, config: vConfig, admin: vAdmin })[VISTA]();
+  if (VISTA === "admin") carregarAdmin().catch(e => msg("err", e.message));
+}
+function avisoConta() {
+  if (!CONTA) return '<div class="aviso info">Nenhuma conta cadastrada ainda. Crie em <b>Contas</b>.</div>';
+  if (!CONTA.ativo) return '<div class="aviso warn">Esta conta está suspensa: as TVs mostram só a tela de espera. Fale com a Nervia.</div>';
+  if (!CONTA.pasta_id) return `<div class="aviso info">Falta ligar a pasta do Google Drive. <button class="lnk" data-v2="config">Colar o link da pasta</button></div>`;
+  if (CONTA.sinc_erro) return `<div class="aviso crit"><b>Não foi possível ler a pasta do Drive:</b> ${esc(CONTA.sinc_erro)}</div>`;
+  return "";
+}
+
+// ---------------------------------------------------------------- TVs
+function vTelas() {
+  if (!CONTA) return avisoConta();
+  const on = TELAS.filter(online).length, off = TELAS.filter(t => t.ultimo_sinal && !online(t));
+  return avisoConta() + `<div class="kpis">
+      <div class="kpi ${TELAS.length && on === TELAS.length ? "ok" : off.length ? "crit" : ""}"><b>${on} de ${TELAS.length}</b><span>TVs online agora</span></div>
+      <div class="kpi"><b>${PLS.length}</b><span>playlists (subpastas)</span></div>
+      <div class="kpi"><b>${mbTxt(usado())}</b><span>usados de ${(CONTA.limite_mb / 1000).toLocaleString("pt-BR")} GB</span></div>
+    </div>
+    ${off.length ? `<div class="aviso warn">${off.map(t => `<b>${esc(t.nome)}</b> sem sinal ${desde(t.ultimo_sinal)}`).join(" · ")}. A TV continua tocando o que já baixou, mas não recebe alterações. Confira se está ligada e com internet.</div>` : ""}
+    <div class="card"><h2>TVs<span class="dir"><button class="bt pri" data-acao="addTv">+ Adicionar TV</button></span></h2>
+    ${TELAS.length ? `<div class="tw"><table><tr><th>TV</th><th>Status</th><th>Playlist</th><th class="esc-m">Aparelho</th><th class="esc-m">Situação</th><th></th></tr>
+    ${TELAS.map(t => {
+      const erros = Array.isArray(t.erros) ? t.erros : [];
+      const st = !t.ultimo_sinal ? `${tag("aguardando 1º sinal", "t-mut")}` : online(t) ? `<span class="dot" style="background:var(--ok)"></span>Online` : `<span class="dot" style="background:var(--crit)"></span>Offline`;
+      return `<tr><td><b>${esc(t.nome)}</b>${t.tocando ? `<div class="mut">tocando: ${esc(t.tocando)}</div>` : ""}</td>
+        <td>${st}${t.ultimo_sinal ? `<div class="mut">sinal ${desde(t.ultimo_sinal)}</div>` : ""}</td>
+        <td><select data-pl="${t.id}"><option value="">— nenhuma (tela de espera) —</option>${PLS.map(p => `<option value="${p.id}" ${p.id === t.playlist_id ? "selected" : ""}>${esc(p.nome)}</option>`).join("")}</select></td>
+        <td class="esc-m">${esc(t.modelo || "—")}<div class="mut">${t.android ? "Android " + esc(t.android) : ""}${t.versao_app ? " · app " + esc(t.versao_app) : ""}${t.espaco_livre_mb != null ? ` · ${(t.espaco_livre_mb / 1024).toFixed(1).replace(".", ",")} GB livres` : ""}</div></td>
+        <td class="esc-m">${t.baixando ? tag(`baixando ${t.baixando} arquivo(s)`, "t-info") : t.ultimo_sinal ? tag("em dia", "t-ok") : ""}
+          ${erros.map(e => `<div class="mut" style="color:var(--crit)">${esc(e.nome)}: ${esc(e.erro)}</div>`).join("")}</td>
+        <td style="white-space:nowrap"><button class="bt peq" data-acao="renomear" data-id="${t.id}">Renomear</button> <button class="bt peq perigo" data-acao="desvincular" data-id="${t.id}">Desvincular</button></td></tr>`;
+    }).join("")}</table></div>` : `<div class="vazio">Nenhuma TV ainda. Instale o app <b>Mídia Indoor Nervia</b> na TV ou no TV box: ele mostra um código de 6 caracteres. Depois clique em <b>+ Adicionar TV</b>.</div>`}
+    <p class="mut">A troca de playlist chega à TV em até 5 minutos e acontece no fim do item que está passando.</p></div>`;
+}
+function dlgAddTv() {
+  if (!PLS.length) { msg("info", "Ligue a pasta do Drive antes (aba Pasta do Drive), para escolher a playlist da TV. Dá para vincular agora e escolher depois."); }
+  $("dlgf").innerHTML = `<h3>Adicionar TV</h3><div class="mut">Abra o app Mídia Indoor Nervia na TV. Ele mostra um código de 6 caracteres: digite aqui.</div>
+    <label>Código mostrado na TV</label><input id="fCod" class="codigo" maxlength="6" placeholder="------" autocomplete="off">
+    <label>Nome da TV</label><input id="fNome" placeholder="Ex.: Hall de entrada">
+    <label>Playlist</label><select id="fPl"><option value="">— escolher depois —</option>${PLS.map(p => `<option value="${p.id}">${esc(p.nome)}</option>`).join("")}</select>
+    <div id="fErr"></div>
+    <div class="fim"><button class="bt" value="x">Cancelar</button><button class="bt pri" id="fOk" type="button">Vincular</button></div>`;
+  $("dlg").showModal(); setTimeout(() => $("fCod").focus(), 30);
+  $("fOk").onclick = async () => {
+    const cod = $("fCod").value.trim().toUpperCase(), nome = $("fNome").value.trim();
+    const erro = t => $("fErr").innerHTML = `<div class="msg err">${esc(t)}</div>`;
+    if (!/^[A-Z0-9]{6}$/.test(cod)) return erro("O código tem 6 letras ou números. Confira o que aparece na TV.");
+    if (!nome) return erro("Dê um nome para encontrar a TV depois.");
+    $("fOk").disabled = true;
+    try {
+      checar(await sb.rpc("mi_vincular", { p_codigo: cod, p_conta: CONTA.id, p_nome: nome, p_playlist: $("fPl").value || null }));
+      $("dlg").close(); await carregar(); render();
+      msg("ok", "TV vinculada. Em alguns segundos ela começa a baixar as mídias da playlist.");
+    } catch (e) { erro(e.message); $("fOk").disabled = false; }
+  };
+}
+
+// ---------------------------------------------------------------- Playlists
+function vPlaylists() {
+  if (!CONTA) return avisoConta();
+  const p = PLS.find(x => x.id === PLSEL);
+  const sinc = CONTA.sincronizado_em ? `lida ${desde(CONTA.sincronizado_em)}` : "ainda não lida";
+  const topo = `<div class="card"><h2>Playlists = subpastas do Drive<span class="dir"><span class="mut" style="align-self:center">Pasta ${sinc}</span>
+      ${CONTA.pasta_url ? `<a class="bt" href="${esc(CONTA.pasta_url)}" target="_blank" rel="noopener">Abrir no Drive</a>` : ""}
+      <button class="bt pri" data-acao="sinc" ${CONTA.pasta_id ? "" : "disabled"}>Atualizar agora</button></span></h2>
+    <div class="mut">Cada subpasta da pasta do Drive é uma playlist. A ordem é a do nome do arquivo: comece com números (<b>01_</b>promo.mp4, <b>02_</b>cardapio.jpg). Para mudar a ordem ou o conteúdo, mexa na pasta: as TVs atualizam sozinhas em até 5 minutos.</div></div>`;
+  if (!PLS.length) return avisoConta() + topo + (CONTA.pasta_id ? `<div class="card vazio">Nenhum arquivo encontrado na pasta. Crie subpastas (uma por playlist) com vídeos MP4 e imagens JPG/PNG e clique em <b>Atualizar agora</b>.</div>` : "");
+  return avisoConta() + topo + `<div class="dois">
+    <div class="card pls">${PLS.map(x => { const ok = okDe(x.id).length, bad = itensDe(x.id).length - ok, nt = TELAS.filter(t => t.playlist_id === x.id).length;
+      return `<button class="${x.id === PLSEL ? "on" : ""}" data-plsel="${x.id}">${esc(x.nome)}<small>${ok} ${ok === 1 ? "item" : "itens"} · ${durTxt(ciclo(x.id))} · ${nt} TV${nt === 1 ? "" : "s"}${bad ? ` · <span style="color:var(--crit)">${bad} com problema</span>` : ""}</small></button>`; }).join("")}</div>
+    <div class="card">${p ? `<h2>${esc(p.nome)}<span class="mut" style="font-weight:400">ciclo completo: ${durTxt(ciclo(p.id))}</span></h2>
+      ${itensDe(p.id).length ? itensDe(p.id).map((m, i) => {
+        const bad = m.situacao !== "ok";
+        const info = m.tipo === "video" ? [m.codec, m.largura ? `${m.largura}×${m.altura}` : "", m.duracao_s ? durTxt(m.duracao_s) : ""].filter(Boolean).join(" · ") : m.tipo === "imagem" ? ["imagem", m.largura ? `${m.largura}×${m.altura}` : ""].filter(Boolean).join(" · ") : "";
+        return `<div class="item ${bad ? "recusado" : ""}"><div class="pos">${bad ? "–" : okDe(p.id).indexOf(m) + 1}</div>
+          <div class="mini ${bad ? "bad" : m.tipo === "imagem" ? "img" : ""}">${bad ? "✕" : m.tipo === "video" ? "▶" : "IMG"}</div>
+          <div><div class="nome">${esc(m.nome)}</div><div class="mut">${esc(info)}${info ? " · " : ""}${mbTxt(m.tamanho)}</div>
+            ${bad ? `<div class="mut" style="color:var(--crit)">Não vai para a TV: ${esc(m.motivo)}</div>` : ""}</div>
+          <div class="lado">${!bad && m.tipo === "imagem" ? `<span class="tempo"><input type="number" min="3" max="300" data-tempo="${m.id}" value="${m.tempo_s || ""}" placeholder="${CONTA.tempo_imagem_s}"> s na tela</span>` : !bad ? `<span class="mut">${durTxt(m.duracao_s)}</span>` : ""}</div></div>`;
+      }).join("") : '<div class="vazio">Subpasta vazia.</div>'}
+      <p class="mut">Imagem sem tempo próprio fica ${CONTA.tempo_imagem_s} s (padrão da conta, na aba Pasta do Drive). Vídeo passa inteiro.</p>` : ""}</div></div>`;
+}
+
+// ---------------------------------------------------------------- Pasta do Drive
+function vConfig() {
+  if (!CONTA) return avisoConta();
+  return avisoConta() + `<div class="card"><h2>Pasta do Google Drive</h2>
+    <ol class="passos">
+      <li>No Google Drive, crie uma pasta para as TVs (ex.: <i>Mídia Indoor</i>) e, dentro dela, uma <b>subpasta para cada playlist</b> (ex.: <i>Hall</i>, <i>Praça de alimentação</i>).</li>
+      <li>Coloque nas subpastas os vídeos <b>MP4 (H.264, até 1080p, até 300 MB)</b> e as imagens <b>JPG ou PNG</b>, com o nome começando pela ordem: 01_, 02_…</li>
+      <li>Clique com o botão direito na pasta principal → <b>Compartilhar</b> → Acesso geral: <b>Qualquer pessoa com o link</b> (Leitor) → <b>Copiar link</b>.</li>
+      <li>Cole o link aqui e salve.</li>
+    </ol>
+    <div class="aviso info" style="margin-top:10px">Quem tiver o link consegue ver os arquivos da pasta. Não coloque nela nada que não possa aparecer nas TVs.</div>
+    <label for="cUrl">Link da pasta</label><input id="cUrl" value="${esc(CONTA.pasta_url)}" placeholder="https://drive.google.com/drive/folders/…">
+    <label for="cTempo">Tempo padrão de cada imagem na tela (segundos)</label><input id="cTempo" type="number" min="3" max="300" value="${CONTA.tempo_imagem_s}" style="max-width:120px">
+    <div class="fim" style="justify-content:flex-start"><button class="bt pri" data-acao="salvarPasta">Salvar</button></div>
+    <p class="mut">Trocar a pasta apaga as playlists da pasta antiga: as TVs ficam na tela de espera até você escolher a playlist de novo.
+    Espaço da conta: ${mbTxt(usado())} de ${(CONTA.limite_mb / 1000).toLocaleString("pt-BR")} GB (soma das mídias que as TVs guardam).</p></div>`;
+}
+
+// ---------------------------------------------------------------- Contas (equipe Nervia)
+let ACESSOS = [], PERFIS = [];
+function vAdmin() {
+  if (!ADMIN) return '<p class="mut">Só a equipe Nervia.</p>';
+  return `<div class="card"><h2>Contas do Mídia Indoor<span class="dir"><button class="bt pri" data-acao="novaConta">+ Nova conta</button></span></h2>
+    <div class="tw"><table><tr><th>Conta</th><th>Pasta</th><th class="num">Limite</th><th>TVs</th><th>Quem vê</th><th></th></tr>
+    ${CONTAS.map(c => `<tr><td><b>${esc(c.nome)}</b>${c.ativo ? "" : " " + tag("suspensa", "t-warn")}</td>
+      <td>${c.pasta_id ? (c.sinc_erro ? tag("erro na pasta", "t-crit") : tag("ligada", "t-ok")) : tag("sem pasta", "t-mut")}</td>
+      <td class="num">${(c.limite_mb / 1000).toLocaleString("pt-BR")} GB</td><td id="tv-${c.id}" class="mut">…</td>
+      <td id="acc-${c.id}" class="mut">…</td>
+      <td style="white-space:nowrap"><button class="lnk" data-acao="editConta" data-id="${c.id}">editar</button> · <button class="lnk" data-acao="acessos" data-id="${c.id}">quem vê</button></td></tr>`).join("") || '<tr><td colspan="6" class="mut">Nenhuma conta.</td></tr>'}</table></div>
+    <p class="mut">Cada cliente = uma conta, com uma pasta do Drive. "Quem vê" libera o app Mídia Indoor para o login junto. O limite é a soma das mídias que cada TV guarda (o TV box precisa ter esse espaço livre).</p></div>`;
+}
+async function carregarAdmin() {
+  const [a, p, t] = await Promise.all([sb.from("mi_acessos").select("*").then(checar), sb.from("perfis").select("user_id, email, nome, admin").order("email").then(checar),
+    sb.from("mi_telas").select("id, conta_id, ultimo_sinal").then(checar)]);
+  ACESSOS = a; PERFIS = p;
+  CONTAS.forEach(c => {
+    const td = $("acc-" + c.id); if (td) td.textContent = ACESSOS.filter(x => x.conta_id === c.id).map(x => (PERFIS.find(y => y.user_id === x.user_id) || {}).email || "?").join(", ") || "só a Nervia";
+    const tv = $("tv-" + c.id); if (tv) { const l = t.filter(x => x.conta_id === c.id); tv.textContent = l.length ? `${l.filter(online).length} de ${l.length} online` : "—"; }
+  });
+}
+function dlgConta(c) {
+  $("dlgf").innerHTML = `<h3>${c ? "Editar conta" : "Nova conta"}</h3>
+    <label>Nome do cliente</label><input id="aNome" value="${esc(c ? c.nome : "")}">
+    <label>Limite de espaço (GB)</label><input id="aLim" type="number" min="0.1" max="100" step="0.1" value="${c ? c.limite_mb / 1000 : 5}">
+    ${c ? `<label class="chk"><input type="checkbox" id="aAtivo" ${c.ativo ? "checked" : ""}> Conta ativa (desmarcada = TVs na tela de espera)</label>` : ""}
+    <div id="aErr"></div>
+    <div class="fim">${c ? '<button class="bt perigo" type="button" id="aExc">Excluir conta</button>' : ""}<button class="bt" value="x">Cancelar</button><button class="bt pri" type="button" id="aOk">Salvar</button></div>`;
+  $("dlg").showModal();
+  $("aOk").onclick = async () => {
+    const nome = $("aNome").value.trim(), lim = Math.round(Number($("aLim").value) * 1000);
+    try {
+      if (!nome) throw new Error("Informe o nome.");
+      if (!(lim >= 100 && lim <= 100000)) throw new Error("Limite entre 0,1 e 100 GB.");
+      if (c) checar(await sb.from("mi_contas").update({ nome, limite_mb: lim, ativo: $("aAtivo").checked }).eq("id", c.id));
+      else { const id = crypto.randomUUID(); checar(await sb.from("mi_contas").insert({ id, nome, limite_mb: lim })); lsSet("midia-conta", id); }
+      $("dlg").close(); await carregarContas(); await carregar(); render(); msg("ok", "Conta salva.");
+    } catch (e) { $("aErr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+  };
+  if (c) $("aExc").onclick = async () => {
+    if (!confirm(`Excluir a conta "${c.nome}"? As TVs dela são desvinculadas e voltam para a tela do código. A pasta do Drive não é apagada.`)) return;
+    try { checar(await sb.from("mi_contas").delete().eq("id", c.id)); $("dlg").close(); await carregarContas(); await carregar(); render(); msg("ok", "Conta excluída."); }
+    catch (e) { $("aErr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+  };
+}
+function dlgAcessos(c) {
+  const tem = new Set(ACESSOS.filter(a => a.conta_id === c.id).map(a => a.user_id));
+  $("dlgf").innerHTML = `<h3>Quem vê "${esc(c.nome)}"</h3><div class="mut">Marcar libera também o app Mídia Indoor na Área do Cliente do login.</div>
+    <div style="max-height:320px;overflow:auto;margin-top:8px">${PERFIS.filter(p => !p.admin).map(p => `<label class="chk"><input type="checkbox" value="${p.user_id}" ${tem.has(p.user_id) ? "checked" : ""}> ${esc(p.email)}${p.nome ? " — " + esc(p.nome) : ""}</label>`).join("") || '<p class="mut">Nenhum login de cliente. Crie em Administração → Logins.</p>'}</div>
+    <div id="qErr"></div><div class="fim"><button class="bt" value="x">Cancelar</button><button class="bt pri" type="button" id="qOk">Salvar</button></div>`;
+  $("dlg").showModal();
+  $("qOk").onclick = async () => {
+    const marc = new Set([...$("dlgf").querySelectorAll("input[type=checkbox]:checked")].map(i => i.value));
+    try {
+      for (const u of marc) if (!tem.has(u)) {
+        checar(await sb.from("mi_acessos").insert({ user_id: u, conta_id: c.id }));
+        checar(await sb.from("app_acessos").upsert({ user_id: u, app_id: "midia" }, { onConflict: "user_id,app_id", ignoreDuplicates: true }));
+      }
+      for (const u of tem) if (!marc.has(u)) checar(await sb.from("mi_acessos").delete().eq("user_id", u).eq("conta_id", c.id));
+      $("dlg").close(); render(); msg("ok", "Acessos salvos.");
+    } catch (e) { $("qErr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+  };
+}
+
+// ---------------------------------------------------------------- eventos
+document.addEventListener("click", async e => {
+  const aba = e.target.closest(".aba"); if (aba) { VISTA = aba.dataset.v; limparMsg(); render(); return; }
+  const v2 = e.target.closest("[data-v2]"); if (v2) { VISTA = v2.dataset.v2; render(); return; }
+  const pl = e.target.closest("[data-plsel]"); if (pl) { PLSEL = pl.dataset.plsel; render(); return; }
+  const b = e.target.closest("[data-acao]"); if (!b) return;
+  const id = b.dataset.id, a = b.dataset.acao;
+  try {
+    if (a === "addTv") dlgAddTv();
+    else if (a === "renomear") {
+      const t = TELAS.find(x => x.id === id), nome = prompt("Nome da TV:", t.nome);
+      if (nome && nome.trim()) { checar(await sb.rpc("mi_tela_salvar", { p_tela: id, p_nome: nome.trim(), p_playlist: t.playlist_id })); await carregar(); render(); msg("ok", "Nome salvo."); }
+    } else if (a === "desvincular") {
+      const t = TELAS.find(x => x.id === id);
+      if (confirm(`Desvincular "${t.nome}"? A TV volta para a tela do código e para de tocar as mídias desta conta.`)) {
+        checar(await sb.rpc("mi_desvincular", { p_tela: id })); await carregar(); render(); msg("ok", "TV desvinculada.");
+      }
+    } else if (a === "sinc") {
+      b.disabled = true; b.textContent = "Lendo a pasta…";
+      const r = await funcao("midia", { acao: "sincronizar", conta: CONTA.id });
+      await carregar(); render(); msg("ok", r.mensagem);
+    } else if (a === "salvarPasta") {
+      const url = $("cUrl").value.trim(), tempo = parseInt($("cTempo").value, 10), mudou = url !== CONTA.pasta_url;
+      if (mudou && CONTA.pasta_url && TELAS.length && !confirm("Trocar a pasta apaga as playlists da pasta antiga e as TVs ficam na tela de espera até você escolher a playlist de novo. Continuar?")) return;
+      checar(await sb.rpc("mi_conta_salvar", { p_conta: CONTA.id, p_pasta_url: url, p_tempo: tempo }));
+      await carregar();
+      if (mudou && CONTA.pasta_id) {
+        msg("info", "Lendo a pasta do Drive…");
+        try { const r = await funcao("midia", { acao: "sincronizar", conta: CONTA.id }); await carregar(); VISTA = "playlists"; render(); msg("ok", "Pasta salva. " + r.mensagem); return; }
+        catch (x) { await carregar(); render(); msg("err", "Pasta salva, mas não foi possível ler: " + x.message); return; }
+      }
+      render(); msg("ok", "Salvo.");
+    } else if (a === "novaConta") dlgConta(null);
+    else if (a === "editConta") dlgConta(CONTAS.find(c => c.id === id));
+    else if (a === "acessos") dlgAcessos(CONTAS.find(c => c.id === id));
+  } catch (x) { msg("err", x.message); if (a === "sinc") { await carregar().catch(() => {}); render(); } }
+});
+document.addEventListener("change", async e => {
+  const s = e.target;
+  try {
+    if (s.id === "selConta") { CONTA = CONTAS.find(c => c.id === s.value); lsSet("midia-conta", CONTA.id); PLSEL = null; await carregar(); render(); }
+    else if (s.dataset.pl) {
+      const t = TELAS.find(x => x.id === s.dataset.pl);
+      checar(await sb.rpc("mi_tela_salvar", { p_tela: t.id, p_nome: t.nome, p_playlist: s.value || null }));
+      t.playlist_id = s.value || null; render();
+      msg("ok", `Playlist de "${t.nome}" trocada. A TV muda em até 5 minutos, no fim do item que está passando.`);
+    } else if (s.dataset.tempo) {
+      const v = s.value.trim() === "" ? null : parseInt(s.value, 10);
+      checar(await sb.rpc("mi_midia_tempo", { p_midia: s.dataset.tempo, p_tempo: v }));
+      const m = MIDIAS.find(x => x.id === s.dataset.tempo); m.tempo_s = v; render();
+      msg("ok", v ? `Tempo salvo: ${v} s.` : `Voltou ao tempo padrão (${CONTA.tempo_imagem_s} s).`);
+    }
+  } catch (x) { msg("err", x.message); await carregar().catch(() => {}); render(); }
+});
+iniciar();
+</script>
+</body>
+</html>

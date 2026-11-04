@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- sem cópia na nuvem nem transferência: o token da TV e as mídias ficam só no aparelho -->
+<data-extraction-rules>
+    <cloud-backup><exclude domain="root" /><exclude domain="file" /><exclude domain="sharedpref" /><exclude domain="database" /></cloud-backup>
+    <device-transfer><exclude domain="root" /><exclude domain="file" /><exclude domain="sharedpref" /><exclude domain="database" /></device-transfer>
+</data-extraction-rules>
