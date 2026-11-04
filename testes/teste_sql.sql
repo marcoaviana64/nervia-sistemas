@@ -595,6 +595,57 @@ select pg_temp.ok((select count(*) = 0 from mon_quedas q join mon_links l on l.i
   and (select status = 'sem_dados' from mon_links where chave = 'backup'), 'medição de link desligado é ignorada');
 update mon_links set ativo = true where chave = 'backup';
 
+-- avisos por e-mail (04/11/2026): fila só com destinatário, queda ≥ 5 min, depois a volta
+select pg_temp.ok(not mon_avisos_tem(), 'sem destinatário não há aviso na fila');
+update mon_equipamentos set ultimo_contato = now() - interval '1 minute';
+set role anon;
+select mon_registrar((select v from mids where k = 'tok'), '{"links":[{"k":"principal","env":5,"ok":0},{"k":"backup","env":5,"ok":5,"rtt":"10"}]}');
+reset role;
+insert into mon_avisos_destinos (email, local_id) values ('ti@cliente.com', '30000000-0000-0000-0000-000000000001'), ('noc@nervia.com.br', null);
+select pg_temp.ok(exists (select 1 from auditoria where acao = 'monitor_aviso_destino_incluido' and detalhes ->> 'email' = 'noc@nervia.com.br'), 'destinatário incluído auditado');
+select pg_temp.ok(not mon_avisos_tem(), 'queda com menos de 5 min não avisa');
+update mon_quedas set inicio = now() - interval '6 minutes' where tipo = 'link' and fim is null;
+select pg_temp.ok((select count(*) = 1 and min(x ->> 'evento') = 'caiu' and min(x ->> 'link') = 'principal'
+  and min(x ->> 'emails') = '["noc@nervia.com.br", "ti@cliente.com"]'
+  from jsonb_array_elements(mon_avisos_pendentes()) x), 'queda de 6 min entra na fila com os destinatários do local e os de todos');
+select mon_aviso_marcar(array(select id from mon_quedas where fim is null), 'caiu', false);
+select pg_temp.ok(mon_avisos_tem() and (select aviso_tentativas = 1 from mon_quedas where fim is null), 'falha soma tentativa e continua na fila');
+select mon_aviso_marcar(array(select id from mon_quedas where fim is null), 'caiu', true);
+select pg_temp.ok(not mon_avisos_tem() and (select aviso_inicio_em is not null and aviso_tentativas = 0 from mon_quedas where fim is null), 'aviso de queda enviado sai da fila');
+update mon_equipamentos set ultimo_contato = now() - interval '1 minute';
+set role anon;
+select mon_registrar((select v from mids where k = 'tok'), '{"links":[{"k":"principal","env":5,"ok":5,"rtt":"10"},{"k":"backup","env":5,"ok":5,"rtt":"10"}]}');
+reset role;
+select pg_temp.ok((select count(*) = 1 and min(x ->> 'evento') = 'voltou' from jsonb_array_elements(mon_avisos_pendentes()) x), 'volta entra na fila');
+select mon_aviso_marcar(array(select (x ->> 'queda_id')::bigint from jsonb_array_elements(mon_avisos_pendentes()) x), 'voltou', true);
+select pg_temp.ok(not mon_avisos_tem(), 'aviso de volta enviado sai da fila');
+-- queda curta (caiu e voltou antes de 5 min) não gera nenhum e-mail
+update mon_equipamentos set ultimo_contato = now() - interval '1 minute';
+set role anon;
+select mon_registrar((select v from mids where k = 'tok'), '{"links":[{"k":"principal","env":5,"ok":0},{"k":"backup","env":5,"ok":5,"rtt":"10"}]}');
+reset role;
+update mon_equipamentos set ultimo_contato = now() - interval '1 minute';
+set role anon;
+select mon_registrar((select v from mids where k = 'tok'), '{"links":[{"k":"principal","env":5,"ok":5,"rtt":"10"},{"k":"backup","env":5,"ok":5,"rtt":"10"}]}');
+reset role;
+update mon_quedas set inicio = now() - interval '3 minutes' where aviso_inicio_em is null;
+select pg_temp.ok(not mon_avisos_tem(), 'queda curta não avisa nem a volta');
+-- roteador sem contato também avisa (só para o destinatário de todos, no outro local)
+update mon_equipamentos set ultimo_contato = now() - interval '10 minutes' where id = '31000000-0000-0000-0000-000000000002';
+select mon_verificar();
+select pg_temp.ok((select count(*) = 1 and min(x ->> 'tipo') = 'sem_contato' and min(x ->> 'emails') = '["noc@nervia.com.br"]'
+  from jsonb_array_elements(mon_avisos_pendentes()) x), 'sem contato entra na fila, só com o destinatário de todos os locais');
+update mon_quedas set aviso_inicio_em = now(), aviso_fim_em = now(), fim = coalesce(fim, now()) where tipo = 'sem_contato';
+update mon_equipamentos set sem_contato_desde = null where id = '31000000-0000-0000-0000-000000000002';
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok((select count(*) = 0 from mon_avisos_destinos), 'cliente não vê os destinatários');
+select pg_temp.erro2('select mon_avisos_pendentes()', 'permission', 'cliente não lê a fila');
+select pg_temp.erro2('select mon_aviso_marcar(''{1}'', ''caiu'', true)', 'permission', 'cliente não marca aviso');
+select pg_temp.erro2('update mon_quedas set aviso_inicio_em = now()', 'permission', 'cliente não altera o controle do aviso');
+reset role;
+reset request.jwt.claim.sub;
+
 -- cliente
 set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';

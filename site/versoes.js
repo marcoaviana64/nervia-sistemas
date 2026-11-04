@@ -34,6 +34,7 @@ window.NERVIA_VERSOES = {
     ["1.0", "Lançamento: requisição, propostas, mapa comparativo, aprovação por alçada (Gerente e Diretor), pedido e avaliação do fornecedor."],
   ],
   "monitor": [
+    ["1.2", "Aviso por e-mail quando um link cai ou o roteador fica sem contato por 5 minutos ou mais, e quando volta."],
     ["1.1", "Link com \"Monitorar: Não\" sai do painel, das quedas e do relatório; painel com cartões agrupados por cliente, local ou sem grupos."],
     ["1.0", "Lançamento: status dos links e roteadores, histórico de quedas e relatório mensal de disponibilidade."],
   ],

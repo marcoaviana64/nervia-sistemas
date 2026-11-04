@@ -81,6 +81,7 @@
       </ul></li>
     <li>Em até 1 minuto, os links aparecem sozinhos. Se apareceu um link que o local não tem, abra-o e marque <b>Monitorar: Não</b>: ele some do painel, das quedas e do relatório (a queda em aberto dele é encerrada) e o que o roteador mandar dele passa a ser ignorado; depois, quando puder, gere o script de novo sem ele. Clique no nome de cada link e preencha nome, operadora, contratado e a <b>meta do contrato</b> (SLA, ex.: 99,5%).</li>
     <li>Em <b>quem vê</b>, marque os logins do cliente. O login também precisa ter o app liberado em Administração › Logins.</li>
+    <li>Em <b>Avisos por e-mail</b>, clique em <b>+ Quem recebe</b> e informe o e-mail e o local (ou <b>Todos os locais</b>, para a equipe Nervia). Quem está na lista recebe um e-mail quando um link fica caído ou o roteador fica sem contato por <b>5 minutos ou mais</b>, e outro quando volta; quedas mais curtas aparecem só no painel. Vários avisos da mesma rodada chegam juntos num e-mail só. O e-mail sai de nao-responda@nervia.com.br; peça para o cliente marcar o endereço como confiável, para não cair no lixo eletrônico.</li>
     <li>Ao registrar uma reclamação na operadora, use <b>anotar</b> na queda para guardar o protocolo.</li>
   </ol>
   <p>O token fica dentro do script, no roteador: quem tem acesso de leitura ao roteador consegue vê-lo. Ele só permite mandar medições daquele equipamento. Se o roteador trocar de mãos, gere o script de novo (o token antigo para de valer).</p>
@@ -94,9 +95,11 @@
     <tr><td>Log do roteador: "nervia-monitor: envio falhou" <span class="eq">EQUIPE NERVIA</span></td><td>Sem internet ou HTTPS bloqueado: refaça o passo 0. Se o passo 0 funciona, gere o script de novo (o token pode ter sido trocado).</td></tr>
     <tr><td>Link sempre "No ar" mesmo desligado <span class="eq">EQUIPE NERVIA</span></td><td>Falta a rota de bloqueio (blackhole) do host de teste daquele link: o teste está saindo pelo outro link.</td></tr>
     <tr><td>Cada link precisa de um host de teste diferente <span class="eq">EQUIPE NERVIA</span></td><td>Use hosts distintos (8.8.8.8, 1.1.1.1, 9.9.9.9…).</td></tr>
+    <tr><td>Avisos por e-mail: "falhou" <span class="eq">EQUIPE NERVIA</span></td><td>O motivo aparece embaixo (ex.: chave do app no Microsoft vencida). O sistema tenta de novo nas próximas rodadas, até 3 vezes; teste o envio em Área do Cliente › Administração › E-mails.</td></tr>
+    <tr><td>Esse e-mail já recebe os avisos desse local <span class="eq">EQUIPE NERVIA</span></td><td>Ele já está na lista; não precisa incluir de novo.</td></tr>
     <tr><td>Linha inválida <span class="eq">EQUIPE NERVIA</span></td><td>Formato <code>nome=IP</code>, nome com letras minúsculas, números, - ou _.</td></tr>
   </table>
-  <div class="rodape">Dúvidas: WhatsApp (21) 96686-9374 · atendimento@nervia.com.br<br>Nervia Tecnologia · Manual do app Monitor de Links · atualizado em 20/10/2026</div>
+  <div class="rodape">Dúvidas: WhatsApp (21) 96686-9374 · atendimento@nervia.com.br<br>Nervia Tecnologia · Manual do app Monitor de Links · atualizado em 04/11/2026</div>
 </div>
 <script src="/marca-dagua.js" data-tipo="doc"></script>
 </body>
