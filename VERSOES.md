@@ -120,6 +120,7 @@ Ao publicar mudança num app: linha nova no topo do app aqui (com a data) e em `
 
 | Versão | Data | O que mudou |
 |---|---|---|
+| 1.5 | 04/11/2026 | Fire TV Stick testado e aprovado no piloto: instala pelo Downloader, recebe as mídias do Google Drive e mostra na posição escolhida. |
 | 1.4 | 04/11/2026 | TV instalada em pé: escolha a posição no painel e o app gira vídeos e imagens, sem precisar de arquivo rotacionado. A TV começa a passar assim que o primeiro arquivo termina de baixar, e a TV recém-vinculada pega a playlist em até 30 segundos. Aviso de pouco espaço no aparelho. (app da TV 1.1) |
 | 1.3 | 04/11/2026 | O app da TV pode ser baixado direto no endereço nervia.com.br/tv.apk, que se digita no Downloader da TV; o roteiro de instalação ganhou o caminho sem notebook. |
 | 1.2 | 04/11/2026 | Página de compatibilidade das TVs: quais TVs e aparelhos rodam o app, pré-requisitos e a mensagem pronta para pedir as informações ao cliente pelo WhatsApp. |

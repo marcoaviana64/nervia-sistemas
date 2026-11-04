@@ -46,6 +46,7 @@ window.NERVIA_VERSOES = {
     ["1.0", "Lançamento: contas e licenças de cada unidade, mudanças entre exportações e licenças pagas sem uso."],
   ],
   "midia": [
+    ["1.5", "Fire TV Stick testado e aprovado no piloto: instala pelo Downloader, recebe as mídias do Google Drive e mostra na posição escolhida."],
     ["1.4", "TV instalada em pé: escolha a posição no painel e o app gira vídeos e imagens, sem precisar de arquivo rotacionado. A TV começa a passar assim que o primeiro arquivo termina de baixar, e a TV recém-vinculada pega a playlist em até 30 segundos. Aviso de pouco espaço no aparelho."],
     ["1.3", "O app da TV pode ser baixado direto no endereço nervia.com.br/tv.apk, que se digita no Downloader da TV; o roteiro de instalação ganhou o caminho sem notebook."],
     ["1.2", "Página de compatibilidade das TVs: quais TVs e aparelhos rodam o app, pré-requisitos e a mensagem pronta para pedir as informações ao cliente pelo WhatsApp."],
