@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Instalação na TV · Mídia Indoor | Nervia</title>
+<link rel="stylesheet" href="/ajuda/ajuda.css">
+<style>
+/* Roteiro de instalação do app Mídia Indoor Nervia numa TV / TV box (equipe Nervia). Mesmo conteúdo do IMPLANTACAO.md §10-D. */
+pre.cmd{font:12.5px/1.45 ui-monospace,Consolas,monospace;background:#f3f5f8;border:1px solid var(--linha);border-left:3px solid var(--acento);border-radius:6px;padding:7px 10px;margin:6px 0 8px;white-space:pre-wrap;word-break:break-all}
+.chk{list-style:none;padding-left:0}.chk li{padding-left:24px;position:relative;margin:5px 0}
+.chk li::before{content:"";position:absolute;left:0;top:3px;width:13px;height:13px;border:1.5px solid var(--sub);border-radius:3px}
+.ficha td{height:26px}.ficha td:first-child{width:38%}
+.lado{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:640px){.lado{grid-template-columns:1fr}}
+.quebra{break-before:page}
+@media print{pre.cmd{font-size:10.5px;padding:4px 8px}.nota,.aviso{padding:6px 10px}h2{break-after:avoid}pre.cmd,li{break-inside:avoid}}
+</style>
+</head>
+<body>
+<div class="pagina">
+  <div class="cab">
+    <img src="/img/nervia-logo.png" alt="Nervia">
+    <div><div class="t">Mídia Indoor · Instalação na TV</div><div class="s">Roteiro da equipe Nervia para instalar e deixar a TV pronta</div></div>
+    <div class="acoes"><a href="manual.html">Manual</a><a href="cartao.html">Cartão rápido</a><button onclick="print()">Imprimir</button></div>
+  </div>
+
+  <p class="lead">A instalação leva uns 15 minutos por TV, com um notebook na mesma rede da TV. Ela é feita pelo ADB (ferramenta oficial do Android): assim o app não depende da Play Store e recebe a permissão para abrir sozinho quando a TV liga.</p>
+
+  <ul class="indice">
+    <li><a href="#levar">0. O que levar</a></li>
+    <li><a href="#dev">1. Na TV: modo desenvolvedor</a></li>
+    <li><a href="#instalar">2. No notebook: conectar e instalar</a></li>
+    <li><a href="#vincular">3. Vincular no painel</a></li>
+    <li><a href="#pronta">4. Deixar a TV pronta</a></li>
+    <li><a href="#conferir">5. Conferir antes de ir embora</a></li>
+    <li><a href="#problemas">6. Se der erro</a></li>
+    <li><a href="#ficha">7. Ficha da instalação</a></li>
+  </ul>
+
+  <div class="aviso"><b>Antes de ir ao cliente:</b> a conta dele já criada em <b>Mídia Indoor → Contas</b>, a pasta do Google Drive ligada (aba <b>Pasta do Drive</b>) e pelo menos uma playlist com arquivos aceitos (aba <b>Playlists</b>). Assim a TV já começa a passar no fim da instalação.</div>
+
+  <h2 id="levar">0. O que levar</h2>
+  <ul class="chk">
+    <li>Notebook com as <b>Android SDK Platform-Tools</b> (developer.android.com/tools/releases/platform-tools), descompactadas em <code>C:\platform-tools</code>.</li>
+    <li>O arquivo do app (<code>midia-indoor-….apk</code>) copiado para dentro de <code>C:\platform-tools</code>.</li>
+    <li>O controle remoto da TV / TV box.</li>
+    <li>Acesso à rede do cliente (Wi-Fi ou cabo) para o notebook e para a TV, <b>na mesma rede</b>.</li>
+    <li>Login de admin na Área do Cliente (celular ou notebook), para vincular a TV.</li>
+    <li>Samsung (Tizen) ou LG (webOS) <b>não rodam o app</b>: levar um TV box Android ou stick HDMI.</li>
+  </ul>
+
+  <h2 id="dev">1. Na TV: ligar o modo desenvolvedor</h2>
+  <ol>
+    <li><b>Configurações → Sistema → Sobre</b> (em alguns aparelhos: <i>Preferências do dispositivo → Sobre</i>).</li>
+    <li>Clique <b>7 vezes</b> em <b>Build do SO</b> (ou "Versão do Android TV OS") até aparecer "Você agora é um desenvolvedor".</li>
+    <li>Volte, abra <b>Opções do desenvolvedor</b> e ligue <b>Depuração USB</b>. Se existir, ligue também <b>Depuração por rede / ADB pela rede</b>. No Android 11 ou mais novo pode aparecer <b>Depuração sem fio</b>: ligue.</li>
+    <li>Anote o <b>IP da TV</b> em <i>Configurações → Rede → (a rede conectada)</i>. Exemplo: <code>192.168.0.45</code>.</li>
+  </ol>
+
+  <h2 id="instalar">2. No notebook: conectar e instalar</h2>
+  <p>Abra o <b>Prompt de Comando</b> e entre na pasta:</p>
+  <pre class="cmd">cd C:\platform-tools</pre>
+  <div class="lado">
+    <div>
+      <h3>Android até 10 (a maioria dos TV box)</h3>
+      <pre class="cmd">adb connect 192.168.0.45:5555</pre>
+    </div>
+    <div>
+      <h3>Android 11+ com "Depuração sem fio"</h3>
+      <p>Na TV: <i>Depuração sem fio → Parear com código</i>. Use o IP:porta e o código que aparecem:</p>
+      <pre class="cmd">adb pair 192.168.0.45:PORTA_DO_PAREAMENTO</pre>
+      <p>Depois, a porta da tela principal da Depuração sem fio (é outra):</p>
+      <pre class="cmd">adb connect 192.168.0.45:PORTA_PRINCIPAL</pre>
+    </div>
+  </div>
+  <p>Na TV aparece <b>"Permitir depuração?"</b>: marque <i>Sempre permitir deste computador</i> e aceite.</p>
+  <p><b>Instalar o app:</b></p>
+  <pre class="cmd">adb install -r midia-indoor-1.0-piloto.apk</pre>
+  <p><b>Permitir que o app abra sozinho</b> (Android 10 ou mais novo; sem isso ele não abre quando a TV liga nem volta depois de uma falha):</p>
+  <pre class="cmd">adb shell appops set br.com.nervia.midia SYSTEM_ALERT_WINDOW allow</pre>
+  <p>Conferir (tem de responder <code>allow</code>):</p>
+  <pre class="cmd">adb shell appops get br.com.nervia.midia SYSTEM_ALERT_WINDOW</pre>
+  <p><b>Abrir o app:</b></p>
+  <pre class="cmd">adb shell am start -n br.com.nervia.midia/.MainActivity</pre>
+
+  <h2 id="vincular">3. Vincular no painel</h2>
+  <ol>
+    <li>A TV mostra um <b>código de 6 caracteres</b> (vale 10 minutos; depois troca sozinho).</li>
+    <li>Área do Cliente → <b>Mídia Indoor</b> → escolha a conta do cliente → aba <b>TVs</b> → <b>+ Adicionar TV</b>.</li>
+    <li>Digite o código, dê um nome que o cliente reconheça (ex.: <i>Hall de entrada</i>) e escolha a playlist → <b>Vincular</b>.</li>
+    <li>Em segundos a TV baixa os arquivos ("Baixando N arquivo(s)…") e começa a passar.</li>
+  </ol>
+
+  <h2 id="pronta">4. Deixar a TV pronta para o dia a dia</h2>
+  <ol>
+    <li>Na TV, desligar o <b>protetor de tela / tela ambiente</b> e o <b>desligamento automático</b> (em <i>Configurações → Sistema → Energia e economia</i> ou <i>Tela</i>; o nome muda por fabricante).</li>
+    <li>Testar o reinício. A TV desliga e liga sozinha, e o app tem de <b>abrir sozinho</b> e voltar a passar:
+      <pre class="cmd">adb reboot</pre></li>
+    <li>Ao final, <b>desligar a Depuração por rede / sem fio</b> nas Opções do desenvolvedor. Ligada, qualquer um na rede do cliente consegue controlar a TV. Para atualizar o app depois, religue só durante a atualização.</li>
+  </ol>
+
+  <h2 id="conferir">5. Conferir antes de ir embora</h2>
+  <ul class="chk">
+    <li>O <code>appops get</code> respondeu <code>allow</code>.</li>
+    <li>Depois do <code>adb reboot</code> o app abriu sozinho e voltou a passar.</li>
+    <li>Na tela do código <b>não</b> apareceu o aviso "falta a permissão Sobrepor a outros apps".</li>
+    <li>No painel, a TV aparece <b>Online</b>, com modelo, versão do Android e espaço livre.</li>
+    <li>Todos os vídeos da playlist passaram sem travar e as imagens ficaram o tempo certo.</li>
+    <li>Sem internet (tirar o cabo ou o Wi-Fi por 2 minutos), a TV continua passando.</li>
+    <li>Protetor de tela e desligamento automático desligados.</li>
+    <li>Depuração por rede desligada.</li>
+  </ul>
+
+  <h2 id="problemas">6. Se der erro</h2>
+  <table>
+    <tr><td><code>adb connect</code>: "failed to connect" / "connection refused"</td><td>Confira o IP, se a TV e o notebook estão na mesma rede e se a Depuração por rede está ligada. No Android 11+, use o par <code>adb pair</code> + <code>adb connect</code> da Depuração sem fio.</td></tr>
+    <tr><td>"unauthorized"</td><td>A TV está pedindo "Permitir depuração?": aceite na tela da TV (marque "Sempre permitir").</td></tr>
+    <tr><td><code>adb install</code>: "INSTALL_FAILED_UPDATE_INCOMPATIBLE"</td><td>Já há uma versão assinada com outra chave (ex.: piloto × produção). Desinstale (<code>adb uninstall br.com.nervia.midia</code>), instale de novo e vincule a TV outra vez.</td></tr>
+    <tr><td>"INSTALL_FAILED_INSUFFICIENT_STORAGE"</td><td>Pouco espaço no aparelho: apague apps que o cliente não usa ou use um TV box com mais memória.</td></tr>
+    <tr><td><code>appops get</code> não responde <code>allow</code></td><td>Repita o <code>appops set</code>. Se a TV tiver a opção, também dá para permitir em <i>Configurações → Apps → Acesso especial → Sobrepor a outros apps</i>. Anote o modelo e avise para registrarmos.</td></tr>
+    <tr><td>Depois do <code>adb reboot</code> o app não abriu</td><td>A permissão de abrir sozinho não pegou ou o aparelho bloqueia apps no início. Anote o modelo e a versão do Android e avise: é o ponto que estamos validando no piloto.</td></tr>
+    <tr><td>TV com tela "Sem conexão com a Nervia"</td><td>A TV está sem internet ou a rede bloqueia o acesso. Teste abrir um site no navegador da TV.</td></tr>
+    <tr><td>"Código não encontrado" / "Este código venceu"</td><td>Digite o código que está na TV agora (ele muda a cada 10 minutos).</td></tr>
+    <tr><td>TV vinculada, mas na tela de espera</td><td>A TV está sem playlist escolhida ou a playlist está vazia/com arquivos recusados. Veja as abas TVs e Playlists.</td></tr>
+    <tr><td>"este aparelho não toca o vídeo" (na Situação da TV)</td><td>O aparelho não decodificou aquele arquivo. Converta de novo pelo HandBrake (Fast 1080p30) e troque na pasta.</td></tr>
+  </table>
+
+  <h2 id="ficha" class="quebra">7. Ficha da instalação</h2>
+  <p class="lead">Preencha uma por TV e guarde (ou fotografe) junto com o cadastro do cliente.</p>
+  <table class="ficha">
+    <tr><td>Cliente / conta no painel</td><td></td></tr>
+    <tr><td>Local da TV (nome no painel)</td><td></td></tr>
+    <tr><td>Aparelho (marca e modelo)</td><td></td></tr>
+    <tr><td>Versão do Android</td><td></td></tr>
+    <tr><td>IP da TV na rede do cliente</td><td></td></tr>
+    <tr><td>Rede (Wi-Fi / cabo, nome)</td><td></td></tr>
+    <tr><td>Versão do app instalada</td><td></td></tr>
+    <tr><td>Playlist escolhida</td><td></td></tr>
+    <tr><td>appops = allow? Abriu sozinho no reboot?</td><td></td></tr>
+    <tr><td>Passou sem internet?</td><td></td></tr>
+    <tr><td>Depuração por rede desligada?</td><td></td></tr>
+    <tr><td>Observações</td><td style="height:70px"></td></tr>
+    <tr><td>Instalado por / data</td><td></td></tr>
+  </table>
+
+  <div class="rodape">Nervia Tecnologia · Roteiro de instalação do app Mídia Indoor · atualizado em 04/11/2026</div>
+</div>
+<script src="/marca-dagua.js" data-tipo="doc"></script>
+</body>
+</html>

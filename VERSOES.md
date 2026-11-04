@@ -119,4 +119,5 @@ Ao publicar mudança num app: linha nova no topo do app aqui (com a data) e em `
 
 | Versão | Data | O que mudou |
 |---|---|---|
+| 1.1 | 04/11/2026 | Roteiro de instalação na TV para imprimir, com a conferência antes de sair e a ficha da instalação. |
 | 1.0 | 04/11/2026 | Lançamento: vídeos e imagens nas TVs da empresa a partir de uma pasta do Google Drive (cada subpasta é uma playlist), TVs vinculadas por código, status online/offline e conferência automática dos arquivos. |
