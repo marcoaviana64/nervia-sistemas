@@ -7,6 +7,7 @@
 <title>Orçamentos de Compras | Nervia</title>
 <script src="/config.js"></script>
 <script src="/versoes.js"></script>
+<script src="/email-gratuito.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <style>
 /* Orçamentos de Compras (app "compras", tabelas cmp_). Regras de negócio ficam no servidor (funções cmp_*);
@@ -271,13 +272,18 @@ function vReqs() {
 
 // ---------------------------------------------------------------- detalhe / mapa comparativo
 function notaF(f) { return f.nota == null ? null : Number(f.nota); }
+// e-mail de domínio gratuito (gmail, hotmail…) passa menos confiança: −1 na nota de qualidade da matriz (mínimo 1;
+// sem avaliação = 3 − 1). Decisão do Marco em 04/11/2026. Lista em /email-gratuito.js.
+const EMAIL_GRATIS_DICA = "E-mail de domínio gratuito (Gmail, Hotmail…): perde 1 ponto na nota de qualidade da matriz.";
+function emailGratis(f) { return !!(f && f.email && window.NERVIA_EMAIL?.gratuito(f.email)); }
+function notaMatriz(f) { const n = notaF(f) ?? 3; return emailGratis(f) ? Math.max(1, n - 1) : n; }
 function pontuar(r, props) {
   if (!props.length) return [];
   const P = unidade().pesos || { preco: 40, prazo: 30, pagamento: 20, qualidade: 10 };
   const mT = Math.min(...props.map(p => tcoProp(p, r))), mZ = Math.min(...props.map(p => p.prazo_dias)), mG = Math.max(...props.map(p => p.pagamento_dias));
   return props.map(p => {
     const s = { preco: tcoProp(p, r) > 0 ? mT / tcoProp(p, r) * 100 : 100, prazo: (mZ + 1) / (p.prazo_dias + 1) * 100,
-      pagamento: mG > 0 ? p.pagamento_dias / mG * 100 : 100, qualidade: (notaF(fornecedor(p.fornecedor_id)) ?? 3) / 5 * 100 };
+      pagamento: mG > 0 ? p.pagamento_dias / mG * 100 : 100, qualidade: (ehInternet(p) ? 3 : notaMatriz(fornecedor(p.fornecedor_id))) / 5 * 100 };
     s.total = (s.preco * P.preco + s.prazo * P.prazo + s.pagamento * P.pagamento + s.qualidade * P.qualidade) / 100;
     return s;
   });
@@ -344,8 +350,12 @@ function dOportunidade(r) {
 // mensagem que vai pelo WhatsApp ou e-mail do próprio comprador
 function textoConvite(c, r) {
   const quem = c.fornecedor_id ? fornecedor(c.fornecedor_id).nome : c.contato_nome;
+  const email = c.email || (c.fornecedor_id ? fornecedor(c.fornecedor_id).email : "");
+  // aviso do e-mail gratuito na mensagem quando o e-mail que temos é gratuito ou não temos e-mail (decisão do Marco)
+  const dica = !email || window.NERVIA_EMAIL?.gratuito(email)
+    ? `\nImportante: e-mail de domínio gratuito (como Gmail ou Hotmail) reduz a pontuação da proposta. Se a empresa tiver e-mail com domínio próprio, informe esse.\n` : "";
   return `Olá${quem ? ", " + quem : ""}! ${unidade().nome} pede uma cotação: ${r.titulo} (${Number(r.quantidade).toLocaleString("pt-BR")} ${r.unidade_medida}), requisição #${r.id}.\n`
-    + `Envie sua proposta até ${dataBR(c.prazo)} por este link (não precisa de login):\n${linkConvite(c)}\n\nObrigado!`;
+    + `Envie sua proposta até ${dataBR(c.prazo)} por este link (não precisa de login):\n${linkConvite(c)}\n${dica}\nObrigado!`;
 }
 function telWhats(t) { let d = String(t || "").replace(/\D/g, ""); if (d.length === 10 || d.length === 11) d = "55" + d; return d; }
 function dConvite(r) {
@@ -369,6 +379,7 @@ function dConvite(r) {
       "Convite criado. Agora mande o link pelo WhatsApp ou e-mail.");
     if (res && DET) { const c = DET.convs.find(x => x.codigo === res.codigo); if (c) document.querySelector(`[data-acao=whats][data-id="${c.id}"]`)?.focus(); }
   }, "Criar convite");
+  window.NERVIA_EMAIL?.avisar(dlgf.querySelector("input[name=email]"), EMAIL_GRATIS_DICA);
 }
 function vDetalhe() {
   const r = REQS.find(x => x.id === SEL); if (!r) { SEL = null; return vPainel(); }
@@ -405,7 +416,8 @@ function vDetalhe() {
       <tr><td><b>Custo total (TCO)</b></td>${col(p => brl(tcoProp(p, r)), p => tcoProp(p, r) === minC ? "melhor" : "")}</tr>
       <tr><td>Prazo de entrega</td>${col(p => p.prazo_dias + " dias", p => p.prazo_dias === minZ ? "melhor" : "")}</tr>
       <tr><td>Pagamento</td>${col(p => esc(p.pagamento) + (p.validade ? `<div class="mut">proposta vale até ${dataBR(p.validade)}</div>` : ""))}</tr>
-      <tr><td>Nota do fornecedor</td>${col(p => { if (ehInternet(p)) return tag("site da internet", "t-mut"); const f = fornecedor(p.fornecedor_id); return f.nota == null ? tag("sem avaliação", "t-mut") : `${Number(f.nota).toFixed(1).replace(".", ",")} ★ <span class="mut">(${f.avaliacoes})</span>`; })}</tr>
+      <tr><td>Nota do fornecedor</td>${col(p => { if (ehInternet(p)) return tag("site da internet", "t-mut"); const f = fornecedor(p.fornecedor_id); return (f.nota == null ? tag("sem avaliação", "t-mut") : `${Number(f.nota).toFixed(1).replace(".", ",")} ★ <span class="mut">(${f.avaliacoes})</span>`)
+        + (emailGratis(f) ? `<div><span class="tag t-warn" title="${EMAIL_GRATIS_DICA}">e-mail gratuito · −1 na qualidade</span></div>` : ""); })}</tr>
       <tr><td>Situação do fornecedor</td>${col(p => { if (ehInternet(p)) return tag("sem CNPJ: o Gerente dá o aval na aprovação", "t-warn");
         const f = fornecedor(p.fornecedor_id); return (temAval(f, UNID) ? tag("aval do Gerente ✓", "t-ok") : tag("Gerente ainda não deu o aval", "t-warn"))
         + (f.compras_empresa ? "" : tag("fornecedor novo", "t-info")) + (f.cadastrado_por === EU.id && comp ? tag("cadastrado por você", "t-crit") : "")
@@ -704,6 +716,7 @@ function dFornecedor(f) {
       p_contato: d.get("contato"), p_email: d.get("email"), p_telefone: d.get("tel"), p_certidoes: d.get("cert") || null, p_obs: d.get("obs"), p_unidade: UNID },
       f ? "Cadastro atualizado." : "Fornecedor cadastrado. Você é o responsável pela homologação.");
   }, "Salvar");
+  window.NERVIA_EMAIL?.avisar(dlgf.querySelector("input[name=email]"), EMAIL_GRATIS_DICA + " Peça o e-mail com o domínio da empresa, se houver.");
 }
 
 // ---------------------------------------------------------------- cliques

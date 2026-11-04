@@ -7,6 +7,7 @@
 <meta name="referrer" content="no-referrer">
 <title>Demonstração · Enviar proposta | Nervia</title>
 <script src="/config.js"></script>
+<script src="/email-gratuito.js"></script>
 <script src="/demo/compras-demo.js"></script>
 <style>
 /* Página do fornecedor (Orçamentos de Compras, fase 2): abre pelo link do convite, sem login.
@@ -228,6 +229,11 @@ $("form").onsubmit = async ev => {
 };
 window.addEventListener("hashchange", () => location.reload());
 carregar();
+</script>
+<script>
+// aviso do e-mail de domínio gratuito (reduz a pontuação; decisão do Marco em 04/11/2026); script separado para
+// funcionar mesmo se o resto da página falhar
+window.NERVIA_EMAIL?.avisar(document.getElementById("email"));
 </script>
 <script src="/marca-dagua.js" data-tipo="demo"></script>
 <script src="/acesso.js" defer></script>

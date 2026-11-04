@@ -7,6 +7,7 @@
 <title>Para fornecedores: venda para empresas compradoras | Nervia</title>
 <meta name="description" content="Cadastre sua empresa nas Oportunidades da Plataforma Nervia: veja as cotações abertas por empresas compradoras nos seus grupos de produtos e serviços e na sua região, e envie sua proposta pela internet.">
 <script src="/config.js"></script>
+<script src="/email-gratuito.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <style>
 /* Página pública para fornecedores (Orçamentos de Compras → Oportunidades). Sem login: o pedido de cadastro vai pela
@@ -165,6 +166,11 @@ $("form").onsubmit = async ev => {
   $("form").classList.add("oculto"); $("pronto").classList.remove("oculto"); $("pronto").scrollIntoView({ block: "start" });
 };
 carregar();
+</script>
+<script>
+// aviso do e-mail de domínio gratuito (reduz a pontuação; decisão do Marco em 04/11/2026); script separado para
+// funcionar mesmo se o resto da página falhar
+window.NERVIA_EMAIL?.avisar(document.getElementById("email"));
 </script>
 <script src="/acesso.js" defer></script>
 </body>
