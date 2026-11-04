@@ -48,6 +48,7 @@ Ao publicar mudança num app: linha nova no topo do app aqui (com a data) e em `
 
 | Versão | Data | O que mudou |
 |---|---|---|
+| 1.2 | 04/11/2026 | Aviso por e-mail quando um link cai ou o roteador fica sem contato por 5 minutos ou mais, e quando volta. |
 | 1.1 | 20/10/2026 | Link com "Monitorar: Não" sai do painel, das quedas e do relatório; painel com cartões agrupados por cliente, local ou sem grupos. |
 | 1.0 | 17/10/2026 | Lançamento: status dos links e roteadores, histórico de quedas e relatório mensal de disponibilidade. |
 

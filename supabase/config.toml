@@ -24,6 +24,10 @@ verify_jwt = false
 [functions.email-auth]
 verify_jwt = false
 
+# Monitor de Links: aviso por e-mail de queda e volta (chamada pelo pg_cron, com x-cron-secret)
+[functions.monitor-aviso]
+verify_jwt = false
+
 # Mídia Indoor: painel ("Atualizar agora", admin ou cliente com a conta liberada)
 [functions.midia]
 verify_jwt = false

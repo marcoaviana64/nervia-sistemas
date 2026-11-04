@@ -180,7 +180,7 @@ function render() {
   document.querySelectorAll(".barra .aba").forEach(b => b.classList.toggle("on", b.dataset.v === VISTA));
   $("tela").innerHTML = SEL ? vEquip(EQUIPS.find(e => e.id === SEL)) : ({ painel: vPainel, quedas: vQuedas, relatorio: vRelatorio, admin: vAdmin }[VISTA] || vPainel)();
   if (VISTA === "relatorio" && !SEL) carregarRelatorio();
-  if (VISTA === "admin" && !SEL) carregarAcessos();
+  if (VISTA === "admin" && !SEL) { carregarAcessos(); carregarAvisos(); }
 }
 function vPainel() {
   const at = EQUIPS.filter(e => e.ativo), sits = at.map(situacao);
@@ -313,7 +313,37 @@ function vAdmin() {
       <td>${esc(local(e.local_id).nome)}</td><td>${e.token_em ? `…${esc(e.token_fim)}<div class="mut">${dataBR(e.token_em)}</div>` : tag("sem token", "t-warn")}</td>
       <td>${dataHora(e.ultimo_contato)}</td><td>${LINKS.filter(l => l.equipamento_id === e.id).map(l => `<div><button class="lnk" data-acao="editLink" data-id="${l.id}">${esc(l.nome || l.chave)}</button> <span class="mut">${esc(l.chave)} → ${esc(l.alvo)}</span>${l.ativo ? "" : " " + tag("não monitorado", "t-mut")}</div>`).join("") || '<span class="mut">chegam no 1º envio</span>'}</td>
       <td><button class="lnk" data-acao="editEquip" data-id="${e.id}">editar</button><br><button class="lnk" data-acao="script" data-id="${e.id}">${e.token_em ? "gerar novo script" : "gerar script"}</button></td></tr>`).join("") || '<tr><td colspan="6" class="mut">Nenhum equipamento.</td></tr>'}</table></div>
-    <p class="mut">O script mede cada link a cada minuto e manda para cá. Gerar um script novo troca o token: o script antigo para de valer.</p></div>`;
+    <p class="mut">O script mede cada link a cada minuto e manda para cá. Gerar um script novo troca o token: o script antigo para de valer.</p></div>
+  <div class="card" id="avisosCard"><h2>Avisos por e-mail<span class="dir"><button class="bt pri" data-acao="novoDestino">+ Quem recebe</button></span></h2><p class="mut">Carregando…</p></div>`;
+}
+// avisos por e-mail: quem recebe (por local ou todos) e os últimos envios
+let DESTINOS = [];
+async function carregarAvisos() {
+  const card = $("avisosCard"); if (!ADMIN || !card) return;
+  try {
+    const [d, ev] = await Promise.all([sb.from("mon_avisos_destinos").select("*").order("email").then(checar),
+      sb.from("email_envios").select("em, para, assunto, ok, erro").eq("tipo", "monitor_aviso").order("em", { ascending: false }).limit(10).then(checar)]);
+    DESTINOS = d;
+    card.innerHTML = `<h2>Avisos por e-mail<span class="dir"><button class="bt pri" data-acao="novoDestino">+ Quem recebe</button></span></h2>
+      <p class="mut">E-mail quando um link cai ou o roteador fica sem contato por <b>5 minutos ou mais</b>, e outro quando volta. Quedas mais curtas ficam só no painel. Sai pela caixa nao-responda@nervia.com.br.</p>
+      <div class="tw"><table><tr><th>E-mail</th><th>Local</th><th></th></tr>${DESTINOS.map(x => `<tr><td>${esc(x.email)}</td><td>${x.local_id ? esc(local(x.local_id).nome) : "<b>Todos os locais</b>"}</td>
+        <td><button class="lnk" data-acao="tiraDestino" data-id="${x.id}">retirar</button></td></tr>`).join("") || '<tr><td colspan="3" class="mut">Ninguém recebe aviso ainda.</td></tr>'}</table></div>
+      <h3 style="margin-top:14px">Últimos avisos enviados</h3>
+      <div class="tw"><table><tr><th>Quando</th><th>Para</th><th>Assunto</th><th></th></tr>${ev.map(x => `<tr><td>${dataHora(x.em)}</td><td>${esc(x.para)}</td><td>${esc(x.assunto)}</td>
+        <td>${x.ok ? tag("enviado", "t-ok") : tag("falhou", "t-crit") + `<div class="mut">${esc(x.erro)}</div>`}</td></tr>`).join("") || '<tr><td colspan="4" class="mut">Nenhum aviso enviado ainda.</td></tr>'}</table></div>`;
+  } catch (e) { card.innerHTML = `<h2>Avisos por e-mail</h2><p class="msg err">Não foi possível carregar: ${esc(e.message)}</p>`; }
+}
+function dDestino() {
+  abrir(`<h3>Quem recebe os avisos</h3><div class="grade"><div class="tudo"><label>E-mail</label><input name="email" type="email" required placeholder="ex.: ti@empresa.com.br"></div>
+    <div class="tudo"><label>Local</label><select name="local"><option value="">Todos os locais</option>${LOCAIS.map(l => `<option value="${l.id}">${esc(l.nome)}${l.cliente ? " — " + esc(l.cliente) : ""}</option>`).join("")}</select></div></div>
+    <p class="mut">Para um cliente receber só os avisos dele, escolha o local. Para a equipe Nervia, "Todos os locais".</p>`,
+  async f => {
+    const email = f.get("email").trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return msg("err", "E-mail inválido.");
+    const r = await sb.from("mon_avisos_destinos").insert({ email, local_id: f.get("local") || null });
+    if (r.error) return msg("err", /duplicate|unique/i.test(r.error.message) ? "Esse e-mail já recebe os avisos desse local." : r.error.message);
+    render(); msg("ok", "Pronto: " + email + " vai receber os avisos.");
+  }, "Incluir");
 }
 async function carregarAcessos() {
   if (!ADMIN) return;
@@ -453,6 +483,8 @@ document.addEventListener("click", async ev => {
   else if (a === "imprimir") window.print();
   else if (a === "novoLocal") dLocal();
   else if (a === "editLocal") dLocal(LOCAIS.find(l => l.id === id));
+  else if (a === "novoDestino") dDestino();
+  else if (a === "tiraDestino") { const x = DESTINOS.find(d => String(d.id) === id); if (x && confirm(`Parar de mandar avisos para ${x.email}?`)) { const r = await sb.from("mon_avisos_destinos").delete().eq("id", x.id); if (r.error) msg("err", r.error.message); else { render(); msg("ok", "Retirado."); } } }
   else if (a === "acessos") { await carregarAcessos(); dAcessos(LOCAIS.find(l => l.id === id)); }
   else if (a === "novoEquip") dEquip();
   else if (a === "editEquip") dEquip(EQUIPS.find(e => e.id === id));
