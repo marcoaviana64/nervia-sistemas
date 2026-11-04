@@ -229,7 +229,7 @@ const db = pg => pg.evaluate(() => window.__db);
     ok(adm.erros.length === 0, 'admin: sem erros de JavaScript ' + adm.erros.join(' | '));
 
     // ---------------- ajuda
-    for (const f of ['cartao', 'manual']) {
+    for (const f of ['cartao', 'manual', 'instalacao']) {
       const a = await pagina(b, 'cliente', 1100, `/apps/midia/ajuda/${f}.html`);
       ok((await a.pg.title()).includes('Mídia Indoor') && a.erros.length === 0, `ajuda: ${f} abre sem erro`);
       await print(a.pg, 'midia_' + f);

@@ -161,7 +161,7 @@ As mídias ficam na pasta do Google Drive de cada cliente (cada subpasta = uma p
 - `./gradlew assembleRelease` → `app/build/outputs/apk/release/app-release.apk`.
 - **Chave de assinatura de produção**: antes do primeiro cliente pagante, criar uma vez (`keytool -genkeypair -v -keystore nervia-midia.jks -alias midia -keyalg RSA -keysize 4096 -validity 10000`) e o `midia-tv/assinatura.properties` (fora do git). Guardar o `.jks` e a senha em dois lugares seguros: **sem ela não dá para atualizar o app nas TVs** (só desinstalando e vinculando de novo). O APK do piloto sai com a chave de depuração.
 
-**D. Instalar numa TV / TV box** (pelo ADB, a partir de um notebook na mesma rede; ADB é isento da verificação de desenvolvedor do Google e permite dar a permissão de abrir sozinho)
+**D. Instalar numa TV / TV box** (versão para imprimir, com checklist e ficha: `site/apps/midia/ajuda/instalacao.html`, em https://nervia.com.br/apps/midia/ajuda/instalacao.html) (pelo ADB, a partir de um notebook na mesma rede; ADB é isento da verificação de desenvolvedor do Google e permite dar a permissão de abrir sozinho)
 1. Na TV: *Configurações → Sistema → Sobre* → clicar 7 vezes em **Build do SO** (Android TV) até "Você é um desenvolvedor". Em *Opções do desenvolvedor*, ligar **Depuração USB** e **Depuração por rede/ADB** (Android 11+: *Depuração sem fio*, que pede pareamento). Anotar o IP (*Configurações → Rede*).
 2. No notebook ([platform-tools](https://developer.android.com/tools/releases/platform-tools)):
    - Android até 10: `adb connect IP:5555` (aceitar o aviso na TV). Android 11+: `adb pair IP:PORTA` com o código da tela *Depuração sem fio*, depois `adb connect IP:PORTA`.
