@@ -23,3 +23,11 @@ verify_jwt = false
 # Send Email Hook do Supabase Auth (quem chama é o Auth, com assinatura própria)
 [functions.email-auth]
 verify_jwt = false
+
+# Mídia Indoor: painel ("Atualizar agora", admin ou cliente com a conta liberada)
+[functions.midia]
+verify_jwt = false
+
+# Mídia Indoor: app da TV (sem login; a TV se identifica pelo token do vínculo)
+[functions.midia-tv]
+verify_jwt = false

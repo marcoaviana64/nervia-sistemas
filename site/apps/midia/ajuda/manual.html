@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manual de utilização · Mídia Indoor | Nervia</title>
+<link rel="stylesheet" href="/ajuda/ajuda.css">
+</head>
+<body>
+<div class="pagina">
+  <div class="cab">
+    <img src="/img/nervia-logo.png" alt="Nervia">
+    <div><div class="t">Mídia Indoor · Manual de utilização</div><div class="s">Vídeos e imagens nas TVs da empresa, pela pasta do Google Drive</div></div>
+    <div class="acoes"><a href="cartao.html">Cartão rápido</a><button onclick="print()">Imprimir</button></div>
+  </div>
+
+  <h1>Como usar o Mídia Indoor</h1>
+  <p class="lead">Você organiza os vídeos e imagens numa pasta do Google Drive. Cada subpasta é uma playlist. As TVs, com o app <b>Mídia Indoor Nervia</b>, baixam os arquivos da playlist escolhida, guardam no aparelho e passam em loop. Quando você muda a pasta, as TVs atualizam sozinhas. Sem internet, continuam passando o que já têm.</p>
+
+  <ul class="indice">
+    <li><a href="#pasta">1. Preparar a pasta do Google Drive</a></li>
+    <li><a href="#arquivos">2. Vídeos e imagens aceitos (e como converter)</a></li>
+    <li><a href="#ligar">3. Ligar a pasta ao Mídia Indoor</a></li>
+    <li><a href="#tv">4. Instalar e vincular uma TV</a></li>
+    <li><a href="#mudar">5. Mudar o conteúdo, a ordem e o tempo das imagens</a></li>
+    <li><a href="#acompanhar">6. Acompanhar as TVs</a></li>
+    <li><a href="#nervia">7. Tarefas da equipe Nervia</a></li>
+    <li><a href="#problemas">8. Mensagens e o que fazer</a></li>
+  </ul>
+
+  <h2 id="pasta">1. Preparar a pasta do Google Drive</h2>
+  <ol>
+    <li>No Google Drive da empresa, crie uma pasta para as TVs, por exemplo <b>Mídia Indoor</b>.</li>
+    <li>Dentro dela, crie uma <b>subpasta para cada playlist</b>: por exemplo <i>Hall</i>, <i>Praça de alimentação</i>, <i>Estacionamento</i>. Cada TV toca uma playlist; várias TVs podem tocar a mesma.</li>
+    <li>Coloque os arquivos nas subpastas com o nome começando pela ordem: <b>01_</b>black-friday.mp4, <b>02_</b>horario.png, <b>03_</b>cinema.mp4. A ordem compara os números como números (2 vem antes de 10).</li>
+    <li>Clique com o botão direito na <b>pasta principal</b> → <b>Compartilhar</b>. Em "Acesso geral", escolha <b>Qualquer pessoa com o link</b>, papel <b>Leitor</b>. Clique em <b>Copiar link</b>.</li>
+  </ol>
+  <div class="nota">Quem tiver o link consegue ver os arquivos da pasta. Coloque nela só o que pode aparecer nas TVs. Se a empresa usa Google Workspace e a opção "Qualquer pessoa com o link" não aparece, o administrador do Workspace precisa liberar o compartilhamento externo para essa pasta.</div>
+
+  <h2 id="arquivos">2. Vídeos e imagens aceitos (e como converter)</h2>
+  <ul>
+    <li><b>Vídeo:</b> MP4 com vídeo <b>H.264</b>, até <b>1080p</b> (1920×1080; em pé, 1080×1920), até <b>300 MB</b>. O vídeo passa inteiro.</li>
+    <li><b>Imagem:</b> <b>JPG</b> ou <b>PNG</b>, até 30 MB. O ideal é 1920×1080 (tela deitada).</li>
+    <li><b>Não aceitos:</b> vídeo H.265/HEVC (padrão de muitos iPhones), 4K, MOV, AVI, MKV; imagem GIF, WEBP ou HEIC; PDF; arquivos do Google Documentos/Apresentações; atalhos do Drive.</li>
+  </ul>
+  <p>Arquivo fora do padrão não vai para a TV: aparece em <b>Playlists</b> com um ✕ e o motivo. O resto da playlist continua normal.</p>
+  <p><b>Para converter um vídeo</b> (grátis): instale o <b>HandBrake</b> (handbrake.fr), abra o vídeo, escolha a predefinição <b>Fast 1080p30</b>, formato <b>MP4</b>, e clique em <b>Start</b>. No celular, escolha "1080p" e "Mais compatível" (iPhone: Ajustes → Câmera → Formatos → Mais compatível) antes de gravar.</p>
+
+  <h2 id="ligar">3. Ligar a pasta ao Mídia Indoor</h2>
+  <ol>
+    <li>Entre na Área do Cliente e abra <b>Mídia Indoor</b>.</li>
+    <li>Na aba <b>Pasta do Drive</b>, cole o link copiado em <b>Link da pasta</b>.</li>
+    <li>Em <b>Tempo padrão de cada imagem</b>, informe quantos segundos cada imagem fica na tela (3 a 300; padrão 10).</li>
+    <li>Clique em <b>Salvar</b>. O app lê a pasta e abre a aba <b>Playlists</b> com o que encontrou.</li>
+  </ol>
+
+  <h2 id="tv">4. Instalar e vincular uma TV</h2>
+  <ol>
+    <li>Funciona em TVs com <b>Android TV / Google TV</b> e em <b>TV box Android</b> (Android 7 ou mais novo). TVs Samsung (Tizen) e LG (webOS) não rodam o app: use um TV box Android ligado no HDMI.</li>
+    <li>A instalação é feita pela Nervia (o app não está na Play Store). Depois de instalado, ele abre sozinho quando a TV liga.</li>
+    <li>Na primeira vez, a TV mostra um <b>código de 6 caracteres</b>. Ele vale 10 minutos; depois disso a TV mostra outro.</li>
+    <li>No painel, aba <b>TVs</b>, clique em <b>+ Adicionar TV</b>, digite o código, dê um nome (ex.: <i>Hall de entrada</i>) e escolha a playlist. Clique em <b>Vincular</b>.</li>
+    <li>Em poucos segundos a TV recebe a playlist, baixa os arquivos e começa a passar. Enquanto baixa, aparece "baixando N arquivo(s)".</li>
+  </ol>
+
+  <h2 id="mudar">5. Mudar o conteúdo, a ordem e o tempo das imagens</h2>
+  <ul>
+    <li><b>Colocar, tirar ou trocar um arquivo:</b> mexa na subpasta do Drive. As TVs percebem em até 5 minutos (ou clique em <b>Atualizar agora</b> na aba Playlists e as TVs pegam na próxima consulta). A troca acontece no fim do item que está passando, sem tela preta.</li>
+    <li><b>Mudar a ordem:</b> renomeie os arquivos (01_, 02_…).</li>
+    <li><b>Tempo de uma imagem:</b> na aba Playlists, digite os segundos em "s na tela" ao lado da imagem. Vazio volta ao tempo padrão.</li>
+    <li><b>Trocar a playlist de uma TV:</b> na aba TVs, escolha outra em <b>Playlist</b>.</li>
+    <li><b>Nova playlist:</b> crie outra subpasta no Drive e clique em <b>Atualizar agora</b>.</li>
+  </ul>
+  <p>A TV guarda os arquivos no aparelho e apaga sozinha os que saíram da playlist. Arquivo substituído (mesmo nome, conteúdo novo) é baixado de novo.</p>
+
+  <h2 id="acompanhar">6. Acompanhar as TVs</h2>
+  <ul>
+    <li><b>Online</b>: a TV mandou sinal nos últimos 10 minutos (ela avisa a cada 3 min). <b>Offline</b>: sem sinal há mais tempo; ela continua passando o que já baixou, mas não recebe alterações.</li>
+    <li><b>Aparelho</b>: modelo, versão do Android, versão do app e espaço livre.</li>
+    <li><b>Situação</b>: "em dia", "baixando N arquivo(s)" ou o nome de um arquivo que o aparelho não conseguiu tocar.</li>
+    <li><b>Desvincular</b>: a TV volta para a tela do código (para usar em outro lugar ou trocar de conta).</li>
+  </ul>
+
+  <h2 id="nervia">7. Tarefas da equipe Nervia</h2>
+  <ol>
+    <li><b>Conta:</b> aba <b>Contas</b> → <b>+ Nova conta</b> (nome do cliente e limite de espaço). O limite é a soma das mídias que cada TV guarda: escolha um valor que caiba no TV box do cliente.</li>
+    <li><b>Quem vê:</b> marque os logins do cliente (o app Mídia Indoor é liberado junto). Os logins são criados em Administração → Logins.</li>
+    <li><b>Instalação na TV:</b> siga o passo a passo do IMPLANTACAO.md (seção Mídia Indoor): instalação por ADB pela rede, permissão "Sobrepor a outros apps" e desligar a economia de energia/protetor de tela.</li>
+    <li><b>Suspender:</b> editar a conta e desmarcar "Conta ativa": as TVs ficam na tela de espera.</li>
+  </ol>
+  <p>Toda ação fica no registro de auditoria: conta criada/alterada, acesso liberado, pasta trocada, TV vinculada/desvinculada e playlist trocada.</p>
+
+  <h2 id="problemas">8. Mensagens e o que fazer</h2>
+  <table>
+    <tr><td>Link de pasta do Google Drive não reconhecido</td><td>Copie o link da <b>pasta</b> (não de um arquivo) em Compartilhar → Copiar link.</td></tr>
+    <tr><td>Pasta não encontrada no Google Drive / O Google Drive recusou o acesso</td><td>A pasta não está compartilhada com "Qualquer pessoa com o link", foi apagada ou movida para a lixeira. Ajuste no Drive e clique em Atualizar agora.</td></tr>
+    <tr><td>O Google Drive pediu para esperar</td><td>Muitos pedidos ao mesmo tempo. Tente de novo em alguns minutos; as TVs continuam passando o que têm.</td></tr>
+    <tr><td>vídeo em H.265 (HEVC) / resolução 3840×2160</td><td>Converta para MP4 H.264 1080p (seção 2) e troque o arquivo na pasta.</td></tr>
+    <tr><td>vídeo de … MB: o limite é 300 MB</td><td>Exporte em 1080p com qualidade menor ou corte o vídeo.</td></tr>
+    <tr><td>passa do limite de espaço da conta</td><td>Tire arquivos que não estão mais em uso ou fale com a Nervia para aumentar o limite.</td></tr>
+    <tr><td>Código não encontrado / Este código venceu</td><td>Digite o código que está na TV agora (ele muda a cada 10 minutos).</td></tr>
+    <tr><td>Este código já foi usado</td><td>Aguarde a TV mostrar um código novo.</td></tr>
+    <tr><td>TV Offline</td><td>Confira se a TV/box está ligada e com internet. Se ficou desligada da tomada, ao ligar o app abre sozinho.</td></tr>
+    <tr><td>"este aparelho não toca o vídeo" (na Situação da TV)</td><td>O aparelho não conseguiu decodificar o arquivo. Converta de novo pelo HandBrake (Fast 1080p30) ou fale com a Nervia.</td></tr>
+    <tr><td>Pouco espaço livre na TV</td><td>Tire arquivos grandes da playlist ou use um TV box com mais memória.</td></tr>
+  </table>
+  <div class="rodape">Nervia Tecnologia · Manual de utilização do app Mídia Indoor · atualizado em 04/11/2026</div>
+</div>
+<script src="/marca-dagua.js" data-tipo="doc"></script>
+</body>
+</html>
