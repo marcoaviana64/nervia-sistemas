@@ -31,7 +31,7 @@ class VitrineTest {
     private fun desenhar(emPe: Boolean, w: Int, h: Int, nome: String): Vitrine {
         val vit = Vitrine(ApplicationProvider.getApplicationContext(), Handler(Looper.getMainLooper()))
         vit.arrumar(emPe)
-        vit.mostrar("TV Recepção · nenhuma playlist escolhida para esta TV")
+        vit.mostrar("TV Recepção · nenhuma playlist escolhida para esta TV · app 1.3")
         vit.view.measure(View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY))
         vit.view.layout(0, 0, w, h)
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)

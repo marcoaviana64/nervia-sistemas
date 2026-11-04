@@ -137,7 +137,7 @@ class MainActivity : Activity() {
         palco = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
         playerView = layoutInflater.inflate(R.layout.player, palco, false) as PlayerView
         imagem = ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_CENTER; setBackgroundColor(Color.BLACK); visibility = View.GONE }
-        titulo = texto(18f, Color.rgb(154, 170, 176)).apply { text = "NERVIA • Mídia Indoor" }
+        titulo = texto(18f, Color.rgb(154, 170, 176)).apply { text = "NERVIA • Mídia Indoor • app ${BuildConfig.VERSION_NAME}" }
         grande = texto(64f, Color.rgb(95, 211, 211), negrito = true).apply { letterSpacing = 0.3f }
         detalhe = texto(20f, Color.rgb(207, 216, 218))
         rodape = texto(14f, Color.rgb(111, 125, 129))
@@ -192,7 +192,7 @@ class MainActivity : Activity() {
         pararReproducao()
         painel.visibility = View.GONE
         val aviso = if (!Relancar.podeAbrirSozinho(this)) "falta a permissão \"Sobrepor a outros apps\"" else ""
-        vitrine.mostrar(listOf(nomeTela, situacao, aviso).filter { it.isNotBlank() }.joinToString(" · "))
+        vitrine.mostrar(listOf(nomeTela, situacao, aviso, "app ${BuildConfig.VERSION_NAME}").filter { it.isNotBlank() }.joinToString(" · "))
     }
 
     private fun mostrarPainel(codigo: String, linha: String, baixo: String) {

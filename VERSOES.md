@@ -120,6 +120,7 @@ Ao publicar mudança num app: linha nova no topo do app aqui (com a data) e em `
 
 | Versão | Data | O que mudou |
 |---|---|---|
+| 1.6 | 04/11/2026 | A versão do app aparece na tela da TV (no alto da tela do código e no pé da tela de espera), para conferir a atualização sem abrir o painel. (app da TV 1.3) |
 | 1.5 | 04/11/2026 | Tela de espera nova: quando a TV não tem o que passar, mostra uma propaganda do Mídia Indoor com QR code para falar com a Nervia, e no pé o nome da TV e o motivo. Fire TV Stick testado e aprovado, com o caminho para abrir o app quando o aparelho está sem internet. (app da TV 1.2) |
 | 1.4 | 04/11/2026 | TV instalada em pé: escolha a posição no painel e o app gira vídeos e imagens, sem precisar de arquivo rotacionado. A TV começa a passar assim que o primeiro arquivo termina de baixar, e a TV recém-vinculada pega a playlist em até 30 segundos. Aviso de pouco espaço no aparelho. (app da TV 1.1) |
 | 1.3 | 04/11/2026 | O app da TV pode ser baixado direto no endereço nervia.com.br/tv.apk, que se digita no Downloader da TV; o roteiro de instalação ganhou o caminho sem notebook. |
