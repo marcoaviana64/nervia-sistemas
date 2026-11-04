@@ -48,6 +48,7 @@ pre.cmd{font:12.5px/1.45 ui-monospace,Consolas,monospace;background:#f3f5f8;bord
     <li>O controle remoto da TV / TV box.</li>
     <li>Acesso à rede do cliente (Wi-Fi ou cabo) para o notebook e para a TV, <b>na mesma rede</b>.</li>
     <li>Login de admin na Área do Cliente (celular ou notebook), para vincular a TV.</li>
+    <li>Fire TV Stick e TV box baratos têm pouco espaço (o Fire TV Stick do piloto tinha 0,7 GB livres): confira se cabem as mídias da conta.</li>
     <li>Samsung (Tizen), LG (webOS) e TVs Roku <b>não rodam o app</b>: levar o aparelho Android padrão da Nervia. Antes da visita, veja a <a href="compatibilidade.html">compatibilidade das TVs</a> e mande ao cliente a mensagem de WhatsApp de lá.</li>
   </ul>
 
@@ -91,7 +92,8 @@ pre.cmd{font:12.5px/1.45 ui-monospace,Consolas,monospace;background:#f3f5f8;bord
   <ol>
     <li>A TV mostra um <b>código de 6 caracteres</b> (vale 10 minutos; depois troca sozinho).</li>
     <li>Área do Cliente → <b>Mídia Indoor</b> → escolha a conta do cliente → aba <b>TVs</b> → <b>+ Adicionar TV</b>.</li>
-    <li>Digite o código, dê um nome que o cliente reconheça (ex.: <i>Hall de entrada</i>) e escolha a playlist → <b>Vincular</b>.</li>
+    <li>Digite o código, dê um nome que o cliente reconheça (ex.: <i>Hall de entrada</i>) e escolha a playlist → <b>Vincular</b>. Escolha a playlist já no vínculo: sem ela a TV fica na espera até você escolher (ela confere a cada 30 segundos).</li>
+    <li>TV instalada <b>em pé</b>: na linha da TV, em <b>Posição da TV</b>, escolha para que lado ela foi girada. Se a imagem ficar de cabeça para baixo, escolha o outro lado.</li>
     <li>Em segundos a TV baixa os arquivos ("Baixando N arquivo(s)…") e começa a passar.</li>
   </ol>
 
@@ -108,7 +110,8 @@ pre.cmd{font:12.5px/1.45 ui-monospace,Consolas,monospace;background:#f3f5f8;bord
     <li>O <code>appops get</code> respondeu <code>allow</code>.</li>
     <li>Depois do <code>adb reboot</code> o app abriu sozinho e voltou a passar.</li>
     <li>Na tela do código <b>não</b> apareceu o aviso "falta a permissão Sobrepor a outros apps".</li>
-    <li>No painel, a TV aparece <b>Online</b>, com modelo, versão do Android e espaço livre.</li>
+    <li>No painel, a TV aparece <b>Online</b>, com modelo, versão do Android e espaço livre, sem o aviso "pouco espaço".</li>
+    <li>Imagem na posição certa (TV em pé: Posição da TV escolhida).</li>
     <li>Todos os vídeos da playlist passaram sem travar e as imagens ficaram o tempo certo.</li>
     <li>Sem internet (tirar o cabo ou o Wi-Fi por 2 minutos), a TV continua passando.</li>
     <li>Protetor de tela e desligamento automático desligados.</li>
@@ -136,6 +139,7 @@ pre.cmd{font:12.5px/1.45 ui-monospace,Consolas,monospace;background:#f3f5f8;bord
     <tr><td>Cliente / conta no painel</td><td></td></tr>
     <tr><td>Local da TV (nome no painel)</td><td></td></tr>
     <tr><td>Aparelho (marca e modelo)</td><td></td></tr>
+    <tr><td>Posição (deitada / em pé, para que lado)</td><td></td></tr>
     <tr><td>Versão do Android</td><td></td></tr>
     <tr><td>IP da TV na rede do cliente</td><td></td></tr>
     <tr><td>Rede (Wi-Fi / cabo, nome)</td><td></td></tr>

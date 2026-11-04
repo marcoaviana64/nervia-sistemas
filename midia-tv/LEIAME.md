@@ -27,9 +27,14 @@ O APK sai em `app/build/outputs/apk/release/app-release.apk`. A URL do Supabase 
 ## Publicar para as instalações
 Copiar `app/build/outputs/apk/release/app-release.apk` para `site/tv.apk` (https://nervia.com.br/tv.apk, o endereço que se digita no Downloader da TV). O APK sobe a cada versão nova (subir `versionCode` antes).
 
+## Posição da TV
+O painel grava `mi_telas.rotacao` (0, 90, 180, 270 graus no sentido horário); a playlist entrega `rotacao` e o app gira o
+"palco" (vídeo, imagem e telas do app) com o tamanho trocado. O vídeo usa TextureView (`res/layout/player.xml`), porque a
+SurfaceView não gira junto. A posição fica guardada no aparelho e vale mesmo sem internet.
+
 ## Assinatura
 `assinatura.properties` (fora do git) com `arquivo`, `senha`, `apelido` (e `senha_chave`, se diferente). Sem ele o APK sai com a
-chave de depuração, só para piloto. **Guardar a chave de produção com cuidado**: sem ela não dá para atualizar o app nas TVs.
+chave de depuração, só para piloto. **A chave de depuração do piloto** (SHA-256 `c04daff6…f9ab`, a do APK em `site/tv.apk`) foi entregue ao Marco para guardar: para gerar uma atualização que instale por cima nos aparelhos do piloto, colocar esse arquivo em `~/.android/debug.keystore` antes de compilar (sem ele sai outra chave e a TV recusa a atualização: desinstalar e vincular de novo). **Guardar a chave de produção com cuidado**: sem ela não dá para atualizar o app nas TVs.
 
 ## Versão
 Ao mudar o app, subir `versionCode` e `versionName` em `app/build.gradle.kts`. O painel mostra a versão de cada TV.
