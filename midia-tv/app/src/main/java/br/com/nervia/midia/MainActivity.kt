@@ -67,6 +67,7 @@ class MainActivity : Activity() {
     private lateinit var grande: TextView
     private lateinit var detalhe: TextView
     private lateinit var rodape: TextView
+    private lateinit var vitrine: Vitrine            // tela de espera com propaganda (vinculada, sem nada para passar)
     private var player: ExoPlayer? = null
     private var bitmapAtual: Bitmap? = null
 
@@ -150,6 +151,8 @@ class MainActivity : Activity() {
         palco.addView(playerView, FrameLayout.LayoutParams(-1, -1))
         palco.addView(imagem, FrameLayout.LayoutParams(-1, -1))
         palco.addView(painel, FrameLayout.LayoutParams(-1, -1))
+        vitrine = Vitrine(this, handler)
+        palco.addView(vitrine.view, FrameLayout.LayoutParams(-1, -1))
         raiz.addView(palco, FrameLayout.LayoutParams(-1, -1))
         raiz.addOnLayoutChangeListener { _, l, t, r, b, ol, ot, or_, ob -> if (r - l != or_ - ol || b - t != ob - ot) raiz.post { aplicarRotacao(rotacao) } }
         setContentView(raiz)
@@ -165,11 +168,14 @@ class MainActivity : Activity() {
         val deitada = graus == 90 || graus == 270
         palco.layoutParams = if (deitada) FrameLayout.LayoutParams(h, w, Gravity.CENTER) else FrameLayout.LayoutParams(-1, -1)
         palco.rotation = graus.toFloat()
+        // tela de espera: empilhada quando o palco fica mais alto que largo (TV em pé ou tela vertical)
+        val (pw, ph) = if (deitada) h to w else w to h
+        if (::vitrine.isInitialized) vitrine.arrumar(emPe = ph > pw)
         // com a imagem girada, a amostragem da imagem usa o tamanho do palco
         palco.requestLayout()
     }
 
-    private fun mostrarPainel(codigo: String, linha: String, baixo: String) {
+    private fun pararReproducao() {
         handler.removeCallbacks(proximaImagem)
         player?.stop()
         playerView.visibility = View.GONE
@@ -177,6 +183,21 @@ class MainActivity : Activity() {
         imagem.setImageDrawable(null)
         bitmapAtual?.recycle(); bitmapAtual = null
         atual = null
+    }
+
+    private fun esconderVitrine() = vitrine.esconder()
+
+    /** TV vinculada sem nada para passar: mostra a vitrine; a linha de baixo diz à equipe o que está acontecendo. */
+    private fun mostrarVitrine(situacao: String) {
+        pararReproducao()
+        painel.visibility = View.GONE
+        val aviso = if (!Relancar.podeAbrirSozinho(this)) "falta a permissão \"Sobrepor a outros apps\"" else ""
+        vitrine.mostrar(listOf(nomeTela, situacao, aviso).filter { it.isNotBlank() }.joinToString(" · "))
+    }
+
+    private fun mostrarPainel(codigo: String, linha: String, baixo: String) {
+        pararReproducao()
+        esconderVitrine()
         grande.text = codigo; grande.visibility = if (codigo.isEmpty()) View.GONE else View.VISIBLE
         detalhe.text = linha
         val aviso = if (!Relancar.podeAbrirSozinho(this)) "\nAtenção: falta a permissão \"Sobrepor a outros apps\" para abrir sozinho ao ligar a TV." else ""
@@ -234,7 +255,7 @@ class MainActivity : Activity() {
         val guardada = prefs.getString("playlist", null)?.let { runCatching { Playlist.deJson(JSONObject(it)) }.getOrNull() }
         var intervaloSinal = guardada?.intervaloSinalS ?: 180
         if (guardada != null) { nomeTela = guardada.tela; atualizarLista(guardada.itens.filter { baixador.pronto(it) }) }
-        else mostrarPainel("", nomeTela.ifEmpty { "TV vinculada" }, "Buscando a playlist…")
+        else mostrarVitrine("buscando a playlist…")
 
         val sinal: Job = launch {
             while (isActive) {
@@ -248,7 +269,7 @@ class MainActivity : Activity() {
                     withContext(Dispatchers.IO) { Playlist.deJson(Api.comToken("playlist", t)) }
                 } catch (e: Desvinculada) { throw e } catch (e: Exception) {
                     Log.w(TAG, "playlist: ${e.message}")
-                    if (lista.isEmpty() && atual == null) mostrarPainel("", nomeTela, "Sem conexão. Tentando de novo…")
+                    if (lista.isEmpty() && atual == null) mostrarVitrine("sem conexão, tentando de novo…")
                     delay(60_000); continue
                 }
                 nomeTela = p.tela; intervaloSinal = p.intervaloSinalS
@@ -256,7 +277,7 @@ class MainActivity : Activity() {
                 prefs.edit { putString("playlist", playlistJson(p)) }
                 if (p.itens.isEmpty()) {
                     lista = emptyList(); pendente = null
-                    mostrarPainel("", p.tela, if (p.playlist.isEmpty()) "Nenhuma playlist escolhida para esta TV." else "A playlist \"${p.playlist}\" está vazia.")
+                    mostrarVitrine(if (p.playlist.isEmpty()) "nenhuma playlist escolhida para esta TV" else "a playlist \"${p.playlist}\" está vazia")
                 } else {
                     baixarTodos(p)
                 }
@@ -277,7 +298,7 @@ class MainActivity : Activity() {
         val faltam = p.itens.filter { !baixador.pronto(it) }.distinctBy { it.arquivo }
         baixando = faltam.size
         faltam.forEachIndexed { n, i ->
-            if (atual == null) mostrarPainel("", p.tela, "Baixando ${n + 1} de ${faltam.size}: ${i.nome}")
+            if (atual == null) mostrarVitrine("baixando ${n + 1} de ${faltam.size}: ${i.nome}")
             try {
                 withContext(Dispatchers.IO) { baixador.baixar(i, p.chaveApi) }
                 erros.remove(i.nome)
@@ -306,13 +327,14 @@ class MainActivity : Activity() {
         pendente?.let { lista = it; pendente = null; indice = 0 }
         val tocaveis = lista.filter { it.arquivo !in falharamAoTocar && baixador.pronto(it) }
         if (tocaveis.isEmpty()) {
-            mostrarPainel("", nomeTela, if (lista.isEmpty()) "Aguardando conteúdo." else "Nenhum arquivo desta playlist pôde ser exibido neste aparelho.")
+            mostrarVitrine(if (lista.isEmpty()) "aguardando conteúdo" else "nenhum arquivo desta playlist pôde ser exibido neste aparelho")
             return
         }
         val item = tocaveis[indice % tocaveis.size]
         indice = (indice % tocaveis.size) + 1
         atual = item
         painel.visibility = View.GONE
+        esconderVitrine()
         val f = baixador.arquivo(item)
         if (item.tipo == "video") tocarVideo(item, f) else mostrarImagem(item, f)
     }
@@ -399,7 +421,9 @@ class MainActivity : Activity() {
                 .put("tempo_s", it.tempoS ?: JSONObject.NULL).put("url", it.url).put("chave_recurso", it.chaveRecurso ?: JSONObject.NULL)
         })).toString()
 
-    companion object { private const val TAG = "MidiaIndoor" }
+    companion object {
+        private const val TAG = "MidiaIndoor"
+    }
 
     @Suppress("unused")
     private fun abrirPermissaoSobrepor() {

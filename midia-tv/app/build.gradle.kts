@@ -20,6 +20,13 @@ val assinatura = Properties().apply {
 }
 
 android {
+    // Robolectric (teste da tela de espera, VitrineTest) precisa dos recursos do app nos testes de unidade
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+        // sem internet para o Maven (ou com 429): -Probolectric.dir=/pasta/com/o/android-all-instrumented.jar
+        unitTests.all { t -> (project.findProperty("robolectric.dir") as String?)?.let {
+            t.systemProperty("robolectric.offline", "true"); t.systemProperty("robolectric.dependency.dir", it) } }
+    }
     namespace = "br.com.nervia.midia"
     compileSdk = 36
 
@@ -27,8 +34,8 @@ android {
         applicationId = "br.com.nervia.midia"
         minSdk = 24          // Android 7.0
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.1"
+        versionCode = 3
+        versionName = "1.2"
         buildConfigField("String", "SUPABASE_URL", "\"${lerConfig("SUPABASE_URL")}\"")
         buildConfigField("String", "SUPABASE_CHAVE", "\"${lerConfig("SUPABASE_ANON_KEY")}\"")
     }
@@ -69,4 +76,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20260814")
+    testImplementation("org.robolectric:robolectric:4.14.1")
+    testImplementation("androidx.test:core:1.6.1")
 }
