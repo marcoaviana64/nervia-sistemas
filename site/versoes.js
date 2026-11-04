@@ -46,6 +46,7 @@ window.NERVIA_VERSOES = {
     ["1.0", "Lançamento: contas e licenças de cada unidade, mudanças entre exportações e licenças pagas sem uso."],
   ],
   "midia": [
+    ["1.7", "Versão web para computador: um computador ligado à TV (Windows ou Linux) passa as mídias pelo Google Chrome em tela cheia, no endereço nervia.com.br/tv, sem instalar programa. Mesmo código de vínculo, mesmas playlists, posição da TV e tela de espera; guarda as mídias e continua passando sem internet."],
     ["1.6", "A versão do app aparece na tela da TV (no alto da tela do código e no pé da tela de espera), para conferir a atualização sem abrir o painel."],
     ["1.5", "Tela de espera nova: quando a TV não tem o que passar, mostra uma propaganda do Mídia Indoor com QR code para falar com a Nervia, e no pé o nome da TV e o motivo. Fire TV Stick testado e aprovado, com o caminho para abrir o app quando o aparelho está sem internet."],
     ["1.4", "TV instalada em pé: escolha a posição no painel e o app gira vídeos e imagens, sem precisar de arquivo rotacionado. A TV começa a passar assim que o primeiro arquivo termina de baixar, e a TV recém-vinculada pega a playlist em até 30 segundos. Aviso de pouco espaço no aparelho."],

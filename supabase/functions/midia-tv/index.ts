@@ -5,7 +5,7 @@
 //   {acao:"sinal",    token, ...}          → sinal de vida (o painel mostra online/offline, espaço livre, erros)
 // Token inválido (TV desvinculada) → 401 {situacao:"desvinculada"}: o app apaga o token e volta à tela do código.
 import { admin } from "../_shared/banco.ts";
-import { VERSAO } from "../_shared/http.ts";
+import { origemPermitida, VERSAO } from "../_shared/http.ts";
 import { urlDownload } from "../_shared/drive.ts";
 import { sincronizarConta, versaoConteudo } from "../_shared/midia.ts";
 import { bancoMidia } from "../_shared/midia_banco.ts";
@@ -17,10 +17,20 @@ export const INTERVALO_SEM_CONTEUDO_S = 30; // sem nada para passar (recém-vinc
 export const INTERVALO_SINAL_S = 180;      // e manda o sinal de vida a cada 3 min
 
 const resp = (corpo: unknown, status = 200) => new Response(JSON.stringify(corpo), { status, headers: { "Content-Type": "application/json" } });
+// CORS: o reprodutor web (site/tv/, computador com Chrome/Edge) chama esta função pelo navegador; o app Android não manda Origin.
+const CORS_CABECALHOS = { "Access-Control-Allow-Headers": "apikey, content-type, x-client-info, authorization", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Max-Age": "3600" };
 const falha = (mensagem: string, status = 400) => resp({ ok: false, mensagem }, status);
 const ok = <T>(r: { data: T; error: { message: string } | null }) => { if (r.error) throw new Error(r.error.message); return r.data; };
 
 Deno.serve(async (req) => {
+  const r = req.method === "OPTIONS" ? new Response(null, { status: 204, headers: CORS_CABECALHOS }) : await atender(req);
+  r.headers.set("Access-Control-Allow-Origin", origemPermitida(req.headers.get("Origin")));
+  r.headers.set("Vary", "Origin");
+  for (const [k, v] of Object.entries(CORS_CABECALHOS)) r.headers.set(k, v);
+  return r;
+});
+
+async function atender(req: Request): Promise<Response> {
   if (req.method !== "POST") return falha("Use POST", 405);
   let c: Record<string, unknown>;
   try { c = await req.json(); } catch { return falha("JSON inválido."); }
@@ -66,4 +76,4 @@ Deno.serve(async (req) => {
     console.error(VERSAO, e);
     return falha(`${e instanceof Error ? e.message : e} [${VERSAO}]`, /Aparelho inválido|Muitos códigos/.test(String(e)) ? 429 : 502);
   }
-});
+}

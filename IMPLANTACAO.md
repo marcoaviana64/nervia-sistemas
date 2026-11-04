@@ -157,6 +157,8 @@ As mídias ficam na pasta do Google Drive de cada cliente (cada subpasta = uma p
 1. Área do Cliente → abrir **Mídia Indoor** → aba **Contas** → *+ Nova conta* (nome, limite em GB) → **quem vê** (libera o app junto).
 2. O cliente (ou a Nervia) cola o link da pasta na aba **Pasta do Drive** (pasta compartilhada com "Qualquer pessoa com o link", Leitor).
 
+**Computador (Windows/Linux) em vez de TV box**: não há APK; a página `nervia.com.br/tv` (pasta `site/tv/`) sobe com o site. Atalho do Chrome e passo a passo no roteiro de instalação (`site/apps/midia/ajuda/instalacao.html`, passo 7).
+
 **C. Gerar e publicar o APK** (pasta `midia-tv/`; precisa de JDK 17+ e Android SDK; ver `midia-tv/LEIAME.md`)
 - `./gradlew assembleRelease` → `app/build/outputs/apk/release/app-release.apk`.
 - Publicar para as instalações: copiar esse arquivo para `site/tv.apk` (endereço curto https://nervia.com.br/tv.apk, cabeçalhos em `site/_headers`) e subir `versionCode`/`versionName` antes. O endereço é público, mas o app só funciona com um código vinculado no painel.
@@ -205,6 +207,7 @@ deno test -A testes/midia/midia_test.ts          # Mídia Indoor: conferência d
 POSTGREST=... bash testes/midia/ponta_a_ponta.sh # Mídia Indoor: banco + PostgREST + funções midia/midia-tv + TV imitada
 node testes/midia/tela_midia_test.js             # painel do Mídia Indoor (Playwright, Supabase imitado)
 (cd midia-tv && ./gradlew testReleaseUnitTest lintRelease assembleRelease)   # app da TV
+node testes/midia/tela_tv_web_test.js                # Mídia Indoor: reprodutor web (computador), Playwright + ffmpeg
 python3 testes/conferir_assinatura.py testes/saida_envEvento.xml testes/fixtures/a1_cert.pem
 PGHOST=... PGPORT=... PGUSER=postgres testes/rodar_sql.sh   # esquema + RLS num Postgres local
 python3 testes/tela_test.py                      # site, Área do Cliente e Buscador (Playwright) com Supabase simulado
