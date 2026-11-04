@@ -2421,5 +2421,46 @@ select mi_conta_salvar('40000000-0000-0000-0000-000000000001', 'https://drive.go
 select pg_temp.ok((select count(*) = 0 from mi_playlists), 'midia: trocar a pasta limpa as playlists antigas');
 reset role;
 
+-- ------------------------------------------------------------------ preços dos apps (percentual do salário mínimo)
+select pg_temp.ok(preco_arredondar(40.525) = 39.90 and preco_arredondar(97.26) = 94.90 and preco_arredondar(24.315) = 24.90 and preco_arredondar(1) = 4.90, 'precos: arredonda para múltiplo de 5 menos 0,10');
+select pg_temp.ok((select valor = 39.90 and percentual = 2.5 and sm_referencia = 1621 from preco_itens where id = 'notas')
+  and (select valor = 94.90 from preco_itens where id = 'compras') and (select valor = 129.90 from preco_itens where id = 'telefonia')
+  and (select valor is null and cobranca = 'negociar' from preco_itens where id = 'linum'), 'precos: valores iniciais aprovados');
+select pg_temp.ok((select count(*) = 11 from preco_historico where antes is null), 'precos: criação registrada no histórico');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok((select count(*) = 0 from preco_itens) and (select count(*) = 0 from salario_minimo), 'precos: cliente não vê preços');
+select pg_temp.erro2('select precos_lista()', 'Só a equipe', 'precos: cliente não lista');
+select pg_temp.erro2('select preco_salvar(''{"id":"notas","percentual":1}'')', 'Só a equipe', 'precos: cliente não altera');
+select pg_temp.erro2('select salario_minimo_salvar(''2027-01-01'', 1741, ''x'')', 'Só a equipe', 'precos: cliente não cadastra salário mínimo');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select pg_temp.erro2('update preco_itens set valor = 1', 'permission', 'precos: tabela só muda pelas funções');
+select pg_temp.ok((select count(*) = 0 from precos_lista() where reajuste), 'precos: sem reajuste pendente com o mínimo atual');
+-- mudar o percentual recalcula; mudar o valor à mão vale como aprovado
+select preco_salvar('{"id":"midia","percentual":4}');
+select pg_temp.ok((select valor = 64.90 and percentual = 4 from preco_itens where id = 'midia'), 'precos: novo percentual recalcula o valor');
+select preco_salvar('{"id":"midia","valor":59.90,"motivo":"preço de lançamento"}');
+select pg_temp.ok((select valor = 59.90 from preco_itens where id = 'midia') and (select r.reajuste from precos_lista() r where r.id = 'midia'), 'precos: valor à mão fica, e aparece como diferente do percentual');
+select pg_temp.ok((select motivo = 'preço de lançamento' and (antes->>'valor')::numeric = 64.90 and (depois->>'valor')::numeric = 59.90 and depois ? 'valor' and not depois ? 'nome' from preco_historico where item_id = 'midia' order by id desc limit 1), 'precos: histórico guarda só o que mudou, com motivo');
+select preco_salvar('{"id":"compras-oportunidades","modo":"fixo","valor":35}');
+select preco_salvar('{"id":"notas","obs":"mais vendido"}');
+select pg_temp.ok((select valor = 39.90 and obs = 'mais vendido' from preco_itens where id = 'notas'), 'precos: mudar só a observação mantém o valor');
+select pg_temp.ok((select modo = 'fixo' and valor = 35 from preco_itens where id = 'compras-oportunidades'), 'precos: item com valor fixo');
+select pg_temp.erro2('select preco_salvar(''{"id":"notas","valor":0}'')', 'maior que zero', 'precos: valor zero recusado');
+select preco_salvar('{"id":"produtos","nome":"Controle de Produtos","unidade":"loja / mês","percentual":3}');
+select pg_temp.ok((select valor = 49.90 from preco_itens where id = 'produtos'), 'precos: item novo');
+-- salário mínimo novo só sugere; aprovação aplica
+select salario_minimo_salvar(current_date - 1, 1741, 'Decreto de teste');
+select pg_temp.ok((select valor = 39.90 from preco_itens where id = 'notas'), 'precos: mínimo novo não muda preço sozinho');
+select preco_salvar('{"id":"licencas","obs":"por unidade"}');
+select pg_temp.ok((select valor = 29.90 from preco_itens where id = 'licencas'), 'precos: editar o item não aplica o reajuste escondido');
+select pg_temp.ok((select sugerido = 44.90 and reajuste from precos_lista() where id = 'notas') and (select not reajuste from precos_lista() where id = 'compras-oportunidades'), 'precos: sugere o reajuste (fixo não)');
+select pg_temp.ok(precos_aprovar_reajuste(array['notas','compras'], null) = 2, 'precos: aprova os marcados');
+select pg_temp.ok((select valor = 44.90 and sm_referencia = 1741 from preco_itens where id = 'notas') and (select valor = 104.90 from preco_itens where id = 'compras') and (select valor = 24.90 from preco_itens where id = 'painel-nf'), 'precos: só os aprovados mudam');
+select pg_temp.erro2('delete from preco_historico', 'permission', 'precos: histórico não se apaga pela tela');
+reset role;
+select pg_temp.erro2('delete from preco_historico', 'somente inclusão', 'precos: histórico somente inclusão');
+select pg_temp.ok(exists (select 1 from auditoria where acao = 'salario_minimo_cadastrado' and email = 'marco@nervia.com.br') and (select count(*) >= 2 from auditoria where acao = 'preco_alterado' and detalhes->>'motivo' like 'reajuste%'), 'precos: auditoria do mínimo e dos reajustes');
+
 reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'

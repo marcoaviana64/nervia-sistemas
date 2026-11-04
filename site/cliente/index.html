@@ -44,7 +44,7 @@ header{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdro
 .topo .area{text-decoration:none;font-weight:700;color:var(--accent);font-size:.82rem;letter-spacing:.12em;text-transform:uppercase;border-left:1px solid var(--border);padding-left:14px}
 .topo .user{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:.9rem;color:var(--muted)}
 .topo .user button{padding:8px 12px;font-size:.85rem}
-@media(max-width:640px){.topo .area,.topo .quem{display:none}}
+@media(max-width:640px){.topo .area,.topo .quem{display:none}.topo .user{gap:6px}.topo .user button{padding:6px 8px;font-size:.8rem}}
 
 /* login */
 .login{min-height:100vh;display:grid;place-items:center;background:var(--hero-bg);padding:24px}
@@ -118,7 +118,7 @@ header{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdro
 .rodape-apps a{color:var(--accent);font-weight:600}
 
 /* admin */
-.abas{display:flex;gap:6px;margin-bottom:18px}
+.abas{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px}
 .abas button{background:var(--surface);color:var(--muted);border:1px solid var(--border)}
 .abas button.on{background:var(--primary);color:#fff;border-color:var(--primary)}
 .cartao{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
@@ -243,7 +243,7 @@ td.mono{font-family:ui-monospace,Consolas,monospace;font-size:.8rem}
     <button class="lnk" id="bVoltarAdm" style="margin-bottom:10px" onclick="location.hash=''">← Meus aplicativos</button>
     <h1>Administração</h1>
     <div class="sub">Logins e aplicativos da Área do Cliente</div>
-    <div class="abas"><button id="abaUsu" onclick="aba('usu')">Logins</button><button id="abaApps" onclick="aba('apps')">Aplicativos</button><button id="abaInt" onclick="aba('int')">Interesse nos apps</button><button id="abaAud" onclick="aba('aud')">Auditoria</button><button id="abaAcs" onclick="aba('acs')">Acessos do site</button><button id="abaEml" onclick="aba('eml')">E-mails</button></div>
+    <div class="abas"><button id="abaUsu" onclick="aba('usu')">Logins</button><button id="abaApps" onclick="aba('apps')">Aplicativos</button><button id="abaInt" onclick="aba('int')">Interesse nos apps</button><button id="abaAud" onclick="aba('aud')">Auditoria</button><button id="abaAcs" onclick="aba('acs')">Acessos do site</button><button id="abaEml" onclick="aba('eml')">E-mails</button><button id="abaPrc" onclick="aba('prc')">Preços</button></div>
     <div id="msgAdm" class="msg"></div>
     <div id="admConteudo"></div>
   </main>
@@ -293,6 +293,7 @@ async function iniciar() {
   if (perfil.admin && location.pathname.startsWith("/cliente/")) { try { localStorage.setItem("nervia-nao-contar", "1"); } catch {} }
   $("abaAcs").classList.toggle("oculto", location.pathname.startsWith("/demo/"));
   $("abaEml").classList.toggle("oculto", location.pathname.startsWith("/demo/"));
+  $("abaPrc").classList.toggle("oculto", location.pathname.startsWith("/demo/"));   // preço NÃO é público (decisão do Marco)
   $("vLogin").classList.add("oculto"); $("vArea").classList.remove("oculto");
   rota();
 }
@@ -493,9 +494,9 @@ function fecharAjuda() { $("painelAjuda").classList.add("oculto"); }
 // ------------------------------------------------------------ administração
 async function aba(qual) {
   abaAtual = qual;
-  ["usu", "apps", "int", "aud", "acs", "eml"].forEach(k => $("aba" + k[0].toUpperCase() + k.slice(1)).classList.toggle("on", qual === k));
+  ["usu", "apps", "int", "aud", "acs", "eml", "prc"].forEach(k => $("aba" + k[0].toUpperCase() + k.slice(1)).classList.toggle("on", qual === k));
   msg($("msgAdm"), "", "");
-  try { qual === "usu" ? await admLogins() : qual === "aud" ? await admAuditoria() : qual === "acs" ? await admAcessos() : qual === "int" ? await admInteresse() : qual === "eml" ? await admEmails() : admApps(); } catch (e) { msg($("msgAdm"), "err", e.message); }
+  try { qual === "usu" ? await admLogins() : qual === "aud" ? await admAuditoria() : qual === "acs" ? await admAcessos() : qual === "int" ? await admInteresse() : qual === "eml" ? await admEmails() : qual === "prc" ? await admPrecos() : admApps(); } catch (e) { msg($("msgAdm"), "err", e.message); }
 }
 
 // E-mails automáticos pelo Microsoft 365 (função email): situação, teste e os últimos envios (tabela email_envios)
@@ -519,6 +520,123 @@ async function testarEmail(ev) {
   ev.preventDefault();
   try { const r = await funcao("email", { acao: "teste", para: $("tEmail").value.trim() }); await admEmails(); msg($("msgAdm"), "ok", r.mensagem); }
   catch (e) { await admEmails(); msg($("msgAdm"), "err", e.message); }
+}
+
+// Preços dos apps (pedido do Marco em 04/11/2026; migração ..._precos.sql). Régua interna: percentual do salário mínimo;
+// o preço cobrado é o valor em reais APROVADO. Salário mínimo novo só sugere o reajuste; nada muda sozinho.
+// Só a equipe Nervia vê (sem preço público e sem cobrança até o Marco liberar). Escrita só pelas rpcs (auditadas).
+const COBRANCA = { mensal: "Mensalidade", avulso: "Avulso (por uso)", incluido: "Incluído no contrato", negociar: "A negociar" };
+const reais = v => v == null ? "—" : "R$ " + Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const pct = v => v == null ? "—" : Number(v).toLocaleString("pt-BR", { maximumFractionDigits: 3 }) + "%";
+const dataBR = d => d ? new Date(d + "T12:00:00").toLocaleDateString("pt-BR") : "";
+const precoArred = x => Math.max(Math.round(x / 5) * 5, 5) - 0.10;   // igual a preco_arredondar() no banco
+async function admPrecos() {
+  $("admConteudo").innerHTML = '<div class="cartao"><h2>Preços</h2><div class="small">Carregando…</div></div>';
+  const itens = checar(await sb.rpc("precos_lista")) || [];
+  const sms = checar(await sb.from("salario_minimo").select("*").order("vigencia", { ascending: false })) || [];
+  const hist = checar(await sb.from("preco_historico").select("*").order("id", { ascending: false }).limit(60)) || [];
+  window._precos = itens; window._sm = itens[0]?.sm_atual ?? null;
+  const smAtual = window._sm, smLinha = sms.find(s => Number(s.valor) === Number(smAtual)) || sms[0];
+  const nomeApp = id => apps.find(a => a.id === id)?.nome || id || "";
+  const reaj = itens.filter(i => i.reajuste && Number(i.sm_referencia) !== Number(smAtual));
+  const mao = i => i.reajuste && Number(i.sm_referencia) === Number(smAtual);
+  const situacao = i => !i.ativo ? '<span class="tag" style="background:#eee;color:#666">desativado</span>'
+    : i.cobranca === "incluido" || i.cobranca === "negociar" ? `<span class="small">${COBRANCA[i.cobranca]}</span>`
+    : mao(i) ? `<span class="small">valor ajustado à mão (o percentual daria ${reais(i.sugerido)})</span>`
+    : i.reajuste ? `<span class="tag" style="background:#fff4d6;color:#8a5a00">reajuste sugerido: ${reais(i.sugerido)}</span>`
+    : i.modo === "fixo" ? '<span class="small">valor fixo (não acompanha o salário mínimo)</span>'
+    : '<span class="small">em dia com o salário mínimo</span>';
+  $("admConteudo").innerHTML = `<div class="cartao"><h2>Preços dos aplicativos</h2>
+    <div class="small">Uso interno da Nervia: nenhum cliente vê esta tabela e não há cobrança ligada a ela ainda. Cada item tem um <b>percentual do salário mínimo</b> (régua) e um <b>valor aprovado</b> em reais, que é o que se cobra. Quando o salário mínimo muda, o valor <b>não</b> muda sozinho: aparece o reajuste sugerido para aprovar. Para o cliente e no contrato vale só o valor em reais (reajuste anual, com aviso).</div>
+    <p style="margin:12px 0 4px">Salário mínimo em vigor: <b>${reais(smAtual)}</b>${smLinha ? ` <span class="small">desde ${dataBR(smLinha.vigencia)} · ${esc(smLinha.fonte)}</span>` : ""}</p>
+    ${reaj.length ? `<div class="msg" style="display:block;background:#fff4d6;color:#8a5a00;margin:10px 0">${reaj.length} item(ns) com reajuste sugerido pelo salário mínimo novo. Marque na tabela e aprove.
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-top:8px"><div><label for="pVale">Vale a partir de</label><input id="pVale" type="date" value="${new Date().toLocaleDateString("sv", { timeZone: "America/Sao_Paulo" })}"></div><button onclick="aprovarReajuste()">Aprovar o reajuste dos marcados</button></div></div>` : ""}
+    <div style="overflow-x:auto;margin-top:10px"><table class="aud" id="tPrecos"><tr><th></th><th>Item</th><th>Cobra por</th><th>Régua</th><th>Valor aprovado</th><th>Desde</th><th>Situação</th><th></th></tr>
+    ${itens.map(i => `<tr${i.ativo ? "" : ' style="opacity:.55"'}><td>${i.reajuste && !mao(i) ? `<input type="checkbox" class="pMarca" value="${esc(i.id)}" checked aria-label="Aprovar ${esc(i.nome)}">` : ""}</td>
+      <td><b>${esc(i.nome)}</b>${i.app_id ? `<div class="small">${esc(nomeApp(i.app_id))}</div>` : ""}${i.obs ? `<div class="small">${esc(i.obs)}</div>` : ""}</td>
+      <td>${esc(i.unidade)}<div class="small">${COBRANCA[i.cobranca] || i.cobranca}</div></td>
+      <td>${i.modo === "fixo" ? `valor fixo<div class="small">= ${pct(i.percentual_efetivo)} do mínimo</div>` : i.percentual != null ? `${pct(i.percentual)} do mínimo` : "—"}</td>
+      <td><b>${reais(i.valor)}</b></td><td>${dataBR(i.valor_desde)}${i.sm_referencia ? `<div class="small">mínimo ${reais(i.sm_referencia)}</div>` : ""}</td>
+      <td>${situacao(i)}</td><td><button class="lnk" onclick="editarPreco('${esc(i.id)}')">editar</button></td></tr>`).join("")}</table></div>
+    <div id="pEditor"></div>
+    <p style="margin-top:12px"><button class="sec" onclick="editarPreco('')">+ Novo item</button></p></div>
+
+    <div class="cartao"><h2>Salário mínimo</h2>
+    <div class="small">Cadastre o valor novo quando sair o decreto (normalmente no fim de dezembro, vale a partir de 1º de janeiro). Isso não muda nenhum preço: só passa a sugerir o reajuste.</div>
+    <form onsubmit="salvarSM(event)" style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-top:10px">
+      <div><label for="smData">Vale a partir de</label><input id="smData" type="date" required></div>
+      <div><label for="smValor">Valor (R$)</label><input id="smValor" inputmode="decimal" required placeholder="1.741,00" style="width:120px"></div>
+      <div style="flex:1;min-width:200px"><label for="smFonte">Fonte (decreto ou lei)</label><input id="smFonte" required placeholder="Decreto nº …/2026"></div>
+      <button>Cadastrar</button></form>
+    <div style="overflow-x:auto;margin-top:10px"><table class="aud"><tr><th>A partir de</th><th>Valor</th><th>Fonte</th></tr>${sms.map(s => `<tr><td>${dataBR(s.vigencia)}</td><td>${reais(s.valor)}</td><td>${esc(s.fonte)}</td></tr>`).join("")}</table></div></div>
+
+    <div class="cartao"><h2>Histórico de preços</h2><div class="small">Toda mudança fica registrada (não se apaga) e também na Auditoria.</div>
+    ${hist.length ? `<div style="overflow-x:auto;margin-top:8px"><table class="aud"><tr><th>Quando</th><th>Item</th><th>O que mudou</th><th>Motivo</th><th>Quem</th></tr>${hist.map(h => {
+      const n = itens.find(i => i.id === h.item_id)?.nome || h.item_id, d = h.depois || {}, a = h.antes;
+      const campo = k => k === "valor" ? (v => reais(v)) : k === "percentual" ? (v => pct(v)) : (v => esc(v ?? "—"));
+      const mud = a ? Object.keys(d).filter(k => !["atualizado_em", "atualizado_por"].includes(k)).map(k => `${esc(k.replace("_", " "))}: ${campo(k)(a[k])} → ${campo(k)(d[k])}`).join("<br>") : `criado · ${reais(d.valor)}${d.percentual != null ? " · " + pct(d.percentual) : ""}`;
+      return `<tr><td>${window.NERVIA_AUDITORIA.dataHora(h.em)}</td><td>${esc(n)}</td><td>${mud}</td><td>${esc(h.motivo)}</td><td>${esc(h.quem)}</td></tr>`; }).join("")}</table></div>` : '<div class="small">Nada ainda.</div>'}</div>`;
+}
+function editarPreco(id) {
+  const i = (window._precos || []).find(x => x.id === id) || { id: "", nome: "", app_id: "", unidade: "", cobranca: "mensal", modo: "percentual", percentual: "", valor: "", obs: "", ordem: 200, ativo: true };
+  const novo = !id, num = v => v == null || v === "" ? "" : String(v).replace(".", ",");
+  $("pEditor").innerHTML = `<form class="cartao" style="margin-top:12px;border-color:var(--primary)" onsubmit="salvarPreco(event, ${novo})">
+    <h2>${novo ? "Novo item de preço" : "Editar: " + esc(i.nome)}</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:10px">
+      ${novo ? `<div><label for="pId">Código (minúsculas, sem espaço)</label><input id="pId" required pattern="[a-z0-9-]+" placeholder="produtos"></div>` : ""}
+      <div><label for="pNome">Nome</label><input id="pNome" required value="${esc(i.nome)}"></div>
+      <div><label for="pApp">Aplicativo</label><select id="pApp"><option value="">—</option>${apps.map(a => `<option value="${esc(a.id)}"${a.id === i.app_id ? " selected" : ""}>${esc(a.nome)}</option>`).join("")}</select></div>
+      <div><label for="pUnid">Cobra por</label><input id="pUnid" value="${esc(i.unidade)}" placeholder="CNPJ / mês"></div>
+      <div><label for="pCob">Cobrança</label><select id="pCob" onchange="prevPreco()">${Object.entries(COBRANCA).map(([k, v]) => `<option value="${k}"${k === i.cobranca ? " selected" : ""}>${v}</option>`).join("")}</select></div>
+      <div><label for="pModo">Régua</label><select id="pModo" onchange="prevPreco()"><option value="percentual"${i.modo === "percentual" ? " selected" : ""}>Percentual do salário mínimo</option><option value="fixo"${i.modo === "fixo" ? " selected" : ""}>Valor fixo em reais</option></select></div>
+      <div><label for="pPct">Percentual do mínimo (%)</label><input id="pPct" inputmode="decimal" value="${num(i.percentual)}" oninput="prevPreco()"></div>
+      <div><label for="pValor">Valor (R$)</label><input id="pValor" inputmode="decimal" value="" placeholder="${i.valor != null ? num(Number(i.valor).toFixed(2)) : ""}" oninput="prevPreco()"><div class="small" id="pValorDica"></div></div>
+      <div><label for="pDesde">Novo valor vale a partir de</label><input id="pDesde" type="date" value="${new Date().toLocaleDateString("sv", { timeZone: "America/Sao_Paulo" })}"></div>
+      <div><label for="pOrdem">Ordem na lista</label><input id="pOrdem" inputmode="numeric" value="${esc(i.ordem)}"></div>
+    </div>
+    <label for="pObs" style="margin-top:10px;display:block">Observação</label><input id="pObs" value="${esc(i.obs)}">
+    ${novo ? "" : `<label for="pMotivo" style="margin-top:10px;display:block">Motivo da mudança (vai para o histórico)</label><input id="pMotivo" placeholder="ex.: preço de lançamento">`}
+    <div class="chips" style="margin-top:10px"><label><input type="checkbox" id="pAtivo"${i.ativo ? " checked" : ""}> Ativo</label></div>
+    <p id="pPrev" style="margin:10px 0"></p>
+    <div style="display:flex;gap:8px"><button>Salvar</button><button type="button" class="sec" onclick="$('pEditor').innerHTML=''">Cancelar</button></div></form>`;
+  window._pAtual = i; prevPreco(); $("pEditor").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+const lerNum = v => { v = String(v || "").trim().replace(/\s|R\$/g, ""); if (!v) return null; if (v.includes(",")) v = v.replace(/\./g, "").replace(",", "."); const n = Number(v); return isFinite(n) ? n : NaN; };
+function prevPreco() {
+  const modo = $("pModo").value, cob = $("pCob").value, p = lerNum($("pPct").value), v = lerNum($("pValor").value), sm = window._sm;
+  $("pValorDica").textContent = modo === "percentual" ? "Vazio = calcular pelo percentual. Preenchido = esse valor fica aprovado." : "Obrigatório no valor fixo.";
+  let t = "";
+  if (cob === "incluido" || cob === "negociar") t = COBRANCA[cob] + ": sem valor de tabela (o valor é opcional).";
+  else if (v != null && !isNaN(v)) t = `Valor aprovado: <b>${reais(v)}</b>${sm ? ` = ${pct(Math.round(v / sm * 100000) / 1000)} do salário mínimo de ${reais(sm)}` : ""}${modo === "percentual" && p ? ` · o percentual daria ${reais(precoArred(sm * p / 100))}` : ""}`;
+  else if (modo === "percentual" && p && sm) t = `${pct(p)} × ${reais(sm)} = ${reais(sm * p / 100)} → arredondado: <b>${reais(precoArred(sm * p / 100))}</b>`;
+  else if (modo === "fixo" && window._pAtual?.valor != null) t = `Sem valor novo: continua <b>${reais(window._pAtual.valor)}</b>.`;
+  $("pPrev").innerHTML = t;
+}
+async function salvarPreco(ev, novo) {
+  ev.preventDefault();
+  const p = { nome: $("pNome").value, app_id: $("pApp").value, unidade: $("pUnid").value, cobranca: $("pCob").value, modo: $("pModo").value,
+    percentual: $("pPct").value.trim() ? lerNum($("pPct").value) : "", obs: $("pObs").value, ordem: $("pOrdem").value, ativo: $("pAtivo").checked, vale_desde: $("pDesde").value };
+  p.id = novo ? $("pId").value.trim() : window._pAtual.id;
+  if (Number.isNaN(p.percentual)) return msg($("msgAdm"), "err", "Percentual inválido.");
+  // valor vazio: o banco recalcula pelo percentual só se o percentual (ou a régua) mudou; senão mantém o aprovado
+  if ($("pValor").value.trim()) { p.valor = lerNum($("pValor").value); if (Number.isNaN(p.valor)) return msg($("msgAdm"), "err", "Valor inválido."); }
+  if (!novo && $("pMotivo").value.trim()) p.motivo = $("pMotivo").value.trim();
+  try { checar(await sb.rpc("preco_salvar", { p })); await admPrecos(); msg($("msgAdm"), "ok", "Preço salvo."); }
+  catch (e) { msg($("msgAdm"), "err", e.message); }
+}
+async function aprovarReajuste() {
+  const ids = [...document.querySelectorAll(".pMarca:checked")].map(c => c.value);
+  if (!ids.length) return msg($("msgAdm"), "err", "Marque ao menos um item.");
+  if (!confirm(`Aprovar o reajuste de ${ids.length} item(ns) pelo salário mínimo de ${reais(window._sm)}?`)) return;
+  try { const n = checar(await sb.rpc("precos_aprovar_reajuste", { p_ids: ids, p_vale_desde: $("pVale").value || null })); await admPrecos(); msg($("msgAdm"), "ok", `${n} preço(s) reajustado(s).`); }
+  catch (e) { msg($("msgAdm"), "err", e.message); }
+}
+async function salvarSM(ev) {
+  ev.preventDefault();
+  const v = lerNum($("smValor").value);
+  if (!v || Number.isNaN(v)) return msg($("msgAdm"), "err", "Valor do salário mínimo inválido.");
+  try { checar(await sb.rpc("salario_minimo_salvar", { p_vigencia: $("smData").value, p_valor: v, p_fonte: $("smFonte").value })); await admPrecos(); msg($("msgAdm"), "ok", "Salário mínimo cadastrado. Confira os reajustes sugeridos."); }
+  catch (e) { msg($("msgAdm"), "err", e.message); }
 }
 
 // Interesse nos apps da vitrine: reações (uma por login×app) e cliques. Só a equipe Nervia (função apps_interesse).
