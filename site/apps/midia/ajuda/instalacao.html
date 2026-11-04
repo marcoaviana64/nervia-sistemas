@@ -26,7 +26,7 @@ pre.cmd{font:12.5px/1.45 ui-monospace,Consolas,monospace;background:#f3f5f8;bord
     <div class="acoes"><a href="compatibilidade.html">Compatibilidade das TVs</a><a href="manual.html">Manual</a><a href="cartao.html">Cartão rápido</a><button onclick="print()">Imprimir</button></div>
   </div>
 
-  <p class="lead">A instalação leva uns 15 minutos por TV, com um notebook na mesma rede da TV. Ela é feita pelo ADB (ferramenta oficial do Android): assim o app não depende da Play Store e recebe a permissão para abrir sozinho quando a TV liga.</p>
+  <p class="lead">Cliente que passa as mídias num <b>computador</b> ligado à TV (Windows ou Linux) não instala nada: vai direto ao <a href="#computador">passo 7</a>. Na TV ou TV box com Android, a instalação leva uns 15 minutos por TV, com um notebook na mesma rede da TV. Ela é feita pelo ADB (ferramenta oficial do Android): assim o app não depende da Play Store e recebe a permissão para abrir sozinho quando a TV liga.</p>
 
   <ul class="indice">
     <li><a href="#levar">0. O que levar</a></li>
@@ -36,7 +36,8 @@ pre.cmd{font:12.5px/1.45 ui-monospace,Consolas,monospace;background:#f3f5f8;bord
     <li><a href="#pronta">4. Deixar a TV pronta</a></li>
     <li><a href="#conferir">5. Conferir antes de ir embora</a></li>
     <li><a href="#problemas">6. Se der erro</a></li>
-    <li><a href="#ficha">7. Ficha da instalação</a></li>
+    <li><a href="#computador">7. Computador (Windows ou Linux): versão web</a></li>
+    <li><a href="#ficha">8. Ficha da instalação</a></li>
   </ul>
 
   <div class="aviso"><b>Antes de ir ao cliente:</b> a conta dele já criada em <b>Mídia Indoor → Contas</b>, a pasta do Google Drive ligada (aba <b>Pasta do Drive</b>) e pelo menos uma playlist com arquivos aceitos (aba <b>Playlists</b>). Assim a TV já começa a passar no fim da instalação.</div>
@@ -132,15 +133,60 @@ pre.cmd{font:12.5px/1.45 ui-monospace,Consolas,monospace;background:#f3f5f8;bord
     <tr><td>"Código não encontrado" / "Este código venceu"</td><td>Digite o código que está na TV agora (ele muda a cada 10 minutos).</td></tr>
     <tr><td>TV vinculada, mas na tela de espera (propaganda do Mídia Indoor com QR code)</td><td>A TV está sem playlist escolhida, a playlist está vazia/com arquivos recusados ou ainda está baixando. A linha pequena no pé da tela diz qual é o caso. Veja as abas TVs e Playlists.</td></tr>
     <tr><td>Fire TV sem internet: "Tela inicial indisponível", não dá para abrir o app</td><td>É da tela inicial da Amazon, que precisa de internet. Abra por <i>Configurações → Aplicativos → Gerenciar aplicativos instalados → Mídia Indoor → Abrir aplicativo</i>. No dia a dia o app abre sozinho ao ligar (confira o <code>appops</code> do passo 2).</td></tr>
+    <tr><td>Computador: "o navegador bloqueou o som"</td><td>A página foi aberta sem o atalho do passo 7. Abra pelo atalho, ou clique uma vez na tela.</td></tr>
+    <tr><td>Computador: depois de reiniciar, abriu o código de novo (pede vínculo)</td><td>O Chrome abriu com outra pasta de dados (sem o <code>--user-data-dir</code> do atalho) ou em janela anônima. Use o atalho do passo 7 e vincule de novo.</td></tr>
     <tr><td>"este aparelho não toca o vídeo" (na Situação da TV)</td><td>O aparelho não decodificou aquele arquivo. Converta de novo pelo HandBrake (Fast 1080p30) e troque na pasta.</td></tr>
   </table>
 
-  <h2 id="ficha" class="quebra">7. Ficha da instalação</h2>
+  <h2 id="computador" class="quebra">7. Computador (Windows ou Linux): versão web</h2>
+  <p class="lead">Para quem já usa um computador ligado à TV. Não instala programa: o <b>Google Chrome</b> abre <b><code>nervia.com.br/tv</code></b> em tela cheia quando o computador liga. Ele guarda as mídias no próprio computador e continua passando sem internet, como o app da TV.</p>
+  <div class="aviso"><b>Use sempre o mesmo atalho abaixo.</b> Ele abre um Chrome separado (pasta <code>MidiaIndoor</code>), com som liberado e em tela cheia, sem misturar com o Chrome do dia a dia. Janela anônima apaga as mídias ao fechar: não use.</div>
+  <div class="lado">
+    <div>
+      <h3>Windows</h3>
+      <ol>
+        <li>Instale o Google Chrome, se não tiver.</li>
+        <li>Clique com o botão direito na área de trabalho → <b>Novo → Atalho</b> e cole no local:
+          <pre class="cmd">"C:\Program Files\Google\Chrome\Application\chrome.exe" --user-data-dir=C:\MidiaIndoor --kiosk --autoplay-policy=no-user-gesture-required --no-first-run https://nervia.com.br/tv/</pre>
+          Nome: <b>Mídia Indoor</b>.</li>
+        <li>Abrir sozinho ao ligar: tecle <b>Windows + R</b>, digite <code>shell:startup</code> e copie o atalho para essa pasta.</li>
+        <li>O computador tem de entrar no Windows sozinho (login automático, sem senha na tela) e nunca suspender: <i>Configurações → Sistema → Energia</i> → tela e suspensão em <b>Nunca</b>.</li>
+        <li>Para sair da tela cheia (manutenção): <b>Alt + F4</b>.</li>
+      </ol>
+    </div>
+    <div>
+      <h3>Linux (Ubuntu e parecidos)</h3>
+      <ol>
+        <li>Instale o Google Chrome (ou o Chromium: troque <code>google-chrome</code> por <code>chromium</code>).</li>
+        <li>Crie o arquivo <code>~/.config/autostart/midia-indoor.desktop</code> com:
+          <pre class="cmd">[Desktop Entry]
+Type=Application
+Name=Mídia Indoor
+Exec=google-chrome --user-data-dir=/home/USUARIO/.midia-indoor --kiosk --autoplay-policy=no-user-gesture-required --no-first-run https://nervia.com.br/tv/</pre>
+          (troque <code>USUARIO</code> pelo usuário do computador).</li>
+        <li>Login automático do usuário e tela sem bloqueio nem protetor: <i>Configurações → Energia</i> (tela em branco: <b>Nunca</b>) e <i>Privacidade → Bloqueio de tela</i> desligado.</li>
+        <li>Para sair da tela cheia: <b>Alt + F4</b>.</li>
+      </ol>
+    </div>
+  </div>
+  <ol start="5">
+    <li>Na primeira abertura aparece o <b>código de 6 caracteres</b>: vincule no painel como uma TV (passo 3). No painel ela aparece como "Computador · Chrome …".</li>
+    <li>TV em pé: escolha a <b>Posição da TV</b> no painel; a página gira a imagem.</li>
+  </ol>
+  <h3>Conferir antes de ir embora</h3>
+  <ul class="chk">
+    <li>Reiniciou o computador e a página abriu sozinha, em tela cheia, passando.</li>
+    <li>Vídeo com som (se o cliente usa som). Sem som: confira se abriu pelo atalho, com <code>--autoplay-policy=no-user-gesture-required</code>; clicar uma vez na tela também libera.</li>
+    <li>Tirou a internet por 2 minutos e continuou passando; reiniciou sem internet e abriu passando o que já baixou.</li>
+    <li>No painel: Online e sem o aviso "o navegador bloqueou o som" na Situação.</li>
+  </ul>
+
+  <h2 id="ficha" class="quebra">8. Ficha da instalação</h2>
   <p class="lead">Preencha uma por TV e guarde (ou fotografe) junto com o cadastro do cliente.</p>
   <table class="ficha">
     <tr><td>Cliente / conta no painel</td><td></td></tr>
     <tr><td>Local da TV (nome no painel)</td><td></td></tr>
-    <tr><td>Aparelho (marca e modelo)</td><td></td></tr>
+    <tr><td>Aparelho (marca e modelo) ou computador (Windows / Linux)</td><td></td></tr>
     <tr><td>Posição (deitada / em pé, para que lado)</td><td></td></tr>
     <tr><td>Versão do Android</td><td></td></tr>
     <tr><td>IP da TV na rede do cliente</td><td></td></tr>

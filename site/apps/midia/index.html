@@ -213,17 +213,17 @@ function vTelas() {
         <td>${st}${t.ultimo_sinal ? `<div class="mut">sinal ${desde(t.ultimo_sinal)}</div>` : ""}</td>
         <td><select data-pl="${t.id}"><option value="">— nenhuma (tela de espera) —</option>${PLS.map(p => `<option value="${p.id}" ${p.id === t.playlist_id ? "selected" : ""}>${esc(p.nome)}</option>`).join("")}</select></td>
         <td><select data-rot="${t.id}" title="Como a TV está instalada: o app gira a imagem para ficar certa">${POSICOES.map(([g, n]) => `<option value="${g}" ${g === (t.rotacao || 0) ? "selected" : ""}>${n}</option>`).join("")}</select></td>
-        <td class="esc-m">${esc(t.modelo || "—")}<div class="mut">${t.android ? "Android " + esc(t.android) : ""}${t.versao_app ? " · app " + esc(t.versao_app) : ""}${t.espaco_livre_mb != null ? ` · ${(t.espaco_livre_mb / 1024).toFixed(1).replace(".", ",")} GB livres` : ""}</div></td>
+        <td class="esc-m">${esc(t.modelo || "—")}<div class="mut">${[t.android ? "Android " + esc(t.android) : "", t.versao_app ? "app " + esc(t.versao_app) : "", t.espaco_livre_mb != null && t.espaco_livre_mb >= 0 ? `${(t.espaco_livre_mb / 1024).toFixed(1).replace(".", ",")} GB livres` : ""].filter(Boolean).join(" · ")}</div></td>
         <td class="esc-m">${t.baixando ? tag(`baixando ${t.baixando} arquivo(s)`, "t-info") : t.ultimo_sinal ? tag("em dia", "t-ok") : ""}
           ${t.espaco_livre_mb != null && t.espaco_livre_mb * 1048576 < usado() + 524288000 ? tag(`pouco espaço: ${(t.espaco_livre_mb / 1024).toFixed(1).replace(".", ",")} GB livres`, "t-warn") : ""}
           ${erros.map(e => `<div class="mut" style="color:var(--crit)">${esc(e.nome)}: ${esc(e.erro)}</div>`).join("")}</td>
         <td style="white-space:nowrap"><button class="bt peq" data-acao="renomear" data-id="${t.id}">Renomear</button> <button class="bt peq perigo" data-acao="desvincular" data-id="${t.id}">Desvincular</button></td></tr>`;
-    }).join("")}</table></div>` : `<div class="vazio">Nenhuma TV ainda. Instale o app <b>Mídia Indoor Nervia</b> na TV ou no TV box: ele mostra um código de 6 caracteres. Depois clique em <b>+ Adicionar TV</b>.</div>`}
+    }).join("")}</table></div>` : `<div class="vazio">Nenhuma TV ainda. Instale o app <b>Mídia Indoor Nervia</b> na TV ou no TV box (ou, num computador, abra <b>nervia.com.br/tv</b> no Chrome ou no Edge): ele mostra um código de 6 caracteres. Depois clique em <b>+ Adicionar TV</b>.</div>`}
     <p class="mut">A troca de playlist e de posição chega à TV em até 5 minutos (TV sem nada para passar: em até 30 segundos). A playlist troca no fim do item que está passando. <b>Posição da TV:</b> para TV instalada em pé, escolha para que lado ela foi girada; o app gira a imagem, sem precisar de vídeo rotacionado.</p></div>`;
 }
 function dlgAddTv() {
   if (!PLS.length) { msg("info", "Ligue a pasta do Drive antes (aba Pasta do Drive), para escolher a playlist da TV. Dá para vincular agora e escolher depois."); }
-  $("dlgf").innerHTML = `<h3>Adicionar TV</h3><div class="mut">Abra o app Mídia Indoor Nervia na TV. Ele mostra um código de 6 caracteres: digite aqui.</div>
+  $("dlgf").innerHTML = `<h3>Adicionar TV</h3><div class="mut">Abra o app Mídia Indoor Nervia na TV (num computador: <b>nervia.com.br/tv</b> no Chrome ou no Edge). Ele mostra um código de 6 caracteres: digite aqui.</div>
     <label>Código mostrado na TV</label><input id="fCod" class="codigo" maxlength="6" placeholder="------" autocomplete="off">
     <label>Nome da TV</label><input id="fNome" placeholder="Ex.: Hall de entrada">
     <label>Playlist</label><select id="fPl"><option value="">— escolher depois —</option>${PLS.map(p => `<option value="${p.id}">${esc(p.nome)}</option>`).join("")}</select>

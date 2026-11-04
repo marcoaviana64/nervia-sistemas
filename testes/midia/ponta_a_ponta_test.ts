@@ -123,6 +123,16 @@ Deno.test({ name: "Mídia Indoor de ponta a ponta", sanitizeOps: false, sanitize
     assert(v2.situacao === "recusado" && v2.codec === "H.265 (HEVC)");
     assert(ms.find((m: { nome: string }) => m.nome === "01_promo.mp4").largura === 1920);
   });
+  await t.step("reprodutor web: midia-tv responde ao navegador (CORS, preflight e POST com Origin)", async () => {
+    const pre = await tvH(new Request("http://x/midia-tv", { method: "OPTIONS", headers: { Origin: "https://nervia.com.br", "Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "apikey,content-type" } }));
+    eq(pre.status, 204);
+    assert(/apikey/.test(pre.headers.get("Access-Control-Allow-Headers") ?? "") && /POST/.test(pre.headers.get("Access-Control-Allow-Methods") ?? ""));
+    assert(["*", "https://nervia.com.br"].includes(pre.headers.get("Access-Control-Allow-Origin") ?? ""), "origem: " + pre.headers.get("Access-Control-Allow-Origin"));
+    const r = await tvH(new Request("http://x/midia-tv", { method: "POST", headers: { Origin: "https://nervia.com.br", "Content-Type": "application/json" }, body: JSON.stringify({ acao: "codigo", aparelho: "navegador-e2e-0001" }) }));
+    eq(r.status, 200);
+    assert(r.headers.get("Access-Control-Allow-Origin"), "POST sem Access-Control-Allow-Origin");
+    assert((await r.json()).codigo?.length === 6);
+  });
   await t.step("login sem acesso não sincroniza a conta de outro", async () => {
     const outro = await jwt({ role: "authenticated", sub: "00000000-0000-0000-0000-0000000000ff" });
     await psql(`insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000ff', 'x@y.com')`);
