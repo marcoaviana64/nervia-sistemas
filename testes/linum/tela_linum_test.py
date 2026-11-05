@@ -164,7 +164,7 @@ try:
         pg, erros = entrar(b, "dono"); abrir(pg)
         ok(not pode(pg, "#abaEquipe") and pg.text_content("#quem") == "Dono", "dono não vê a aba Equipe")
         ok(pg.eval_on_selector_all(".barra .grupo:not(.oculto)", "gs => gs.map(g => g.textContent.trim())") == ["Estoque", "Vendas", "Produção", "Gestão"]
-           and pg.eval_on_selector_all(".barra .aba:not(.fg)", "bs => bs.map(b => b.textContent.trim())") == ["Estoque", "Transferências", "Movimentações", "Produtos", "Etiquetas"],
+           and pg.eval_on_selector_all(".barra .aba:not(.fg)", "bs => bs.map(b => b.textContent.trim())") == ["Produtos", "Estoque", "Movimentações", "Transferências", "Etiquetas"],
            "menu 2.34: Dona vê 4 grupos; embaixo, só as abas do grupo aberto")
         pg.click('.barra .grupo[data-g="gestao"]'); pg.wait_for_timeout(400)
         ok(pg.locator(".barra .aba.on").text_content() == "Comissões" and pg.locator(".barra .grupo.on").text_content() == "Gestão"
@@ -1085,7 +1085,7 @@ try:
             abrir_ajuda = pg.goto(f"http://127.0.0.1:{PORTA_SITE}/apps/linum/ajuda/{pagina}.html")
             ok(abrir_ajuda.ok and "Sistema Linum" in pg.title() and pg.locator('script[src="/marca-dagua.js"][data-tipo="doc"]').count() == 1, f"ajuda: {pagina} com marca d'água")
         pg.goto(f"http://127.0.0.1:{PORTA_SITE}/ajuda/novidades.html?app=linum&nome=Sistema%20Linum"); pg.wait_for_timeout(400)
-        ok("2.34" in pg.text_content("body"), "novidades do app (versão 2.34)")
+        ok("2.35" in pg.text_content("body"), "novidades do app (versão 2.35)")
         ok(psql("select mapa_url from apps where id = 'linum'", saida=True) == "/apps/linum/ajuda/mapa.html", "botão Mapa ligado no cadastro do app")
         b.close()
     print("TODOS OS TESTES DE TELA DO SISTEMA LINUM OK")
