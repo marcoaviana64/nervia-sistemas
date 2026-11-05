@@ -55,6 +55,7 @@ label{display:block;font-size:11.5px;font-weight:700;text-transform:uppercase;le
 .prod .preco{color:var(--accent);font-weight:700;white-space:nowrap}
 .prod .info{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px;color:var(--ink-soft);margin-top:2px}
 .semncm{font-style:italic;opacity:.6}
+.cres{margin-top:4px;border:1px solid var(--border);border-radius:8px;max-height:260px;overflow:auto}.cres button{display:block;width:100%;text-align:left;padding:6px 10px;border:0;border-bottom:1px solid var(--border);background:none;color:inherit;cursor:pointer;font:inherit}.cres button:hover{background:var(--surface-2)}
 .selo{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--primary);color:var(--bg)}
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center}
 .prod .loja{margin-top:10px}.prod .loja .chips{margin-top:6px}
@@ -494,6 +495,39 @@ const fmtNcm = x => /^\d{8}$/.test(x || "") ? `${x.slice(0, 4)}.${x.slice(4, 6)}
 const classifDe = p => p && p.classificacao_id && CLASSIF ? CLASSIF.find(c => c.id === p.classificacao_id) || null : null;
 const rotuloClassif = c => `${c.tipo_peca} — ${c.material} · NCM ${fmtNcm(c.ncm)}`;
 const semClassif = p => { const c = classifDe(p); return !c || !c.ativo; };
+// busca na tabela (sem acento; números = NCM com ou sem pontos, a partir de 3 dígitos); todas as palavras têm de aparecer
+const buscarClassif = (texto, inativas) => {
+  const pals = semAc(texto).split(/\s+/).filter(Boolean), dig = String(texto || "").replace(/\D/g, "");
+  return (CLASSIF || []).filter(c => (inativas || c.ativo) && (!pals.length || (dig.length >= 3 && c.ncm.includes(dig))
+    || pals.every(w => semAc([c.grupo, c.tipo_peca, c.material, fmtNcm(c.ncm), c.cest, c.observacao].join(" ")).includes(w))));
+};
+// tabela das classificações (2.31, pedido do Marco: "onde vejo o cadastro destas classificações?"); só leitura,
+// quem altera a tabela é a equipe Nervia
+function verClassificacoes() {
+  const f = $("dlgf"); let q = "";
+  const usadas = {}; PRODS.forEach(p => { if (p.classificacao_id) usadas[p.classificacao_id] = (usadas[p.classificacao_id] || 0) + 1; });
+  const desenhar = () => {
+    const l = buscarClassif(q, true), grupos = [...new Set(l.map(c => c.grupo))];
+    $("clista").innerHTML = l.length ? `<div class="tw"><table><thead><tr><th>Tipo de peça</th><th>Material</th><th>NCM</th><th>CEST</th><th>Observação</th><th class="num">Peças</th></tr></thead><tbody>
+      ${grupos.map(g => `<tr><td colspan="6" style="background:var(--surface-2);font-weight:600">${esc(g)}</td></tr>` + l.filter(c => c.grupo === g).map(c =>
+        `<tr${c.ativo ? "" : ' style="opacity:.55"'}><td>${esc(c.tipo_peca)}${c.ativo ? "" : ' <span class="tag">inativa</span>'}</td><td>${esc(c.material)}</td><td style="white-space:nowrap"><b>${esc(fmtNcm(c.ncm))}</b></td>
+          <td>${esc(c.cest || "")}</td><td class="mut">${esc(c.observacao || "")}</td><td class="num">${usadas[c.id] ? n(usadas[c.id]) : '<span class="mut">—</span>'}</td></tr>`).join("")).join("")}
+      </tbody></table></div>` : '<div class="vazio">Nenhuma classificação com esse texto.</div>';
+  };
+  const semN = PRODS.filter(semClassif).length;
+  f.innerHTML = `<h3>Classificações tributárias</h3>
+    <div class="mut">${n(CLASSIF.filter(c => c.ativo).length)} classificações para escolher no Editar peça. ${n(PRODS.length - semN)} de ${n(PRODS.length)} peças já têm classificação; ${n(semN)} estão sem NCM.
+      A tabela é mantida pela equipe Nervia: para incluir ou corrigir uma classificação (por exemplo, depois de conferir com o contador), fale com a Nervia.</div>
+    <div class="campo"><input id="cq" type="search" placeholder="Buscar por tipo de peça, material, NCM ou observação" autocomplete="off"></div>
+    <div id="clista"></div>
+    <div class="acoes"><button type="button" class="bt" id="cimp">Imprimir</button><button type="button" class="bt pri" id="cfechar">Fechar</button></div>`;
+  $("cq").oninput = e => { q = e.target.value; desenhar(); };
+  $("cfechar").onclick = () => $("dlg").close();
+  $("cimp").onclick = () => window.print();
+  desenhar();
+  $("dlg").classList.add("largo");
+  $("dlg").showModal();
+}
 async function todas(q) {   // o Supabase devolve no máximo 1000 linhas por consulta
   const l = [];
   for (let i = 0; ; i += 1000) { const parte = checar(await q().range(i, i + 999)) || []; l.push(...parte); if (parte.length < 1000) break; }
@@ -526,7 +560,7 @@ async function telaProdutos() {
   const unicos = l => [...new Set(l.filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), "pt-BR"));
   const opc = (l, sel, rot) => `<option value="">${rot}</option>` + l.map(x => `<option value="${esc(x)}" ${x === sel ? "selected" : ""}>${esc(x)}</option>`).join("");
   $("tela").innerHTML = `
-    <div class="cabtela"><h2>Produtos <span class="mut" id="ptotal"></span></h2><button class="bt pri" id="pnovo">+ Novo produto</button></div>
+    <div class="cabtela"><h2>Produtos <span class="mut" id="ptotal"></span></h2><span style="display:flex;gap:8px;flex-wrap:wrap">${CLASSIF ? '<button class="bt" id="pclass" type="button">Classificações tributárias</button>' : ""}<button class="bt pri" id="pnovo">+ Novo produto</button></span></div>
     <div class="filtros">
       <input id="pq" type="search" placeholder="Buscar por nome, referência ou código de barras" value="${esc(FP.q)}">
       <select id="pcat" aria-label="Categoria">${opc(unicos(PRODS.map(p => p.categoria)), FP.cat, "Categoria")}</select>
@@ -538,6 +572,7 @@ async function telaProdutos() {
     </div>
     <div id="plista"></div>`;
   $("pnovo").onclick = () => editarProduto(null);
+  if ($("pclass")) $("pclass").onclick = verClassificacoes;
   $("pprov").onclick = () => { FP.prov = !FP.prov; $("pprov").classList.toggle("on", FP.prov); listaProdutos(); };
   if ($("psemcl")) $("psemcl").onclick = () => { FP.semcl = !FP.semcl; $("psemcl").classList.toggle("on", FP.semcl); listaProdutos(); };
   $("pq").oninput = e => { FP.q = e.target.value; listaProdutos(); };
@@ -615,9 +650,7 @@ function editarProduto(pid) {
              : { referencia: "", descricao: "", categoria: "", colecao: "", fornecedor: "", tecido: "", preco_custo: "", preco_venda: "", consumo_metros: "", ativo: true, classificacao_id: "" };
   // lista da classificação tributária: só as ativas (mais a que a peça já tem), agrupadas, filtradas pela busca
   const opcoesClassif = (busca, sel) => {
-    const t = semAc(busca), dig = String(busca || "").replace(/\D/g, "");
-    const l = (CLASSIF || []).filter(c => (c.ativo || c.id === sel) && (c.id === sel || !t
-      || semAc([c.grupo, c.tipo_peca, c.material, fmtNcm(c.ncm)].join(" ")).includes(t) || (dig.length >= 3 && c.ncm.includes(dig))));
+    const l = (CLASSIF || []).filter(c => c.ativo || c.id === sel);
     const grupos = [...new Set(l.map(c => c.grupo))];
     return `<option value="">Sem classificação</option>` + grupos.map(g => `<optgroup label="${esc(g)}">${l.filter(c => c.grupo === g)
       .map(c => `<option value="${c.id}" ${c.id === sel ? "selected" : ""}>${esc(rotuloClassif(c))}${c.ativo ? "" : " (inativa)"}</option>`).join("")}</optgroup>`).join("");
@@ -646,8 +679,9 @@ function editarProduto(pid) {
       <div class="campo grade2">${campo("colecao", "Coleção")}${campo("fornecedor", "Fornecedor")}</div>
       <div class="campo">${campo("tecido", "Tecido")}</div>
       ${CLASSIF ? `<div class="campo"><label for="pf_classificacao_id">Classificação tributária</label>
-        <input id="pf_cbusca" type="search" placeholder="Buscar por tipo de peça, material ou NCM" style="margin-bottom:4px">
         <select id="pf_classificacao_id" data-k="classificacao_id">${opcoesClassif("", F2.classificacao_id)}</select>
+        <input id="pf_cbusca" type="search" placeholder="Ou digite para achar: tipo de peça, material ou NCM (ex.: vestido linho, 6204)" style="margin-top:4px" autocomplete="off">
+        <div id="pf_cres"></div>
         <div class="mut" id="pf_cinfo" style="margin-top:4px">${infoClassif(F2.classificacao_id)}</div></div>` : ""}
       <div class="campo grade2">${dono() ? campo("preco_custo", "Preço de custo (R$)", 'inputmode="decimal"') : ""}${campo("preco_venda", "Preço de venda (R$)", 'inputmode="decimal"')}</div>
       <div class="campo">${campo("consumo_metros", "Consumo previsto de tecido (metros por peça)", 'inputmode="decimal"')}</div>
@@ -679,7 +713,15 @@ function editarProduto(pid) {
     $("pfx").onclick = () => $("dlg").close();
     $("pfs").onclick = salvar;
     if ($("pf_cbusca")) {
-      $("pf_cbusca").oninput = e => { const sel = $("pf_classificacao_id"), v = sel.value; sel.innerHTML = opcoesClassif(e.target.value, v); sel.value = v; };
+      const escolher = id => { $("pf_classificacao_id").value = id; $("pf_cinfo").innerHTML = infoClassif(id); $("pf_cbusca").value = ""; $("pf_cres").innerHTML = ""; };
+      $("pf_cbusca").oninput = e => {
+        const achadas = buscarClassif(e.target.value).slice(0, 15);
+        $("pf_cres").innerHTML = !e.target.value.trim() ? "" : achadas.length
+          ? `<div class="cres">${achadas.map(c => `<button type="button" data-cid="${c.id}"><span class="mut">${esc(c.grupo)}</span><br>${esc(rotuloClassif(c))}</button>`).join("")}</div>`
+          : '<div class="mut" style="margin-top:4px">Nenhuma classificação com esse texto.</div>';
+        $("pf_cres").querySelectorAll("[data-cid]").forEach(b => b.onclick = () => escolher(b.dataset.cid));
+      };
+      $("pf_cbusca").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); const b = $("pf_cres").querySelector("[data-cid]"); if (b) escolher(b.dataset.cid); } };
       $("pf_classificacao_id").onchange = e => { $("pf_cinfo").innerHTML = infoClassif(e.target.value); };
     }
     const acao = async (fn, okmsg) => { ler(); try { await fn(); await recarregar(); desenhar(null, typeof okmsg === "function" ? (nEsp === 1 ? "Peça especial acrescentada." : `${nEsp} peças especiais acrescentadas.`) : okmsg); }
