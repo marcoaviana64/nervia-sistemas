@@ -101,6 +101,12 @@ def entrar(b, papel, largura=1300):
 def abrir(pg, rota="/apps/linum/"):
     pg.goto(f"http://127.0.0.1:{PORTA_SITE}{rota}"); pg.wait_for_selector("#app:not(.oculto), #aviso:not(.oculto)"); pg.wait_for_timeout(400)
 
+# menu em dois níveis (2.34): a aba fica dentro do grupo; clica no grupo antes
+def aba(pg, sel):
+    g = pg.get_attribute(sel, "data-g"); pg.click(f'.barra .grupo[data-g="{g}"]'); pg.wait_for_timeout(300)
+    if pg.get_attribute(sel, "class").split().count("on") == 0: pg.click(sel)
+def pode(pg, sel): return "oculto" not in (pg.get_attribute(sel, "class") or "").split()
+
 def ok(cond, nome):
     if not cond: raise SystemExit("FALHOU: " + nome)
     print("ok ", nome)
@@ -132,8 +138,8 @@ try:
 
         # ---------------------------------------------------------------- equipe Nervia define os papéis
         pg, erros = entrar(b, "admin"); abrir(pg)
-        ok(pg.is_visible("#abaEquipe") and "Equipe Nervia" in pg.text_content("#quem"), "admin vê a aba Equipe")
-        pg.click("#abaEquipe"); pg.wait_for_selector(".eq-salvar")
+        ok(pode(pg, "#abaEquipe") and "Equipe Nervia" in pg.text_content("#quem"), "admin vê a aba Equipe")
+        aba(pg, "#abaEquipe"); pg.wait_for_selector(".eq-salvar")
         linhas = pg.eval_on_selector_all("table tbody tr", "ts => ts.map(t => t.textContent)")
         ok(len(linhas) == 3 and not any("outro@x" in l for l in linhas), "equipe lista só os logins com o app liberado")
         i_dono = next(i for i, l in enumerate(linhas) if "dona@linum" in l); i_vend = next(i for i, l in enumerate(linhas) if "vendedora@linum" in l)
@@ -156,7 +162,16 @@ try:
 
         # ---------------------------------------------------------------- dono: consulta
         pg, erros = entrar(b, "dono"); abrir(pg)
-        ok(not pg.is_visible("#abaEquipe") and pg.text_content("#quem") == "Dono", "dono não vê a aba Equipe")
+        ok(not pode(pg, "#abaEquipe") and pg.text_content("#quem") == "Dono", "dono não vê a aba Equipe")
+        ok(pg.eval_on_selector_all(".barra .grupo:not(.oculto)", "gs => gs.map(g => g.textContent.trim())") == ["Estoque", "Vendas", "Produção", "Gestão"]
+           and pg.eval_on_selector_all(".barra .aba:not(.fg)", "bs => bs.map(b => b.textContent.trim())") == ["Estoque", "Transferências", "Movimentações", "Produtos", "Etiquetas"],
+           "menu 2.34: Dona vê 4 grupos; embaixo, só as abas do grupo aberto")
+        pg.click('.barra .grupo[data-g="gestao"]'); pg.wait_for_timeout(400)
+        ok(pg.locator(".barra .aba.on").text_content() == "Comissões" and pg.locator(".barra .grupo.on").text_content() == "Gestão"
+           and pg.eval_on_selector_all(".barra .aba:not(.fg):not(.oculto)", "bs => bs.map(b => b.textContent.trim())") == ["Comissões", "Lucro", "Créditos", "Horários"],
+           "menu 2.34: clicar no grupo abre a primeira aba dele")
+        pg.screenshot(path=os.path.join(SAIDA, "linum_menu.png"))
+        pg.click('.barra .grupo[data-g="estoque"]'); pg.wait_for_selector("#lista")
         c = chips(pg)
         ok(c == ["Calça Areia @ Gávea: Cru 38=4 un., Cru 40 · Bordada=1 un.", "Vestido Mar @ Gávea: Azul P=3 un., Azul M=1 un., Azul G=2 un.", "Vestido Mar @ Ipanema: Off White M=2 un."],
            "uma faixa por loja, tamanhos na ordem P M G, zerados ocultos")
@@ -250,7 +265,7 @@ try:
         # ---------------------------------------------------------------- dono: produtos
         psql("insert into lin_codigos values (extract(year from now() at time zone 'America/Sao_Paulo')::int, 235) on conflict (ano) do update set ultimo = 235")
         pg.on("dialog", lambda d: d.accept())
-        pg.click("#abaProdutos"); pg.wait_for_selector("#plista")
+        aba(pg, "#abaProdutos"); pg.wait_for_selector("#plista")
         ok("3 peças cadastradas" in pg.text_content("#ptotal") and "custo R$" in pg.text_content("#plista").replace("\xa0", " "), "aba Produtos lista o catálogo com custo (Dono)")
         pg.fill("#pq", "ves-mar"); pg.wait_for_timeout(150)
         ok(pg.locator("#plista .prod").count() == 1, "busca de produtos por referência"); pg.fill("#pq", "")
@@ -298,7 +313,7 @@ try:
         pg.click('.barra [data-v="estoque"]'); pg.click("#fzero"); pg.fill("#fq", "duna"); pg.wait_for_timeout(300)
         ok(any("Saia Duna @ Gávea" in x and "Areia M · Bordada=0 un." in x for x in chips(pg)), "produto novo aparece no estoque para lançar as quantidades")
         # 2.15: produto sem referência = provisória NOVA-…, com filtro no Estoque e em Produtos
-        pg.click("#abaProdutos"); pg.wait_for_selector("#plista"); pg.click("#pnovo"); pg.wait_for_selector("#dlg[open]")
+        aba(pg, "#abaProdutos"); pg.wait_for_selector("#plista"); pg.click("#pnovo"); pg.wait_for_selector("#dlg[open]")
         ok("provisória" in (pg.get_attribute("#pf_referencia", "placeholder") or ""), "referência vazia explicada no campo")
         pg.fill("#pf_descricao", "Blusa Sem Ref"); pg.fill("#nv_c", "Cru"); pg.fill("#nv_t", "M"); pg.click("#pfs"); pg.wait_for_timeout(900)
         ok("Referência provisória NOVA-" in pg.text_content("#dlgf .msg.ok"), "produto sem referência recebe a provisória")
@@ -313,7 +328,7 @@ try:
         psql("delete from lin_estoque where variante_id in (select v.id from lin_variantes v join lin_produtos p on p.id = v.produto_id where p.descricao = 'Blusa Sem Ref'); "
              "delete from lin_variantes where produto_id in (select id from lin_produtos where descricao = 'Blusa Sem Ref'); delete from lin_produtos where descricao = 'Blusa Sem Ref'")
         # 2.30: classificação tributária no cadastro do produto
-        pg.click("#abaProdutos"); pg.wait_for_selector("#plista")
+        aba(pg, "#abaProdutos"); pg.wait_for_selector("#plista")
         ok("sem NCM" in pg.text_content("#plista") and pg.locator("#psemcl").count() == 1, "lista mostra 'sem NCM' e o filtro Sem classificação tributária")
         pg.click("#pclass"); pg.wait_for_selector("#clista table")
         ok(pg.locator("#clista tbody tr").count() == 70 + 5 and "6204.49.00" in pg.text_content("#clista"), "tabela das classificações: 70 linhas em 5 grupos, NCM formatado")
@@ -353,13 +368,13 @@ try:
 
         # ---------------------------------------------------------------- papel Estoque: cadastra e movimenta, sem custo
         pg, erros = entrar(b, "estoque"); abrir(pg)
-        ok(pg.text_content("#quem") == "Estoque · sem custos" and pg.is_visible("#abaProdutos") and pg.is_visible("#abaVendas") and not pg.is_visible("#abaEquipe"), "Estoque vê Produtos, Estoque e Vendas, sem Equipe")
+        ok(pg.text_content("#quem") == "Estoque · sem custos" and pode(pg, "#abaProdutos") and pode(pg, "#abaVendas") and not pode(pg, "#abaEquipe"), "Estoque vê Produtos, Estoque e Vendas, sem Equipe")
         ok(chip(pg, V_AZUL_P, "Gávea").count() == 1, "Estoque clica no quadrado para movimentar")
         chip(pg, V_AZUL_P, "Gávea").click(); pg.wait_for_selector("#dlg[open]"); pg.wait_for_timeout(600)
         ok("Dona Linum" in pg.text_content(".hist"), "Estoque vê o histórico da variação")
         salvar_mov(pg, "entrada", 2, "reposição")
         ok(qtd_banco(V_AZUL_P, "Gávea") == 7, "Estoque faz entrada")
-        pg.click("#abaProdutos"); pg.wait_for_selector("#plista")
+        aba(pg, "#abaProdutos"); pg.wait_for_selector("#plista")
         ok("custo" not in pg.text_content("#plista").lower() and pg.locator(".prod").count() == 4, "lista de produtos sem custo")
         pg.click('[data-ed="10000000-0000-0000-0000-000000000001"]'); pg.wait_for_selector("#dlg[open]")
         ok(pg.locator("#pf_preco_custo").count() == 0 and "custo" not in pg.text_content("#dlgf").lower().replace("custódia", ""), "cadastro aberto pelo Estoque sem campo de custo")
@@ -374,7 +389,10 @@ try:
 
         # ---------------------------------------------------------------- vendedora: só consulta, sem custo
         pg, erros = entrar(b, "vendedora"); abrir(pg)
-        ok(not pg.is_visible("#abaProdutos"), "vendedora não vê a aba Produtos")
+        ok(not pode(pg, "#abaProdutos"), "vendedora não vê a aba Produtos")
+        ok(pg.eval_on_selector_all(".barra .grupo:not(.oculto)", "gs => gs.map(g => g.textContent.trim())") == ["Estoque", "Vendas"]
+           and pg.eval_on_selector_all(".barra .aba:not(.oculto):not(.fg)", "bs => bs.map(b => b.textContent.trim())") == ["Estoque", "Transferências", "Etiquetas"],
+           "menu 2.34: vendedora vê os grupos Estoque e Vendas; no Estoque, só as abas dela")
         ok(pg.text_content("#quem") == "Vendedora · Ipanema" and pg.locator("button.chip").count() > 0
            and all(t.endswith("Transferir para outra loja") for t in pg.eval_on_selector_all("button.chip", "bs => bs.map(b => b.title)")) and pg.locator("button.chip.zero").count() == 0,
            "vendedora: quadrado com peça abre só a transferência")
@@ -388,8 +406,8 @@ try:
         # ---------------------------------------------------------------- vendedora: venda pela boleta + cliente novo
         pg, erros = entrar(b, "vendedora"); abrir(pg)
         pg.on("dialog", lambda d: d.accept())
-        ok(pg.is_visible("#abaVendas") and pg.is_visible("#abaClientes") and not pg.is_visible("#abaProdutos"), "vendedora vê Vendas e Clientes")
-        pg.click("#abaVendas"); pg.wait_for_selector("#vnova")
+        ok(pode(pg, "#abaVendas") and pode(pg, "#abaClientes") and not pode(pg, "#abaProdutos"), "vendedora vê Vendas e Clientes")
+        aba(pg, "#abaVendas"); pg.wait_for_selector("#vnova")
         ok("Nenhuma venda no período" in pg.text_content("#tela"), "vendas vazias no começo")
         pg.click("#vnova"); pg.wait_for_selector("#dlg[open] #nvcq")
         pg.fill("#nvcq", "Carmen Fictícia"); pg.wait_for_timeout(150)
@@ -416,13 +434,13 @@ try:
            "comissão da vendedora: 3,5% do valor pago, no KPI dela")
         ok("Carmen Fictícia" in pg.text_content("#tela") and "898,00" in pg.text_content(".kpis").replace("\xa0", " "), "lista e total do período")
         pg.screenshot(path=os.path.join(SAIDA, "linum_vendas.png"), full_page=True)
-        pg.click("#abaClientes"); pg.wait_for_selector("#clista")
+        aba(pg, "#abaClientes"); pg.wait_for_selector("#clista")
         ok("Carmen Fictícia" in pg.text_content("#clista") and "(21) 99999-0000" in pg.text_content("#clista") and "898,00" in pg.text_content("#clista").replace("\xa0", " "), "cliente com telefone e total comprado")
         pg.click("#cniver"); pg.wait_for_timeout(200)
         ok(pg.locator("#cniver.on").count() == 1, "filtro de aniversariantes do mês")
         ok(not erros, "sem erros de JavaScript (vendas da vendedora)")
-        pg.click("#abaVendas"); pg.wait_for_selector(".vrow"); pg.click(".vrow"); pg.wait_for_selector("#dlg[open]")
-        ok(pg.locator("#vcanc").count() == 0 and pg.locator("#vdata").count() == 0 and not pg.is_visible("#abaLucro") and "Em 6x" not in pg.text_content("#dlgf") and "em 6x" in pg.text_content("#dlgf"), "vendedora vê a boleta mas não cancela")
+        aba(pg, "#abaVendas"); pg.wait_for_selector(".vrow"); pg.click(".vrow"); pg.wait_for_selector("#dlg[open]")
+        ok(pg.locator("#vcanc").count() == 0 and pg.locator("#vdata").count() == 0 and not pode(pg, "#abaLucro") and "Em 6x" not in pg.text_content("#dlgf") and "em 6x" in pg.text_content("#dlgf"), "vendedora vê a boleta mas não cancela")
         with pg.expect_popup() as pop: pg.click("#vimp")
         fp = pop.value; fp.wait_for_load_state(); ft = fp.text_content("body")
         fp.pdf(path=os.path.join(SAIDA, "linum_ficha_venda.pdf"), prefer_css_page_size=True, print_background=True)
@@ -434,7 +452,7 @@ try:
         # ---------------------------------------------------------------- dono: vê todas e cancela
         pg, erros = entrar(b, "dono"); abrir(pg)
         pg.on("dialog", lambda d: d.accept("Cliente desistiu da compra"))
-        pg.click("#abaVendas"); pg.wait_for_selector(".vrow")
+        aba(pg, "#abaVendas"); pg.wait_for_selector(".vrow")
         ok("Por vendedora" in pg.text_content("#tela") and "Vera Vendedora" in pg.text_content("#tela"), "Dono vê o resumo por loja e por vendedora")
         # 2.24: o Dono corrige a data da venda (só a data)
         ontem = psql("select ((now() at time zone 'America/Sao_Paulo')::date - 1)::text", saida=True)
@@ -445,7 +463,7 @@ try:
         ok("data corrigida" in pg.text_content("#msg") and psql("select data::text from lin_vendas", saida=True) == ontem
            and psql("select count(*) from auditoria where acao = 'linum_venda_data_corrigida'", saida=True) == "1", "Dono corrige a data da venda (auditoria)")
         # 2.25: relatório de lucro (só Dono)
-        pg.click("#abaLucro"); pg.wait_for_selector("#lutab")
+        aba(pg, "#abaLucro"); pg.wait_for_selector("#lutab")
         pg.fill("#lude", psql("select ((now() at time zone 'America/Sao_Paulo')::date - 60)::text", saida=True)); pg.dispatch_event("#lude", "change"); pg.wait_for_timeout(800)
         pago = psql("select to_char(sum(valor_total), 'FM999990D00') from lin_vendas where cancelada_em is null", saida=True).replace(".", ",")
         t = pg.text_content("#tela").replace("\xa0", " ")
@@ -453,7 +471,7 @@ try:
         pg.select_option("#lupor", "venda"); pg.wait_for_selector(".lurow")
         pg.click(".lurow"); pg.wait_for_selector("#dlg[open]")
         ok("Venda nº" in pg.text_content("#dlgf"), "aba Lucro por venda: clique abre a boleta")
-        pg.click("#vfechar"); pg.click("#abaVendas"); pg.wait_for_selector(".vrow")
+        pg.click("#vfechar"); aba(pg, "#abaVendas"); pg.wait_for_selector(".vrow")
         pg.click(".vrow"); pg.wait_for_selector("#vcanc"); pg.click("#vcanc"); pg.wait_for_timeout(1000)
         ok("cancelada" in pg.text_content("#msg") and qtd_banco(V_AZUL_P, "Ipanema") == 3
            and psql("select motivo_cancelamento from lin_vendas", saida=True) == "Cliente desistiu da compra", "Dono cancela: peças voltam e o motivo fica")
@@ -462,8 +480,8 @@ try:
 
         # ---------------------------------------------------------------- Estoque também vende (0% de comissão) e vendedora em outra loja
         pg, erros = entrar(b, "estoque"); abrir(pg)
-        ok(pg.is_visible("#abaVendas") and pg.is_visible("#abaClientes"), "Estoque vende e vê clientes")
-        pg.click("#abaVendas"); pg.wait_for_selector("#vnova")
+        ok(pode(pg, "#abaVendas") and pode(pg, "#abaClientes"), "Estoque vende e vê clientes")
+        aba(pg, "#abaVendas"); pg.wait_for_selector("#vnova")
         ok("Nenhuma venda no período" in pg.text_content("#tela"), "Estoque vê só as vendas dele")
         pg.click("#vnova"); pg.wait_for_selector("#dlg[open] #nvloja")
         pg.fill("#nvcq", "carmen ficticia 21 99999-0000"); pg.wait_for_timeout(150)
@@ -488,7 +506,7 @@ try:
         ok(not any("preco_custo" in r for r in pg.respostas), "Estoque que vende continua sem receber custo")
         ok(not erros, "sem erros de JavaScript (Estoque que vende)")
         pg, erros = entrar(b, "vendedora"); abrir(pg)
-        pg.click("#abaVendas"); pg.wait_for_selector("#vnova"); pg.click("#vnova"); pg.wait_for_selector("#dlg[open] #nvloja")
+        aba(pg, "#abaVendas"); pg.wait_for_selector("#vnova"); pg.click("#vnova"); pg.wait_for_selector("#dlg[open] #nvloja")
         ok(pg.eval_on_selector("#nvloja", "s => s.options[s.selectedIndex].text") == "Ipanema", "venda da vendedora começa na loja principal dela")
         pg.select_option("#nvloja", label="Gávea"); pg.fill("#nvpq", "ves-mar"); pg.wait_for_timeout(150)
         ok("Azul M" in pg.text_content("#nvres") and "na loja" in pg.text_content("#nvres"), "vendedora deslocada vê o estoque da outra loja")
@@ -547,7 +565,7 @@ try:
         ok(not erros, "sem erros de JavaScript (troca/devolução e venda com crédito)")
         pg, erros = entrar(b, "dono"); abrir(pg)
         pg.on("dialog", lambda d: d.accept("Lançada por engano"))
-        pg.click("#abaVendas"); pg.wait_for_selector(".trow"); pg.click(".trow"); pg.wait_for_selector("#tcanc"); pg.click("#tcanc"); pg.wait_for_timeout(1000)
+        aba(pg, "#abaVendas"); pg.wait_for_selector(".trow"); pg.click(".trow"); pg.wait_for_selector("#tcanc"); pg.click("#tcanc"); pg.wait_for_timeout(1000)
         ok("já usou" in pg.text_content("#terr"), "Dono não cancela a devolução cujo crédito já foi usado")
         pg.click("#tfechar"); pg.click(f'.vrow[data-v="{vc}"]'); pg.wait_for_selector("#vcanc")
         ok("Valor da nota fiscal" in pg.text_content("#dlgf") and "Crédito da cliente" in pg.text_content("#dlgf"), "boleta mostra o crédito usado e o valor da nota fiscal")
@@ -557,14 +575,14 @@ try:
         ok("cancelada" in pg.text_content("#msg") and qtd_banco(V_AZUL_P, "Gávea") == p_gav and psql(f"select sum(valor) from lin_creditos where cliente_id = '{cli}'", saida=True) == "0.00",
            "Dono cancela a devolução: a peça sai de novo e o crédito sai da conta")
         ok(psql("select count(*) from auditoria where acao in ('linum_troca_registrada', 'linum_troca_cancelada')", saida=True) == "2", "devolução e cancelamento na auditoria")
-        pg.click("#abaClientes"); pg.wait_for_selector(".crow"); pg.click(f'.crow[data-c="{cli}"]'); pg.wait_for_selector("#fccred")
+        aba(pg, "#abaClientes"); pg.wait_for_selector(".crow"); pg.click(f'.crow[data-c="{cli}"]'); pg.wait_for_selector("#fccred")
         ok(pg.is_visible("#fcajus") and pg.is_visible("#fcext"), "ficha da cliente: crédito, extrato e ajuste (Dono)")
         pg.click("#fcext"); ok(pg.is_visible("#fcextrato") and "Usado na venda" in pg.text_content("#fcextrato"), "extrato do crédito na ficha")
         pg.click("#fcx")
         ok(not erros, "sem erros de JavaScript (cancelar devolução)")
         # relatório de créditos (Dono): saldo de todas as clientes e os lançamentos, sem abrir cada ficha
         psql(f"insert into lin_creditos (cliente_id, tipo, valor, observacao, criado_nome) values ('{cli}', 'ajuste', 50, 'bônus de teste', 'Dona')")
-        pg.click("#abaCreditos"); pg.wait_for_selector("#crsaldos")
+        aba(pg, "#abaCreditos"); pg.wait_for_selector("#crsaldos")
         ok("R$ 50,00" in pg.text_content(".kpis").replace("\xa0", " ") and pg.locator(".crcli").count() == 1 and "Carmen" in pg.text_content("#crsaldos")
            and pg.locator("#crlanc tbody tr").count() >= 5 and "bônus de teste" in pg.text_content("#crlanc"),
            "aba Créditos: saldo em aberto, clientes com saldo e lançamentos do período")
@@ -581,7 +599,7 @@ try:
         psql(f"""insert into lin_custos (ficha, referencia, descricao, materia, qtd, mp_metro, gasto, qtd_risco, risco, modelagem, corte, lavanderia, costura,
                  aviamentos, passadoria, logistica, comissao, pagamento, venda, origem) values ('{ref_cu}', '{ref_cu}', 'Calça Marcel', 'linho timotex', 20, 78, 1.3, 20, 90, 300,
                  5, 3, 20, 7, 3, 3, 34, 80, 869, 'planilha CUSTO 2025'), ('B77', 'B77', 'Bata de teste', 'linho', 10, 50, 1, 10, 50, 100, 5, 0, 30, 2, 0, 0, 10, 20, 250, 'planilha CUSTO 2025')""")
-        pg.click("#abaCustos"); pg.wait_for_selector("#cures")
+        aba(pg, "#abaCustos"); pg.wait_for_selector("#cures")
         cu_id = psql(f"select id from lin_custos where ficha = '{ref_cu}'", saida=True)
         pg.click(f'.cuitem[data-cid="{cu_id}"]'); pg.wait_for_timeout(300)
         ok(pg.locator(".cuitem").count() == 2 and "275,90" in pg.text_content("#cures") and "3,15×" in pg.text_content("#cures"),
@@ -651,7 +669,7 @@ try:
         ok(psql("select preco_venda || ' ' || preco_custo from lin_variantes where edicao = 'Pintura Artesanal'", saida=True) == "1290.00 400.00"
            and psql(f"select preco_venda from lin_produtos where referencia = '{ref_cu}'", saida=True) == "869.00",
            "Atualizar em Produtos com peça especial: muda só a peça especial, a peça normal fica")
-        pg.click("#abaProdutos"); pg.wait_for_selector("#plista")
+        aba(pg, "#abaProdutos"); pg.wait_for_selector("#plista")
         pid_cu = psql(f"select id from lin_produtos where referencia = '{ref_cu}'", saida=True)
         pg.fill("#pq", "calca areia"); pg.wait_for_timeout(400)
         ok(pg.locator("#plista .prod").count() >= 1 and "Calça Areia" in pg.text_content("#plista"), "Busca sem acento acha \"Calça\" digitando \"calca\"")
@@ -667,12 +685,12 @@ try:
         ok(pg.locator("#dlgf .esptit").count() >= 1, "Ficha do produto: peças especiais separadas por edição")
         pg.eval_on_selector("#phist", "e => e.scrollIntoView()"); pg.locator("#phist").screenshot(path=os.path.join(SAIDA, "linum_hist_precos.png"))
         pg.click("#pfx"); pg.wait_for_timeout(200)
-        pg.click("#abaCustos"); pg.wait_for_selector("#cures")
+        aba(pg, "#abaCustos"); pg.wait_for_selector("#cures")
         pg.click('[data-ca="fichas"]'); pg.wait_for_selector("#cures")
         pg.screenshot(path=os.path.join(SAIDA, "linum_custos.png"), full_page=True)
         ok(not erros, "sem erros de JavaScript (aba Custos)")
         # ---------------------------------------------------------------- ajustes da peça vendida (2.8)
-        pg.click("#abaVendas"); pg.wait_for_selector(".vrow")
+        aba(pg, "#abaVendas"); pg.wait_for_selector(".vrow")
         vaj = psql("select max(id) from lin_vendas where cancelada_em is null", saida=True)
         pg.click(f'.vrow[data-v="{vaj}"]'); pg.wait_for_selector("#dlg[open] [data-ajuste]")
         pg.click("[data-ajuste] >> nth=0"); pg.wait_for_selector("#dlg2[open] #ajok")
@@ -689,7 +707,7 @@ try:
         ok("Ficha de ajuste" in ft and "Dona Rosa" in ft and "alfinete" in ft and "Não cortar o tecido" in ft and "Volta até" in ft, "ficha de ajuste impressa com o que fazer e as observações")
         fp.close(); pg.click("#ajfim"); pg.wait_for_timeout(500)
         ok("Com a costureira" in pg.text_content("#vajustes"), "a boleta mostra o ajuste da peça")
-        pg.click("#vfechar"); pg.click("#abaAjustes"); pg.wait_for_selector("#ajtab")
+        pg.click("#vfechar"); aba(pg, "#abaAjustes"); pg.wait_for_selector("#ajtab")
         ok("Dona Rosa" in pg.text_content("#ajtab") and "1" in pg.text_content(".kpis"), "aba Ajustes lista o que está com a costureira")
         with pg.expect_popup() as pop: pg.select_option("#ajimpc", "Dona Rosa")
         ok("Ficha de ajuste" in pop.value.text_content("body"), "imprimir / PDF de todas as peças com uma costureira"); pop.value.close()
@@ -701,7 +719,7 @@ try:
         ok(not erros, "sem erros de JavaScript (ajustes)")
 
         # ---------------------------------------------------------------- relatório de comissões por mês (só o Dono)
-        pg.click("#abaComissoes"); pg.wait_for_selector("#cmtab")
+        aba(pg, "#abaComissoes"); pg.wait_for_selector("#cmtab")
         tab = pg.text_content("#cmtab").replace("\xa0", " ")
         com_vera = psql("select replace(sum(comissao_valor)::text, '.', ',') from lin_vendas where cancelada_em is null and vendedora_nome = 'Vera Vendedora'", saida=True)
         ok("Vera Vendedora" in tab and f"R$ {com_vera}" in tab and "3,5%" in tab and "Edu Estoque" in tab and "sem comissão" in tab, f"comissões do mês por pessoa (Vera R$ {com_vera}; Estoque sem comissão)")
@@ -719,17 +737,17 @@ try:
         pg.screenshot(path=os.path.join(SAIDA, "linum_comissoes.png"), full_page=True)
         ok(not erros, "sem erros de JavaScript (comissões)")
         pg, erros = entrar(b, "vendedora"); abrir(pg)
-        ok(not pg.is_visible("#abaComissoes"), "vendedora não vê o relatório de comissões")
+        ok(not pode(pg, "#abaComissoes"), "vendedora não vê o relatório de comissões")
         pg, erros = entrar(b, "estoque"); abrir(pg)
-        ok(not pg.is_visible("#abaComissoes"), "Estoque não vê o relatório de comissões")
-        pg.click("#abaProdutos"); pg.wait_for_selector("#pclass"); pg.click("#pclass"); pg.wait_for_selector("#clista table")
+        ok(not pode(pg, "#abaComissoes"), "Estoque não vê o relatório de comissões")
+        aba(pg, "#abaProdutos"); pg.wait_for_selector("#pclass"); pg.click("#pclass"); pg.wait_for_selector("#clista table")
         ok(pg.locator("[data-cled]").count() == 0 and pg.locator("#cnova").count() == 0, "Estoque consulta a tabela de classificações mas não edita")
         pg.click("#cfechar"); pg.wait_for_timeout(200)
 
         # ---------------------------------------------------------------- CRM: possíveis clientes, contatos e próximo contato
         psql("update lin_clientes set proximo_contato = current_date - 2 where nome = 'Carmen Fictícia'")
         pg, erros = entrar(b, "vendedora"); abrir(pg)
-        pg.click("#abaClientes"); pg.wait_for_selector("#clista .crow")
+        aba(pg, "#abaClientes"); pg.wait_for_selector("#clista .crow")
         ok("1 atrasado" in pg.text_content("#ckpis") and "atrasado" in pg.text_content('#clista .crow:has-text("Carmen Fictícia")'), "cliente com próximo contato vencido aparece atrasada")
         pg.click("#cnovo"); pg.wait_for_selector("#dlg2[open] #cl_resp")
         ok(pg.locator('[data-sit="possivel"].on').count() == 1 and pg.eval_on_selector("#cl_resp", "s => s.options[s.selectedIndex].text") == "Vera Vendedora",
@@ -765,7 +783,7 @@ try:
         pg.click("#fcx")
         ok(not erros, "sem erros de JavaScript (CRM da vendedora)")
         # visita sem contato
-        pg.click("#abaVendas"); pg.wait_for_selector("#vvisita"); pg.click("#vvisita"); pg.wait_for_selector("#dlg[open] #visok")
+        aba(pg, "#abaVendas"); pg.wait_for_selector("#vvisita"); pg.click("#vvisita"); pg.wait_for_selector("#dlg[open] #visok")
         ok(pg.eval_on_selector("#visloja", "s => s.options[s.selectedIndex].text") == "Ipanema", "visita começa na loja principal")
         pg.click("#visok"); pg.wait_for_timeout(400)
         ok("por que não levou" in pg.text_content("#viserr"), "visita sem motivo não registra")
@@ -784,7 +802,7 @@ try:
            and "Faltou tamanho" in pg.text_content("#visitas") and "Outro: Procurava linho mais grosso" in pg.text_content("#visitas") and "Preço" not in pg.text_content("#visitas tbody") and "M" in pg.text_content("#visitas"), "visitas do período: KPI de conversão, motivo, peça e o que faltou")
         ok(not erros, "sem erros de JavaScript (visita)")
         pg, erros = entrar(b, "dono"); abrir(pg)
-        pg.click("#abaClientes"); pg.wait_for_selector("#clista .crow"); pg.click('#clista .crow:has-text("Bruna Possível")'); pg.wait_for_selector("#dlg[open] #cthist")
+        aba(pg, "#abaClientes"); pg.wait_for_selector("#clista .crow"); pg.click('#clista .crow:has-text("Bruna Possível")'); pg.wait_for_selector("#dlg[open] #cthist")
         ok("Vera Vendedora" in pg.text_content("#cthist"), "o Dono vê o histórico registrado pela vendedora")
         pg.click("#fcx"); pg.click('#clista .crow:has-text("Carmen Fictícia")'); pg.wait_for_selector("#dlg[open] #cthist")
         hist = pg.text_content("#cthist").replace("\xa0", " ")
@@ -796,16 +814,16 @@ try:
         ok("Comprou na Gávea" in hist2 and "R$" in hist2, "o Dono vê o valor da venda no histórico")
         pg.click("#fcx")
         pg2, erros2 = entrar(b, "vendedora"); abrir(pg2)
-        pg2.click("#abaClientes"); pg2.wait_for_selector("#clista .crow"); pg2.click('#clista .crow:has-text("Carmen Fictícia")'); pg2.wait_for_selector("#dlg[open] #cthist")
+        aba(pg2, "#abaClientes"); pg2.wait_for_selector("#clista .crow"); pg2.click('#clista .crow:has-text("Carmen Fictícia")'); pg2.wait_for_selector("#dlg[open] #cthist")
         ok("Comprou na Ipanema" in pg2.text_content("#cthist") and "R$" not in pg2.text_content("#cthist"), "vendedora vê a compra no histórico sem o valor")
         ok(not erros2, "sem erros de JavaScript (histórico da vendedora)")
-        pg.click("#abaVendas"); pg.wait_for_selector("#vvisita")
+        aba(pg, "#abaVendas"); pg.wait_for_selector("#vvisita")
         ok(pg.locator("#visitas .visrow").count() == 1 and "Vera Vendedora" in pg.text_content("#visitas"), "o Dono vê a visita registrada pela vendedora")
         ok(not erros, "sem erros de JavaScript (CRM do Dono)")
 
         # ---------------------------------------------------------------- ranking das vendedoras
         pg, erros = entrar(b, "dono"); abrir(pg)
-        pg.click("#abaRanking"); pg.wait_for_selector("#rktab")
+        aba(pg, "#abaRanking"); pg.wait_for_selector("#rktab")
         tab = pg.text_content("#rktab").replace("\xa0", " ")
         ok("Vera Vendedora" in tab and "Edu Estoque" in tab and "Dona Linum" not in tab and "R$" in tab, "Dono vê o ranking do mês com a equipe (sem o Dono) e os valores")
         ok(pg.locator("[data-nota]").count() == 0 and "Nota da Dona" not in pg.text_content("#tela") and "Três critérios" in pg.text_content("#tela"),
@@ -818,7 +836,7 @@ try:
         ok("Ninguém da equipe tem vendas" in pg.text_content("#rklider"), "ano anterior sem dados")
         ok(not erros, "sem erros de JavaScript (ranking do Dono)")
         pg, erros = entrar(b, "vendedora"); abrir(pg)
-        pg.click("#abaRanking"); pg.wait_for_selector("#rktab")
+        aba(pg, "#abaRanking"); pg.wait_for_selector("#rktab")
         eu, outra = pg.text_content(".rkrow.eu").replace("\xa0", " "), pg.text_content('.rkrow:has-text("Edu Estoque")').replace("\xa0", " ")
         ok("Vera Vendedora" in eu and "R$" in eu and "R$" not in outra,
            "vendedora vê o ranking: os próprios valores, sem os valores da colega")
@@ -827,9 +845,9 @@ try:
 
         # ---------------------------------------------------------------- produção: rolos, ficha, etapas e estoque
         pg, erros = entrar(b, "estoque"); abrir(pg)
-        ok(not pg.is_visible("#abaProducao"), "Estoque sem a permissão Produção não vê a aba Produção")
+        ok(not pode(pg, "#abaProducao"), "Estoque sem a permissão Produção não vê a aba Produção")
         pg, erros = entrar(b, "dono"); abrir(pg)
-        pg.click("#abaProducao"); pg.wait_for_selector("#pdabas")
+        aba(pg, "#abaProducao"); pg.wait_for_selector("#pdabas")
         ok("com valores" in pg.text_content(".cabtela"), "Dono vê a produção com valores")
         ok(pg.get_attribute("#pdmapa", "href") == "ajuda/mapa-producao.html", "botão Mapa da produção na aba")
         pg.click('[data-pa="parceiros"]'); pg.wait_for_selector("#pdnovop")
@@ -962,11 +980,11 @@ try:
         ok(not erros, "sem erros de JavaScript (produção do Dono)")
         # a Nervia dá a permissão Produção (sem valores) ao Estoque
         pg, erros = entrar(b, "admin"); abrir(pg)
-        pg.click("#abaEquipe"); pg.wait_for_selector(".eq-salvar")
+        aba(pg, "#abaEquipe"); pg.wait_for_selector(".eq-salvar")
         pg.check('tr:has-text("Edu Estoque") .eq-prod'); pg.click('tr:has-text("Edu Estoque") .eq-salvar'); pg.wait_for_timeout(800)
         ok(psql("select permissoes::text from lin_membros where user_id = '00000000-0000-0000-0000-0000000000e1'", saida=True) == "{producao}", "Equipe: permissão Produção dada ao Estoque")
         pg, erros = entrar(b, "estoque"); abrir(pg)
-        pg.click("#abaProducao"); pg.wait_for_selector("#pdabas")
+        aba(pg, "#abaProducao"); pg.wait_for_selector("#pdabas")
         ok("sem valores" in pg.text_content(".cabtela"), "Estoque vê a produção sem valores")
         pg.click('[data-pa="fichas"]'); pg.wait_for_selector("#pdtodas"); pg.click("#pdtodas"); pg.wait_for_timeout(200); pg.click(".pdfrow"); pg.wait_for_selector("#dlg[open] #fitens")
         ok("Custo" not in pg.text_content("#dlgf") and "R$" not in pg.text_content("#dlgf"), "ficha sem custo nem preço por peça")
@@ -975,7 +993,7 @@ try:
            "o servidor não manda valor pago, preço por peça nem custo para quem não tem a permissão de valores")
         ok(not erros, "sem erros de JavaScript (produção sem valores)")
         pg, erros = entrar(b, "vendedora"); abrir(pg)
-        ok(not pg.is_visible("#abaProducao") and not pg.is_visible("#abaCreditos"), "vendedora sem permissão não vê a Produção nem os Créditos")
+        ok(not pode(pg, "#abaProducao") and not pode(pg, "#abaCreditos"), "vendedora sem permissão não vê a Produção nem os Créditos")
         # estoque mudou em outra janela (outra pessoa vendeu): ao voltar para esta, o estoque se atualiza sozinho
         antes = qtd_banco(V_AZUL_P, "Gávea")
         psql(f"update lin_estoque set quantidade = 42 where variante_id = '{V_AZUL_P}' and loja_id = (select id from lin_lojas where nome = 'Gávea')")
@@ -986,7 +1004,7 @@ try:
 
         # ---------------------------------------------------------------- horário de trabalho (2.9)
         pg, erros = entrar(b, "dono"); abrir(pg)
-        pg.click("#abaHorarios"); pg.wait_for_selector("text=Horário de trabalho")
+        aba(pg, "#abaHorarios"); pg.wait_for_selector("text=Horário de trabalho")
         ok("sem restrição" in pg.text_content("#tela") and pg.locator('tr:has-text("Vera Vendedora") [data-hor]').count() == 1, "Horários: Dono vê a equipe, sem restrição por padrão")
         pg.click('tr:has-text("Vera Vendedora") [data-hor]'); pg.wait_for_selector("#dlg[open] #hlivre")
         pg.uncheck("#hlivre")
@@ -1022,7 +1040,7 @@ try:
         ok(psql("select horario is null from lin_membros where user_id = '00000000-0000-0000-0000-0000000000b1'", saida=True) == "t"
            and psql("select count(*) from auditoria where acao = 'linum_horario_alterado'", saida=True) == "4", "volta a sem restrição; cada mudança na auditoria")
         pg2, erros2 = entrar(b, "vendedora"); abrir(pg2)
-        ok(pg2.is_visible("#app") and not pg2.is_visible("#abaHorarios") and not pg2.is_visible("#abaCustos"), "sem restrição a vendedora entra; ela não vê as abas Horários e Custos")
+        ok(pg2.is_visible("#app") and not pode(pg2, "#abaHorarios") and not pode(pg2, "#abaCustos"), "sem restrição a vendedora entra; ela não vê as abas Horários e Custos")
 
         # ---------------------------------------------------------------- 2.33: vendedora envia e cancela; Estoque recebe com falta
         pg, erros = entrar(b, "vendedora"); abrir(pg)
@@ -1031,7 +1049,7 @@ try:
         ok(pg.locator('#dlgf [data-trg="origem"].on').text_content() == "Ipanema" and pg.locator('#dlgf [data-trg="destino"].on').text_content() == "Gávea", "vendedora: quadrado abre o envio")
         pg.once("dialog", lambda d: d.accept()); pg.click("#trok"); pg.wait_for_timeout(900)
         ok(qtd_banco(V_AZUL_P, "Ipanema") == antes_ipa - 1, "vendedora envia 1 peça")
-        pg.click("#abaTransf"); pg.wait_for_selector("[data-trcan]")
+        aba(pg, "#abaTransf"); pg.wait_for_selector("[data-trcan]")
         pg.once("dialog", lambda d: d.accept("cliente desistiu")); pg.click("[data-trcan]"); pg.wait_for_timeout(900)
         ok(qtd_banco(V_AZUL_P, "Ipanema") == antes_ipa and "cancelada" in pg.text_content("#msg"), "vendedora cancela a própria transferência: a peça volta")
         pg.click('.aba[data-v="estoque"]'); pg.wait_for_selector("#lista")
@@ -1040,7 +1058,7 @@ try:
         ok(not erros, "sem erros de JavaScript (vendedora transfere)")
         pg, erros = entrar(b, "estoque"); abrir(pg)
         ok(pg.locator("[data-trcan]").count() == 0 and "1 transferência(s) em trânsito" in pg.text_content("#tela"), "Estoque vê o aviso do que está em trânsito")
-        pg.click("#abaTransf"); pg.wait_for_selector("[data-trrec]")
+        aba(pg, "#abaTransf"); pg.wait_for_selector("[data-trrec]")
         ok(pg.locator("[data-trcan]").count() == 1, "Estoque pode cancelar a transferência de outra pessoa")
         pg.click("[data-trrec]"); pg.wait_for_selector("#dlg[open] #rok")
         pg.fill('#dlgf [data-rq="0"]', "0"); pg.wait_for_timeout(150); pg.fill("#rob", "a peça não veio na sacola")
@@ -1067,7 +1085,7 @@ try:
             abrir_ajuda = pg.goto(f"http://127.0.0.1:{PORTA_SITE}/apps/linum/ajuda/{pagina}.html")
             ok(abrir_ajuda.ok and "Sistema Linum" in pg.title() and pg.locator('script[src="/marca-dagua.js"][data-tipo="doc"]').count() == 1, f"ajuda: {pagina} com marca d'água")
         pg.goto(f"http://127.0.0.1:{PORTA_SITE}/ajuda/novidades.html?app=linum&nome=Sistema%20Linum"); pg.wait_for_timeout(400)
-        ok("2.33" in pg.text_content("body"), "novidades do app (versão 2.33)")
+        ok("2.34" in pg.text_content("body"), "novidades do app (versão 2.34)")
         ok(psql("select mapa_url from apps where id = 'linum'", saida=True) == "/apps/linum/ajuda/mapa.html", "botão Mapa ligado no cadastro do app")
         b.close()
     print("TODOS OS TESTES DE TELA DO SISTEMA LINUM OK")
