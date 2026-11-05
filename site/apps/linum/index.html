@@ -11,6 +11,7 @@
 <script src="producao.js"></script>
 <script src="custos.js"></script>
 <script src="etiquetas.js"></script>
+<script src="transferencias.js"></script>
 <style>
 /* Sistema Linum (app "linum", tabelas lin_): o sistema da LINUM Roupas de Linho trazido do Lovable para a Plataforma.
    Produtos, estoque das lojas, vendas (boleta) e clientes. Dono: tudo; Estoque: cadastra e movimenta sem custo;
@@ -44,6 +45,7 @@ label{display:block;font-size:11.5px;font-weight:700;text-transform:uppercase;le
 .bt:disabled{opacity:.5;cursor:not-allowed}
 .msg{margin:8px 0;padding:9px 12px;border-radius:8px;font-size:13px;white-space:pre-line}
 .msg.ok{background:var(--ok-bg);color:var(--ok)}.msg.err{background:var(--crit-bg);color:var(--crit)}.msg.info{background:var(--info-bg);color:var(--info)}
+.badge{display:inline-block;min-width:18px;padding:0 6px;border-radius:999px;background:var(--crit);color:#fff;font-size:11px;font-weight:700;line-height:18px;text-align:center}
 .filtros{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
 .filtros input{flex:1 1 240px}.filtros select{width:auto;flex:0 1 auto;max-width:100%}
 .pilula{font:inherit;font-size:12.5px;padding:7px 12px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--ink-soft);cursor:pointer}
@@ -149,6 +151,7 @@ td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-n
     <div class="barra">
       <button class="aba oculto" data-v="produtos" id="abaProdutos">Produtos</button>
       <button class="aba on" data-v="estoque">Estoque</button>
+      <button class="aba oculto" data-v="transferencias" id="abaTransf">Transferências</button>
       <button class="aba oculto" data-v="movimentos" id="abaMovimentos">Movimentações</button>
       <button class="aba oculto" data-v="vendas" id="abaVendas">Vendas</button>
       <button class="aba oculto" data-v="clientes" id="abaClientes">Clientes</button>
@@ -224,7 +227,7 @@ async function iniciar() {
     PERM = checar(await sb.rpc("lin_minhas_permissoes")) || PERM;
     $("abaEquipe").classList.toggle("oculto", !ADMIN);
     $("abaProdutos").classList.toggle("oculto", !controla()); $("abaMovimentos").classList.toggle("oculto", !controla());
-    $("abaVendas").classList.toggle("oculto", !vende()); $("abaClientes").classList.toggle("oculto", !vende()); $("abaAjustes").classList.toggle("oculto", !vende());
+    $("abaVendas").classList.toggle("oculto", !vende()); $("abaTransf").classList.toggle("oculto", !vende()); $("abaClientes").classList.toggle("oculto", !vende()); $("abaAjustes").classList.toggle("oculto", !vende());
     $("abaComissoes").classList.toggle("oculto", !dono()); $("abaLucro").classList.toggle("oculto", !dono()); $("abaHorarios").classList.toggle("oculto", !dono()); $("abaCreditos").classList.toggle("oculto", !dono()); $("abaCustos").classList.toggle("oculto", !dono()); $("abaRanking").classList.toggle("oculto", !vende()); $("abaEtiquetas").classList.toggle("oculto", !vende()); $("abaProducao").classList.toggle("oculto", !PERM.producao);
     $("quem").textContent = ADMIN ? "Equipe Nervia (Dono)" : dono() ? "Dono" : controla() ? "Estoque · sem custos" : "Vendedora" + (MINHA_LOJA ? " · " + loja(MINHA_LOJA).nome : "");
     $("aviso").classList.add("oculto"); $("app").classList.remove("oculto");
@@ -320,6 +323,7 @@ async function carregar() {
   const d = checar(await sb.rpc("lin_estoque_ler"));
   PAPEL = d.papel; LOJAS = d.lojas || []; PRODUTOS = d.produtos || []; MINHA_LOJA = d.minha_loja || null; MINHA_COMISSAO = Number(d.comissao_pct || 0);
   QTD = new Map((d.estoque || []).map(([v, l, q]) => [chave(v, l), q]));
+  await carregarTransito().catch(() => {});
 }
 document.querySelectorAll(".barra .aba").forEach(b => b.onclick = () => { if (VISTA === "custos" && b.dataset.v !== "custos" && !cuPodeSair()) return; CU_SUJO = false; VISTA = b.dataset.v; limparMsg(); render(); });
 function render() {
@@ -327,6 +331,7 @@ function render() {
   if (VISTA === "equipe" && ADMIN) return telaEquipe();
   if (VISTA === "produtos" && controla()) return telaProdutos();
   if (VISTA === "movimentos" && controla()) return telaMovimentos();
+  if (VISTA === "transferencias" && vende()) return telaTransferencias();
   if (VISTA === "vendas" && vende()) return telaVendas();
   if (VISTA === "clientes" && vende()) return telaClientes();
   if (VISTA === "ajustes" && vende()) return telaAjustes();
@@ -359,8 +364,10 @@ function telaEstoque() {
       <button class="pilula ${F.zerados ? "on" : ""}" id="fzero" type="button" title="Esconde as variações sem peça na loja">${F.zerados ? "Ocultar zerados: ativo" : "Ocultar zerados: inativo"}</button>
       <button class="pilula ${F.prov ? "on" : ""}" id="fprov" type="button" title="Só as peças com referência provisória (NOVA-…), para trocar pela correta">Referência provisória</button>
     </div>
+    ${avisoTransito()}
     <div class="resumo" id="resumo"></div>
     <div id="lista"></div>`;
+  if ($("irTransf")) $("irTransf").onclick = () => { VISTA = "transferencias"; FTR.sit = "em_transito"; limparMsg(); render(); };
   $("fq").oninput = e => { F.q = e.target.value; lista(); };
   [["floja", "loja"], ["fcat", "cat"], ["fcor", "cor"], ["ftam", "tam"]].forEach(([id, k]) => $(id).onchange = e => { F[k] = e.target.value; lista(); });
   $("fzero").onclick = () => { F.zerados = !F.zerados; telaEstoque(); };
@@ -394,7 +401,9 @@ function lista() {
   $("lista").innerHTML = cartoes.length ? cartoes.join("") : `<div class="vazio">${PRODUTOS.length
     ? "Nenhum produto com esses filtros." + (F.zerados ? " Desligue “Ocultar zerados” para ver as variações sem peça." : "")
     : (controla() ? "Nenhum produto cadastrado ainda. Cadastre as peças na aba Produtos." : "Nenhum produto cadastrado ainda.")}</div>`;
-  document.querySelectorAll("#lista button.chip").forEach(b => b.onclick = () => movimentar(b.dataset.p, b.dataset.v, b.dataset.l));
+  // Dono/Estoque: movimentar; vendedora: transferir para outra loja (2.33)
+  document.querySelectorAll("#lista button.chip").forEach(b => b.onclick = () => controla() ? movimentar(b.dataset.p, b.dataset.v, b.dataset.l)
+    : novaTransferencia({ variante: b.dataset.v, loja: b.dataset.l }));
 }
 // peças especiais separadas das comuns (pedido do Marco: "estava confundindo com as normais"):
 // [comuns, especiais]: todas as especiais juntas num bloco só (pedido do Marco), na ordem edição → tamanho → cor
@@ -422,8 +431,8 @@ function chipsLoja(p, l, vars) {
     const preco = v.preco_venda != null && Number(v.preco_venda) !== Number(p.preco_venda) ? `<small>${brl(v.preco_venda)}</small>` : "";
     const corpo = `<b title="${esc(v.cor)}">${esc(v.cor || "—")}</b><small>${esc([v.tamanho, v.edicao].filter(Boolean).join(" · "))}</small>${preco}<strong>${n(q)} un.</strong>`;
     const esp = v.edicao ? " esp" : "", tit = v.edicao ? `Peça especial: ${esc(v.edicao)}` : "";
-    return sep + (controla()
-      ? `<button type="button" class="chip ${q > 0 ? "" : "zero"}${esp}" data-p="${p.id}" data-v="${v.id}" data-l="${l.id}" title="${tit ? tit + " · " : ""}Movimentar">${corpo}</button>`
+    return sep + (controla() || (vende() && q > 0)
+      ? `<button type="button" class="chip ${q > 0 ? "" : "zero"}${esp}" data-p="${p.id}" data-v="${v.id}" data-l="${l.id}" title="${tit ? tit + " · " : ""}${controla() ? "Movimentar" : "Transferir para outra loja"}">${corpo}</button>`
       : `<div class="chip ${q > 0 ? "" : "zero"}${esp}"${tit ? ` title="${tit}"` : ""}>${corpo}</div>`);
   }).join("");
 }
@@ -451,6 +460,8 @@ async function movimentar(pid, vid, lid) {
       <div class="acoes"><button type="button" class="bt" id="mx">Cancelar</button><button type="button" class="bt pri" id="ms">Salvar movimentação</button></div>
       <div class="hist"><h4>Últimas movimentações desta variação</h4>${hist === null ? '<div class="mut">Carregando…</div>' : hist}</div>`;
     f.querySelectorAll("[data-g]").forEach(b => b.onclick = () => {
+      // 2.33: transferência só com aceite da outra loja (sai agora, entra quando receberem)
+      if (b.dataset.g === "tipo" && b.dataset.x === "transferencia") { $("dlg").close(); return novaTransferencia({ variante: vid, loja: M.origem }); }
       guardar(); M[b.dataset.g] = b.dataset.x;
       if (M.tipo === "transferencia" && (M.destino === M.origem || !M.destino)) M.destino = (LOJAS.find(l => l.id !== M.origem) || {}).id || "";
       if (b.dataset.g === "tipo" || b.dataset.g === "origem") M.quantidade = M.tipo === "ajuste" ? String(qtd(vid, M.origem)) : (M.quantidade === "0" ? "1" : M.quantidade);
@@ -468,8 +479,7 @@ async function movimentar(pid, vid, lid) {
     $("ms").disabled = true; $("ms").textContent = "Salvando…";
     try {
       const base = { p_variante: vid, p_quantidade: q, p_data: M.data, p_observacao: M.obs.trim() };
-      if (M.tipo === "transferencia") checar(await sb.rpc("lin_transferir", { ...base, p_origem: M.origem, p_destino: M.destino }));
-      else if (M.tipo === "ajuste") checar(await sb.rpc("lin_ajustar", { ...base, p_loja: M.origem }));
+      if (M.tipo === "ajuste") checar(await sb.rpc("lin_ajustar", { ...base, p_loja: M.origem }));
       else checar(await sb.rpc("lin_movimentar", { ...base, p_loja: M.origem, p_tipo: M.tipo }));
       $("dlg").close();
       await carregar(); lista();
@@ -481,7 +491,7 @@ async function movimentar(pid, vid, lid) {
   try {
     const ms = checar(await sb.from("lin_movimentos").select("tipo, quantidade, antes, depois, loja_id, loja_destino_id, data, observacao, criado_nome")
       .eq("variante_id", vid).order("criado_em", { ascending: false }).limit(8));
-    hist = ms.length ? "<ul>" + ms.map(m => `<li><b>${dataBR(m.data)}</b> · ${esc(m.tipo === "venda" ? "Venda" : TIPOS[m.tipo] || m.tipo)} ${m.tipo === "ajuste" ? `${m.antes} → ${m.depois}` : n(m.quantidade)} · ${esc(loja(m.loja_id).nome)}${m.loja_destino_id ? " → " + esc(loja(m.loja_destino_id).nome) : ""}${m.observacao ? " · " + esc(m.observacao) : ""}${m.criado_nome ? " · " + esc(m.criado_nome) : ""}</li>`).join("") + "</ul>"
+    hist = ms.length ? "<ul>" + ms.map(m => `<li><b>${dataBR(m.data)}</b> · ${esc(MV_TIPO[m.tipo] || m.tipo)} ${m.tipo === "ajuste" ? `${m.antes} → ${m.depois}` : n(m.quantidade)} · ${esc(loja(m.loja_id).nome)}${m.loja_destino_id ? " → " + esc(loja(m.loja_destino_id).nome) : ""}${m.observacao ? " · " + esc(m.observacao) : ""}${m.criado_nome ? " · " + esc(m.criado_nome) : ""}</li>`).join("") + "</ul>"
       : '<div class="mut">Nenhuma movimentação ainda.</div>';
   } catch (e) { hist = `<div class="mut">Não foi possível ler o histórico: ${esc(e.message)}</div>`; }
   if ($("dlg").open && $("mq")) { guardar(); desenhar(); }
@@ -2004,13 +2014,14 @@ async function telaCreditos() {
 // Todas as movimentações de estoque num período (lin_movimentos: a policy já libera Dono e Estoque; sem custo).
 // "Por descrição" junta as linhas da mesma ação (ex.: um levantamento de estoque) para ver o total de uma vez.
 const FMV = { de: "", ate: "", loja: "", tipo: "", q: "", obs: null };
-const MV_TIPO = { entrada: "Entrada", saida: "Saída", transferencia: "Transferência", ajuste: "Ajuste", venda: "Venda", devolucao: "Devolução", producao: "Produção" };
+const MV_TIPO = { entrada: "Entrada", saida: "Saída", transferencia: "Transferência", ajuste: "Ajuste", venda: "Venda", devolucao: "Devolução", producao: "Produção",
+  transf_envio: "Transferência enviada", transf_recebida: "Transferência recebida", transf_retorno: "Transferência cancelada (voltou)" };
 function mvEfeito(m, lj) {   // quanto a movimentação mudou o estoque (da loja lj ou, sem loja, de todas)
   const q = Number(m.quantidade || 0);
   if (m.tipo === "ajuste") return (!lj || m.loja_id === lj) ? Number(m.depois) - Number(m.antes) : 0;
   if (m.tipo === "transferencia") return !lj ? 0 : (m.loja_id === lj ? -q : 0) + (m.loja_destino_id === lj ? q : 0);
   if (lj && m.loja_id !== lj) return 0;
-  return ["saida", "venda"].includes(m.tipo) ? -q : q;
+  return ["saida", "venda", "transf_envio"].includes(m.tipo) ? -q : q;
 }
 async function telaMovimentos() {
   if (!FMV.de) { const d = new Date(hoje() + "T12:00:00"); d.setDate(d.getDate() - 6); FMV.de = d.toISOString().slice(0, 10); FMV.ate = hoje(); }

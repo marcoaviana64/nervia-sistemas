@@ -72,6 +72,9 @@ def montar(r):
     else:
         quem = "<p class='vazio'>Nenhuma atualização de produtos ou estoque neste dia.</p>"
     aten = []
+    if r.get("em_transito"):
+        aten.append("<li><b>Transferências em trânsito (ainda não recebidas):</b> " + html.escape("; ".join(
+            f"nº {t['n']} {t['de']} → {t['para']}, {t['pecas']} peça(s), desde {t['desde']}" for t in r["em_transito"])) + "</li>")
     if r.get("provisorias"):
         aten.append(f"<li><b>Referências provisórias para trocar ({len(r['provisorias'])}):</b> {html.escape(', '.join(r['provisorias']))}</li>")
     if r.get("excluidos"):
