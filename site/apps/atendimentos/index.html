@@ -11,6 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/fichario.css">
 <style>
 /* Atendimentos de TI (app "atendimentos", tabelas atd_). Veio da Central "Nervia Atendimentos" (artifact) em 29/10/2026:
    mesmo visual e mesmas telas. A equipe Nervia (admin) altera; o cliente só lê os empreendimentos liberados (atd_acessos).
@@ -66,10 +67,8 @@ button,input,select,textarea{font:inherit;color:inherit}
 .brand svg{flex:none}
 .brand b{display:block;font-size:15px;letter-spacing:.02em}
 .brand small{display:block;color:var(--muted);font-size:12px;line-height:1.2}
-nav{display:flex;gap:4px;flex-wrap:wrap}
-nav a{text-decoration:none;color:var(--ink-2);padding:7px 12px;border-radius:8px;font-weight:500;font-size:13.5px}
-nav a:hover{background:var(--surface-2);color:var(--ink)}
-nav a[aria-current="page"]{background:var(--ink);color:var(--bg)}
+/* menu: estilo fichário comum do ecossistema (/fichario.css, 05/11/2026), na linha de baixo do topo */
+.top .fichario{flex-basis:100%;margin:8px 0 0;--border:var(--line);--ink-soft:var(--ink-2)}
 .notice{margin-top:14px;padding:10px 14px;border-radius:10px;background:var(--warn-soft);color:var(--warn);font-weight:500}
 
 h1{font-size:24px;line-height:1.2;margin:28px 0 4px;text-wrap:balance;letter-spacing:-.01em}
@@ -262,12 +261,15 @@ textarea{min-height:84px;resize:vertical;line-height:1.45}
       <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="8" fill="var(--ink)"/><path d="M9 15.5a11 11 0 0 1 16 0M12 19a6.5 6.5 0 0 1 10 0" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round"/><circle cx="17" cy="23" r="2.1" fill="var(--accent)"/></svg>
       <div><b>NERVIA TI</b><small>Central de atendimentos</small><span class="versao" data-versao="atendimentos"></span></div>
     </div>
-    <nav id="nav">
-      <a href="#painel" data-v="painel">Painel</a>
-      <a href="#atendimentos" data-v="atendimentos">Atendimentos</a>
-      <a href="#equipamentos" data-v="equipamentos">Equipamentos</a>
-      <a href="#novo" data-v="novo" class="so-equipe">Novo atendimento</a>
-      <a href="#empreendimentos" data-v="empreendimentos" class="so-equipe">Empreendimentos</a>
+    <nav id="nav" class="barra fichario" aria-label="Menu">
+      <div class="orelhas">
+        <a href="#painel" data-v="painel" class="aba" title="Painel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg><span>Painel</span></a>
+        <a href="#atendimentos" data-v="atendimentos" class="aba" title="Atendimentos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg><span>Atendimentos</span></a>
+        <a href="#equipamentos" data-v="equipamentos" class="aba" title="Equipamentos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/></svg><span>Equipamentos</span></a>
+        <a href="#novo" data-v="novo" class="aba so-equipe" title="Novo atendimento"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg><span>Novo atendimento</span></a>
+        <a href="#empreendimentos" data-v="empreendimentos" class="aba so-equipe" title="Empreendimentos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M4 21V5l8-2v18M12 7l8 3v11M3 21h18M8 9h.01M8 13h.01M8 17h.01M16 13h.01M16 17h.01"/></svg><span>Empreendimentos</span></a>
+      </div>
+      <div class="ficha"></div>
     </nav>
   </div>
 </header>
