@@ -8,6 +8,7 @@
 <script src="/config.js"></script>
 <script src="/versoes.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<link rel="stylesheet" href="/fichario.css">
 <style>
 /* Mídia Indoor (app "midia", tabelas mi_). As mídias ficam na pasta do Google Drive do cliente (uma subpasta = uma
    playlist); a Edge Function "midia" lê a pasta e confere os arquivos; as TVs (app Android) falam com "midia-tv".
@@ -29,9 +30,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-ap
 .topo .marca{width:34px;height:34px;border-radius:10px;background:linear-gradient(155deg,#107e99,#0b2545);color:#fff;display:grid;place-items:center;font-weight:800;font-size:.82rem}
 .topo span{color:var(--ink-soft);font-size:.8rem}
 .embutido .topo{display:none}
-.barra{display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:6px 8px;margin-bottom:12px}
-.barra .aba{border:0;background:none;padding:8px 12px;border-radius:8px;cursor:pointer;font:inherit;color:var(--ink-soft)}
-.barra .aba.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+/* menu: estilo fichário comum do ecossistema (/fichario.css, 05/11/2026) */
 .barra .aba .n{font-size:11.5px;opacity:.75;margin-left:4px}
 .barra .dir{margin-left:auto;display:flex;gap:8px;align-items:center;font-size:12px;color:var(--ink-soft)}
 .barra .dir select{width:auto;max-width:240px}
@@ -95,12 +94,14 @@ dialog h3{margin:0 0 4px}
   <div class="topo"><div class="marca">MI</div><div><b>Mídia Indoor</b><br><span>Vídeos e imagens nas TVs da empresa, pela pasta do Google Drive</span><br><span data-versao="midia"></span></div></div>
   <div id="aviso" class="centro">Carregando…</div>
   <div id="app" class="oculto">
-    <div class="barra">
-      <button class="aba on" data-v="telas">TVs<span class="n" id="nTelas"></span></button>
-      <button class="aba" data-v="playlists">Playlists<span class="n" id="nPls"></span></button>
-      <button class="aba" data-v="config">Pasta do Drive</button>
-      <button class="aba" data-v="admin" id="abaAdmin">Contas</button>
-      <div class="dir"><select id="selConta" title="Conta"></select></div>
+    <div class="barra fichario">
+      <div class="orelhas">
+        <button class="aba on" data-v="telas" title="TVs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="12" rx="1.5"/><path d="M8 21h8M12 17v4"/></svg><span>TVs</span><span class="n" id="nTelas"></span></button>
+        <button class="aba" data-v="playlists" title="Playlists"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M4 6h11M4 11h11M4 16h7"/><path d="m16 14 5 3-5 3z"/></svg><span>Playlists</span><span class="n" id="nPls"></span></button>
+        <button class="aba" data-v="config" title="Pasta do Drive"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/></svg><span>Pasta do Drive</span></button>
+        <button class="aba" data-v="admin" id="abaAdmin" title="Contas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17.5" cy="9" r="2.4"/><path d="M15.5 14.4A5 5 0 0 1 21.5 19"/></svg><span>Contas</span></button>
+      </div>
+      <div class="ficha"><div class="dir"><select id="selConta" title="Conta"></select></div></div>
     </div>
     <div id="msg" class="msg oculto"></div>
     <div id="tela"></div>

@@ -36,11 +36,13 @@ window.NERVIA_VERSOES = {
     ["1.0", "Lançamento: requisição, propostas, mapa comparativo, aprovação por alçada (Gerente e Diretor), pedido e avaliação do fornecedor."],
   ],
   "monitor": [
+    ["1.3", "Menu novo no estilo fichário, igual ao dos outros apps da Nervia: as abas Painel, Quedas, Relatório mensal e Equipamentos viram orelhas de pasta com ícone; a aberta se junta à ficha embaixo. No celular, as abas fechadas mostram só o ícone."],
     ["1.2", "Aviso por e-mail quando um link cai ou o roteador fica sem contato por 5 minutos ou mais, e quando volta."],
     ["1.1", "Link com \"Monitorar: Não\" sai do painel, das quedas e do relatório; painel com cartões agrupados por cliente, local ou sem grupos."],
     ["1.0", "Lançamento: status dos links e roteadores, histórico de quedas e relatório mensal de disponibilidade."],
   ],
   "licencas": [
+    ["1.5", "Menu novo no estilo fichário, igual ao dos outros apps da Nervia: as abas Painel, Contas, Mudanças e Cargas e fatura viram orelhas de pasta com ícone; a aberta se junta à ficha embaixo. No celular, as abas fechadas mostram só o ícone."],
     ["1.4", "A unidade de cada conta é identificada só pelo domínio do e-mail (a parte depois do @)."],
     ["1.3", "Cada carga vale só para as unidades do arquivo: exportações de empresas (tenants) diferentes convivem, até na mesma data."],
     ["1.2", "Ao aprovar a fatura enviada pelo formulário, só as unidades do link são trocadas."],
@@ -48,6 +50,7 @@ window.NERVIA_VERSOES = {
     ["1.0", "Lançamento: contas e licenças de cada unidade, mudanças entre exportações e licenças pagas sem uso."],
   ],
   "midia": [
+    ["1.7", "Menu novo no estilo fichário, igual ao dos outros apps da Nervia: as abas TVs, Playlists, Pasta do Drive e Contas viram orelhas de pasta com ícone; a aberta se junta à ficha embaixo. No celular, as abas fechadas mostram só o ícone."],
     ["1.6", "A versão do app aparece na tela da TV (no alto da tela do código e no pé da tela de espera), para conferir a atualização sem abrir o painel."],
     ["1.5", "Tela de espera nova: quando a TV não tem o que passar, mostra uma propaganda do Mídia Indoor com QR code para falar com a Nervia, e no pé o nome da TV e o motivo. Fire TV Stick testado e aprovado, com o caminho para abrir o app quando o aparelho está sem internet."],
     ["1.4", "TV instalada em pé: escolha a posição no painel e o app gira vídeos e imagens, sem precisar de arquivo rotacionado. A TV começa a passar assim que o primeiro arquivo termina de baixar, e a TV recém-vinculada pega a playlist em até 30 segundos. Aviso de pouco espaço no aparelho."],
