@@ -2223,6 +2223,38 @@ select pg_temp.erro2($$select * from lin_lucro_itens(current_date - 60, current_
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
 select pg_temp.erro2($$select * from lin_lucro_itens(current_date - 60, current_date)$$, 'Somente o Dono', 'linum 2.25: Estoque não vê o lucro');
 reset role;
+-- linum 2.30: classificação tributária no produto
+select pg_temp.ok((select count(*) = 70 and count(*) filter (where cest is not null) = 4 from lin_classificacoes), 'linum 2.30: 70 classificações carregadas');
+select set_config('teste.cl1', (select id::text from lin_classificacoes where ordem = 103), false),
+       set_config('teste.cl2', (select id::text from lin_classificacoes where ordem = 511), false);
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select set_config('teste.pcl', lin_produto_salvar(jsonb_build_object('referencia', 'CL01', 'descricao', 'Vestido classificado', 'preco_venda', '100',
+  'classificacao_id', current_setting('teste.cl1')))::text, false);
+select pg_temp.ok((select classificacao_id::text = current_setting('teste.cl1') from lin_produtos where id = current_setting('teste.pcl')::uuid), 'linum 2.30: produto novo com classificação');
+select lin_produto_salvar(jsonb_build_object('id', current_setting('teste.pcl'), 'referencia', 'CL01', 'descricao', 'Vestido classificado', 'preco_venda', '110'));
+select pg_temp.ok((select classificacao_id::text = current_setting('teste.cl1') from lin_produtos where id = current_setting('teste.pcl')::uuid), 'linum 2.30: salvar sem a chave mantém a classificação');
+select lin_produto_salvar(jsonb_build_object('id', current_setting('teste.pcl'), 'referencia', 'CL01', 'descricao', 'Vestido classificado', 'preco_venda', '110', 'classificacao_id', current_setting('teste.cl2')));
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';   -- papel Estoque
+select pg_temp.ok((select count(*) = 70 from lin_classificacoes)
+  and (select (p ->> 'classificacao_id') = current_setting('teste.cl2') from jsonb_array_elements(lin_catalogo() -> 'produtos') p where p ->> 'id' = current_setting('teste.pcl')),
+  'linum 2.30: Estoque lê as classificações e a do produto pelo catálogo');
+select lin_produto_salvar(jsonb_build_object('id', current_setting('teste.pcl'), 'referencia', 'CL01', 'descricao', 'Vestido classificado', 'preco_venda', '110', 'classificacao_id', ''));
+select pg_temp.erro2($$insert into lin_classificacoes (grupo, tipo_peca, material, ncm, ordem) values ('x','y','z','12345678', 9999)$$, 'permission denied', 'linum 2.30: a tela não altera a tabela de classificações');
+reset role;
+select pg_temp.ok((select classificacao_id is null from lin_produtos where id = current_setting('teste.pcl')::uuid)
+  and exists (select 1 from auditoria where acao = 'linum_produto_alterado' and detalhes -> 'depois' ? 'classificacao_id' and detalhes ->> 'produto_id' = current_setting('teste.pcl')),
+  'linum 2.30: vazio = sem classificação, com antes/depois na auditoria');
+update lin_classificacoes set ativo = false where ordem = 541;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.erro2($$select lin_produto_salvar(jsonb_build_object('id', current_setting('teste.pcl'), 'referencia', 'CL01', 'descricao', 'Vestido classificado', 'preco_venda', '110',
+  'classificacao_id', (select id from lin_classificacoes where ordem = 541)))$$, 'desativada', 'linum 2.30: classificação desativada é recusada');
+reset role;
+set role anon;
+reset request.jwt.claim.sub;
+select pg_temp.erro2($$select count(*) from lin_classificacoes$$, 'permission denied', 'linum 2.30: sem login não lê as classificações');
+reset role;
 set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
 reset role;

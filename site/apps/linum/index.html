@@ -54,6 +54,7 @@ label{display:block;font-size:11.5px;font-weight:700;text-transform:uppercase;le
 .prod h2{margin:0;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .prod .preco{color:var(--accent);font-weight:700;white-space:nowrap}
 .prod .info{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px;color:var(--ink-soft);margin-top:2px}
+.semncm{font-style:italic;opacity:.6}
 .selo{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--primary);color:var(--bg)}
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center}
 .prod .loja{margin-top:10px}.prod .loja .chips{margin-top:6px}
@@ -486,8 +487,13 @@ async function movimentar(pid, vid, lid) {
 }
 
 // ---------------------------------------------------------------- produtos (Dono)
-let PRODS = [], VARS = [];
-const FP = { q: "", cat: "", cor: "", tam: "", forn: "", prov: false };
+let PRODS = [], VARS = [], CLASSIF = null;   // CLASSIF = classificações tributárias (null = tabela ainda não existe)
+const FP = { q: "", cat: "", cor: "", tam: "", forn: "", prov: false, semcl: false };
+// classificação tributária (2.30): NCM mostrado como 0000.00.00
+const fmtNcm = x => /^\d{8}$/.test(x || "") ? `${x.slice(0, 4)}.${x.slice(4, 6)}.${x.slice(6)}` : (x || "");
+const classifDe = p => p && p.classificacao_id && CLASSIF ? CLASSIF.find(c => c.id === p.classificacao_id) || null : null;
+const rotuloClassif = c => `${c.tipo_peca} — ${c.material} · NCM ${fmtNcm(c.ncm)}`;
+const semClassif = p => { const c = classifDe(p); return !c || !c.ativo; };
 async function todas(q) {   // o Supabase devolve no máximo 1000 linhas por consulta
   const l = [];
   for (let i = 0; ; i += 1000) { const parte = checar(await q().range(i, i + 999)) || []; l.push(...parte); if (parte.length < 1000) break; }
@@ -497,10 +503,16 @@ async function carregarProdutos() {
   if (!dono()) {   // Estoque: o mesmo cadastro, sem as colunas de custo (as tabelas com custo só o Dono lê)
     const c = checar(await sb.rpc("lin_catalogo"));
     PRODS = c.produtos || []; VARS = c.variantes || [];
+    await carregarClassif();
     return;
   }
   PRODS = await todas(() => sb.from("lin_produtos").select("*").order("descricao").order("referencia"));
   VARS = await todas(() => sb.from("lin_variantes").select("*").order("criado_em"));
+  await carregarClassif();
+}
+async function carregarClassif() {   // sem a tabela (antes da migração) a tela segue sem o campo
+  const { data, error } = await sb.from("lin_classificacoes").select("*").order("ordem");
+  CLASSIF = error ? null : data || [];
 }
 const varsDe = pid => VARS.filter(v => v.produto_id === pid).sort(ordemVar);
 // número digitado do jeito brasileiro: "1.234,50" ou "189,9" ou "189.90"
@@ -522,10 +534,12 @@ async function telaProdutos() {
       <select id="ptam" aria-label="Tamanho">${[`<option value="">Tamanho</option>`, ...[...new Set(VARS.map(v => v.tamanho))].sort(ordemTam).map(x => `<option value="${esc(x)}" ${x === FP.tam ? "selected" : ""}>${esc(x)}</option>`)].join("")}</select>
       <select id="pforn" aria-label="Fornecedor">${opc(unicos(PRODS.map(p => p.fornecedor)), FP.forn, "Fornecedor")}</select>
       <button class="pilula ${FP.prov ? "on" : ""}" id="pprov" type="button" title="Só as peças com referência provisória (NOVA-…), para trocar pela correta">Referência provisória</button>
+      ${CLASSIF ? `<button class="pilula ${FP.semcl ? "on" : ""}" id="psemcl" type="button" title="Só as peças sem NCM, para escolher a classificação em Editar peça">Sem classificação tributária</button>` : ""}
     </div>
     <div id="plista"></div>`;
   $("pnovo").onclick = () => editarProduto(null);
   $("pprov").onclick = () => { FP.prov = !FP.prov; $("pprov").classList.toggle("on", FP.prov); listaProdutos(); };
+  if ($("psemcl")) $("psemcl").onclick = () => { FP.semcl = !FP.semcl; $("psemcl").classList.toggle("on", FP.semcl); listaProdutos(); };
   $("pq").oninput = e => { FP.q = e.target.value; listaProdutos(); };
   [["pcat", "cat"], ["pcor", "cor"], ["ptam", "tam"], ["pforn", "forn"]].forEach(([id, k]) => $(id).onchange = e => { FP[k] = e.target.value; listaProdutos(); });
   listaProdutos();
@@ -538,6 +552,7 @@ function listaProdutos() {
     if (FP.cat && p.categoria !== FP.cat) return false;
     if (FP.forn && p.fornecedor !== FP.forn) return false;
     if (FP.prov && !refProvisoria(p)) return false;
+    if (FP.semcl && CLASSIF && !semClassif(p)) return false;
     if (FP.cor && !vs.some(v => v.cor === FP.cor)) return false;
     if (FP.tam && !vs.some(v => v.tamanho === FP.tam)) return false;
     return true;
@@ -549,7 +564,8 @@ function listaProdutos() {
       <div class="cab"><h2 class="${vs.some(v => v.edicao && v.ativo) ? "temesp" : ""}" title="${esc(p.descricao)}${vs.some(v => v.edicao && v.ativo) ? " · tem peça especial" : ""}">${esc(p.descricao)}${p.ativo ? "" : '<span class="tag">inativo</span>'}${refProvisoria(p) ? '<span class="tag" title="Troque pela referência correta em Editar peça">ref. provisória</span>' : ""}</h2>
         <span class="preco">${brl(p.preco_venda)}</span></div>
       <div class="info"><span>${esc([p.referencia, p.categoria, p.fornecedor].filter(Boolean).join(" · "))}</span>
-        ${p.codigo_barras ? `<span>· cód. ${esc(p.codigo_barras)}</span>` : ""}${p.preco_custo != null ? `<span>· custo ${brl(p.preco_custo)}</span>` : ""}</div>
+        ${p.codigo_barras ? `<span>· cód. ${esc(p.codigo_barras)}</span>` : ""}${p.preco_custo != null ? `<span>· custo ${brl(p.preco_custo)}</span>` : ""}
+        ${CLASSIF ? (semClassif(p) ? '<span class="semncm">· sem NCM</span>' : `<span title="${esc(rotuloClassif(classifDe(p)))}">· NCM ${esc(fmtNcm(classifDe(p).ncm))}</span>`) : ""}</div>
       ${(() => {
         const [comuns, esp] = separarEsp(vs);
         const tag = v => `<span class="vtag ${v.ativo ? "" : "off"}" title="${v.ativo ? "" : "inativa"}">${esc(nomeVar(v))}${v.preco_venda != null ? " · " + brl(v.preco_venda) : ""}</span>`;
@@ -594,8 +610,24 @@ function editarProduto(pid) {
   const f = $("dlgf");
   let p = pid ? PRODS.find(x => x.id === pid) : null;
   let F2 = p ? { referencia: p.referencia, descricao: p.descricao, categoria: p.categoria || "", colecao: p.colecao || "", fornecedor: p.fornecedor || "",
-                 tecido: p.tecido || "", preco_custo: moeda(p.preco_custo), preco_venda: p.preco_venda ? moeda(p.preco_venda) : "", consumo_metros: decBR(p.consumo_metros), ativo: p.ativo }
-             : { referencia: "", descricao: "", categoria: "", colecao: "", fornecedor: "", tecido: "", preco_custo: "", preco_venda: "", consumo_metros: "", ativo: true };
+                 tecido: p.tecido || "", preco_custo: moeda(p.preco_custo), preco_venda: p.preco_venda ? moeda(p.preco_venda) : "", consumo_metros: decBR(p.consumo_metros), ativo: p.ativo,
+                 classificacao_id: p.classificacao_id || "" }
+             : { referencia: "", descricao: "", categoria: "", colecao: "", fornecedor: "", tecido: "", preco_custo: "", preco_venda: "", consumo_metros: "", ativo: true, classificacao_id: "" };
+  // lista da classificação tributária: só as ativas (mais a que a peça já tem), agrupadas, filtradas pela busca
+  const opcoesClassif = (busca, sel) => {
+    const t = semAc(busca), dig = String(busca || "").replace(/\D/g, "");
+    const l = (CLASSIF || []).filter(c => (c.ativo || c.id === sel) && (c.id === sel || !t
+      || semAc([c.grupo, c.tipo_peca, c.material, fmtNcm(c.ncm)].join(" ")).includes(t) || (dig.length >= 3 && c.ncm.includes(dig))));
+    const grupos = [...new Set(l.map(c => c.grupo))];
+    return `<option value="">Sem classificação</option>` + grupos.map(g => `<optgroup label="${esc(g)}">${l.filter(c => c.grupo === g)
+      .map(c => `<option value="${c.id}" ${c.id === sel ? "selected" : ""}>${esc(rotuloClassif(c))}${c.ativo ? "" : " (inativa)"}</option>`).join("")}</optgroup>`).join("");
+  };
+  const infoClassif = id => {
+    const c = id && CLASSIF ? CLASSIF.find(x => x.id === id) : null;
+    if (!c) return id ? "Classificação não encontrada." : "Sem classificação: a peça fica sem NCM.";
+    return (c.ativo ? "" : "<b>Classificação inativa</b> · ") + `NCM <b>${esc(fmtNcm(c.ncm))}</b>` + (c.cest ? ` · CEST <b>${esc(c.cest)}</b>` : "")
+      + (c.observacao ? ` · ${esc(c.observacao)}` : "");
+  };
   let novas = { cores: "", tamanhos: TAMANHOS_PADRAO }, esp = { cor: "", tamanho: "", edicao: "", preco_venda: "", preco_custo: "" }, editando = null;
   const campo = (k, rot, extra = "") => `<div><label for="pf_${k}">${rot}</label><input id="pf_${k}" data-k="${k}" value="${esc(F2[k])}" ${extra}></div>`;
   const ler = () => {
@@ -613,6 +645,10 @@ function editarProduto(pid) {
       <div class="campo">${campo("descricao", "Descrição (nome da peça)")}</div>
       <div class="campo grade2">${campo("colecao", "Coleção")}${campo("fornecedor", "Fornecedor")}</div>
       <div class="campo">${campo("tecido", "Tecido")}</div>
+      ${CLASSIF ? `<div class="campo"><label for="pf_classificacao_id">Classificação tributária</label>
+        <input id="pf_cbusca" type="search" placeholder="Buscar por tipo de peça, material ou NCM" style="margin-bottom:4px">
+        <select id="pf_classificacao_id" data-k="classificacao_id">${opcoesClassif("", F2.classificacao_id)}</select>
+        <div class="mut" id="pf_cinfo" style="margin-top:4px">${infoClassif(F2.classificacao_id)}</div></div>` : ""}
       <div class="campo grade2">${dono() ? campo("preco_custo", "Preço de custo (R$)", 'inputmode="decimal"') : ""}${campo("preco_venda", "Preço de venda (R$)", 'inputmode="decimal"')}</div>
       <div class="campo">${campo("consumo_metros", "Consumo previsto de tecido (metros por peça)", 'inputmode="decimal"')}</div>
       <div class="campo"><label>Código de barras</label><input readonly value="${esc(p && p.codigo_barras ? p.codigo_barras : "Gerado automaticamente ao salvar")}"></div>
@@ -642,6 +678,10 @@ function editarProduto(pid) {
     if (p) historicoPrecos(p.id, $("phist"));
     $("pfx").onclick = () => $("dlg").close();
     $("pfs").onclick = salvar;
+    if ($("pf_cbusca")) {
+      $("pf_cbusca").oninput = e => { const sel = $("pf_classificacao_id"), v = sel.value; sel.innerHTML = opcoesClassif(e.target.value, v); sel.value = v; };
+      $("pf_classificacao_id").onchange = e => { $("pf_cinfo").innerHTML = infoClassif(e.target.value); };
+    }
     const acao = async (fn, okmsg) => { ler(); try { await fn(); await recarregar(); desenhar(null, typeof okmsg === "function" ? (nEsp === 1 ? "Peça especial acrescentada." : `${nEsp} peças especiais acrescentadas.`) : okmsg); }
       catch (e) { await recarregar(); desenhar(e.message + (nEsp ? ` (${nEsp} já tinham sido criadas antes do erro)` : "")); } };
     f.querySelectorAll("[data-veditar]").forEach(b => b.onclick = () => { ler(); editando = b.dataset.veditar; desenhar(); });
@@ -685,7 +725,7 @@ function editarProduto(pid) {
       const novo = !p;
       const id = checar(await sb.rpc("lin_produto_salvar", { p: { id: p ? p.id : null, referencia: F2.referencia, descricao: F2.descricao, categoria: F2.categoria,
         colecao: F2.colecao, fornecedor: F2.fornecedor, tecido: F2.tecido, preco_custo: numBR(F2.preco_custo), preco_venda: numBR(F2.preco_venda),
-        consumo_metros: numBR(F2.consumo_metros), ativo: !!F2.ativo } }));
+        consumo_metros: numBR(F2.consumo_metros), ativo: !!F2.ativo, ...(CLASSIF ? { classificacao_id: F2.classificacao_id || "" } : {}) } }));
       let criadas = 0;
       if (cores.length) criadas = checar(await sb.rpc("lin_variantes_criar", { p_produto: id, p_cores: cores, p_tamanhos: tams }));
       novas = { cores: "", tamanhos: TAMANHOS_PADRAO };
