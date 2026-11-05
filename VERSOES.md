@@ -67,6 +67,7 @@ Ao publicar mudança num app: linha nova no topo do app aqui (com a data) e em `
 
 | Versão | Data | O que mudou |
 |---|---|---|
+| 2.31 | 05/11/2026 | Classificação tributária mais fácil de achar: ao digitar no campo de busca (ex.: “vestido linho” ou “6204”), as classificações aparecem logo abaixo para clicar (Enter escolhe a primeira). Novo botão “Classificações tributárias” na aba Produtos mostra a tabela inteira por grupo, com NCM, CEST, observação e quantas peças usam cada uma, com busca e impressão. |
 | 2.30 | 05/11/2026 | Classificação tributária no cadastro do produto: no Editar peça há uma lista com busca (por tipo de peça, material ou NCM), separada por grupo — feminino, masculino, infantil, acessórios. Escolhida a classificação, aparecem o NCM, o CEST e a observação. Na lista de produtos cada peça mostra o NCM, ou “sem NCM”, e o filtro “Sem classificação tributária” mostra as que ainda faltam. |
 | 2.29 | 02/11/2026 | Nova aba Movimentações, para o Dono e o Estoque: todas as entradas, saídas, transferências, ajustes, vendas e devoluções de um período, com filtro por loja, tipo e peça. O quadro “Por descrição” junta as movimentações da mesma ação (por exemplo, um levantamento de estoque) e mostra o resultado de uma vez; clicando nela, aparecem só as peças daquela ação, com o antes e o depois. Dá para baixar em CSV e imprimir. |
 | 2.28 | 02/11/2026 | Etiquetas: o tamanho não sai mais na etiqueta, então a mesma etiqueta serve para qualquer tamanho da peça. Continuam a referência, a descrição, o tecido, o preço e o código de barras. |
