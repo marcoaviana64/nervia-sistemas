@@ -8,6 +8,7 @@
 <script src="/config.js"></script>
 <script src="/versoes.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<link rel="stylesheet" href="/fichario.css">
 <style>
 /* Contas e Licenças Microsoft 365 (app "licencas", tabelas lic_). A equipe Nervia carrega a exportação de usuários do
    Microsoft 365 e a fatura do mês; o cliente só lê as unidades liberadas para ele. */
@@ -28,9 +29,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-ap
 .topo .marca{width:34px;height:34px;border-radius:10px;background:linear-gradient(155deg,#107e99,#0b2545);color:#fff;display:grid;place-items:center;font-weight:800;font-size:.82rem}
 .topo span{color:var(--ink-soft);font-size:.8rem}
 .embutido .topo{display:none}
-.barra{display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:6px 8px;margin-bottom:12px}
-.barra .aba{border:0;background:none;padding:8px 12px;border-radius:8px;cursor:pointer;font:inherit;color:var(--ink-soft)}
-.barra .aba.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+/* menu: estilo fichário comum do ecossistema (/fichario.css, 05/11/2026) */
 .barra .dir{margin-left:auto;display:flex;gap:6px;align-items:center;font-size:12px;color:var(--ink-soft)}
 .barra .dir select{width:auto}
 select,input,textarea{font:inherit;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink);width:100%}
@@ -87,12 +86,14 @@ dialog h3{margin:0 0 12px}
   <div class="topo"><div class="marca">CL</div><div><b>Contas e Licenças Microsoft 365</b><br><span>Contas, licenças em uso, mudanças e licenças pagas sem uso</span><br><span data-versao="licencas"></span></div></div>
   <div id="aviso" class="centro">Carregando…</div>
   <div id="app" class="oculto">
-    <div class="barra">
-      <button class="aba on" data-v="painel">Painel</button>
-      <button class="aba" data-v="contas">Contas</button>
-      <button class="aba" data-v="mudancas">Mudanças</button>
-      <button class="aba" data-v="admin" id="abaAdmin">Cargas e fatura</button>
-      <div class="dir"><span>Exportação de</span><select id="selCarga"></select></div>
+    <div class="barra fichario">
+      <div class="orelhas">
+        <button class="aba on" data-v="painel" title="Painel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg><span>Painel</span></button>
+        <button class="aba" data-v="contas" title="Contas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17.5" cy="9" r="2.4"/><path d="M15.5 14.4A5 5 0 0 1 21.5 19"/></svg><span>Contas</span></button>
+        <button class="aba" data-v="mudancas" title="Mudanças"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg><span>Mudanças</span></button>
+        <button class="aba" data-v="admin" id="abaAdmin" title="Cargas e fatura"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg><span>Cargas e fatura</span></button>
+      </div>
+      <div class="ficha"><div class="dir"><span>Exportação de</span><select id="selCarga"></select></div></div>
     </div>
     <div id="msg" class="msg oculto"></div>
     <div id="tela"></div>
