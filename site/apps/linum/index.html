@@ -501,26 +501,61 @@ const buscarClassif = (texto, inativas) => {
   return (CLASSIF || []).filter(c => (inativas || c.ativo) && (!pals.length || (dig.length >= 3 && c.ncm.includes(dig))
     || pals.every(w => semAc([c.grupo, c.tipo_peca, c.material, fmtNcm(c.ncm), c.cest, c.observacao].join(" ")).includes(w))));
 };
-// tabela das classificações (2.31, pedido do Marco: "onde vejo o cadastro destas classificações?"); só leitura,
-// quem altera a tabela é a equipe Nervia
+// tabela das classificações (2.31, pedido do Marco: "onde vejo o cadastro destas classificações?"); a Dona e a equipe
+// Nervia incluem, corrigem e desativam (2.32, "deixa a Gorette editar a tabela pelo app"); os outros só consultam
 function verClassificacoes() {
   const f = $("dlgf"); let q = "";
+  const edita = dono();
   const usadas = {}; PRODS.forEach(p => { if (p.classificacao_id) usadas[p.classificacao_id] = (usadas[p.classificacao_id] || 0) + 1; });
   const desenhar = () => {
     const l = buscarClassif(q, true), grupos = [...new Set(l.map(c => c.grupo))];
-    $("clista").innerHTML = l.length ? `<div class="tw"><table><thead><tr><th>Tipo de peça</th><th>Material</th><th>NCM</th><th>CEST</th><th>Observação</th><th class="num">Peças</th></tr></thead><tbody>
-      ${grupos.map(g => `<tr><td colspan="6" style="background:var(--surface-2);font-weight:600">${esc(g)}</td></tr>` + l.filter(c => c.grupo === g).map(c =>
+    $("clista").innerHTML = l.length ? `<div class="tw"><table><thead><tr><th>Tipo de peça</th><th>Material</th><th>NCM</th><th>CEST</th><th>Observação</th><th class="num">Peças</th>${edita ? '<th class="noprint"></th>' : ""}</tr></thead><tbody>
+      ${grupos.map(g => `<tr><td colspan="${edita ? 7 : 6}" style="background:var(--surface-2);font-weight:600">${esc(g)}</td></tr>` + l.filter(c => c.grupo === g).map(c =>
         `<tr${c.ativo ? "" : ' style="opacity:.55"'}><td>${esc(c.tipo_peca)}${c.ativo ? "" : ' <span class="tag">inativa</span>'}</td><td>${esc(c.material)}</td><td style="white-space:nowrap"><b>${esc(fmtNcm(c.ncm))}</b></td>
-          <td>${esc(c.cest || "")}</td><td class="mut">${esc(c.observacao || "")}</td><td class="num">${usadas[c.id] ? n(usadas[c.id]) : '<span class="mut">—</span>'}</td></tr>`).join("")).join("")}
+          <td>${esc(c.cest || "")}</td><td class="mut">${esc(c.observacao || "")}</td><td class="num">${usadas[c.id] ? n(usadas[c.id]) : '<span class="mut">—</span>'}</td>${edita ? `<td class="noprint"><button type="button" class="lnk" data-cled="${c.id}">Editar</button></td>` : ""}</tr>`).join("")).join("")}
       </tbody></table></div>` : '<div class="vazio">Nenhuma classificação com esse texto.</div>';
+    $("clista").querySelectorAll("[data-cled]").forEach(b => b.onclick = () => editarClassif(CLASSIF.find(c => c.id === b.dataset.cled)));
+  };
+  // formulário da classificação (nova ou edição), por cima da tabela
+  const editarClassif = c => {
+    const g = $("dlg2f"), F = c ? { ...c, ncm: fmtNcm(c.ncm), cest: c.cest || "", observacao: c.observacao || "" }
+      : { grupo: "", tipo_peca: "", material: "", ncm: "", cest: "", observacao: "", ativo: true };
+    const usos = c ? usadas[c.id] || 0 : 0;
+    g.innerHTML = `<h3>${c ? "Editar classificação" : "Nova classificação"}</h3>
+      <div class="campo"><label for="cl_grupo">Grupo</label><input id="cl_grupo" list="cl_grupos" value="${esc(F.grupo)}" placeholder="Ex.: Feminino (tecido plano)">
+        <datalist id="cl_grupos">${[...new Set(CLASSIF.map(x => x.grupo))].map(x => `<option value="${esc(x)}">`).join("")}</datalist></div>
+      <div class="campo grade2"><div><label for="cl_tipo">Tipo de peça</label><input id="cl_tipo" value="${esc(F.tipo_peca)}" placeholder="Ex.: Vestido"></div>
+        <div><label for="cl_mat">Material</label><input id="cl_mat" value="${esc(F.material)}" placeholder="Ex.: Linho / outras fibras"></div></div>
+      <div class="campo grade2"><div><label for="cl_ncm">NCM (8 dígitos)</label><input id="cl_ncm" inputmode="numeric" value="${esc(F.ncm)}" placeholder="Ex.: 6204.49.00"></div>
+        <div><label for="cl_cest">CEST (se houver)</label><input id="cl_cest" inputmode="numeric" value="${esc(F.cest)}" placeholder="7 dígitos ou vazio"></div></div>
+      <div class="campo"><label for="cl_obs">Observação</label><input id="cl_obs" value="${esc(F.observacao)}" placeholder="Ex.: Confirmar ST com o contador"></div>
+      ${c ? `<div class="campo"><label class="chk" style="text-transform:none;font-size:13px;color:var(--ink)"><input type="checkbox" id="cl_ativo" ${F.ativo ? "checked" : ""} style="width:auto"> Ativa (aparece na lista do Editar peça)</label>
+        <div class="mut">${usos ? `${n(usos)} peça(s) usam esta classificação. Mudar o NCM aqui muda o NCM delas também. Desativada, ela some da lista, mas essas peças continuam com ela.` : "Nenhuma peça usa esta classificação."}</div></div>` : ""}
+      <div class="mut">Confira o NCM e o CEST com o contador antes de usar.</div>
+      <div id="cl_err"></div>
+      <div class="acoes"><button type="button" class="bt" id="cl_x">Cancelar</button><button type="button" class="bt pri" id="cl_ok">Salvar</button></div>`;
+    $("cl_x").onclick = () => $("dlg2").close();
+    $("cl_ok").onclick = async () => {
+      const dados = { grupo: $("cl_grupo").value, tipo_peca: $("cl_tipo").value, material: $("cl_mat").value, ncm: $("cl_ncm").value,
+                      cest: $("cl_cest").value, observacao: $("cl_obs").value };
+      if (c) { dados.id = c.id; dados.ativo = $("cl_ativo").checked; }
+      $("cl_ok").disabled = true;
+      try {
+        checar(await sb.rpc("lin_classificacao_salvar", { p: dados }));
+        await carregarClassif(); $("dlg2").close(); desenhar();
+        msg("ok", c ? "Classificação atualizada." : "Classificação incluída.");
+      } catch (e) { $("cl_err").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; $("cl_ok").disabled = false; }
+    };
+    $("dlg2").showModal();
   };
   const semN = PRODS.filter(semClassif).length;
   f.innerHTML = `<h3>Classificações tributárias</h3>
     <div class="mut">${n(CLASSIF.filter(c => c.ativo).length)} classificações para escolher no Editar peça. ${n(PRODS.length - semN)} de ${n(PRODS.length)} peças já têm classificação; ${n(semN)} estão sem NCM.
-      A tabela é mantida pela equipe Nervia: para incluir ou corrigir uma classificação (por exemplo, depois de conferir com o contador), fale com a Nervia.</div>
+      ${edita ? "Você pode incluir, corrigir e desativar classificações; tudo fica registrado no histórico de alterações." : "Para incluir ou corrigir uma classificação, fale com a Dona."}</div>
     <div class="campo"><input id="cq" type="search" placeholder="Buscar por tipo de peça, material, NCM ou observação" autocomplete="off"></div>
     <div id="clista"></div>
-    <div class="acoes"><button type="button" class="bt" id="cimp">Imprimir</button><button type="button" class="bt pri" id="cfechar">Fechar</button></div>`;
+    <div class="acoes">${edita ? '<button type="button" class="bt" id="cnova">+ Nova classificação</button>' : ""}<button type="button" class="bt" id="cimp">Imprimir</button><button type="button" class="bt pri" id="cfechar">Fechar</button></div>`;
+  if ($("cnova")) $("cnova").onclick = () => editarClassif(null);
   $("cq").oninput = e => { q = e.target.value; desenhar(); };
   $("cfechar").onclick = () => $("dlg").close();
   $("cimp").onclick = () => window.print();

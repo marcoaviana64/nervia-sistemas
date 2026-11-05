@@ -2255,6 +2255,23 @@ set role anon;
 reset request.jwt.claim.sub;
 select pg_temp.erro2($$select count(*) from lin_classificacoes$$, 'permission denied', 'linum 2.30: sem login não lê as classificações');
 reset role;
+-- linum 2.32: a Dona edita a tabela de classificações
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select set_config('teste.clnova', lin_classificacao_salvar('{"grupo":"Acessórios","tipo_peca":"Chapéu","material":"Linho","ncm":"6505.00.90","observacao":"conferir com o contador"}')::text, false);
+select pg_temp.ok((select ncm = '65050090' and ordem = 542 and ativo and cest is null from lin_classificacoes where id = current_setting('teste.clnova')::uuid),
+  'linum 2.32: Dona cria classificação (NCM com pontos vira 8 dígitos, entra no fim do grupo)');
+select pg_temp.erro2($$select lin_classificacao_salvar('{"grupo":"Acessórios","tipo_peca":"Chapéu","material":"linho","ncm":"65050090"}')$$, 'Já existe', 'linum 2.32: classificação repetida no grupo recusada');
+select pg_temp.erro2($$select lin_classificacao_salvar('{"grupo":"Acessórios","tipo_peca":"Lenço","material":"Linho","ncm":"6214"}')$$, '8 dígitos', 'linum 2.32: NCM incompleto recusado');
+select pg_temp.erro2($$select lin_classificacao_salvar(jsonb_build_object('id', current_setting('teste.clnova'), 'cest', '123'))$$, '7 dígitos', 'linum 2.32: CEST errado recusado');
+select lin_classificacao_salvar(jsonb_build_object('id', current_setting('teste.clnova'), 'cest', '28.040.00', 'ativo', false));
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';   -- papel Estoque
+select pg_temp.erro2($$select lin_classificacao_salvar('{"grupo":"X","tipo_peca":"Y","material":"Z","ncm":"12345678"}')$$, 'Somente o Dono', 'linum 2.32: Estoque não altera a tabela');
+reset role;
+select pg_temp.ok((select cest = '2804000' and not ativo and ncm = '65050090' and tipo_peca = 'Chapéu' from lin_classificacoes where id = current_setting('teste.clnova')::uuid)
+  and exists (select 1 from auditoria where acao = 'linum_classificacao_criada' and detalhes ->> 'classificacao_id' = current_setting('teste.clnova'))
+  and exists (select 1 from auditoria where acao = 'linum_classificacao_alterada' and detalhes -> 'depois' ? 'cest' and detalhes -> 'depois' ? 'ativo' and not (detalhes -> 'depois' ? 'ncm')),
+  'linum 2.32: edição mantém o que não veio; auditoria com só o que mudou');
 set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
 reset role;
