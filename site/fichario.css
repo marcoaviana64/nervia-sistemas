@@ -8,25 +8,30 @@
        </div>
        <div class="ficha"> (opcional: controles do app, como a unidade; vazio = só a faixa) </div>
      </div>
-   A aba ativa leva a classe "on" (o app já faz isso). Ícones: SVG 24×24 com stroke="currentColor".
+   A aba ativa leva a classe "on" ou aria-current="page" (links <a class="aba"> também servem). Ícones: SVG 24×24 com stroke="currentColor".
    No celular (até 640 px) as abas não ativas mostram só o ícone (o nome fica no title) para caber numa linha.
    Usa as cores do app (--surface, --surface-2, --border, --ink, --ink-soft, --accent); sem elas, valores padrão. */
-.fichario{margin-bottom:12px;background:none;border:0;padding:0;display:block}
+.fichario{margin-bottom:12px;background:none;border:0;padding:0;display:block;min-width:0;max-width:100%}
 .fichario .orelhas{display:flex;gap:4px;align-items:flex-end;padding:0 10px}
 .fichario .aba{display:flex;align-items:center;gap:7px;position:relative;top:1px;border:1px solid var(--border,#dde6ec);border-bottom:0;
   background:var(--surface-2,#eaf1f4);padding:9px 16px 10px;border-radius:12px 12px 0 0;cursor:pointer;font:inherit;font-weight:600;
   color:var(--ink-soft,#4f5f73);white-space:nowrap}
+.fichario a.aba{text-decoration:none}
+.fichario .aba[hidden]{display:none}
 .fichario .aba svg{width:17px;height:17px;flex:none;opacity:.75}
 .fichario .aba:hover{color:var(--ink,#0f1b2d)}
-.fichario .aba.on{background:var(--surface,#fff);color:var(--accent,#107e99);box-shadow:inset 0 3px 0 var(--accent,#107e99);z-index:1}
-.fichario .aba.on svg{opacity:1}
+.fichario .aba.on,.fichario .aba[aria-current="page"]{background:var(--surface,#fff);color:var(--accent,#107e99);box-shadow:inset 0 3px 0 var(--accent,#107e99);z-index:1}
+.fichario .aba.on svg,.fichario .aba[aria-current="page"] svg{opacity:1}
 .fichario .ficha{display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-height:14px;background:var(--surface,#fff);
   border:1px solid var(--border,#dde6ec);border-radius:12px;padding:6px 12px;box-shadow:0 1px 2px rgba(15,27,45,.05)}
 .fichario .ficha:empty{padding:0;min-height:10px}
 @media (max-width:640px){
-  .fichario .orelhas{padding:0 4px;gap:3px}
+  /* muitas abas: a fileira rola para o lado (1px de folga embaixo para a orelha aberta continuar unida à ficha) */
+  .fichario .orelhas{padding:0 4px 1px;margin-bottom:-1px;gap:3px;overflow-x:auto;scrollbar-width:none;position:relative;z-index:1}
+  .fichario .orelhas::-webkit-scrollbar{display:none}
+  .fichario .aba{flex:none}
   .fichario .aba{padding:8px 11px 9px;gap:5px;font-size:14px}
   .fichario .aba svg{width:16px;height:16px}
-  .fichario .aba:not(.on) span{display:none}
+  .fichario .aba:not(.on):not([aria-current="page"]) span{display:none}
 }
 @media print{.fichario{display:none!important}}

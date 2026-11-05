@@ -11,6 +11,7 @@
 <script src="/versoes.js"></script>
 <script src="/auditoria.js"></script>
 <script src="/demo/supabase-demo.js"></script>
+<link rel="stylesheet" href="/fichario.css">
 <style>
 :root{
   --bg:#F5F7FA; --surface:#FFFFFF; --text:#0F1B2D; --muted:#5B6B80;
@@ -118,9 +119,9 @@ header{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdro
 .rodape-apps a{color:var(--accent);font-weight:600}
 
 /* admin */
-.abas{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px}
-.abas button{background:var(--surface);color:var(--muted);border:1px solid var(--border)}
-.abas button.on{background:var(--primary);color:#fff;border-color:var(--primary)}
+/* menu da Administração: estilo fichário comum do ecossistema (/fichario.css, 05/11/2026) */
+#vAdmin .fichario{margin-bottom:18px;--ink:var(--text);--ink-soft:var(--muted);--surface-2:#eef2f7}
+#vAdmin .fichario .aba{opacity:1;transition:none}
 .cartao{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px}
 .cartao h2{font-size:1rem;margin:0 0 4px}
 .linha{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0 12px}
@@ -260,7 +261,18 @@ addEventListener("resize",m);document.addEventListener("DOMContentLoaded",m);m()
     <button class="lnk" id="bVoltarAdm" style="margin-bottom:10px" onclick="location.hash=''">← Meus aplicativos</button>
     <h1>Administração</h1>
     <div class="sub">Logins e aplicativos da Área do Cliente</div>
-    <div class="abas"><button id="abaUsu" onclick="aba('usu')">Logins</button><button id="abaApps" onclick="aba('apps')">Aplicativos</button><button id="abaInt" onclick="aba('int')">Interesse nos apps</button><button id="abaAud" onclick="aba('aud')">Auditoria</button><button id="abaAcs" onclick="aba('acs')">Acessos do site</button><button id="abaEml" onclick="aba('eml')">E-mails</button><button id="abaPrc" onclick="aba('prc')">Preços</button></div>
+    <div class="barra fichario">
+      <div class="orelhas">
+        <button type="button" class="aba" id="abaUsu" onclick="aba('usu')" title="Logins"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17.5" cy="9" r="2.4"/><path d="M15.5 14.4A5 5 0 0 1 21.5 19"/></svg><span>Logins</span></button>
+        <button type="button" class="aba" id="abaApps" onclick="aba('apps')" title="Aplicativos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg><span>Aplicativos</span></button>
+        <button type="button" class="aba" id="abaInt" onclick="aba('int')" title="Interesse nos apps"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg><span>Interesse nos apps</span></button>
+        <button type="button" class="aba" id="abaAud" onclick="aba('aud')" title="Auditoria"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 8 8 9 4.6-1 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg><span>Auditoria</span></button>
+        <button type="button" class="aba" id="abaAcs" onclick="aba('acs')" title="Acessos do site"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9S14.5 18.4 12 21c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg><span>Acessos do site</span></button>
+        <button type="button" class="aba" id="abaEml" onclick="aba('eml')" title="E-mails"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="1.5"/><path d="m4 7 8 6 8-6"/></svg><span>E-mails</span></button>
+        <button type="button" class="aba" id="abaPrc" onclick="aba('prc')" title="Preços"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.3"/></svg><span>Preços</span></button>
+      </div>
+      <div class="ficha"></div>
+    </div>
     <div id="msgAdm" class="msg"></div>
     <div id="admConteudo"></div>
   </main>

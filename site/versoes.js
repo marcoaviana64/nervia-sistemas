@@ -60,6 +60,7 @@ window.NERVIA_VERSOES = {
     ["1.0", "Lançamento: vídeos e imagens nas TVs da empresa a partir de uma pasta do Google Drive (cada subpasta é uma playlist), TVs vinculadas por código, status online/offline e conferência automática dos arquivos."],
   ],
   "atendimentos": [
+    ["1.2", "Menu novo no estilo fichário, igual ao dos outros apps da Nervia: Painel, Atendimentos, Equipamentos, Novo atendimento e Empreendimentos viram orelhas de pasta com ícone; a aberta se junta à ficha embaixo. No celular, as abas fechadas mostram só o ícone."],
     ["1.1", "Um filtro só para o Painel e a lista de chamados (busca, empreendimento, situação, tipo, ano e mês), que já vem no ano em curso: o que você filtra numa tela vale na outra, e os números e gráficos do Painel seguem o filtro. Os chamados em aberto aparecem sempre, de qualquer data, para nada que falta fazer ficar escondido; só o filtro de empreendimento os separa."],
     ["1.0", "Lançamento na Plataforma: os chamados de suporte de TI da Nervia por empreendimento, com o histórico de andamentos, a ficha do atendimento em PDF e os equipamentos com código e histórico de usuários."],
   ],
