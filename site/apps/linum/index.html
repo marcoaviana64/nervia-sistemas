@@ -34,16 +34,23 @@ body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-ap
 .topo .marca{width:34px;height:34px;border-radius:10px;background:linear-gradient(155deg,#107e99,#0b2545);color:#fff;display:grid;place-items:center;font-weight:800;font-size:.82rem}
 .topo span{color:var(--ink-soft);font-size:.8rem}
 .embutido .topo{display:none}
-.barra{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:6px 8px;margin-bottom:12px}
-/* menu em dois níveis (2.34): grupos em cima, abas do grupo embaixo; no celular cada linha rola para o lado */
-.barra .grupos,.barra .abas{display:flex;gap:6px;align-items:center;overflow-x:auto;scrollbar-width:thin}
-.barra .abas{border-top:1px solid var(--border);margin-top:6px;padding-top:6px}
-.barra .grupo{border:0;background:none;padding:8px 14px;border-radius:8px;cursor:pointer;font:inherit;font-weight:600;color:var(--ink-soft);white-space:nowrap}
-.barra .grupo.on{background:var(--accent);color:#fff}
-.barra .grupo.on .badge{background:#fff;color:var(--crit)}
+/* menu como fichário (2.34, ideia do Marco: abas como as da planilha, "ao clicar fica parecendo uma ficha"):
+   os grupos são orelhas de pasta; a aberta se junta à ficha embaixo, que traz as abas do grupo sublinhadas */
+.barra{margin-bottom:12px}
+.barra .grupos{display:flex;gap:4px;align-items:flex-end;padding:0 10px}
+.barra .grupo{display:flex;align-items:center;gap:7px;position:relative;top:1px;border:1px solid var(--border);border-bottom:0;background:var(--surface-2);
+  padding:9px 16px 10px;border-radius:12px 12px 0 0;cursor:pointer;font:inherit;font-weight:600;color:var(--ink-soft);white-space:nowrap}
+.barra .grupo svg{width:17px;height:17px;flex:none;opacity:.75}
+.barra .grupo:hover{color:var(--ink)}
+.barra .grupo.on{background:var(--surface);color:var(--accent);box-shadow:inset 0 3px 0 var(--accent);z-index:1}
+.barra .grupo.on svg{opacity:1}
+.barra .abas{display:flex;gap:2px;align-items:center;overflow-x:auto;scrollbar-width:thin;background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:2px 10px;box-shadow:0 1px 2px rgba(15,27,45,.05)}
 .barra .aba{white-space:nowrap}.barra .aba.fg{display:none}
-.barra .aba{border:0;background:none;padding:6px 12px;border-radius:8px;cursor:pointer;font:inherit;color:var(--ink-soft)}
-.barra .aba.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.barra .aba{border:0;border-bottom:2px solid transparent;background:none;padding:10px 12px 8px;cursor:pointer;font:inherit;color:var(--ink-soft)}
+.barra .aba:hover{color:var(--ink)}
+.barra .aba.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+@media (max-width:640px){.barra .grupos{padding:0 4px;gap:3px}.barra .grupo{padding:8px 11px 9px;gap:5px;font-size:14px}.barra .grupo svg{width:15px;height:15px}.barra .grupos .dir{display:none}}
 .barra .dir{margin-left:auto;font-size:12px;color:var(--ink-soft);padding-right:4px}
 select,input,textarea{font:inherit;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink);width:100%}
 label{display:block;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);margin-bottom:3px}
@@ -157,10 +164,10 @@ td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-n
   <div id="app" class="oculto">
     <div class="barra">
       <div class="grupos">
-        <button type="button" class="grupo oculto" data-g="estoque" id="grp_estoque">Estoque</button>
-        <button type="button" class="grupo oculto" data-g="vendas" id="grp_vendas">Vendas</button>
-        <button type="button" class="grupo oculto" data-g="producao" id="grp_producao">Produção</button>
-        <button type="button" class="grupo oculto" data-g="gestao" id="grp_gestao">Gestão</button>
+        <button type="button" class="grupo oculto" data-g="estoque" id="grp_estoque"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z"/><path d="m3 7.5 9 4.5 9-4.5M12 12v9"/></svg><span>Estoque</span><span class="gb"></span></button>
+        <button type="button" class="grupo oculto" data-g="vendas" id="grp_vendas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M5 8h14l-1.2 12H6.2z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg><span>Vendas</span><span class="gb"></span></button>
+        <button type="button" class="grupo oculto" data-g="producao" id="grp_producao"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8 7.5 20 18M8 16.5 20 6"/></svg><span>Produção</span><span class="gb"></span></button>
+        <button type="button" class="grupo oculto" data-g="gestao" id="grp_gestao"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Gestão</span><span class="gb"></span></button>
         <div class="dir" id="quem"></div>
       </div>
       <div class="abas">
