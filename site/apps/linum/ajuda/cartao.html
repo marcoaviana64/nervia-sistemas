@@ -50,7 +50,7 @@
     <tr><td>Clique no quadrado</td><td>Abre a movimentação daquela variação.</td></tr>
     <tr><td>Entrada</td><td>Peças chegando na loja: soma.</td></tr>
     <tr><td>Saída</td><td>Uso interno, perda, beneficiamento: tira. Não deixa ficar negativo.</td></tr>
-    <tr><td>Transferência</td><td>Tira da loja de origem e põe na de destino.</td></tr>
+    <tr><td>Transferência</td><td>Abre o envio para a outra loja (com aceite; veja Transferências).</td></tr>
     <tr><td>Ajuste</td><td>Troca a quantidade pela contada (ex.: inventário). Guarda o antes e o depois.</td></tr>
     <tr><td>Loja (N) · Loja de destino</td><td>Onde a movimentação acontece; entre parênteses, quanto a loja tem hoje.</td></tr>
     <tr><td>Quantidade · Nova quantidade</td><td>Peças movimentadas (1 ou mais) ou, no ajuste, a quantidade certa (0 ou mais).</td></tr>
@@ -59,10 +59,23 @@
     <tr><td>Últimas movimentações</td><td>As 8 mais recentes da variação: data, tipo, quantidade, loja, observação e quem fez.</td></tr>
   </table>
 
+  <h2>Transferências <span class="eq">TODA A EQUIPE</span></h2>
+  <table>
+    <tr><td>Quadrado da peça · + Nova transferência</td><td>Abre o envio. A vendedora clica no quadrado; o Dono e o Estoque escolhem "Transferência".</td></tr>
+    <tr><td>Sai de · Vai para</td><td>Loja de origem e loja de destino.</td></tr>
+    <tr><td>Acrescentar peça</td><td>Nome, referência ou código de barras; só peças com estoque na origem.</td></tr>
+    <tr><td>Enviar peças</td><td>As peças saem da origem e ficam <b>em trânsito</b> (ainda não entram no destino).</td></tr>
+    <tr><td>Número vermelho na aba</td><td>Transferências em trânsito, a receber.</td></tr>
+    <tr><td>Conferir e receber</td><td>Marque <b>Chegou</b> em cada peça → <b>Recebi todas as peças</b>: só então entram no destino.</td></tr>
+    <tr><td>Faltou peça</td><td>Informe quantas chegaram e o motivo: entram só as que chegaram; a falta fica registrada.</td></tr>
+    <tr><td>Cancelar</td><td>Só em trânsito; quem enviou, Dono ou Estoque; com motivo. As peças voltam para a origem.</td></tr>
+    <tr><td>Em trânsito · Recebidas · Com falta · Canceladas</td><td>Filtros da lista (até 90 dias).</td></tr>
+  </table>
+
   <h2>Movimentações <span class="eq">DONO · ESTOQUE</span></h2>
   <table>
     <tr><td>De · até</td><td>Período, pela data do movimento (abre com os últimos 7 dias).</td></tr>
-    <tr><td>Loja · Tipo · Busca</td><td>Uma loja ou todas; entrada, saída, transferência, ajuste, venda, devolução, produção; peça, descrição ou quem fez (sem acento).</td></tr>
+    <tr><td>Loja · Tipo · Busca</td><td>Uma loja ou todas; entrada, saída, transferência enviada/recebida/cancelada, ajuste, venda, devolução, produção; peça, descrição ou quem fez (sem acento).</td></tr>
     <tr><td>Quadros</td><td>Movimentações, peças que entraram, que saíram e o resultado no estoque.</td></tr>
     <tr><td>Por descrição</td><td>Junta as movimentações com a mesma descrição (ex.: um levantamento). Clique para ver só elas; "Ver todas" volta.</td></tr>
     <tr><td>Lista</td><td>Data, peça, tipo, loja, quantidade (+ entrou, − saiu), antes → depois do ajuste, descrição, quem e quando registrou.</td></tr>

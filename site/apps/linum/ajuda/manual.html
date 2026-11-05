@@ -20,7 +20,8 @@
   <ul class="indice">
     <li><a href="#produtos">0. Cadastrar produtos, cores e tamanhos (Dono ou Estoque)</a></li>
     <li><a href="#consultar">1. Consultar o estoque</a></li>
-    <li><a href="#movimentar">2. Registrar entrada, saída, transferência ou ajuste (Dono ou Estoque)</a></li>
+    <li><a href="#movimentar">2. Registrar entrada, saída ou ajuste (Dono ou Estoque)</a></li>
+    <li><a href="#transferir">2a. Transferir peças entre lojas, com aceite da outra loja (toda a equipe)</a></li>
     <li><a href="#historico">3. Ver o histórico de uma variação (Dono ou Estoque)</a></li>
     <li><a href="#equipe">4. Definir os papéis: Dono, Estoque e Vendedora (equipe Nervia)</a></li>
     <li><a href="#vender">5. Registrar uma venda (a boleta)</a></li>
@@ -62,21 +63,41 @@
     <li>Embaixo dos filtros, o total de produtos e de peças do que está na tela.</li>
   </ol>
 
-  <h2 id="movimentar">2. Registrar entrada, saída, transferência ou ajuste (Dono ou Estoque)</h2>
+  <h2 id="movimentar">2. Registrar entrada, saída ou ajuste (Dono ou Estoque)</h2>
   <ol>
     <li>Clique no quadrado da variação (cor e tamanho) na loja.</li>
     <li>Escolha o tipo:
       <ul>
         <li><b>Entrada</b>: peças novas chegando. Soma na loja.</li>
         <li><b>Saída</b>: uso interno, perda, beneficiamento. Tira da loja; não aceita mais do que a loja tem.</li>
-        <li><b>Transferência</b>: escolha a loja de origem e a de destino. Tira de uma e põe na outra.</li>
+        <li><b>Transferência</b>: abre o envio para a outra loja (veja o passo 2a).</li>
         <li><b>Ajuste</b>: digite a quantidade certa (por exemplo, depois de contar a arara). O app guarda quanto era e quanto ficou.</li>
       </ul>
     </li>
     <li>Confira a loja (entre parênteses, quanto ela tem hoje), a quantidade, a data e escreva a observação (o motivo).</li>
     <li>Clique em <b>Salvar movimentação</b>. A tela se atualiza e mostra "Estoque atualizado".</li>
   </ol>
-  <p>Vendas, reservas e transferências com confirmação da outra loja chegam ao Sistema Linum nas próximas etapas.</p>
+  <p>Reservas chegam ao Sistema Linum nas próximas etapas.</p>
+
+  <h2 id="transferir">2a. Transferir peças entre lojas, com aceite da outra loja (toda a equipe)</h2>
+  <p>A peça <b>sai</b> da loja de origem no envio e fica <b>em trânsito</b>. Ela só <b>entra</b> na loja de destino quando alguém de lá confere e confirma o recebimento. Dono, Estoque e Vendedora enviam e recebem.</p>
+  <p><b>Enviar</b></p>
+  <ol>
+    <li>Na aba <b>Estoque</b>, clique no quadrado da peça na loja de onde ela vai sair (o Dono e o Estoque escolhem <b>Transferência</b>), ou abra a aba <b>Transferências</b> e clique em <b>+ Nova transferência</b>.</li>
+    <li>Confira <b>Sai de</b> e <b>Vai para</b>.</li>
+    <li>Em <b>Acrescentar peça</b>, digite o nome, a referência ou o código de barras e clique na peça (só aparecem as que têm estoque na loja de origem). Acrescente quantas peças quiser e ajuste a quantidade de cada uma; <b>Tirar</b> remove da lista.</li>
+    <li>Escreva uma observação, se quiser (ex.: "cliente vai buscar na outra loja"), e clique em <b>Enviar peças</b>. Confirme.</li>
+    <li>As peças já saem do estoque da origem. A transferência aparece na aba <b>Transferências</b> como <b>Em trânsito</b>, e o Estoque mostra um aviso com o número de transferências a receber.</li>
+  </ol>
+  <p><b>Receber</b> (na loja de destino)</p>
+  <ol>
+    <li>Abra a aba <b>Transferências</b> (o número vermelho na aba mostra quantas estão em trânsito) e clique em <b>Conferir e receber</b>.</li>
+    <li>Confira cada peça que chegou e marque <b>Chegou</b> (ou <b>Marcar todas como conferidas</b>).</li>
+    <li>Com tudo conferido, clique em <b>Recebi todas as peças</b>. Só agora as peças entram no estoque da loja de destino.</li>
+    <li>Se faltou alguma peça, deixe a linha desmarcada e informe <b>quantas chegaram</b>. Escreva o que aconteceu (obrigatório) e clique em <b>Registrar recebimento com falta</b>. Entram só as que chegaram; a falta fica registrada (filtro <b>Com falta</b>) para o Dono resolver, por exemplo com um ajuste depois de procurar a peça.</li>
+  </ol>
+  <p><b>Cancelar</b>: enquanto estiver em trânsito, quem enviou, o Dono ou o Estoque pode clicar em <b>Cancelar</b> e escrever o motivo. As peças voltam para a loja de origem. Transferência recebida ou cancelada não muda mais.</p>
+  <p>Envio, recebimento e cancelamento aparecem nas movimentações da peça e na aba <b>Movimentações</b> (tipos "Transferência enviada", "Transferência recebida" e "Transferência cancelada (voltou)"), e ficam na auditoria com quem fez e quando.</p>
 
   <h2 id="historico">3. Ver o histórico de uma variação (Dono ou Estoque)</h2>
   <ol>
@@ -89,7 +110,7 @@
   <ol>
     <li>Abra a aba <b>Movimentações</b>. Ela começa com os últimos 7 dias; troque <b>De</b> e <b>até</b> para outro período (vale a data do movimento).</li>
     <li>Escolha a loja, o tipo ou digite a peça, a descrição ou quem fez para filtrar.</li>
-    <li>Os quadros mostram quantas peças entraram, quantas saíram e o resultado no estoque. Com uma loja escolhida, a transferência conta como saída de uma loja e entrada na outra; com todas as lojas, ela não muda o total.</li>
+    <li>Os quadros mostram quantas peças entraram, quantas saíram e o resultado no estoque. A transferência enviada conta como saída da loja de origem; a recebida, como entrada na loja de destino (as transferências antigas, sem aceite, contam como saída de uma e entrada na outra só com uma loja escolhida).</li>
     <li>Em <b>Por descrição</b>, cada linha junta as movimentações com a mesma descrição. Para conferir um levantamento de estoque (ex.: "O levantamento do estoque Gávea feito pela Silvana"), clique nele: a lista mostra só as peças daquele levantamento, com a quantidade de antes e a de depois. <b>Ver todas</b> volta para a lista completa.</li>
     <li><b>Baixar CSV</b> traz o que está filtrado (para conferir na planilha); <b>Imprimir</b> imprime a tela.</li>
   </ol>
@@ -346,7 +367,10 @@
     <tr><td>Informe a edição da peça especial</td><td>Peça especial precisa da edição (ex.: Bordada).</td></tr>
     <tr><td>Nenhum produto com esses filtros</td><td>Limpe a busca e os filtros ou desligue "Ocultar zerados".</td></tr>
     <tr><td>Estoque insuficiente: a loja tem N peça(s)</td><td>A saída é maior que o estoque da loja. Confira a quantidade ou faça um ajuste se a contagem estiver errada.</td></tr>
-    <tr><td>Estoque insuficiente na loja de origem</td><td>A transferência é maior que o que a loja de origem tem.</td></tr>
+    <tr><td>Estoque insuficiente em … / "… só tem N"</td><td>A transferência pede mais do que a loja de origem tem daquela peça.</td></tr>
+    <tr><td>Faltaram N peça(s): escreva o que aconteceu</td><td>No recebimento com falta, o motivo é obrigatório.</td></tr>
+    <tr><td>Esta transferência não está em trânsito</td><td>Alguém já recebeu ou cancelou. Atualize a tela.</td></tr>
+    <tr><td>Só quem enviou, o Dono ou o Estoque pode cancelar</td><td>Peça para quem enviou (ou para o Dono) cancelar.</td></tr>
     <tr><td>Escolha lojas de origem e destino diferentes</td><td>Na transferência, a loja de destino precisa ser outra.</td></tr>
     <tr><td>A loja já tem N peça(s): nada a ajustar</td><td>No ajuste, a nova quantidade é igual à atual.</td></tr>
     <tr><td>Informe uma quantidade inteira maior que zero</td><td>Digite um número inteiro (1 ou mais; no ajuste, 0 ou mais).</td></tr>

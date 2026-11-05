@@ -1067,14 +1067,19 @@ select pg_temp.erro2($$select lin_movimentar('20000000-0000-0000-0000-0000000000
   'maior que zero', 'linum: quantidade zero recusada');
 select pg_temp.erro2($$select lin_movimentar('20000000-0000-0000-0000-000000000001', (select v from lin_ids where k = 'gav'), 'venda', 1)$$,
   'Tipo inválido', 'linum: venda não entra pela movimentação manual');
+select pg_temp.erro2($$select lin_transferir('20000000-0000-0000-0000-000000000001', (select v from lin_ids where k = 'gav'), (select v from lin_ids where k = 'ipa'), 3)$$, 'permission denied', 'linum 2.33: transferência direta (sem aceite) fora da tela');
+reset role;   -- a função continua existindo (dados antigos); testada fora da tela
 select lin_transferir('20000000-0000-0000-0000-000000000001', (select v from lin_ids where k = 'gav'), (select v from lin_ids where k = 'ipa'), 3, '2026-10-21', 'vitrine');
+set role authenticated;
 select pg_temp.ok((select quantidade = 1 from lin_estoque where variante_id = '20000000-0000-0000-0000-000000000001' and loja_id = (select v from lin_ids where k = 'gav'))
   and (select quantidade = 3 from lin_estoque where variante_id = '20000000-0000-0000-0000-000000000001' and loja_id = (select v from lin_ids where k = 'ipa')),
   'linum: transferência tira da origem e põe no destino');
+reset role;
 select pg_temp.erro2($$select lin_transferir('20000000-0000-0000-0000-000000000001', (select v from lin_ids where k = 'gav'), (select v from lin_ids where k = 'ipa'), 2)$$,
   'insuficiente na loja de origem', 'linum: transferência maior que a origem recusada');
 select pg_temp.erro2($$select lin_transferir('20000000-0000-0000-0000-000000000001', (select v from lin_ids where k = 'gav'), (select v from lin_ids where k = 'gav'), 1)$$,
   'diferentes', 'linum: transferência para a mesma loja recusada');
+set role authenticated;
 select lin_ajustar('20000000-0000-0000-0000-000000000002', (select v from lin_ids where k = 'ipa'), 7);
 select lin_ajustar('20000000-0000-0000-0000-000000000002', (select v from lin_ids where k = 'ipa'), 0, null, 'contagem');
 select pg_temp.erro2($$select lin_ajustar('20000000-0000-0000-0000-000000000002', (select v from lin_ids where k = 'ipa'), 0)$$, 'nada a ajustar', 'linum: ajuste para a mesma quantidade recusado');
@@ -1104,7 +1109,7 @@ select pg_temp.ok((select count(*) = 0 from lin_produtos) and (select count(*) =
   and (select count(*) = 0 from lin_estoque) and (select count(*) = 2 from lin_lojas), 'linum: vendedora não lê tabelas com custo nem o histórico');
 select pg_temp.erro2($$select lin_movimentar('20000000-0000-0000-0000-000000000001', (select v from lin_ids where k = 'gav'), 'entrada', 1)$$, 'Somente o Dono', 'linum: vendedora não movimenta');
 select pg_temp.erro2($$select lin_ajustar('20000000-0000-0000-0000-000000000001', (select v from lin_ids where k = 'gav'), 1)$$, 'Somente o Dono', 'linum: vendedora não ajusta');
-select pg_temp.erro2($$select lin_transferir('20000000-0000-0000-0000-000000000001', (select v from lin_ids where k = 'ipa'), (select v from lin_ids where k = 'gav'), 1)$$, 'Somente o Dono', 'linum: vendedora não transfere');
+select pg_temp.erro2($$select lin_transferir('20000000-0000-0000-0000-000000000001', (select v from lin_ids where k = 'ipa'), (select v from lin_ids where k = 'gav'), 1)$$, 'permission denied', 'linum: vendedora não transfere direto');
 -- app retirado na Área do Cliente: o papel deixa de valer
 reset role;
 delete from app_acessos where user_id = '00000000-0000-0000-0000-00000000000c' and app_id = 'linum';
@@ -1234,7 +1239,7 @@ select pg_temp.ok((select preco_custo is null from lin_produtos where referencia
   'linum estoque: cadastra peça e peça especial, mas o custo que ele manda é ignorado');
 set role authenticated;
 select lin_movimentar((select v from lin_p where k = 'esp2'), (select v from lin_ids where k = 'ipa'), 'entrada', 3, '2026-10-22', 'chegada');
-select lin_transferir((select v from lin_p where k = 'esp2'), (select v from lin_ids where k = 'ipa'), (select v from lin_ids where k = 'gav'), 1, null, 'vitrine');
+reset role; select lin_transferir((select v from lin_p where k = 'esp2'), (select v from lin_ids where k = 'ipa'), (select v from lin_ids where k = 'gav'), 1, null, 'vitrine'); set role authenticated;
 select lin_ajustar((select v from lin_p where k = 'esp2'), (select v from lin_ids where k = 'ipa'), 1, null, 'contagem');
 reset role; insert into lin_p select 'estP', id from lin_variantes where produto_id = (select v from lin_p where k = 'novo') and tamanho = 'P'; set role authenticated;
 select lin_variante_ativar((select v from lin_p where k = 'estP'), false);
@@ -2274,6 +2279,103 @@ select pg_temp.ok((select cest = '2804000' and not ativo and ncm = '65050090' an
   'linum 2.32: edição mantém o que não veio; auditoria com só o que mudou');
 set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+reset role;
+
+-- linum 2.33: transferência com aceite (sai na hora, entra só quando a outra loja confere e recebe)
+reset role;
+insert into app_acessos values ('00000000-0000-0000-0000-00000000000c', 'linum') on conflict do nothing;
+insert into lin_membros (user_id, papel, loja_id) values ('00000000-0000-0000-0000-00000000000c', 'vendedora', (select v from lin_ids where k = 'gav'))
+  on conflict (user_id) do update set papel = 'vendedora', horario = null, horario_extra_ate = null;
+insert into lin_estoque (variante_id, loja_id, quantidade) values ('20000000-0000-0000-0000-000000000003', (select v from lin_ids where k = 'gav'), 10),
+  ('20000000-0000-0000-0000-000000000001', (select v from lin_ids where k = 'gav'), 4)
+  on conflict (variante_id, loja_id) do update set quantidade = excluded.quantidade;
+delete from lin_estoque where loja_id = (select v from lin_ids where k = 'ipa') and variante_id in ('20000000-0000-0000-0000-000000000003', '20000000-0000-0000-0000-000000000001');
+create temp table lin_tf (k text primary key, v bigint); grant all on lin_tf to authenticated;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora envia
+insert into lin_tf values ('t1', lin_transferencia_enviar(jsonb_build_object('origem', (select v from lin_ids where k = 'gav'), 'destino', (select v from lin_ids where k = 'ipa'),
+  'observacao', 'cliente vai buscar em Ipanema', 'itens', jsonb_build_array(
+    jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000003', 'quantidade', 2),
+    jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000003', 'quantidade', 1),
+    jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 2)))));
+reset role;
+select pg_temp.ok((select quantidade = 7 from lin_estoque where variante_id = '20000000-0000-0000-0000-000000000003' and loja_id = (select v from lin_ids where k = 'gav'))
+  and not exists (select 1 from lin_estoque where loja_id = (select v from lin_ids where k = 'ipa') and variante_id = '20000000-0000-0000-0000-000000000003' and quantidade > 0)
+  and (select situacao = 'em_transito' and enviado_por = '00000000-0000-0000-0000-00000000000c' from lin_transferencias where id = (select v from lin_tf where k = 't1'))
+  and (select count(*) = 2 and sum(quantidade) = 5 from lin_transferencia_itens where transferencia_id = (select v from lin_tf where k = 't1'))
+  and (select count(*) = 2 from lin_movimentos where tipo = 'transf_envio' and transferencia_id = (select v from lin_tf where k = 't1')),
+  'linum 2.33: vendedora envia; sai da origem, fica em trânsito e não entra no destino (variação repetida soma)');
+select pg_temp.ok(exists (select 1 from auditoria where acao = 'linum_transferencia_enviada' and (detalhes ->> 'pecas')::int = 5 and detalhes ->> 'loja_destino' = 'Ipanema'
+  and jsonb_array_length(detalhes -> 'itens') = 2), 'linum 2.33: envio na auditoria com as peças');
+set role authenticated;
+select pg_temp.erro2($$select lin_transferencia_enviar(jsonb_build_object('origem', (select v from lin_ids where k = 'gav'), 'destino', (select v from lin_ids where k = 'ipa'),
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000003', 'quantidade', 8))))$$, 'Estoque insuficiente', 'linum 2.33: não envia mais do que a origem tem');
+select pg_temp.erro2($$select lin_transferencia_enviar(jsonb_build_object('origem', (select v from lin_ids where k = 'gav'), 'destino', (select v from lin_ids where k = 'gav'),
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000003', 'quantidade', 1))))$$, 'diferentes', 'linum 2.33: mesma loja recusada');
+select pg_temp.erro2($$select lin_transferencia_enviar(jsonb_build_object('origem', (select v from lin_ids where k = 'gav'), 'destino', (select v from lin_ids where k = 'ipa'), 'itens', '[]'::jsonb))$$,
+  'Escolha as peças', 'linum 2.33: sem peças recusado');
+select pg_temp.erro2($$update lin_transferencias set situacao = 'recebida'$$, 'permission denied', 'linum 2.33: a tela não altera a transferência direto');
+select pg_temp.erro2($$insert into lin_transferencias (origem_id, destino_id) values ((select v from lin_ids where k = 'gav'), (select v from lin_ids where k = 'ipa'))$$, 'permission denied', 'linum 2.33: a tela não cria transferência direto');
+-- falta sem motivo é recusada e nada entra
+select pg_temp.erro2(format($$select lin_transferencia_receber(%s, (select jsonb_agg(jsonb_build_object('id', id, 'recebida', 0)) from lin_transferencia_itens where transferencia_id = %s), '')$$,
+  (select v from lin_tf where k = 't1'), (select v from lin_tf where k = 't1')), 'escreva o motivo', 'linum 2.33: chegou menos sem motivo é recusado');
+select pg_temp.erro2(format($$select lin_transferencia_receber(%s, (select jsonb_agg(jsonb_build_object('id', id, 'recebida', quantidade + 1)) from lin_transferencia_itens where transferencia_id = %s), 'x')$$,
+  (select v from lin_tf where k = 't1'), (select v from lin_tf where k = 't1')), 'deve ser de 0 a', 'linum 2.33: não recebe mais do que foi enviado');
+select pg_temp.erro2(format($$select lin_transferencia_receber(%s, '[]'::jsonb, '')$$, (select v from lin_tf where k = 't1')), 'Confira todas as peças', 'linum 2.33: tem de conferir todas as peças');
+-- Estoque recebe todas
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+select pg_temp.ok(lin_transferencia_receber((select v from lin_tf where k = 't1')) = 'recebida', 'linum 2.33: Estoque confirma "recebi todas"');
+reset role;
+select pg_temp.ok((select quantidade = 3 from lin_estoque where variante_id = '20000000-0000-0000-0000-000000000003' and loja_id = (select v from lin_ids where k = 'ipa'))
+  and (select quantidade = 2 from lin_estoque where variante_id = '20000000-0000-0000-0000-000000000001' and loja_id = (select v from lin_ids where k = 'ipa'))
+  and (select bool_and(recebida = quantidade) from lin_transferencia_itens where transferencia_id = (select v from lin_tf where k = 't1'))
+  and (select recebido_por = '00000000-0000-0000-0000-00000000000d' and recebido_em is not null from lin_transferencias where id = (select v from lin_tf where k = 't1'))
+  and (select count(*) = 2 from lin_movimentos where tipo = 'transf_recebida' and transferencia_id = (select v from lin_tf where k = 't1')),
+  'linum 2.33: ao receber as peças entram no destino');
+select pg_temp.ok(exists (select 1 from auditoria where acao = 'linum_transferencia_recebida' and (detalhes ->> 'pecas_recebidas')::int = 5 and (detalhes ->> 'pecas_faltando')::int = 0),
+  'linum 2.33: recebimento na auditoria');
+select pg_temp.erro2($$update lin_transferencias set observacao = 'x' where situacao = 'recebida'$$, 'encerrada', 'linum 2.33: transferência recebida não muda (nem fora da tela)');
+select pg_temp.erro2($$delete from lin_transferencia_itens$$, 'não podem ser apagadas', 'linum 2.33: nada se apaga');
+set role authenticated;
+select pg_temp.erro2(format('select lin_transferencia_receber(%s)', (select v from lin_tf where k = 't1')), 'não está em trânsito', 'linum 2.33: não recebe duas vezes');
+-- recebimento com falta: entra só o que chegou
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';   -- Dona envia de Ipanema para a Gávea
+insert into lin_tf values ('t2', lin_transferencia_enviar(jsonb_build_object('origem', (select v from lin_ids where k = 'ipa'), 'destino', (select v from lin_ids where k = 'gav'),
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000003', 'quantidade', 3)))));
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora recebe
+select pg_temp.ok(lin_transferencia_receber((select v from lin_tf where k = 't2'),
+  (select jsonb_agg(jsonb_build_object('id', id, 'recebida', 2)) from lin_transferencia_itens where transferencia_id = (select v from lin_tf where k = 't2')),
+  'uma peça não veio na sacola') = 'recebida_com_falta', 'linum 2.33: vendedora recebe com falta e motivo');
+reset role;
+select pg_temp.ok((select quantidade = 9 from lin_estoque where variante_id = '20000000-0000-0000-0000-000000000003' and loja_id = (select v from lin_ids where k = 'gav'))
+  and (select quantidade = 0 from lin_estoque where variante_id = '20000000-0000-0000-0000-000000000003' and loja_id = (select v from lin_ids where k = 'ipa'))
+  and (select recebimento_obs = 'uma peça não veio na sacola' from lin_transferencias where id = (select v from lin_tf where k = 't2'))
+  and exists (select 1 from auditoria where acao = 'linum_transferencia_recebida' and (detalhes ->> 'pecas_faltando')::int = 1),
+  'linum 2.33: só o que chegou entra; a falta fica registrada');
+-- cancelamento: volta para a origem; só quem enviou, Dono ou Estoque
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+insert into lin_tf values ('t3', lin_transferencia_enviar(jsonb_build_object('origem', (select v from lin_ids where k = 'gav'), 'destino', (select v from lin_ids where k = 'ipa'),
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 1)))));
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.erro2(format($$select lin_transferencia_cancelar(%s, 'desisti da troca')$$, (select v from lin_tf where k = 't3')), 'Só quem enviou', 'linum 2.33: vendedora não cancela o envio de outra pessoa');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.erro2(format($$select lin_transferencia_cancelar(%s, 'x')$$, (select v from lin_tf where k = 't3')), 'motivo', 'linum 2.33: cancelar exige motivo');
+select lin_transferencia_cancelar((select v from lin_tf where k = 't3'), 'cliente desistiu');
+select pg_temp.erro2(format($$select lin_transferencia_receber(%s)$$, (select v from lin_tf where k = 't3')), 'não está em trânsito', 'linum 2.33: cancelada não se recebe');
+reset role;
+select pg_temp.ok((select quantidade = 2 from lin_estoque where variante_id = '20000000-0000-0000-0000-000000000001' and loja_id = (select v from lin_ids where k = 'gav'))
+  and (select situacao = 'cancelada' and cancelamento_motivo = 'cliente desistiu' from lin_transferencias where id = (select v from lin_tf where k = 't3'))
+  and exists (select 1 from lin_movimentos where tipo = 'transf_retorno' and transferencia_id = (select v from lin_tf where k = 't3'))
+  and exists (select 1 from auditoria where acao = 'linum_transferencia_cancelada' and detalhes ->> 'motivo' = 'cliente desistiu'),
+  'linum 2.33: cancelar devolve à origem, com movimento e auditoria');
+-- a vendedora vê as transferências (para receber), sem preço; login sem papel não vê
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.ok((select count(*) = 3 from lin_transferencias) and (select count(*) = 4 from lin_transferencia_itens), 'linum 2.33: a equipe vê todas as transferências');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
+select pg_temp.ok((select count(*) = 0 from lin_transferencias), 'linum 2.33: login sem papel não vê transferências');
+select pg_temp.erro2($$select lin_transferencia_enviar('{}')$$, 'não tem acesso', 'linum 2.33: login sem papel não envia');
 reset role;
 
 -- ================================================================ Atendimentos de TI (atd_)
