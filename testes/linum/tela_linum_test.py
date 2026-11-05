@@ -289,9 +289,21 @@ try:
         ok(pg.locator("#clista tbody tr").count() == 70 + 5 and "6204.49.00" in pg.text_content("#clista"), "tabela das classificações: 70 linhas em 5 grupos, NCM formatado")
         pg.fill("#cq", "bolsa couro"); pg.wait_for_timeout(200)
         ok(pg.locator("#clista tbody tr").count() == 2 and "2804000" in pg.text_content("#clista"), "busca na tabela das classificações (com CEST)")
+        # 2.32: a Dona inclui e corrige classificações
+        pg.fill("#cq", ""); pg.click("#cnova"); pg.wait_for_selector("#dlg2[open] #cl_grupo")
+        pg.fill("#cl_grupo", "Acessórios"); pg.fill("#cl_tipo", "Chapéu"); pg.fill("#cl_mat", "Linho"); pg.fill("#cl_ncm", "6505"); pg.click("#cl_ok"); pg.wait_for_timeout(600)
+        ok("8 dígitos" in pg.text_content("#cl_err"), "NCM incompleto: erro no formulário da classificação")
+        pg.fill("#cl_ncm", "6505.00.90"); pg.click("#cl_ok"); pg.wait_for_timeout(900)
+        ok(psql("select ncm from lin_classificacoes where tipo_peca = 'Chapéu' and material = 'Linho'", saida=True) == "65050090"
+           and "6505.00.90" in pg.text_content("#clista"), "Dona inclui classificação e ela aparece na tabela")
+        clid = psql("select id from lin_classificacoes where tipo_peca = 'Chapéu' and material = 'Linho'", saida=True)
+        pg.click(f'[data-cled="{clid}"]'); pg.wait_for_selector("#dlg2[open] #cl_cest")
+        pg.fill("#cl_obs", "Conferido com o contador"); pg.click("#cl_ativo"); pg.click("#cl_ok"); pg.wait_for_timeout(900)
+        ok(psql(f"select ativo::text || '|' || observacao from lin_classificacoes where id = '{clid}'", saida=True) == "false|Conferido com o contador"
+           and psql("select count(*) from auditoria where acao = 'linum_classificacao_alterada'", saida=True) == "1", "Dona corrige e desativa; fica na auditoria")
         pg.click("#cfechar"); pg.wait_for_timeout(300)
         pg.click('[data-ed="10000000-0000-0000-0000-000000000001"]'); pg.wait_for_selector("#pf_classificacao_id")
-        ok(pg.locator("#pf_classificacao_id option").count() == 71, "lista completa: Sem classificação + 70")
+        ok(pg.locator("#pf_classificacao_id option").count() == 71, "lista completa: Sem classificação + 70 (a desativada não aparece)")
         pg.fill("#pf_cbusca", "6204.49"); pg.wait_for_timeout(200)
         ok(pg.locator("#pf_cres [data-cid]").count() == 1 and "Vestido — Linho / outras fibras · NCM 6204.49.00" in pg.text_content("#pf_cres"), "busca pelo NCM mostra o resultado para clicar")
         cid = psql("select id from lin_classificacoes where ncm = '62044900'", saida=True)
@@ -678,6 +690,9 @@ try:
         ok(not pg.is_visible("#abaComissoes"), "vendedora não vê o relatório de comissões")
         pg, erros = entrar(b, "estoque"); abrir(pg)
         ok(not pg.is_visible("#abaComissoes"), "Estoque não vê o relatório de comissões")
+        pg.click("#abaProdutos"); pg.wait_for_selector("#pclass"); pg.click("#pclass"); pg.wait_for_selector("#clista table")
+        ok(pg.locator("[data-cled]").count() == 0 and pg.locator("#cnova").count() == 0, "Estoque consulta a tabela de classificações mas não edita")
+        pg.click("#cfechar"); pg.wait_for_timeout(200)
 
         # ---------------------------------------------------------------- CRM: possíveis clientes, contatos e próximo contato
         psql("update lin_clientes set proximo_contato = current_date - 2 where nome = 'Carmen Fictícia'")
