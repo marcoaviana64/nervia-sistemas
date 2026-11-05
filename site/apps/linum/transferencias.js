@@ -13,6 +13,8 @@ async function carregarTransito() {
   TRANSITO = r.error ? [] : r.data || [];   // sem a tabela (antes da migração) a tela segue sem transferências
   const b = $("abaTransf");
   if (b) b.innerHTML = "Transferências" + (TRANSITO.length ? ` <span class="badge">${TRANSITO.length}</span>` : "");
+  const g = $("grp_estoque");
+  if (g) g.innerHTML = "Estoque" + (TRANSITO.length ? ` <span class="badge">${TRANSITO.length}</span>` : "");
 }
 
 // aviso no alto do Estoque

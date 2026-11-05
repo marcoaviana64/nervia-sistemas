@@ -34,8 +34,15 @@ body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-ap
 .topo .marca{width:34px;height:34px;border-radius:10px;background:linear-gradient(155deg,#107e99,#0b2545);color:#fff;display:grid;place-items:center;font-weight:800;font-size:.82rem}
 .topo span{color:var(--ink-soft);font-size:.8rem}
 .embutido .topo{display:none}
-.barra{display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:6px 8px;margin-bottom:12px}
-.barra .aba{border:0;background:none;padding:8px 12px;border-radius:8px;cursor:pointer;font:inherit;color:var(--ink-soft)}
+.barra{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:6px 8px;margin-bottom:12px}
+/* menu em dois níveis (2.34): grupos em cima, abas do grupo embaixo; no celular cada linha rola para o lado */
+.barra .grupos,.barra .abas{display:flex;gap:6px;align-items:center;overflow-x:auto;scrollbar-width:thin}
+.barra .abas{border-top:1px solid var(--border);margin-top:6px;padding-top:6px}
+.barra .grupo{border:0;background:none;padding:8px 14px;border-radius:8px;cursor:pointer;font:inherit;font-weight:600;color:var(--ink-soft);white-space:nowrap}
+.barra .grupo.on{background:var(--accent);color:#fff}
+.barra .grupo.on .badge{background:#fff;color:var(--crit)}
+.barra .aba{white-space:nowrap}.barra .aba.fg{display:none}
+.barra .aba{border:0;background:none;padding:6px 12px;border-radius:8px;cursor:pointer;font:inherit;color:var(--ink-soft)}
 .barra .aba.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
 .barra .dir{margin-left:auto;font-size:12px;color:var(--ink-soft);padding-right:4px}
 select,input,textarea{font:inherit;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink);width:100%}
@@ -149,23 +156,31 @@ td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-n
   <div id="aviso" class="centro">Carregando…</div>
   <div id="app" class="oculto">
     <div class="barra">
-      <button class="aba oculto" data-v="produtos" id="abaProdutos">Produtos</button>
-      <button class="aba on" data-v="estoque">Estoque</button>
-      <button class="aba oculto" data-v="transferencias" id="abaTransf">Transferências</button>
-      <button class="aba oculto" data-v="movimentos" id="abaMovimentos">Movimentações</button>
-      <button class="aba oculto" data-v="vendas" id="abaVendas">Vendas</button>
-      <button class="aba oculto" data-v="clientes" id="abaClientes">Clientes</button>
-      <button class="aba oculto" data-v="ajustes" id="abaAjustes">Ajustes</button>
-      <button class="aba oculto" data-v="ranking" id="abaRanking">Ranking</button>
-      <button class="aba oculto" data-v="producao" id="abaProducao">Produção</button>
-      <button class="aba oculto" data-v="etiquetas" id="abaEtiquetas">Etiquetas</button>
-      <button class="aba oculto" data-v="comissoes" id="abaComissoes">Comissões</button>
-      <button class="aba oculto" data-v="lucro" id="abaLucro">Lucro</button>
-      <button class="aba oculto" data-v="creditos" id="abaCreditos">Créditos</button>
-      <button class="aba oculto" data-v="custos" id="abaCustos">Custos</button>
-      <button class="aba oculto" data-v="horarios" id="abaHorarios">Horários</button>
-      <button class="aba oculto" data-v="equipe" id="abaEquipe">Equipe</button>
-      <div class="dir" id="quem"></div>
+      <div class="grupos">
+        <button type="button" class="grupo oculto" data-g="estoque" id="grp_estoque">Estoque</button>
+        <button type="button" class="grupo oculto" data-g="vendas" id="grp_vendas">Vendas</button>
+        <button type="button" class="grupo oculto" data-g="producao" id="grp_producao">Produção</button>
+        <button type="button" class="grupo oculto" data-g="gestao" id="grp_gestao">Gestão</button>
+        <div class="dir" id="quem"></div>
+      </div>
+      <div class="abas">
+        <button class="aba on" data-v="estoque" data-g="estoque">Estoque</button>
+        <button class="aba oculto" data-v="transferencias" data-g="estoque" id="abaTransf">Transferências</button>
+        <button class="aba oculto" data-v="movimentos" data-g="estoque" id="abaMovimentos">Movimentações</button>
+        <button class="aba oculto" data-v="produtos" data-g="estoque" id="abaProdutos">Produtos</button>
+        <button class="aba oculto" data-v="etiquetas" data-g="estoque" id="abaEtiquetas">Etiquetas</button>
+        <button class="aba oculto" data-v="vendas" data-g="vendas" id="abaVendas">Vendas</button>
+        <button class="aba oculto" data-v="clientes" data-g="vendas" id="abaClientes">Clientes</button>
+        <button class="aba oculto" data-v="ajustes" data-g="vendas" id="abaAjustes">Ajustes</button>
+        <button class="aba oculto" data-v="ranking" data-g="vendas" id="abaRanking">Ranking</button>
+        <button class="aba oculto" data-v="producao" data-g="producao" id="abaProducao">Produção</button>
+        <button class="aba oculto" data-v="custos" data-g="producao" id="abaCustos">Custos</button>
+        <button class="aba oculto" data-v="comissoes" data-g="gestao" id="abaComissoes">Comissões</button>
+        <button class="aba oculto" data-v="lucro" data-g="gestao" id="abaLucro">Lucro</button>
+        <button class="aba oculto" data-v="creditos" data-g="gestao" id="abaCreditos">Créditos</button>
+        <button class="aba oculto" data-v="horarios" data-g="gestao" id="abaHorarios">Horários</button>
+        <button class="aba oculto" data-v="equipe" data-g="gestao" id="abaEquipe">Equipe</button>
+      </div>
     </div>
     <div id="msg" class="msg oculto"></div>
     <div id="tela"></div>
@@ -325,9 +340,25 @@ async function carregar() {
   QTD = new Map((d.estoque || []).map(([v, l, q]) => [chave(v, l), q]));
   await carregarTransito().catch(() => {});
 }
-document.querySelectorAll(".barra .aba").forEach(b => b.onclick = () => { if (VISTA === "custos" && b.dataset.v !== "custos" && !cuPodeSair()) return; CU_SUJO = false; VISTA = b.dataset.v; limparMsg(); render(); });
+function irPara(v) { if (VISTA === "custos" && v !== "custos" && !cuPodeSair()) return; CU_SUJO = false; VISTA = v; limparMsg(); render(); }
+document.querySelectorAll(".barra .aba").forEach(b => b.onclick = () => irPara(b.dataset.v));
+// grupo: volta para a última aba usada nele (ou a primeira que a pessoa pode ver)
+const ULT_GRUPO = {};
+document.querySelectorAll(".barra .grupo").forEach(g => g.onclick = () => {
+  const pode = [...document.querySelectorAll(`.barra .aba[data-g="${g.dataset.g}"]:not(.oculto)`)].map(b => b.dataset.v);
+  if (pode.length) irPara(pode.includes(ULT_GRUPO[g.dataset.g]) ? ULT_GRUPO[g.dataset.g] : pode[0]);
+});
+function menu() {
+  const atual = document.querySelector(`.barra .aba[data-v="${VISTA}"]`), g = atual ? atual.dataset.g : "estoque";
+  ULT_GRUPO[g] = VISTA;
+  document.querySelectorAll(".barra .grupo").forEach(b => {
+    b.classList.toggle("on", b.dataset.g === g);
+    b.classList.toggle("oculto", !document.querySelector(`.barra .aba[data-g="${b.dataset.g}"]:not(.oculto)`));
+  });
+  document.querySelectorAll(".barra .aba").forEach(b => { b.classList.toggle("on", b.dataset.v === VISTA); b.classList.toggle("fg", b.dataset.g !== g); });
+}
 function render() {
-  document.querySelectorAll(".barra .aba").forEach(b => b.classList.toggle("on", b.dataset.v === VISTA));
+  menu();
   if (VISTA === "equipe" && ADMIN) return telaEquipe();
   if (VISTA === "produtos" && controla()) return telaProdutos();
   if (VISTA === "movimentos" && controla()) return telaMovimentos();
