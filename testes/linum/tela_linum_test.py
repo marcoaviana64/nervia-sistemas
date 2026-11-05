@@ -282,6 +282,27 @@ try:
         pg.click("#fprov"); pg.wait_for_timeout(200)
         psql("delete from lin_estoque where variante_id in (select v.id from lin_variantes v join lin_produtos p on p.id = v.produto_id where p.descricao = 'Blusa Sem Ref'); "
              "delete from lin_variantes where produto_id in (select id from lin_produtos where descricao = 'Blusa Sem Ref'); delete from lin_produtos where descricao = 'Blusa Sem Ref'")
+        # 2.30: classificação tributária no cadastro do produto
+        pg.click("#abaProdutos"); pg.wait_for_selector("#plista")
+        ok("sem NCM" in pg.text_content("#plista") and pg.locator("#psemcl").count() == 1, "lista mostra 'sem NCM' e o filtro Sem classificação tributária")
+        pg.click('[data-ed="10000000-0000-0000-0000-000000000001"]'); pg.wait_for_selector("#pf_classificacao_id")
+        pg.fill("#pf_cbusca", "6204.49"); pg.wait_for_timeout(200)
+        opcs = pg.locator("#pf_classificacao_id option").all_text_contents()
+        ok(opcs == ["Sem classificação", "Vestido — Linho / outras fibras · NCM 6204.49.00"], "busca pelo NCM filtra a lista agrupada")
+        cid = psql("select id from lin_classificacoes where ncm = '62044900'", saida=True)
+        pg.select_option("#pf_classificacao_id", cid); pg.wait_for_timeout(200)
+        ok("NCM 6204.49.00" in pg.text_content("#pf_cinfo"), "NCM aparece abaixo da escolha")
+        pg.fill("#pf_cbusca", "bolsa couro"); pg.wait_for_timeout(200)
+        pg.select_option("#pf_classificacao_id", psql("select id from lin_classificacoes where ordem = 511", saida=True)); pg.wait_for_timeout(200)
+        ok("CEST 2804000" in pg.text_content("#pf_cinfo") and "Confirmar ST" in pg.text_content("#pf_cinfo"), "CEST e observação aparecem quando existem")
+        pg.select_option("#pf_classificacao_id", cid); pg.click("#pfs"); pg.wait_for_timeout(900)
+        ok(psql("select classificacao_id from lin_produtos where id = '10000000-0000-0000-0000-000000000001'", saida=True) == cid
+           and pg.input_value("#pf_classificacao_id") == cid, "classificação salva no produto e continua escolhida")
+        pg.click("#pfx"); pg.wait_for_timeout(300)
+        ok("NCM 6204.49.00" in pg.text_content("#plista"), "lista mostra o NCM da peça")
+        pg.click("#psemcl"); pg.wait_for_timeout(200)
+        ok("NCM 6204.49.00" not in pg.text_content("#plista") and pg.locator("#plista .prod").count() >= 1, "filtro Sem classificação tributária")
+        pg.click("#psemcl"); pg.wait_for_timeout(200)
         ok(not erros, "sem erros de JavaScript (produtos)")
 
         # ---------------------------------------------------------------- papel Estoque: cadastra e movimenta, sem custo
