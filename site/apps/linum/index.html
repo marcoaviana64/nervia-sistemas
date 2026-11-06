@@ -13,6 +13,7 @@
 <script src="etiquetas.js"></script>
 <script src="transferencias.js"></script>
 <script src="gerencial.js"></script>
+<script src="gerencial-vendas.js"></script>
 <style>
 /* Sistema Linum (app "linum", tabelas lin_): o sistema da LINUM Roupas de Linho trazido do Lovable para a Plataforma.
    Produtos, estoque das lojas, vendas (boleta) e clientes. Dono: tudo; Estoque: cadastra e movimenta sem custo;
@@ -194,6 +195,8 @@ td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-n
         <button class="aba oculto ger" data-v="ger_geral" data-g="gerencial">Visão geral</button>
         <button class="aba oculto ger" data-v="ger_cat" data-g="gerencial">Categorias</button>
         <button class="aba oculto ger" data-v="ger_lanc" data-g="gerencial">Lançamentos</button>
+        <button class="aba oculto ger" data-v="ger_rede" data-g="gerencial">Vendas Rede</button>
+        <button class="aba oculto ger" data-v="ger_analise" data-g="gerencial">Análise de vendas</button>
         <button class="aba oculto ger" data-v="ger_cons" data-g="gerencial">Considerações</button>
         <button class="aba oculto ger" data-v="ger_imp" data-g="gerencial">Importar extratos</button>
       </div>
@@ -388,6 +391,7 @@ function render() {
   if (VISTA === "horarios" && dono()) return telaHorarios();
   if (VISTA === "creditos" && dono()) return telaCreditos();
   if (VISTA === "custos" && dono()) return telaCustos();
+  if ((VISTA === "ger_rede" || VISTA === "ger_analise") && dono()) return telaGerencialVendas(VISTA.slice(4));
   if (VISTA.startsWith("ger_") && dono()) return telaGerencial(VISTA.slice(4));
   if (VISTA === "ranking" && vende()) return telaRanking();
   if (VISTA === "producao" && PERM.producao) return telaProducao();

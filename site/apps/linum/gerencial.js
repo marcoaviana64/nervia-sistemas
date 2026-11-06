@@ -470,13 +470,15 @@ function gLerOfx(txt) {
   const saldo = bal ? gNum(gTag(bal, "BALAMT")) : null;
   return { linhas, saldo_final: isFinite(saldo) && bal ? saldo : null, saldo_data: bal ? gData8(gTag(bal, "DTASOF")) : "" };
 }
+// separador: o que aparece mais nas primeiras linhas (o relatório pode começar com um título) (Nubank usa vírgula; a Rede, ponto e vírgula com vírgula decimal)
 function gCsvLinhas(txt) {
+  const l1 = txt.split(/\r?\n/).slice(0, 6).join("\n"), sep = (l1.match(/;/g) || []).length > (l1.match(/,/g) || []).length ? ";" : ",";
   const out = []; let row = [], cel = "", q = false;
   for (let i = 0; i < txt.length; i++) {
     const ch = txt[i];
     if (q) { if (ch === '"') { if (txt[i + 1] === '"') { cel += '"'; i++; } else q = false; } else cel += ch; }
     else if (ch === '"') q = true;
-    else if (ch === "," || ch === ";") { row.push(cel); cel = ""; }
+    else if (ch === sep) { row.push(cel); cel = ""; }
     else if (ch === "\n" || ch === "\r") { if (ch === "\r" && txt[i + 1] === "\n") i++; row.push(cel); out.push(row); row = []; cel = ""; }
     else cel += ch;
   }
