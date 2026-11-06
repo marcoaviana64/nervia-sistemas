@@ -12,6 +12,7 @@
 <script src="custos.js"></script>
 <script src="etiquetas.js"></script>
 <script src="transferencias.js"></script>
+<script src="gerencial.js"></script>
 <style>
 /* Sistema Linum (app "linum", tabelas lin_): o sistema da LINUM Roupas de Linho trazido do Lovable para a Plataforma.
    Produtos, estoque das lojas, vendas (boleta) e clientes. Dono: tudo; Estoque: cadastra e movimenta sem custo;
@@ -51,6 +52,8 @@ body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-ap
 .barra .aba:hover{color:var(--ink)}
 .barra .aba.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
 @media (max-width:640px){.barra .grupos{padding:0 4px;gap:3px}.barra .grupo{padding:8px 11px 9px;gap:5px;font-size:14px}.barra .grupo svg{width:15px;height:15px}.barra .grupos .dir{display:none}}
+/* 2.36: com o grupo Gerencial (5 orelhas) o Dono não cabe em 390 px: no celular as fechadas mostram só o ícone (nome no title), como no fichário comum */
+@media (max-width:480px){.barra .grupo:not(.on) > span:not(.gb){display:none}}
 .barra .dir{margin-left:auto;font-size:12px;color:var(--ink-soft);padding-right:4px}
 select,input,textarea{font:inherit;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink);width:100%}
 label{display:block;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);margin-bottom:3px}
@@ -168,6 +171,7 @@ td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-n
         <button type="button" class="grupo oculto" data-g="vendas" id="grp_vendas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M5 8h14l-1.2 12H6.2z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg><span>Vendas</span><span class="gb"></span></button>
         <button type="button" class="grupo oculto" data-g="producao" id="grp_producao"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8 7.5 20 18M8 16.5 20 6"/></svg><span>Produção</span><span class="gb"></span></button>
         <button type="button" class="grupo oculto" data-g="gestao" id="grp_gestao"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Gestão</span><span class="gb"></span></button>
+        <button type="button" class="grupo oculto" data-g="gerencial" id="grp_gerencial"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m7 15 4-5 3 3 5-7"/></svg><span>Gerencial</span><span class="gb"></span></button>
         <div class="dir" id="quem"></div>
       </div>
       <div class="abas">
@@ -187,6 +191,11 @@ td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-n
         <button class="aba oculto" data-v="creditos" data-g="gestao" id="abaCreditos">Créditos</button>
         <button class="aba oculto" data-v="horarios" data-g="gestao" id="abaHorarios">Horários</button>
         <button class="aba oculto" data-v="equipe" data-g="gestao" id="abaEquipe">Equipe</button>
+        <button class="aba oculto ger" data-v="ger_geral" data-g="gerencial">Visão geral</button>
+        <button class="aba oculto ger" data-v="ger_cat" data-g="gerencial">Categorias</button>
+        <button class="aba oculto ger" data-v="ger_lanc" data-g="gerencial">Lançamentos</button>
+        <button class="aba oculto ger" data-v="ger_cons" data-g="gerencial">Considerações</button>
+        <button class="aba oculto ger" data-v="ger_imp" data-g="gerencial">Importar extratos</button>
       </div>
     </div>
     <div id="msg" class="msg oculto"></div>
@@ -250,7 +259,7 @@ async function iniciar() {
     $("abaEquipe").classList.toggle("oculto", !ADMIN);
     $("abaProdutos").classList.toggle("oculto", !controla()); $("abaMovimentos").classList.toggle("oculto", !controla());
     $("abaVendas").classList.toggle("oculto", !vende()); $("abaTransf").classList.toggle("oculto", !vende()); $("abaClientes").classList.toggle("oculto", !vende()); $("abaAjustes").classList.toggle("oculto", !vende());
-    $("abaComissoes").classList.toggle("oculto", !dono()); $("abaLucro").classList.toggle("oculto", !dono()); $("abaHorarios").classList.toggle("oculto", !dono()); $("abaCreditos").classList.toggle("oculto", !dono()); $("abaCustos").classList.toggle("oculto", !dono()); $("abaRanking").classList.toggle("oculto", !vende()); $("abaEtiquetas").classList.toggle("oculto", !vende()); $("abaProducao").classList.toggle("oculto", !PERM.producao);
+    $("abaComissoes").classList.toggle("oculto", !dono()); $("abaLucro").classList.toggle("oculto", !dono()); $("abaHorarios").classList.toggle("oculto", !dono()); $("abaCreditos").classList.toggle("oculto", !dono()); $("abaCustos").classList.toggle("oculto", !dono()); document.querySelectorAll(".aba.ger").forEach(x => x.classList.toggle("oculto", !dono())); $("abaRanking").classList.toggle("oculto", !vende()); $("abaEtiquetas").classList.toggle("oculto", !vende()); $("abaProducao").classList.toggle("oculto", !PERM.producao);
     $("quem").textContent = ADMIN ? "Equipe Nervia (Dono)" : dono() ? "Dono" : controla() ? "Estoque · sem custos" : "Vendedora" + (MINHA_LOJA ? " · " + loja(MINHA_LOJA).nome : "");
     $("aviso").classList.add("oculto"); $("app").classList.remove("oculto");
     render();
@@ -355,6 +364,7 @@ document.querySelectorAll(".barra .grupo").forEach(g => g.onclick = () => {
   const pode = [...document.querySelectorAll(`.barra .aba[data-g="${g.dataset.g}"]:not(.oculto)`)].map(b => b.dataset.v);
   if (pode.length) irPara(pode.includes(ULT_GRUPO[g.dataset.g]) ? ULT_GRUPO[g.dataset.g] : pode[0]);
 });
+document.querySelectorAll(".barra .grupo").forEach(g => { g.title = g.textContent.trim(); });
 function menu() {
   const atual = document.querySelector(`.barra .aba[data-v="${VISTA}"]`), g = atual ? atual.dataset.g : "estoque";
   ULT_GRUPO[g] = VISTA;
@@ -378,6 +388,7 @@ function render() {
   if (VISTA === "horarios" && dono()) return telaHorarios();
   if (VISTA === "creditos" && dono()) return telaCreditos();
   if (VISTA === "custos" && dono()) return telaCustos();
+  if (VISTA.startsWith("ger_") && dono()) return telaGerencial(VISTA.slice(4));
   if (VISTA === "ranking" && vende()) return telaRanking();
   if (VISTA === "producao" && PERM.producao) return telaProducao();
   if (VISTA === "etiquetas" && vende()) return telaEtiquetas();

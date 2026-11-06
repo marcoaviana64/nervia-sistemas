@@ -32,6 +32,7 @@
     <li><a href="#custos">6d. Custos das peças (Dono)</a></li>
     <li><a href="#comissoes">7a. Comissões do mês (Dono)</a></li>
     <li><a href="#lucro">7a1. Lucro das vendas (Dono)</a></li>
+    <li><a href="#gerencial">7a1b. Gerencial: extratos, resultado e considerações (Dono)</a></li>
     <li><a href="#horarios">7a2. Horário de trabalho (Dono)</a></li>
     <li><a href="#ranking">7b. Ranking das vendedoras</a></li>
     <li><a href="#etiquetas">7b1. Etiquetas de preço</a></li>
@@ -257,6 +258,25 @@
   </ul>
   <p>Escolha o período, a loja, quem vendeu e como agrupar (por peça, venda, quem vendeu, loja ou mês). Peças vendidas sem preço de custo aparecem num aviso e ficam fora do custo, do lucro e da margem: cadastre o custo em Produtos ou pela ficha de custo. Trocas e devoluções não mudam a venda neste relatório. <b>Baixar CSV</b> traz uma linha por peça vendida.</p>
 
+  <h2 id="gerencial">7a1b. Gerencial: extratos, resultado e considerações (Dono)</h2>
+  <p>O grupo <b>Gerencial</b> (só a Dona e a equipe Nervia) é o painel gerencial da Linum dentro do app. Ele usa os extratos do <b>Itaú</b> e do <b>Nubank</b>: cada lançamento tem uma <b>classe</b> (ex.: Insumos, Salários, Receitas) e uma <b>classificação</b> (ex.: Costureira, Aluguel Gávea).</p>
+  <ul>
+    <li><b>Receita real</b> = créditos e <b>despesas reais</b> = débitos, sem <b>Transferência Interna</b> (dinheiro entre Itaú e Nubank), <b>Aportes</b> e <b>Retiradas</b> da sócia, que aparecem em quadros separados (a <b>conta corrente da sócia</b> = aportes − retiradas). As vendas das duas lojas caem juntas no Itaú; por loja, só pela maquininha (próxima fase).</li>
+    <li><b>Categorias</b>: clique numa classe para abrir as classificações; clique numa classificação para ver os lançamentos.</li>
+    <li><b>Considerações</b>: a análise de cada mês com nota de A a D, escrita pela Nervia (peça a análise nova ou revisada). Embaixo de cada mês aparecem os números de hoje, que mudam se algo for reclassificado.</li>
+  </ul>
+  <h3>Importar o extrato do mês</h3>
+  <ol>
+    <li>Baixe o extrato: Itaú em <b>OFX</b> (Internet Banking → Extrato → salvar em OFX/Money); Nubank em <b>OFX</b> ou o <b>CSV</b> da conta. Pode ser um mês ainda em andamento: depois, importe o mês inteiro, que o que já entrou é pulado sozinho.</li>
+    <li>Em <b>Importar extratos</b>, escolha a conta e o arquivo. O arquivo é lido no seu computador; só os lançamentos vão para o sistema. As linhas de saldo não entram.</li>
+    <li>Confira a lista: <b>novo</b> (vai entrar), <b>já importado</b> (pulado) e <b>talvez já importado</b> (mesma data e valor de um lançamento que já existe, mas com outra descrição; vem desmarcado — marque só se for mesmo outro lançamento). A classe vem de uma <b>regra</b> ou de um lançamento igual (mesmo texto ou mesmo CPF/CNPJ) já classificado; dá para mudar ali mesmo.</li>
+    <li>Quando o extrato traz o saldo (OFX), o sistema confere: saldo anterior + movimentos = saldo do extrato. Diferença de centavos costuma ser rendimento do dia; diferença maior = falta ou sobra lançamento.</li>
+    <li>Clique em <b>Importar</b>. Os que ficaram sem classe abrem em Lançamentos, filtrados em <b>Só a classificar</b>.</li>
+  </ol>
+  <h3>Classificar e criar regras</h3>
+  <p>Em <b>Lançamentos</b>, marque um ou vários e clique em <b>Classificar marcados</b>. Marque <b>Criar regra</b> para que os próximos extratos com o mesmo trecho (o CPF/CNPJ é o mais seguro) já venham classificados. As regras ficam em Importar extratos → Regras de classificação (editar, desativar, excluir). Um Pix do Itaú para a sócia é <b>Transferência Interna</b> só quando o mesmo valor chega no Nubank; sem retorno, é <b>Retirada</b>.</p>
+  <p><b>+ Fora do banco</b>: para o que não passa pelo extrato (ex.: a sócia pagou uma conta da Linum com dinheiro dela = classe Aportes). <b>Excluir</b> (clique no lançamento) só com motivo, por exemplo uma transferência que falhou e foi estornada. Tudo fica no registro de auditoria.</p>
+
   <h2 id="horarios">7a2. Horário de trabalho (Dono)</h2>
   <p>Cada pessoa da equipe só consegue abrir o Sistema Linum no horário de trabalho dela, de qualquer aparelho. Fora dele nada abre: nem estoque, nem vendas, nem clientes, e a tentativa fica registrada na auditoria com o endereço (IP) de onde veio. O Dono não tem restrição.</p>
   <ol>
@@ -330,6 +350,9 @@
     <tr><td>Entre na Área do Cliente para ver o estoque</td><td>A sessão expirou: entre de novo em nervia.com.br/cliente.</td></tr>
     <tr><td>Não foi possível gerar o PDF: não foi possível carregar o gerador de PDF</td><td>Etiquetas: o gerador vem da internet. Confira a conexão e clique de novo em Gerar PDF.</td></tr>
     <tr><td>O código de barras só pode ter letras sem acento, números e símbolos simples</td><td>Etiqueta à mão: tire acentos e "ç" do código, ou deixe o código em branco.</td></tr>
+    <tr><td>Nenhum lançamento encontrado no arquivo</td><td>Gerencial: use o extrato em OFX (Itaú ou Nubank) ou o CSV da conta Nubank, não o PDF.</td></tr>
+    <tr><td>Saldo do extrato com diferença de R$ …</td><td>Gerencial: falta ou sobra lançamento. Confira os "talvez já importado" e se o extrato anterior foi importado inteiro.</td></tr>
+    <tr><td>Escreva por que o lançamento não está no extrato</td><td>Lançamento fora do banco: explique em poucas palavras (ex.: "a sócia pagou com o cartão dela").</td></tr>
     <tr><td>Seu login não tem acesso ao Sistema Linum</td><td>O login ainda não tem papel (Dono, Estoque ou Vendedora). Fale com a Nervia.</td></tr>
     <tr><td>Fora do seu horário de trabalho</td><td>O sistema só abre no seu horário (mais 15 minutos antes e depois). Precisa usar agora? Peça ao Dono uma liberação extra na aba Horários.</td></tr>
     <tr><td>Nenhum produto cadastrado ainda</td><td>Cadastre na aba Produtos (Dono ou Estoque).</td></tr>

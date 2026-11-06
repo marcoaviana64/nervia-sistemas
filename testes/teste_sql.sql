@@ -2613,5 +2613,78 @@ reset role;
 select pg_temp.erro2('delete from preco_historico', 'somente inclusão', 'precos: histórico somente inclusão');
 select pg_temp.ok(exists (select 1 from auditoria where acao = 'salario_minimo_cadastrado' and email = 'marco@nervia.com.br') and (select count(*) >= 2 from auditoria where acao = 'preco_alterado' and detalhes->>'motivo' like 'reajuste%'), 'precos: auditoria do mínimo e dos reajustes');
 
+
+-- ---------------------------------------------------------------- linum 2.36: Gerencial (extratos bancários, regras, considerações)
+reset role; reset request.headers;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok(lin_eh_dono(), 'linum gerencial: login b é Dono');
+select lin_ger_regra_salvar('{"padrao":"RECEBIMENTO REDE","classe":"Receitas","classificacao":"Receitas","tipo":"credito"}');
+select pg_temp.erro2($$select lin_ger_regra_salvar('{"padrao":"ab","classe":"Insumos"}')$$, 'ao menos 3', 'linum gerencial: regra com trecho curto recusada');
+select pg_temp.erro2($$select lin_ger_regra_salvar('{"padrao":"PIX TESTE"}')$$, 'Escolha a classe', 'linum gerencial: regra sem classe recusada');
+create temp table lin_gi as select lin_ger_importar(jsonb_build_object('conta', 'itau', 'arquivo', 'Extrato_Itau_202610.ofx', 'saldo_final', '11220.02', 'saldo_data', '2026-11-05',
+  'lancamentos', jsonb_build_array(
+    jsonb_build_object('chave', 'itau|2026-10-07|1500.00|recebimento rede|1', 'fitid', 'F1', 'data', '2026-10-07', 'descricao', 'RECEBIMENTO REDE', 'credito', 1500, 'debito', 0,
+      'classe', 'Receitas', 'classificacao', 'Receitas', 'regra_id', (select max(id) from lin_ger_regras)),
+    jsonb_build_object('chave', 'itau|2026-10-08|-286.71|boletos andrea|1', 'fitid', 'F2', 'data', '2026-10-08', 'descricao', 'BOLETO PAGO BOTOES ANDREA', 'credito', 0, 'debito', 286.71),
+    jsonb_build_object('chave', 'itau|2026-10-09|-10000.00|pix gorette|1', 'data', '2026-10-09', 'descricao', 'PIX ENVIADO MARIA GORETTE', 'debito', 10000, 'classe', 'Retiradas', 'classificacao', 'Retirada Sócia')))) r;
+select pg_temp.ok((select (r->>'novos')::int = 3 and (r->>'a_classificar')::int = 1 from lin_gi), 'linum gerencial: importa 3 lançamentos, 1 a classificar');
+select pg_temp.ok((select classe = 'A classificar' and revisar from lin_ger_lancamentos where fitid = 'F2')
+  and (select not revisar and regra_id is not null from lin_ger_lancamentos where fitid = 'F1'), 'linum gerencial: sem classe fica "A classificar"');
+select pg_temp.ok((select de = '2026-10-07' and ate = '2026-10-09' and novos = 3 and saldo_final = 11220.02 from lin_ger_importacoes), 'linum gerencial: importação com período e saldo');
+-- mesmo arquivo de novo: nada entra (chave e FITID)
+select pg_temp.ok((lin_ger_importar(jsonb_build_object('conta', 'itau', 'arquivo', 'de novo', 'lancamentos', jsonb_build_array(
+    jsonb_build_object('chave', 'itau|2026-10-07|1500.00|recebimento rede|1', 'data', '2026-10-07', 'credito', 1500),
+    jsonb_build_object('chave', 'outra-chave', 'fitid', 'F2', 'data', '2026-10-08', 'debito', 286.71)))) ->> 'repetidos')::int = 2
+  and (select count(*) = 3 from lin_ger_lancamentos), 'linum gerencial: o mesmo lançamento não entra duas vezes (chave ou FITID)');
+select pg_temp.erro2($$select lin_ger_importar('{"conta":"bradesco","lancamentos":[{"chave":"x","data":"2026-10-01","credito":1}]}')$$, 'Itaú ou Nubank', 'linum gerencial: conta inválida');
+select pg_temp.erro2($$select lin_ger_importar('{"conta":"nubank","lancamentos":[{"chave":"y","data":"2026-10-01","credito":-1}]}')$$, 'negativos', 'linum gerencial: valor negativo recusado');
+select pg_temp.ok((select count(*) = 1 from lin_ger_importacoes where arquivo = 'de novo'), 'linum gerencial: importação recusada não deixa registro');
+-- classificar
+select pg_temp.ok(lin_ger_classificar(jsonb_build_object('ids', jsonb_build_array((select id from lin_ger_lancamentos where fitid = 'F2')), 'classe', 'Insumos', 'classificacao', 'Aviamentos')) = 1, 'linum gerencial: classificar devolve a quantidade');
+select pg_temp.ok((select classe = 'Insumos' and classificacao = 'Aviamentos' and not revisar and alterado_nome <> '' from lin_ger_lancamentos where fitid = 'F2'), 'linum gerencial: classificar');
+select pg_temp.erro2($$select lin_ger_classificar('{"ids":[1],"classe":"A classificar"}')$$, 'classe de verdade', 'linum gerencial: não volta para "A classificar"');
+select pg_temp.erro2($$select lin_ger_classificar('{"ids":[999999],"classe":"Insumos"}')$$, 'não encontrado', 'linum gerencial: lançamento inexistente');
+select pg_temp.erro2($$select lin_ger_lancamento_excluir((select id from lin_ger_lancamentos where fitid = 'F1'), 'x')$$, 'motivo', 'linum gerencial: excluir exige motivo');
+select lin_ger_lancamento_excluir((select id from lin_ger_lancamentos where fitid = 'F1'), 'transferência que falhou');
+select pg_temp.ok((select count(*) = 2 from lin_ger_lancamentos), 'linum gerencial: excluir com motivo');
+-- fora do banco (à mão)
+select pg_temp.erro2($$select lin_ger_lancamento_incluir('{"data":"2026-08-17","descricao":"Aporte","valor":10610,"classe":"Aportes"}')$$, 'por que', 'linum gerencial: fora do banco exige o motivo');
+select pg_temp.erro2($$select lin_ger_lancamento_incluir('{"data":"2099-01-01","descricao":"Aporte","valor":1,"classe":"Aportes","observacao":"pagou a fatura"}')$$, 'futura', 'linum gerencial: fora do banco sem data futura');
+select lin_ger_lancamento_incluir('{"data":"2026-08-17","descricao":"Aporte não-bancário","valor":10610,"classe":"Aportes","classificacao":"Aporte Gorette","observacao":"pagou a fatura com recursos próprios"}');
+select pg_temp.ok((select conta = 'socia' and credito = 10610 and debito = 0 and not revisar and chave like 'manual|%' from lin_ger_lancamentos where classe = 'Aportes'), 'linum gerencial: lançamento fora do banco');
+select lin_ger_lancamento_excluir((select id from lin_ger_lancamentos where conta = 'socia'), 'teste do lançamento à mão');
+-- tela não escreve direto
+select pg_temp.erro2($$update lin_ger_lancamentos set classe = 'X'$$, 'permission', 'linum gerencial: tela não altera direto');
+select pg_temp.erro2($$insert into lin_ger_consideracoes (mes) values ('2026-10')$$, 'permission', 'linum gerencial: considerações não se gravam pela tela');
+-- vendedora e estoque não veem nem gravam
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.ok(not lin_eh_dono() and (select count(*) = 0 from lin_ger_lancamentos) and (select count(*) = 0 from lin_ger_regras), 'linum gerencial: vendedora não vê nada');
+select pg_temp.erro2($$select lin_ger_classificar('{"ids":[1],"classe":"Insumos"}')$$, 'Somente o Dono', 'linum gerencial: vendedora não classifica');
+select pg_temp.erro2($$select lin_ger_importar('{"conta":"itau","lancamentos":[{"chave":"z","data":"2026-10-01","credito":1}]}')$$, 'Somente o Dono', 'linum gerencial: vendedora não importa');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.erro2($$select _lin_ger_consideracao_gravar('2026-10','x','B','','[]','',null)$$, 'permission', 'linum gerencial: considerações: função fechada até para o Dono');
+set role anon;
+select pg_temp.erro2($$select count(*) from lin_ger_lancamentos$$, 'permission', 'linum gerencial: anônimo não lê');
+reset role;
+-- considerações pelo SQL da equipe Nervia (sem login)
+select _lin_ger_consideracao_gravar('2026-10', 'Outubro / 2026', 'B', 'Bom', '[{"rot":"Receita total","val":"R$ 77.988","cor":"pos"}]', '<p>Texto</p>', 'Claude (Nervia)');
+select _lin_ger_consideracao_gravar('2026-10', 'Outubro / 2026', 'A', 'Excelente', '[]', '<p>Revisto</p>', 'Claude (Nervia)');
+select pg_temp.ok((select nota = 'A' and corpo = '<p>Revisto</p>' from lin_ger_consideracoes where mes = '2026-10'), 'linum gerencial: considerações regravadas');
+select pg_temp.ok((select count(*) = 2 from auditoria where acao = 'linum_gerencial_consideracao')
+  and exists (select 1 from auditoria where acao = 'linum_gerencial_importado' and (detalhes->>'novos')::int = 3)
+  and exists (select 1 from auditoria where acao = 'linum_gerencial_classificado' and detalhes->'lancamentos'->0->'antes'->>'classe' = 'A classificar')
+  and exists (select 1 from auditoria where acao = 'linum_gerencial_lancamento_excluido' and detalhes->>'motivo' = 'transferência que falhou')
+  and exists (select 1 from auditoria where acao = 'linum_gerencial_regra_criada')
+  and exists (select 1 from auditoria where acao = 'linum_gerencial_lancamento_incluido' and (detalhes->>'valor')::numeric = 10610), 'linum gerencial: auditoria de tudo');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok((select count(*) = 1 from lin_ger_consideracoes), 'linum gerencial: Dono lê as considerações');
+select lin_ger_regra_salvar(jsonb_build_object('id', (select max(id) from lin_ger_regras), 'ativo', false));
+select pg_temp.ok((select not ativo and padrao = 'RECEBIMENTO REDE' from lin_ger_regras), 'linum gerencial: desativar regra mantém o resto');
+select lin_ger_regra_excluir((select max(id) from lin_ger_regras));
+select pg_temp.ok((select count(*) = 0 from lin_ger_regras), 'linum gerencial: excluir regra');
+reset role;
+
 reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'
