@@ -2686,5 +2686,43 @@ select lin_ger_regra_excluir((select max(id) from lin_ger_regras));
 select pg_temp.ok((select count(*) = 0 from lin_ger_regras), 'linum gerencial: excluir regra');
 reset role;
 
+
+-- ---------------------------------------------------------------- linum 2.37: Gerencial — vendas da Rede, outras vendas, terminais
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select lin_ger_terminal_salvar('SD000001', 'Ipanema');
+select lin_ger_terminal_salvar('SD000002', 'Gávea', 'segunda maquininha');
+select pg_temp.erro2($$select lin_ger_terminal_salvar('SD000003', '')$$, 'loja do terminal', 'linum gerencial vendas: terminal sem loja');
+create temp table lin_gr as select lin_ger_rede_importar(jsonb_build_object('arquivo', 'Rede_Rel_Vendas_10_2026.csv', 'vendas', jsonb_build_array(
+  jsonb_build_object('chave', '2026-10-03|15:10:00|SD000001|500.00|1', 'nsu', '111', 'data', '2026-10-03', 'hora', '15:10', 'terminal', 'SD000001', 'modalidade', 'crédito',
+    'tipo', 'parcelado sem juros', 'parcelas', 3, 'bandeira', 'Visa', 'bruto', 500, 'mdr_pct', 2.6, 'mdr_val', 13, 'ant_pct', 2, 'ant_val', 10, 'tx_pct', 4.6, 'tx_val', 23, 'liquido', 477),
+  jsonb_build_object('chave', '2026-10-04|11:00:00|SD000002|200.00|1', 'nsu', '112', 'data', '2026-10-04', 'hora', '11:00', 'terminal', 'SD000002', 'modalidade', 'débito', 'bruto', 200, 'liquido', 198),
+  jsonb_build_object('chave', '2026-10-05|12:00:00|XX999|80.00|1', 'data', '2026-10-05', 'hora', '12:00', 'terminal', 'XX999', 'modalidade', 'crédito', 'bruto', 80)))) r;
+select pg_temp.ok((select (r->>'novas')::int = 3 and (r->>'sem_loja')::int = 1 from lin_gr), 'linum gerencial vendas: importa 3 vendas, 1 sem loja');
+select pg_temp.ok((select loja = 'Gávea' from lin_ger_rede where nsu = '112') and (select loja = 'Não identificada' and liquido = 80 from lin_ger_rede where terminal = 'XX999'),
+  'linum gerencial vendas: loja pelo terminal; líquido vazio = bruto');
+select pg_temp.ok((lin_ger_rede_importar(jsonb_build_object('arquivo', 'de novo', 'vendas', jsonb_build_array(
+    jsonb_build_object('chave', 'outra', 'nsu', '111', 'data', '2026-10-03', 'bruto', 500),
+    jsonb_build_object('chave', '2026-10-04|11:00:00|SD000002|200.00|1', 'data', '2026-10-04', 'bruto', 200)))) ->> 'repetidas')::int = 2
+  and (select count(*) = 3 from lin_ger_rede), 'linum gerencial vendas: a mesma venda não entra duas vezes (NSU ou chave)');
+select pg_temp.erro2($$select lin_ger_rede_importar('{"vendas":[{"chave":"z","data":"2026-10-01","bruto":0}]}')$$, 'sem valor', 'linum gerencial vendas: venda sem valor recusada');
+select pg_temp.erro2($$select lin_ger_rede_excluir((select id from lin_ger_rede where nsu = '111'), 'x')$$, 'motivo', 'linum gerencial vendas: excluir exige motivo');
+select lin_ger_rede_excluir((select id from lin_ger_rede where nsu = '111'), 'cartão da própria sócia');
+select pg_temp.ok((select count(*) = 2 from lin_ger_rede), 'linum gerencial vendas: excluir venda com motivo');
+select lin_ger_outra_venda_salvar('{"data":"2026-10-31","loja":"Ipanema","valor":"1500.50","descricao":"Venda no caderno"}');
+select lin_ger_outra_venda_salvar('{"data":"2026-04-30","loja":"Gávea","valor":-1,"descricao":"desconta a venda-teste"}');
+select pg_temp.ok((select count(*) = 2 and sum(valor) = 1499.50 from lin_ger_outras_vendas), 'linum gerencial vendas: outras vendas (valor negativo aceito)');
+select pg_temp.erro2($$select lin_ger_outra_venda_salvar('{"data":"2026-10-31","valor":10}')$$, 'loja', 'linum gerencial vendas: outra venda sem loja');
+select lin_ger_outra_venda_excluir((select id from lin_ger_outras_vendas where valor = -1), 'lançada errado');
+select pg_temp.erro2($$insert into lin_ger_rede (data, bruto, chave) values ('2026-10-01', 1, 'x')$$, 'permission', 'linum gerencial vendas: tela não grava direto');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.ok((select count(*) = 0 from lin_ger_rede) and (select count(*) = 0 from lin_ger_outras_vendas) and (select count(*) = 0 from lin_ger_terminais), 'linum gerencial vendas: vendedora não vê');
+select pg_temp.erro2($$select lin_ger_outra_venda_salvar('{"data":"2026-10-31","loja":"Ipanema","valor":10}')$$, 'Somente o Dono', 'linum gerencial vendas: vendedora não grava');
+reset role;
+select pg_temp.ok((select count(*) = 2 from auditoria where acao = 'linum_gerencial_rede_importada')
+  and exists (select 1 from auditoria where acao = 'linum_gerencial_rede_excluida' and detalhes->>'motivo' = 'cartão da própria sócia')
+  and exists (select 1 from auditoria where acao = 'linum_gerencial_outra_venda_excluida')
+  and exists (select 1 from auditoria where acao = 'linum_gerencial_terminal' and detalhes->>'loja' = 'Gávea'), 'linum gerencial vendas: auditoria');
+
 reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'

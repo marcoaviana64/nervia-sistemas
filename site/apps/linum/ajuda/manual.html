@@ -273,6 +273,16 @@
     <li>Quando o extrato traz o saldo (OFX), o sistema confere: saldo anterior + movimentos = saldo do extrato. Diferença de centavos costuma ser rendimento do dia; diferença maior = falta ou sobra lançamento.</li>
     <li>Clique em <b>Importar</b>. Os que ficaram sem classe abrem em Lançamentos, filtrados em <b>Só a classificar</b>.</li>
   </ol>
+  <h3>Vendas Rede e Análise de vendas</h3>
+  <p><b>Vendas Rede</b> mostra as vendas da maquininha com a data e a hora <b>reais</b> da venda (não a do crédito no Itaú) e a loja de cada uma, que vem do terminal da maquininha (o nome do estabelecimento vem "LINUM IPANEMA" nas duas). <b>Análise de vendas</b> soma também as <b>outras vendas</b> do caderno (dinheiro, Pix direto), que entram no total e no gráfico por mês, mas não nas contas por dia, porque a data delas é o fim do mês.</p>
+  <ol>
+    <li>No portal da Rede, exporte o relatório de vendas em CSV (pode ser um período que já foi importado: o que já entrou é pulado pelo NSU ou pela data, hora, terminal e valor).</li>
+    <li>Em Vendas Rede → <b>Importar CSV da Rede</b>, escolha o arquivo e confira: <b>nova</b>, <b>já importada</b>, <b>sem loja</b> (terminal sem cadastro). Vendas canceladas, negadas ou estornadas não entram. A hora do relatório vem em 12 h sem AM/PM: de 1 a 9 h vira 13 a 21 h (as lojas não abrem de madrugada).</li>
+    <li><b>+ Pix da maquininha</b>: o total do Pix do mês (a Rede não informa dia a dia), lançado no último dia do mês, sem loja e sem taxa.</li>
+    <li><b>+ Outras vendas</b>: o total do caderno do mês, por loja. Valor negativo desconta (ex.: venda-teste da maquininha).</li>
+    <li><b>Terminais</b>: cadastre um terminal novo e a loja dele; vale para as próximas importações.</li>
+    <li>Venda importada por engano (ex.: a sócia passou o próprio cartão para levantar caixa): ✕ no Detalhamento, com o motivo.</li>
+  </ol>
   <h3>Classificar e criar regras</h3>
   <p>Em <b>Lançamentos</b>, marque um ou vários e clique em <b>Classificar marcados</b>. Marque <b>Criar regra</b> para que os próximos extratos com o mesmo trecho (o CPF/CNPJ é o mais seguro) já venham classificados. As regras ficam em Importar extratos → Regras de classificação (editar, desativar, excluir). Um Pix do Itaú para a sócia é <b>Transferência Interna</b> só quando o mesmo valor chega no Nubank; sem retorno, é <b>Retirada</b>.</p>
   <p><b>+ Fora do banco</b>: para o que não passa pelo extrato (ex.: a sócia pagou uma conta da Linum com dinheiro dela = classe Aportes). <b>Excluir</b> (clique no lançamento) só com motivo, por exemplo uma transferência que falhou e foi estornada. Tudo fica no registro de auditoria.</p>
@@ -350,6 +360,8 @@
     <tr><td>Entre na Área do Cliente para ver o estoque</td><td>A sessão expirou: entre de novo em nervia.com.br/cliente.</td></tr>
     <tr><td>Não foi possível gerar o PDF: não foi possível carregar o gerador de PDF</td><td>Etiquetas: o gerador vem da internet. Confira a conexão e clique de novo em Gerar PDF.</td></tr>
     <tr><td>O código de barras só pode ter letras sem acento, números e símbolos simples</td><td>Etiqueta à mão: tire acentos e "ç" do código, ou deixe o código em branco.</td></tr>
+    <tr><td>O relatório não tem as colunas de data e valor da venda</td><td>Vendas Rede: use o CSV de vendas do portal da Rede. Se o portal mudou os nomes das colunas, mande o arquivo para a Nervia.</td></tr>
+    <tr><td>O Pix desse mês já foi lançado</td><td>Para trocar o valor, exclua o Pix anterior no Detalhamento (✕) e lance de novo.</td></tr>
     <tr><td>Nenhum lançamento encontrado no arquivo</td><td>Gerencial: use o extrato em OFX (Itaú ou Nubank) ou o CSV da conta Nubank, não o PDF.</td></tr>
     <tr><td>Saldo do extrato com diferença de R$ …</td><td>Gerencial: falta ou sobra lançamento. Confira os "talvez já importado" e se o extrato anterior foi importado inteiro.</td></tr>
     <tr><td>Escreva por que o lançamento não está no extrato</td><td>Lançamento fora do banco: explique em poucas palavras (ex.: "a sócia pagou com o cartão dela").</td></tr>
