@@ -141,3 +141,9 @@ Ao publicar mudança num app: linha nova no topo do app aqui (com a data) e em `
 | 1.2 | 04/11/2026 | Página de compatibilidade das TVs: quais TVs e aparelhos rodam o app, pré-requisitos e a mensagem pronta para pedir as informações ao cliente pelo WhatsApp. |
 | 1.1 | 04/11/2026 | Roteiro de instalação na TV para imprimir, com a conferência antes de sair e a ficha da instalação. |
 | 1.0 | 04/11/2026 | Lançamento: vídeos e imagens nas TVs da empresa a partir de uma pasta do Google Drive (cada subpasta é uma playlist), TVs vinculadas por código, status online/offline e conferência automática dos arquivos. |
+
+## Contratos (`contratos`)
+
+| Versão | Data | O que mudou |
+|---|---|---|
+| 1.0 | 09/11/2026 | Lançamento: contratos de prestação de serviço da Nervia, do Word ao recebimento — contrato gerado pelo modelo de mala direta, envio e assinatura com o PDF guardado, cobranças de cada mês (com a parcela extra de dezembro), NF até o dia 5, conferência com o extrato OFX do Nubank e resumo gerencial. |

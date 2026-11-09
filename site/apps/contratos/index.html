@@ -1,0 +1,799 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Contratos | Nervia</title>
+<script src="/config.js"></script>
+<script src="/versoes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<script src="arquivos.js"></script>
+<link rel="stylesheet" href="/fichario.css">
+<style>
+/* Contratos (app "contratos", tabelas ctr_): contratos de prestação de serviço da Nervia, do Word ao recebimento.
+   Só a equipe Nervia (admin). A tela só lê as tabelas; toda gravação é por função (ctr_*) e vai para a auditoria.
+   O Word é preenchido no navegador (arquivos.js) a partir do modelo de mala direta guardado no bucket ctr-arquivos. */
+[hidden]{display:none!important}
+:root{--bg:#f4f7f9;--surface:#fff;--surface-2:#eaf1f4;--border:#dde6ec;--line:#dde6ec;--ink:#0f1b2d;--ink-soft:#4f5f73;--muted:#6b7a8c;
+  --accent:#107d9a;--accent-soft:#e1f1f5;--ok:#1d7a46;--ok-soft:#e2f4e9;--warn:#9a5b00;--warn-soft:#fbebd2;--crit:#b3261e;--crit-soft:#f9e0de;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1240px;margin:0 auto;padding:14px 16px 48px}
+.topo{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.marca{width:38px;height:38px;border-radius:10px;background:var(--ink);color:#fff;display:grid;place-items:center;font-weight:700;letter-spacing:.04em}
+.topo b{font-size:16px}.topo span{color:var(--muted);font-size:12.5px}
+.embutido .topo{display:none}
+h1{font-size:20px;margin:6px 0 4px}h2{font-size:15px;margin:0 0 10px}h3{font-size:14px;margin:14px 0 8px}
+.sub{color:var(--muted);margin:0 0 14px}
+.painel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:12px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.kpi .l{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.kpi .v{font-family:var(--mono);font-size:21px;margin-top:4px}
+.kpi .h{color:var(--muted);font-size:12px}
+.kpi.alerta .v{color:var(--crit)}.kpi.atencao .v{color:var(--warn)}
+.grade2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.filtros{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:10px}
+.campo{display:flex;flex-direction:column;gap:4px;min-width:0}
+.campo label{font-size:12px;color:var(--ink-soft);font-weight:600}
+input,select,textarea,button{font:inherit;color:inherit}
+input[type=text],input[type=date],input[type=number],input[type=email],input[type=search],select,textarea{background:#fff;border:1px solid #c5d2db;border-radius:8px;padding:7px 9px;min-height:36px;width:100%}
+textarea{min-height:70px;resize:vertical}
+.btn{display:inline-flex;align-items:center;gap:6px;border-radius:8px;padding:7px 13px;border:1px solid transparent;font-weight:600;cursor:pointer;min-height:34px;background:var(--accent);color:#fff;white-space:nowrap}
+.btn.sec{background:#fff;border-color:#c5d2db;color:var(--ink-soft)}
+.btn.sec:hover{background:var(--surface-2)}
+.btn.perigo{background:var(--crit-soft);color:var(--crit)}
+.btn.lnk{background:none;border:0;padding:2px 4px;min-height:0;color:var(--accent)}
+.btn:disabled{opacity:.5;cursor:default}
+.acoes{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.msg{font-size:12.5px;font-weight:600;color:var(--ok)}.msg.erro{color:var(--crit)}
+.tab{width:100%;border-collapse:collapse;font-size:13px}
+.tab th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:7px 6px;border-bottom:1px solid var(--border);white-space:nowrap;background:var(--surface)}
+.tab td{padding:7px 6px;border-bottom:1px solid var(--border);vertical-align:top}
+.tab td.n,.tab th.n{text-align:right;font-family:var(--mono);white-space:nowrap}
+.tab tr.clica{cursor:pointer}.tab tr.clica:hover td{background:var(--surface-2)}
+.tab tfoot td{font-weight:700;border-top:2px solid var(--border)}
+.rolar{overflow:auto;max-height:70vh}
+.rolar thead th{position:sticky;top:0;z-index:1}
+.pill{display:inline-block;font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:999px;white-space:nowrap;background:var(--surface-2);color:var(--ink-soft)}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}.pill.atencao{background:var(--warn-soft);color:var(--warn)}.pill.alerta{background:var(--crit-soft);color:var(--crit)}.pill.info{background:var(--accent-soft);color:var(--accent)}
+.mut{color:var(--muted);font-size:12.5px}
+.mono{font-family:var(--mono)}
+.aviso{padding:10px 14px;border-radius:10px;background:var(--warn-soft);color:var(--warn);font-weight:500;margin-bottom:12px}
+.etapas{display:flex;gap:4px;flex-wrap:wrap;margin:6px 0 12px}
+.etapas span{padding:4px 10px;border-radius:6px;background:var(--surface-2);color:var(--muted);font-size:12.5px;font-weight:600}
+.etapas span.feito{background:var(--accent-soft);color:var(--accent)}.etapas span.atual{background:var(--accent);color:#fff}
+.form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.form .dois{grid-column:span 2}.form .tudo{grid-column:1/-1}
+dialog{border:0;border-radius:14px;padding:18px;width:min(980px,calc(100% - 24px));max-height:calc(100vh - 32px);background:var(--surface);color:var(--ink)}
+dialog.peq{width:min(520px,calc(100% - 24px))}
+dialog::backdrop{background:#0008}
+.dlgtopo{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:6px}
+.fechar{background:none;border:0;font-size:22px;line-height:1;cursor:pointer;color:var(--muted)}
+.lista-ev{list-style:none;margin:0;padding:0;font-size:13px}
+.lista-ev li{padding:5px 0;border-bottom:1px dashed var(--border)}
+.escolha{max-height:46vh;overflow:auto;border:1px solid var(--border);border-radius:8px}
+.escolha label{display:grid;grid-template-columns:22px 70px minmax(0,1fr) 110px 90px;gap:8px;padding:6px 8px;border-bottom:1px solid var(--border);align-items:center;cursor:pointer}
+.escolha label:hover{background:var(--surface-2)}
+.sug{font-size:12.5px}
+#toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:9px 16px;border-radius:10px;font-weight:600;z-index:100;box-shadow:0 6px 24px #0004}
+@media (max-width:860px){.grade2{grid-template-columns:1fr}.form{grid-template-columns:1fr}.form .dois{grid-column:auto}.escolha label{grid-template-columns:22px 60px minmax(0,1fr) 90px}.escolha label .opc{display:none}}
+@media print{.barra,.filtros,.acoes,button{display:none!important}body{background:#fff}.painel{border:0;padding:0}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topo"><div class="marca">CT</div><div><b>Contratos</b><br><span>Contratos de prestação de serviço da Nervia: do Word ao recebimento</span><br><span data-versao="contratos"></span></div></div>
+  <div id="aviso" class="painel">Carregando…</div>
+  <div id="app" hidden>
+    <div class="barra fichario">
+      <div class="orelhas">
+        <button class="aba on" data-v="painel" title="Painel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg><span>Painel</span></button>
+        <button class="aba" data-v="cobrancas" title="Cobranças"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg><span>Cobranças</span></button>
+        <button class="aba" data-v="contratos" title="Contratos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M8 13h8M8 17h5"/></svg><span>Contratos</span></button>
+        <button class="aba" data-v="clientes" title="Clientes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M4 21V5l8-2v18M12 7l8 3v11M3 21h18"/></svg><span>Clientes</span></button>
+        <button class="aba" data-v="extrato" title="Extrato"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h7"/><path d="m15 17 2 2 4-4"/></svg><span>Extrato</span></button>
+        <button class="aba" data-v="config" title="Configuração"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Configuração</span></button>
+      </div>
+      <div class="ficha"></div>
+    </div>
+    <div id="conteudo"></div>
+  </div>
+</div>
+<div id="toast" role="status" hidden></div>
+<dialog id="dlg"></dialog>
+<dialog id="dlg2" class="peq"></dialog>
+
+<script>
+(() => {
+"use strict";
+const $ = s => document.querySelector(s);
+const el = (tag, attrs = {}, ...kids) => {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    if (k === "class") n.className = v;
+    else if (k === "text") n.textContent = v;
+    else if (k === "value") n.value = v;
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+    else n.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of kids.flat(Infinity)) if (c != null && c !== false) n.append(c.nodeType ? c : document.createTextNode(String(c)));
+  return n;
+};
+const A = window.CTR_ARQ;
+const CFG = window.NERVIA_CONFIG || {};
+const EMBUTIDO = window.self !== window.top;
+if (EMBUTIDO) document.documentElement.classList.add("embutido");
+const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
+const checar = r => { if (r.error) throw r.error; return r.data; };
+async function todos(mk) { const out = []; for (let i = 0; ; i += 1000) { const d = checar(await mk().range(i, i + 999)); out.push(...d); if (d.length < 1000) return out; } }
+const rpc = async (f, args) => checar(await sb.rpc(f, args));
+
+const hoje = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+const R = v => "R$ " + Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const N = v => Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const br = A.dataBR;
+const semAc = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const fmtDoc = d => !d ? "" : d.length === 14 ? d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5") : d.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4");
+const compLabel = c => c.endsWith("/13") ? "extra " + c.slice(0, 4) : c.slice(5, 7) + "/" + c.slice(0, 4);
+const addDias = (iso, n) => { const d = new Date(iso + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const erroTxt = e => { if (e && e.mostrado) e = e.erro; return (e && (e.message || e.error_description)) || String(e); };
+function baixar(nome, dados, tipo) {
+  const url = URL.createObjectURL(dados instanceof Blob ? dados : new Blob([dados], { type: tipo }));
+  const a = el("a", { href: url, download: nome }); document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+function csv(nome, cab, linhas) {
+  const q = v => { const s = v == null ? "" : String(v); return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  baixar(nome, "﻿" + [cab, ...linhas].map(l => l.map(q).join(";")).join("\r\n"), "text/csv;charset=utf-8");
+}
+
+const SIT_COB = { a_vencer: ["A vencer", "info"], atrasada: ["Atrasada", "alerta"], paga: ["Paga", "ok"], paga_atraso: ["Paga com atraso", "atencao"], diferenca: ["Diferença", "atencao"] };
+const SIT_NF = { emitida: ["NF emitida", "ok"], pendente: ["NF a emitir", ""], atrasada: ["NF atrasada", "alerta"] };
+const SIT_K = { rascunho: ["Rascunho", ""], gerado: ["Gerado", "info"], enviado: ["Enviado p/ assinatura", "atencao"], assinado: ["Assinado", "ok"], encerrado: ["Encerrado", ""], rescindido: ["Rescindido", "alerta"] };
+const pill = (m, k) => { const [t, c] = m[k] || [k, ""]; return el("span", { class: "pill " + c }, t); };
+
+const S = { cfg: {}, impostos: [], clientes: new Map(), contratos: new Map(), modelos: [], eventos: [], cob: [], extrato: [], imps: [],
+  view: "painel", sel: new Set(), selK: new Set(),
+  fp: { ano: hoje().slice(0, 4) },
+  fc: { ano: hoje().slice(0, 4), mes: "", cli: "", sit: "", nf: "", q: "" },
+  fk: { sit: "andamento", cli: "" }, fe: { sit: "pendentes" } };
+
+async function carregar() {
+  const [cfg, imp, cli, mod, kon, ev, cob, ext, imps] = await Promise.all([
+    sb.from("ctr_config").select("*").maybeSingle().then(checar),
+    todos(() => sb.from("ctr_impostos").select("*").order("vale_desde")),
+    todos(() => sb.from("ctr_clientes").select("*").order("apelido")),
+    todos(() => sb.from("ctr_modelos").select("*").order("id")),
+    todos(() => sb.from("ctr_contratos").select("*").order("id")),
+    todos(() => sb.from("ctr_eventos").select("*").order("id")),
+    todos(() => sb.from("ctr_cobrancas_v").select("*").order("id")),
+    todos(() => sb.from("ctr_extrato").select("*").order("data", { ascending: false })),
+    todos(() => sb.from("ctr_importacoes").select("*").order("id", { ascending: false }))]);
+  S.cfg = cfg || {}; S.impostos = imp; S.modelos = mod; S.eventos = ev; S.cob = cob; S.extrato = ext; S.imps = imps;
+  S.clientes = new Map(cli.map(c => [c.id, c])); S.contratos = new Map(kon.map(k => [k.id, k]));
+  for (const id of [...S.sel]) if (!S.cob.some(c => c.id === id)) S.sel.delete(id);
+}
+const cliNome = id => (S.clientes.get(id) || {}).apelido || "?";
+const kNome = k => cliNome(k.cliente_id) + " · " + br(k.inicio) + (k.fim ? " a " + br(k.fim) : " (indeterminado)");
+const aliquota = d => { let p = 0; for (const i of S.impostos) if (i.vale_desde <= d) p = Number(i.pct); return p; };
+
+// ---------------------------------------------------------------- navegação
+document.querySelector(".orelhas").addEventListener("click", e => { const b = e.target.closest(".aba"); if (b) ir(b.dataset.v); });
+function ir(v) { S.view = v; for (const b of document.querySelectorAll(".orelhas .aba")) b.classList.toggle("on", b.dataset.v === v); render(); }
+function render() {
+  const c = $("#conteudo"); c.replaceChildren();
+  ({ painel: vPainel, cobrancas: vCobrancas, contratos: vContratos, clientes: vClientes, extrato: vExtrato, config: vConfig })[S.view](c);
+}
+let toastT;
+function toast(txt) { const t = $("#toast"); t.textContent = txt; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 5000); }
+async function salvar(fn, msgEl, okTxt) {
+  try { if (msgEl) { msgEl.className = "msg"; msgEl.textContent = "Gravando…"; } const r = await fn(); await carregar(); render();
+    if (msgEl && msgEl.isConnected) msgEl.textContent = typeof okTxt === "function" ? okTxt(r) : okTxt || "Gravado."; else toast(typeof okTxt === "function" ? okTxt(r) : okTxt || "Gravado."); return r; }
+  catch (e) { if (msgEl && msgEl.isConnected) { msgEl.className = "msg erro"; msgEl.textContent = erroTxt(e); } else alert(erroTxt(e)); throw { mostrado: true, erro: e }; }
+}
+// erro já mostrado na tela: interrompe quem chamou (não fecha a janela nem segue) sem virar erro solto no console
+window.addEventListener("unhandledrejection", e => { if (e.reason && e.reason.mostrado) e.preventDefault(); });
+function dialogo(titulo, corpo, { peq = false } = {}) {
+  const d = peq ? $("#dlg2") : $("#dlg");
+  d.replaceChildren(el("div", { class: "dlgtopo" }, el("h2", {}, titulo), el("button", { class: "fechar", type: "button", "aria-label": "Fechar", onclick: () => d.close() }, "×")), corpo);
+  if (!d.open) d.showModal();
+  return d;
+}
+const campo = (rot, inp, cls) => el("div", { class: "campo " + (cls || "") }, el("label", {}, rot), inp);
+const sel = (opcoes, valor, attrs = {}) => { const s = el("select", attrs); for (const [v, t] of opcoes) s.append(el("option", { value: v, selected: String(v) === String(valor) }, t)); return s; };
+function pedir(titulo, rotulo, { obrigatorio = 5, valor = "" } = {}) {
+  return new Promise(res => {
+    const t = el("textarea", { value: valor }), m = el("span", { class: "msg erro" });
+    const d = dialogo(titulo, el("div", {}, campo(rotulo, t), el("div", { class: "acoes", style: "margin-top:10px" },
+      el("button", { class: "btn", type: "button", onclick: () => { const v = t.value.trim(); if (v.length < obrigatorio) { m.textContent = "Escreva pelo menos " + obrigatorio + " letras."; return; } d.close(); res(v); } }, "Confirmar"),
+      el("button", { class: "btn sec", type: "button", onclick: () => { d.close(); res(null); } }, "Cancelar"), m)), { peq: true });
+    d.addEventListener("close", () => res(null), { once: true });
+  });
+}
+
+// ---------------------------------------------------------------- Painel
+function vPainel(c) {
+  const anos = [...new Set(S.cob.map(x => x.competencia.slice(0, 4)).concat(hoje().slice(0, 4)))].sort().reverse();
+  const ano = S.fp.ano, doAno = S.cob.filter(x => x.competencia.startsWith(ano + "/"));
+  const soma = (l, f) => l.reduce((s, x) => s + Number(f(x) || 0), 0);
+  const atras = S.cob.filter(x => x.situacao === "atrasada"), aVencer = doAno.filter(x => x.situacao === "a_vencer");
+  const mesAtual = hoje().slice(0, 7).replace("-", "/");
+  const nfPend = S.cob.filter(x => x.nf_situacao !== "emitida" && !x.pago_em && x.competencia.replace(/\/13$/, "/12") <= mesAtual);
+  const semAss = [...S.contratos.values()].filter(k => ["gerado", "enviado"].includes(k.situacao));
+  const lim = addDias(hoje(), 60);
+  const renovados = new Set([...S.contratos.values()].map(k => k.anterior_id).filter(Boolean));
+  const vencendo = [...S.contratos.values()].filter(k => k.fim && k.fim >= hoje() && k.fim <= lim && !["encerrado", "rescindido", "rascunho"].includes(k.situacao) && !renovados.has(k.id));
+  c.append(el("div", { class: "filtros" }, campo("Ano", sel(anos.map(a => [a, a]), ano, { onchange: e => { S.fp.ano = e.target.value; render(); } }))));
+  const kpi = (l, v, h, cls) => el("div", { class: "kpi " + (cls || "") }, el("div", { class: "l" }, l), el("div", { class: "v" }, v), h ? el("div", { class: "h" }, h) : null);
+  const cobr = soma(doAno, x => x.valor), pago = soma(doAno, x => x.valor_pago), imp = soma(doAno, x => x.imposto);
+  c.append(el("div", { class: "kpis" },
+    kpi("Cobrado em " + ano, R(cobr), doAno.length + " cobranças"),
+    kpi("Recebido", R(pago), cobr ? Math.round(pago / cobr * 100) + "% do cobrado" : ""),
+    kpi("Imposto (estimado)", R(imp), "líquido " + R(pago - imp)),
+    kpi("A vencer em " + ano, R(soma(aVencer, x => x.valor)), aVencer.length + " cobranças"),
+    kpi("Em atraso (todos os anos)", R(soma(atras, x => x.valor)), atras.length + " cobranças", atras.length ? "alerta" : "")));
+  const avisos = [];
+  if (nfPend.length) avisos.push(el("li", {}, el("b", {}, nfPend.length + " NF a emitir"), " até este mês (prazo: dia " + (S.cfg.dia_nf || 5) + ") · ",
+    el("button", { class: "btn lnk", onclick: () => { Object.assign(S.fc, { ano: "", mes: "", cli: "", sit: "aberto", nf: "nao", q: "" }); ir("cobrancas"); } }, "ver")));
+  if (atras.length) avisos.push(el("li", {}, el("b", {}, atras.length + " cobrança(s) em atraso"), " · ",
+    el("button", { class: "btn lnk", onclick: () => { Object.assign(S.fc, { ano: "", mes: "", cli: "", sit: "atrasada", nf: "", q: "" }); ir("cobrancas"); } }, "ver")));
+  if (semAss.length) avisos.push(el("li", {}, el("b", {}, semAss.length + " contrato(s) sem assinatura registrada"), " · ",
+    el("button", { class: "btn lnk", onclick: () => { S.fk.sit = "assinatura"; ir("contratos"); } }, "ver")));
+  for (const k of vencendo) avisos.push(el("li", {}, "Contrato ", el("b", {}, cliNome(k.cliente_id)), " termina em " + br(k.fim) + " · ",
+    el("button", { class: "btn lnk", onclick: () => abrirContrato(k.id) }, "renovar")));
+  const pend = S.extrato.filter(e => !e.ignorado_motivo && !S.cob.some(x => x.extrato_id === e.id));
+  if (pend.length) avisos.push(el("li", {}, el("b", {}, pend.length + " crédito(s) do extrato"), " a conferir · ", el("button", { class: "btn lnk", onclick: () => ir("extrato") }, "conferir")));
+  c.append(el("div", { class: "painel" }, el("h2", {}, "Pendências"), avisos.length ? el("ul", { style: "margin:0;padding-left:18px" }, avisos) : el("div", { class: "mut" }, "Nada pendente.")));
+  // resumo por mês (como a aba Resumo da planilha)
+  const linhas = [], tot = { c: 0, p: 0, i: 0 };
+  for (let m = 1; m <= 13; m++) {
+    const comp = ano + "/" + String(m).padStart(2, "0"), l = doAno.filter(x => x.competencia === comp);
+    if (!l.length && m === 13) continue;
+    const cc = soma(l, x => x.valor), pp = soma(l, x => x.valor_pago), ii = soma(l, x => x.imposto);
+    tot.c += cc; tot.p += pp; tot.i += ii;
+    linhas.push(el("tr", { class: l.length ? "clica" : "", onclick: l.length ? () => { Object.assign(S.fc, { ano, mes: comp.slice(5), cli: "", sit: "", nf: "", q: "" }); ir("cobrancas"); } : null },
+      el("td", {}, m === 13 ? "Extra (13ª)" : compLabel(comp)), el("td", { class: "n" }, N(cc)), el("td", { class: "n" }, N(pp)), el("td", { class: "n" }, N(pp - cc)), el("td", { class: "n" }, N(ii)), el("td", { class: "n" }, N(pp - ii))));
+  }
+  const tabMes = el("table", { class: "tab" }, el("thead", {}, el("tr", {}, ["Mês", "Cobrado", "Recebido", "Saldo", "Imposto", "Líquido"].map((t, i) => el("th", { class: i ? "n" : "" }, t)))),
+    el("tbody", {}, linhas), el("tfoot", {}, el("tr", {}, el("td", {}, "Total"), el("td", { class: "n" }, N(tot.c)), el("td", { class: "n" }, N(tot.p)), el("td", { class: "n" }, N(tot.p - tot.c)), el("td", { class: "n" }, N(tot.i)), el("td", { class: "n" }, N(tot.p - tot.i)))));
+  // por cliente
+  const porCli = new Map();
+  for (const x of doAno) { const o = porCli.get(x.cliente_id) || { c: 0, p: 0, a: 0 }; o.c += Number(x.valor); o.p += Number(x.valor_pago || 0); if (!x.pago_em) o.a += Number(x.valor); porCli.set(x.cliente_id, o); }
+  const tabCli = el("table", { class: "tab" }, el("thead", {}, el("tr", {}, ["Cliente", "Cobrado", "Recebido", "Em aberto"].map((t, i) => el("th", { class: i ? "n" : "" }, t)))),
+    el("tbody", {}, [...porCli].sort((a, b) => b[1].c - a[1].c).map(([id, o]) => el("tr", { class: "clica", onclick: () => { Object.assign(S.fc, { ano, mes: "", cli: String(id), sit: "", nf: "", q: "" }); ir("cobrancas"); } },
+      el("td", {}, cliNome(id)), el("td", { class: "n" }, N(o.c)), el("td", { class: "n" }, N(o.p)), el("td", { class: "n" }, N(o.a))))));
+  c.append(el("div", { class: "grade2" }, el("div", { class: "painel" }, el("h2", {}, "Resumo por mês de " + ano), tabMes), el("div", { class: "painel" }, el("h2", {}, "Por cliente em " + ano), tabCli)));
+}
+
+// ---------------------------------------------------------------- Cobranças
+function filtrarCob() {
+  const f = S.fc, q = semAc(f.q);
+  return S.cob.filter(x => (!f.ano || x.competencia.startsWith(f.ano + "/")) && (!f.mes || x.competencia.slice(5) === f.mes) && (!f.cli || String(x.cliente_id) === f.cli)
+    && (!f.sit || (f.sit === "aberto" ? !x.pago_em : f.sit === "recebida" ? !!x.pago_em : x.situacao === f.sit))
+    && (!f.nf || (f.nf === "nao" ? x.nf_situacao !== "emitida" : x.nf_situacao === f.nf))
+    && (!q || semAc(x.cliente + " " + x.descricao + " " + x.obs + " " + x.nf_numero).includes(q)))
+    .sort((a, b) => b.competencia.localeCompare(a.competencia) || a.cliente.localeCompare(b.cliente, "pt") || a.id - b.id);
+}
+function vCobrancas(c) {
+  const f = S.fc, anos = [...new Set(S.cob.map(x => x.competencia.slice(0, 4)))].sort().reverse();
+  const meses = [["", "Todos"], ...Array.from({ length: 13 }, (_, i) => { const m = String(i + 1).padStart(2, "0"); return [m, i === 12 ? "Extra (13ª)" : m]; })];
+  const muda = k => e => { S.fc[k] = e.target.value; S.sel.clear(); render(); };
+  const busca = el("input", { type: "search", value: f.q, placeholder: "cliente, descrição, nº NF", oninput: e => { S.fc.q = e.target.value; desenhar(); } });
+  c.append(el("div", { class: "filtros" },
+    campo("Ano", sel([["", "Todos"], ...anos.map(a => [a, a])], f.ano, { onchange: muda("ano") })),
+    campo("Mês", sel(meses, f.mes, { onchange: muda("mes") })),
+    campo("Cliente", sel([["", "Todos"], ...[...S.clientes.values()].map(x => [x.id, x.apelido])], f.cli, { onchange: muda("cli") })),
+    campo("Situação", sel([["", "Todas"], ["aberto", "Em aberto"], ["a_vencer", "A vencer"], ["atrasada", "Atrasada"], ["recebida", "Recebidas"], ["paga", "Paga"], ["paga_atraso", "Paga com atraso"], ["diferenca", "Diferença"]], f.sit, { onchange: muda("sit") })),
+    campo("NF", sel([["", "Todas"], ["nao", "Não emitida"], ["atrasada", "NF atrasada"], ["emitida", "Emitida"]], f.nf, { onchange: muda("nf") })),
+    campo("Buscar", busca, "")));
+  const barra = el("div", { class: "acoes", style: "margin-bottom:10px" }), area = el("div", { class: "painel rolar", style: "padding:0" });
+  c.append(barra, area);
+  function desenhar() {
+    const l = filtrarCob(), soma = (f) => l.reduce((s, x) => s + Number(f(x) || 0), 0);
+    barra.replaceChildren(
+      el("button", { class: "btn", disabled: !S.sel.size, onclick: () => dlgNf([...S.sel]) }, "Marcar NF emitida" + (S.sel.size ? " (" + S.sel.size + ")" : "")),
+      el("button", { class: "btn sec", onclick: () => dlgAvulsa() }, "+ Cobrança avulsa"),
+      el("button", { class: "btn sec", onclick: () => csv("cobrancas.csv", ["Competência", "Cliente", "Descrição", "Vencimento", "Valor", "NF", "Nº NF", "Data NF", "Pago em", "Valor pago", "Situação", "Imposto", "Líquido", "Obs"],
+        l.map(x => [x.competencia, x.cliente, x.descricao, br(x.vencimento), N(x.valor), x.nf_emitida ? "sim" : "não", x.nf_numero, br(x.nf_data), br(x.pago_em), x.pago_em ? N(x.valor_pago) : "", (SIT_COB[x.situacao] || [x.situacao])[0], N(x.imposto), N(x.liquido), x.obs])) }, "CSV"),
+      el("span", { class: "mut" }, l.length + " cobranças · cobrado " + R(soma(x => x.valor)) + " · recebido " + R(soma(x => x.valor_pago)) + " · em aberto " + R(l.filter(x => !x.pago_em).reduce((s, x) => s + Number(x.valor), 0))));
+    const todosMarc = l.length && l.every(x => S.sel.has(x.id));
+    area.replaceChildren(el("table", { class: "tab" },
+      el("thead", {}, el("tr", {}, el("th", {}, el("input", { type: "checkbox", checked: todosMarc, "aria-label": "Marcar todas", onchange: e => { for (const x of l) e.target.checked ? S.sel.add(x.id) : S.sel.delete(x.id); desenhar(); } })),
+        ["Mês", "Cliente", "Vencimento", "Valor", "NF", "Pago em", "Valor pago", "Situação"].map((t, i) => el("th", { class: [3, 6].includes(i) ? "n" : "" }, t)))),
+      el("tbody", {}, l.length ? l.map(x => el("tr", { class: "clica", onclick: e => { if (!e.target.closest("input")) dlgCobranca(x.id); } },
+        el("td", {}, el("input", { type: "checkbox", checked: S.sel.has(x.id), "aria-label": "Marcar", onchange: e => { e.target.checked ? S.sel.add(x.id) : S.sel.delete(x.id); desenhar(); } })),
+        el("td", { class: "mono" }, compLabel(x.competencia)),
+        el("td", {}, x.cliente, x.descricao ? el("div", { class: "mut" }, x.descricao) : null),
+        el("td", { class: "mono" }, br(x.vencimento)), el("td", { class: "n" }, N(x.valor)),
+        el("td", {}, pill(SIT_NF, x.nf_situacao), x.nf_numero ? el("div", { class: "mut" }, "nº " + x.nf_numero) : null),
+        el("td", { class: "mono" }, br(x.pago_em)), el("td", { class: "n" }, x.pago_em ? N(x.valor_pago) : ""),
+        el("td", {}, pill(SIT_COB, x.situacao), x.dias_atraso ? el("div", { class: "mut" }, x.dias_atraso + " dias") : null)))
+        : el("tr", {}, el("td", { colspan: 9, class: "mut" }, "Nenhuma cobrança com estes filtros.")))));
+  }
+  desenhar();
+}
+function dlgNf(ids) {
+  const d8 = el("input", { type: "date", value: hoje(), max: hoje() }), num = el("input", { type: "text", placeholder: "opcional" }), m = el("span", { class: "msg" });
+  const lst = S.cob.filter(x => ids.includes(x.id));
+  dialogo("NF emitida", el("div", {},
+    el("p", { class: "mut" }, lst.length + " cobrança(s): " + lst.map(x => x.cliente + " " + compLabel(x.competencia)).slice(0, 8).join(", ") + (lst.length > 8 ? "…" : "")),
+    el("div", { class: "form" }, campo("Data da emissão", d8), ids.length === 1 ? campo("Número da NF", num) : null),
+    el("div", { class: "acoes", style: "margin-top:12px" },
+      el("button", { class: "btn", onclick: async () => { await salvar(() => rpc("ctr_nf_marcar", { p: { ids, data: d8.value, numero: num.value } }), m, "NF marcada."); S.sel.clear(); $("#dlg2").close(); render(); } }, "Marcar como emitida"),
+      el("button", { class: "btn sec", onclick: async () => { await salvar(() => rpc("ctr_nf_marcar", { p: { ids, emitida: false } }), m); S.sel.clear(); $("#dlg2").close(); render(); } }, "Desmarcar"), m)), { peq: true });
+}
+function dlgAvulsa(cliId) {
+  const cli = sel([["", "Escolha…"], ...[...S.clientes.values()].filter(x => x.ativo || String(x.id) === String(cliId)).map(x => [x.id, x.apelido])], cliId || "");
+  const venc = el("input", { type: "date", value: hoje() }), val = el("input", { type: "number", step: "0.01", min: "0" }), desc = el("input", { type: "text", placeholder: "Ex.: projeto de rede, visita extra" }), m = el("span", { class: "msg" });
+  dialogo("Cobrança avulsa", el("div", {}, el("div", { class: "form" }, campo("Cliente", cli), campo("Vencimento", venc), campo("Valor (R$)", val), campo("Descrição", desc, "tudo")),
+    el("div", { class: "acoes", style: "margin-top:12px" }, el("button", { class: "btn", onclick: async () => {
+      await salvar(() => rpc("ctr_cobranca_avulsa", { p: { cliente_id: cli.value, vencimento: venc.value, valor: val.value, descricao: desc.value } }), m); $("#dlg2").close(); } }, "Criar cobrança"), m)), { peq: true });
+}
+function dlgCobranca(id) {
+  const x = S.cob.find(y => y.id === id); if (!x) return;
+  const m = el("span", { class: "msg" }), k = x.contrato_id ? S.contratos.get(x.contrato_id) : null;
+  const corpo = el("div", {});
+  corpo.append(el("p", {}, pill(SIT_COB, x.situacao), " ", pill(SIT_NF, x.nf_situacao), " ", k ? el("button", { class: "btn lnk", onclick: () => { $("#dlg2").close(); abrirContrato(k.id); } }, "contrato " + kNome(k)) : el("span", { class: "mut" }, "cobrança avulsa")));
+  corpo.append(el("table", { class: "tab" }, el("tbody", {},
+    [["Cliente", x.cliente], ["Mês", compLabel(x.competencia)], ["Vencimento", br(x.vencimento)], ["Valor", R(x.valor)], ["Prazo da NF", br(x.nf_prazo)],
+     ["NF", x.nf_emitida ? "emitida" + (x.nf_data ? " em " + br(x.nf_data) : "") + (x.nf_numero ? " · nº " + x.nf_numero : "") : "não emitida"],
+     ["Recebido", x.pago_em ? R(x.valor_pago) + " em " + br(x.pago_em) + (x.extrato_id ? " (extrato)" : "") : "—"],
+     ["Imposto / líquido", x.pago_em ? R(x.imposto) + " (" + N(x.imposto_pct) + "%) · " + R(x.liquido) : "—"], ["Observação", x.obs || "—"]]
+      .map(([a, b]) => el("tr", {}, el("th", {}, a), el("td", {}, b))))));
+  if (x.situacao === "atrasada") {
+    const multa = x.valor * 0.02, juros = x.valor * 0.01 * x.dias_atraso / 30;
+    corpo.append(el("p", { class: "aviso" }, "Em atraso há " + x.dias_atraso + " dias. Pela cláusula 3.4: multa de 2% (" + R(multa) + ") + juros de 1% ao mês (" + R(juros) + ") = " + R(x.valor + multa + juros) + (x.dias_atraso > 30 ? ", além de correção monetária." : ".")));
+  }
+  if (!x.pago_em) {
+    const pd = el("input", { type: "date", value: hoje(), max: hoje() }), pv = el("input", { type: "number", step: "0.01", value: x.valor }), po = el("input", { type: "text", placeholder: "obrigatória se o valor for diferente" });
+    corpo.append(el("h3", {}, "Dar baixa (sem o extrato)"), el("div", { class: "form" }, campo("Recebido em", pd), campo("Valor recebido", pv), campo("Observação", po)),
+      el("div", { class: "acoes", style: "margin-top:8px" }, el("button", { class: "btn", onclick: async () => { await salvar(() => rpc("ctr_baixa", { p: { id, pago_em: pd.value, valor_pago: pv.value, obs: po.value } }), m, "Baixa registrada."); dlgCobranca(id); } }, "Registrar recebimento")));
+    const ev = el("input", { type: "number", step: "0.01", value: x.valor }), evc = el("input", { type: "date", value: x.vencimento }), ed = el("input", { type: "text", value: x.descricao }), eo = el("input", { type: "text", value: x.obs });
+    corpo.append(el("h3", {}, "Alterar"), el("div", { class: "form" }, campo("Valor", ev), campo("Vencimento", evc), campo("Descrição", ed), campo("Observação", eo, "tudo")),
+      el("div", { class: "acoes", style: "margin-top:8px" },
+        el("button", { class: "btn sec", onclick: async () => { await salvar(() => rpc("ctr_cobranca_salvar", { p: { id, valor: ev.value, vencimento: evc.value, descricao: ed.value, obs: eo.value } }), m); dlgCobranca(id); } }, "Salvar alteração"),
+        el("button", { class: "btn sec", onclick: () => dlgNf([id]) }, x.nf_emitida ? "NF: alterar / desmarcar" : "Marcar NF emitida"),
+        el("button", { class: "btn perigo", onclick: async () => { const mot = await pedir("Excluir cobrança", "Motivo da exclusão"); if (!mot) return; await salvar(() => rpc("ctr_cobranca_excluir", { p_id: id, p_motivo: mot }), m); $("#dlg").close(); } }, "Excluir")));
+  } else {
+    const eo = el("input", { type: "text", value: x.obs });
+    corpo.append(el("h3", {}, "Observação"), el("div", { class: "acoes" }, eo, el("button", { class: "btn sec", onclick: async () => { await salvar(() => rpc("ctr_cobranca_salvar", { p: { id, obs: eo.value } }), m); } }, "Salvar"),
+      el("button", { class: "btn sec", onclick: () => dlgNf([id]) }, "NF"),
+      el("button", { class: "btn perigo", onclick: async () => { const mot = await pedir("Desfazer a baixa", "Motivo"); if (!mot) return; await salvar(() => rpc("ctr_baixa_desfazer", { p_id: id, p_motivo: mot }), m, "Baixa desfeita."); dlgCobranca(id); } }, "Desfazer baixa")));
+  }
+  corpo.append(el("div", { style: "margin-top:8px" }, m));
+  dialogo("Cobrança " + x.cliente + " · " + compLabel(x.competencia), corpo);
+}
+
+// ---------------------------------------------------------------- Contratos
+const ETAPAS = ["rascunho", "gerado", "enviado", "assinado"];
+function filtrarK() {
+  const f = S.fk;
+  return [...S.contratos.values()].filter(k => (!f.cli || String(k.cliente_id) === f.cli) && (
+    f.sit === "todos" ? true : f.sit === "andamento" ? !["encerrado", "rescindido"].includes(k.situacao) && !k.historico
+      : f.sit === "assinatura" ? ["gerado", "enviado"].includes(k.situacao) : f.sit === "encerrados" ? ["encerrado", "rescindido"].includes(k.situacao) : k.situacao === f.sit))
+    .sort((a, b) => cliNome(a.cliente_id).localeCompare(cliNome(b.cliente_id), "pt") || b.inicio.localeCompare(a.inicio));
+}
+function vContratos(c) {
+  const f = S.fk, muda = k => e => { S.fk[k] = e.target.value; S.selK.clear(); render(); };
+  c.append(el("div", { class: "filtros" },
+    campo("Mostrar", sel([["andamento", "Em andamento"], ["assinatura", "Sem assinatura"], ["rascunho", "Rascunho"], ["assinado", "Assinados"], ["encerrados", "Encerrados / rescindidos"], ["todos", "Todos (inclusive os antigos)"]], f.sit, { onchange: muda("sit") })),
+    campo("Cliente", sel([["", "Todos"], ...[...S.clientes.values()].map(x => [x.id, x.apelido])], f.cli, { onchange: muda("cli") }))));
+  const l = filtrarK(), m = el("span", { class: "msg" });
+  c.append(el("div", { class: "acoes", style: "margin-bottom:10px" },
+    el("button", { class: "btn", onclick: () => abrirContrato(null) }, "+ Novo contrato"),
+    el("button", { class: "btn sec", disabled: !S.selK.size, onclick: () => gerarWord([...S.selK], m) }, "Gerar Word" + (S.selK.size ? " (" + S.selK.size + ")" : "")),
+    el("span", { class: "mut" }, l.length + " contrato(s) · " + R(l.filter(k => k.situacao !== "rascunho").reduce((s, k) => s + Number(k.valor_mensal), 0)) + " por mês"), m));
+  const todosMarc = l.length && l.every(k => S.selK.has(k.id));
+  c.append(el("div", { class: "painel rolar", style: "padding:0" }, el("table", { class: "tab" },
+    el("thead", {}, el("tr", {}, el("th", {}, el("input", { type: "checkbox", checked: todosMarc, "aria-label": "Marcar todos", onchange: e => { for (const k of l) e.target.checked ? S.selK.add(k.id) : S.selK.delete(k.id); render(); } })),
+      ["Cliente", "Início", "Fim", "Valor mensal", "Situação", "PDF", "Cobranças"].map((t, i) => el("th", { class: i === 3 ? "n" : "" }, t)))),
+    el("tbody", {}, l.length ? l.map(k => {
+      const cobs = S.cob.filter(x => x.contrato_id === k.id), ab = cobs.filter(x => !x.pago_em).length;
+      return el("tr", { class: "clica", onclick: e => { if (!e.target.closest("input")) abrirContrato(k.id); } },
+        el("td", {}, el("input", { type: "checkbox", checked: S.selK.has(k.id), "aria-label": "Marcar", onchange: e => { e.target.checked ? S.selK.add(k.id) : S.selK.delete(k.id); render(); } })),
+        el("td", {}, cliNome(k.cliente_id), k.historico ? el("span", { class: "mut" }, " · antigo (planilha)") : null),
+        el("td", { class: "mono" }, br(k.inicio)), el("td", { class: "mono" }, k.fim ? br(k.fim) : "indeterminado"), el("td", { class: "n" }, N(k.valor_mensal)),
+        el("td", {}, pill(SIT_K, k.situacao)), el("td", {}, k.documento ? "✓" : ""), el("td", { class: "mut" }, cobs.length ? cobs.length + (ab ? " (" + ab + " em aberto)" : "") : "—"));
+    }) : el("tr", {}, el("td", { colspan: 8, class: "mut" }, "Nenhum contrato."))))));
+}
+// valores dos campos de mala direta do modelo
+function valoresMala(k) {
+  const cl = S.clientes.get(k.cliente_id) || {}, cf = S.cfg;
+  return { CTTNOME: cl.razao_social, CTTCNPJ: fmtDoc(cl.cnpj), CTTEND: cl.endereco, CTTEMAIL: k.assinantes, RESPFINAN: cl.resp_financeiro,
+    CTRANOME: cf.contratada_nome, CTRACNPJ: fmtDoc(String(cf.contratada_cnpj || "").replace(/\D/g, "")) || cf.contratada_cnpj, CTRAEND: cf.contratada_endereco,
+    CTRAJUNTA: cf.contratada_junta, CTRAEMAIL: cf.contratada_email, CTRASERVICOSESP: k.servicos_esp || cf.servicos_esp, CTRAPRESTACAO: k.objeto, CTRAOBJ: k.objeto,
+    CTRAINI: br(k.inicio), CTRAFIM: k.fim ? br(k.fim) : "prazo indeterminado", CTRAHONORARIOS: A.valorContrato(k.valor_mensal),
+    TESTE1: k.testemunha1, TESTE1DOC: k.testemunha1_doc, TESTE2: k.testemunha2, TESTE2DOC: k.testemunha2_doc,
+    LOCALDATAASSINATURA: k.local_assinatura + ", " + A.dataExtenso(k.data_assinatura || k.inicio) };
+}
+async function modeloBytes(k) {
+  const mod = (k.modelo_id && S.modelos.find(x => x.id === k.modelo_id)) || S.modelos.find(x => x.padrao);
+  if (!mod) throw new Error("Nenhum modelo do Word cadastrado: envie o modelo em Configuração → Modelo do contrato.");
+  const blob = checar(await sb.storage.from("ctr-arquivos").download(mod.caminho));
+  return blob.arrayBuffer();
+}
+const nomeArq = k => ("Contrato " + cliNome(k.cliente_id) + " " + k.inicio.slice(0, 4)).replace(/[\\/:*?"<>|]+/g, "-") + ".docx";
+async function gerarWord(ids, m) {
+  try {
+    const ks = ids.map(i => S.contratos.get(i)).filter(Boolean);
+    if (ks.some(k => ["encerrado", "rescindido"].includes(k.situacao))) throw new Error("Contrato encerrado não se gera de novo.");
+    if (!S.cfg.contratada_nome) throw new Error("Preencha os dados da Nervia (contratada) em Configuração antes de gerar.");
+    m.className = "msg"; m.textContent = "Gerando…";
+    const arqs = [], usados = new Set();
+    for (const k of ks) {
+      const r = await A.preencherDocx(await modeloBytes(k), valoresMala(k));
+      let nome = nomeArq(k); while (usados.has(nome)) nome = nome.replace(/\.docx$/, " (" + k.id + ").docx"); usados.add(nome);
+      arqs.push([nome, r.bytes]);
+    }
+    if (arqs.length === 1) baixar(arqs[0][0], arqs[0][1], "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+    else baixar("Contratos.zip", await A.gravarZip(arqs), "application/zip");
+    for (const k of ks) await rpc("ctr_contrato_etapa", { p_id: k.id, p_etapa: "gerado" });
+    S.selK.clear(); await carregar(); render();
+    if (m.isConnected) m.textContent = arqs.length + " contrato(s) gerado(s)."; else toast(arqs.length + " contrato(s) gerado(s).");
+    return true;
+  } catch (e) { m.className = "msg erro"; m.textContent = erroTxt(e); return false; }
+}
+function abrirContrato(id) {
+  const k = id ? S.contratos.get(id) : null, novo = !k;
+  const v = k || { cliente_id: "", inicio: "", fim: "", valor_mensal: "", dia_vencimento: 30, parcela_extra: true, objeto: (([...S.contratos.values()].filter(x => !x.historico).pop() || {}).objeto || ""), servicos_esp: "",
+    assinantes: "", testemunha1: "", testemunha1_doc: "", testemunha2: "", testemunha2_doc: "", local_assinatura: "Rio de Janeiro", data_assinatura: "", obs: "", situacao: "rascunho" };
+  const m = el("span", { class: "msg" }), corpo = el("div", {});
+  const ent = {
+    cliente_id: sel([["", "Escolha…"], ...[...S.clientes.values()].filter(x => x.ativo || x.id === v.cliente_id).map(x => [x.id, x.apelido])], v.cliente_id),
+    inicio: el("input", { type: "date", value: v.inicio }), fim: el("input", { type: "date", value: v.fim || "" }),
+    valor_mensal: el("input", { type: "number", step: "0.01", min: "0", value: v.valor_mensal }), dia_vencimento: el("input", { type: "number", min: "1", max: "31", value: v.dia_vencimento }),
+    parcela_extra: sel([["true", "Sim (cláusula 3.1)"], ["false", "Não"]], String(v.parcela_extra)),
+    objeto: el("textarea", { value: v.objeto }), servicos_esp: el("input", { type: "text", value: v.servicos_esp, placeholder: S.cfg.servicos_esp || "" }),
+    assinantes: el("input", { type: "text", value: v.assinantes, placeholder: "e-mails de quem assina pelo cliente" }),
+    testemunha1: el("input", { type: "text", value: v.testemunha1 }), testemunha1_doc: el("input", { type: "text", value: v.testemunha1_doc, placeholder: "RG: … ou CPF: …" }),
+    testemunha2: el("input", { type: "text", value: v.testemunha2 }), testemunha2_doc: el("input", { type: "text", value: v.testemunha2_doc }),
+    local_assinatura: el("input", { type: "text", value: v.local_assinatura }), data_assinatura: el("input", { type: "date", value: v.data_assinatura || "" }), obs: el("input", { type: "text", value: v.obs }) };
+  if (!novo) {
+    const i = ETAPAS.indexOf(k.situacao);
+    corpo.append(el("div", { class: "etapas" }, ETAPAS.map((e, j) => el("span", { class: j < i ? "feito" : j === i ? "atual" : "" }, SIT_K[e][0] + (e === "gerado" && k.gerado_em ? " " + br(k.gerado_em) : e === "enviado" && k.enviado_em ? " " + br(k.enviado_em) : e === "assinado" && k.assinado_em ? " " + br(k.assinado_em) : ""))),
+      ["encerrado", "rescindido"].includes(k.situacao) ? el("span", { class: "atual" }, SIT_K[k.situacao][0] + " " + br(k.encerrado_em)) : null));
+    const etapa = async (et, rot, pedeMotivo) => {
+      let obs = "";
+      if (pedeMotivo) { obs = await pedir(rot, pedeMotivo, { obrigatorio: et === "encerrado" ? 0 : 5 }); if (obs === null) return; }
+      const dt = et === "voltar" ? null : (await pedirData(rot)); if (dt === null && et !== "voltar") return;
+      await salvar(() => rpc("ctr_contrato_etapa", { p_id: k.id, p_etapa: et, p_data: dt, p_obs: obs }), m); abrirContrato(k.id);
+    };
+    const pdf = el("input", { type: "file", accept: "application/pdf,.pdf", hidden: true, onchange: async e => {
+      const f = e.target.files[0]; if (!f) return;
+      const caminho = "contratos/" + k.id + "/" + Date.now() + ".pdf";
+      await salvar(async () => { checar(await sb.storage.from("ctr-arquivos").upload(caminho, new Blob([f], { type: "application/pdf" }), { contentType: "application/pdf" })); return rpc("ctr_contrato_documento", { p_id: k.id, p_caminho: caminho, p_nome: f.name }); }, m, "PDF guardado.");
+      abrirContrato(k.id); } });
+    const fim = ["encerrado", "rescindido"].includes(k.situacao);
+    corpo.append(el("div", { class: "acoes", style: "margin-bottom:12px" },
+      !fim ? el("button", { class: "btn", onclick: async () => { if (await gerarWord([k.id], m)) abrirContrato(k.id); } }, "Gerar Word") : null,
+      ["rascunho", "gerado"].includes(k.situacao) ? el("button", { class: "btn sec", onclick: () => etapa("enviado", "Enviado para assinatura (DocuSign)") }, "Marcar enviado") : null,
+      ["rascunho", "gerado", "enviado"].includes(k.situacao) ? el("button", { class: "btn sec", onclick: () => etapa("assinado", "Data da assinatura") }, "Marcar assinado") : null,
+      pdf, el("button", { class: "btn sec", onclick: () => pdf.click() }, k.documento ? "Trocar PDF assinado" : "Guardar PDF assinado"),
+      k.documento ? el("button", { class: "btn sec", onclick: async () => { try { const u = checar(await sb.storage.from("ctr-arquivos").createSignedUrl(k.documento, 300)); window.open(u.signedUrl, "_blank"); } catch (e) { m.className = "msg erro"; m.textContent = erroTxt(e); } } }, "Abrir PDF") : null,
+      k.situacao !== "rascunho" ? el("button", { class: "btn sec", onclick: async () => { await salvar(() => rpc("ctr_cobrancas_gerar", { p_contrato: k.id, p_ate: null }), null, n => n ? n + " cobrança(s) criada(s)." : "Nenhuma cobrança nova (o contrato já tem todas)."); abrirContrato(k.id); } }, "Criar cobranças") : null,
+      el("button", { class: "btn sec", onclick: () => dlgRenovar(k) }, "Renovar"),
+      k.situacao === "assinado" ? el("button", { class: "btn sec", onclick: () => etapa("encerrado", "Encerrar o contrato", "Observação (opcional)") }, "Encerrar") : null,
+      !fim ? el("button", { class: "btn perigo", onclick: () => etapa("rescindido", "Rescindir o contrato", "Motivo da rescisão") }, "Rescindir") : null,
+      k.situacao !== "rascunho" ? el("button", { class: "btn lnk", onclick: () => etapa("voltar", "Voltar a etapa", "Motivo (ex.: marcado por engano)") }, "voltar etapa") : null));
+  }
+  corpo.append(el("div", { class: "form" },
+    campo("Cliente", ent.cliente_id), campo("Início", ent.inicio), campo("Fim (vazio = indeterminado)", ent.fim),
+    campo("Valor mensal (R$)", ent.valor_mensal), campo("Dia do vencimento", ent.dia_vencimento), campo("Parcela extra em dezembro", ent.parcela_extra),
+    campo("Objeto (\"prestação de serviços …\")", ent.objeto, "tudo"), campo("Serviços da contratada (vazio = o da configuração)", ent.servicos_esp, "dois"), campo("Local da assinatura", ent.local_assinatura),
+    campo("Quem assina pelo cliente (e-mails)", ent.assinantes, "dois"), campo("Data no contrato (vazio = início)", ent.data_assinatura),
+    campo("Testemunha 1", ent.testemunha1), campo("Documento", ent.testemunha1_doc), el("div"), campo("Testemunha 2", ent.testemunha2), campo("Documento", ent.testemunha2_doc), el("div"),
+    campo("Observação interna", ent.obs, "tudo")));
+  corpo.append(el("div", { class: "acoes", style: "margin-top:12px" }, el("button", { class: "btn", onclick: async () => {
+    const p = Object.fromEntries(Object.entries(ent).map(([kk, e]) => [kk, e.value]));
+    if (!novo) { p.id = k.id;
+      if (["assinado", "encerrado", "rescindido"].includes(k.situacao) && (Number(p.valor_mensal) !== Number(k.valor_mensal) || p.inicio !== k.inicio || (p.fim || null) !== (k.fim || null) || Number(p.dia_vencimento) !== k.dia_vencimento || p.parcela_extra !== String(k.parcela_extra))) {
+        const mot = await pedir("Contrato já assinado", "Motivo da mudança (ex.: aditivo assinado em …)"); if (!mot) return; p.motivo = mot; } }
+    const nid = await salvar(() => rpc("ctr_contrato_salvar", { p }), m, novo ? "Contrato criado (rascunho)." : "Gravado.");
+    abrirContrato(novo ? nid : k.id); } }, novo ? "Criar contrato" : "Salvar dados"), m));
+  if (!novo) {
+    const cobs = S.cob.filter(x => x.contrato_id === k.id).sort((a, b) => a.competencia.localeCompare(b.competencia));
+    corpo.append(el("h3", {}, "Cobranças (" + cobs.length + ")"), cobs.length ? el("div", { class: "rolar", style: "max-height:30vh" }, el("table", { class: "tab" }, el("tbody", {}, cobs.map(x =>
+      el("tr", { class: "clica", onclick: () => dlgCobranca(x.id) }, el("td", { class: "mono" }, compLabel(x.competencia)), el("td", { class: "mono" }, br(x.vencimento)), el("td", { class: "n" }, N(x.valor)), el("td", {}, pill(SIT_NF, x.nf_situacao)), el("td", {}, pill(SIT_COB, x.situacao))))))) : el("p", { class: "mut" }, "Nenhuma. Depois de gerar o contrato, use \"Criar cobranças\"."));
+    const evs = S.eventos.filter(e => e.contrato_id === k.id).reverse();
+    corpo.append(el("h3", {}, "Histórico"), el("ul", { class: "lista-ev" }, evs.map(e => el("li", {}, el("span", { class: "mono" }, br(e.data)), " · ", el("b", {}, e.evento), e.detalhe ? " — " + e.detalhe : "", el("span", { class: "mut" }, " (" + e.criado_nome + ")")))));
+  }
+  dialogo(novo ? "Novo contrato" : "Contrato " + kNome(k), corpo);
+}
+function pedirData(titulo) {
+  return new Promise(res => {
+    const d = el("input", { type: "date", value: hoje(), max: hoje() }), m = el("span", { class: "msg erro" });
+    const dl = dialogo(titulo, el("div", {}, campo("Data", d), el("div", { class: "acoes", style: "margin-top:10px" },
+      el("button", { class: "btn", onclick: () => { if (!d.value) { m.textContent = "Informe a data."; return; } dl.close(); res(d.value); } }, "Confirmar"),
+      el("button", { class: "btn sec", onclick: () => { dl.close(); res(null); } }, "Cancelar"), m)), { peq: true });
+    dl.addEventListener("close", () => res(null), { once: true });
+  });
+}
+function dlgRenovar(k) {
+  const y = k.fim ? addDias(k.fim, 1) : hoje(), ini = el("input", { type: "date", value: y });
+  const fim = el("input", { type: "date", value: k.fim ? String(+y.slice(0, 4)) + "-12-31" : "" }), val = el("input", { type: "number", step: "0.01", value: k.valor_mensal }), m = el("span", { class: "msg" });
+  dialogo("Renovar " + cliNome(k.cliente_id), el("div", {}, el("p", { class: "mut" }, "Cria um contrato novo (rascunho) com os mesmos dados; depois gere o Word e mande para assinatura."),
+    el("div", { class: "form" }, campo("Início", ini), campo("Fim", fim), campo("Valor mensal (R$)", val)),
+    el("div", { class: "acoes", style: "margin-top:12px" }, el("button", { class: "btn", onclick: async () => {
+      const nid = await salvar(() => rpc("ctr_contrato_renovar", { p_id: k.id, p: { inicio: ini.value, fim: fim.value, valor_mensal: val.value } }), m); $("#dlg2").close(); abrirContrato(nid); } }, "Criar renovação"), m)), { peq: true });
+}
+
+// ---------------------------------------------------------------- Clientes
+function vClientes(c) {
+  c.append(el("div", { class: "acoes", style: "margin-bottom:10px" }, el("button", { class: "btn", onclick: () => dlgCliente(null) }, "+ Novo cliente")));
+  const l = [...S.clientes.values()].sort((a, b) => (b.ativo - a.ativo) || a.apelido.localeCompare(b.apelido, "pt"));
+  c.append(el("div", { class: "painel rolar", style: "padding:0" }, el("table", { class: "tab" },
+    el("thead", {}, el("tr", {}, ["Cliente", "Razão social", "CNPJ", "E-mail de cobrança", "Contrato atual", "Em aberto"].map((t, i) => el("th", { class: i === 5 ? "n" : "" }, t)))),
+    el("tbody", {}, l.map(x => {
+      const k = [...S.contratos.values()].filter(y => y.cliente_id === x.id && !["encerrado", "rescindido"].includes(y.situacao)).sort((a, b) => b.inicio.localeCompare(a.inicio))[0];
+      const ab = S.cob.filter(y => y.cliente_id === x.id && !y.pago_em).reduce((s, y) => s + Number(y.valor), 0);
+      return el("tr", { class: "clica", onclick: () => dlgCliente(x.id) }, el("td", {}, x.apelido, x.sigla ? el("span", { class: "mut" }, " · " + x.sigla) : null, x.ativo ? null : el("span", { class: "pill" }, "inativo")),
+        el("td", {}, x.razao_social), el("td", { class: "mono" }, fmtDoc(x.cnpj)), el("td", {}, x.email_cobranca),
+        el("td", {}, k ? [R(k.valor_mensal) + " · ", pill(SIT_K, k.situacao)] : el("span", { class: "mut" }, "—")), el("td", { class: "n" }, ab ? N(ab) : ""));
+    })))));
+}
+function dlgCliente(id) {
+  const x = id ? S.clientes.get(id) : { apelido: "", sigla: "", razao_social: "", cnpj: "", endereco: "", email_cobranca: "", resp_financeiro: "", extrato_textos: [], ativo: true, obs: "" };
+  const e = { apelido: el("input", { type: "text", value: x.apelido }), sigla: el("input", { type: "text", value: x.sigla }), razao_social: el("input", { type: "text", value: x.razao_social }),
+    cnpj: el("input", { type: "text", value: fmtDoc(x.cnpj) }), endereco: el("input", { type: "text", value: x.endereco }), email_cobranca: el("input", { type: "text", value: x.email_cobranca }),
+    resp_financeiro: el("input", { type: "text", value: x.resp_financeiro, placeholder: "Ex.: Shopping Park Lagos" }), extrato_textos: el("input", { type: "text", value: (x.extrato_textos || []).join(", "), placeholder: "nome como aparece no extrato, separado por vírgula" }),
+    ativo: sel([["true", "Ativo"], ["false", "Inativo"]], String(x.ativo)), obs: el("input", { type: "text", value: x.obs }) };
+  const m = el("span", { class: "msg" });
+  dialogo(id ? "Cliente " + x.apelido : "Novo cliente", el("div", {}, el("div", { class: "form" },
+    campo("Nome curto", e.apelido), campo("Sigla", e.sigla), campo("Situação", e.ativo), campo("Razão social (vai no contrato)", e.razao_social, "dois"), campo("CNPJ", e.cnpj),
+    campo("Endereço (vai no contrato)", e.endereco, "tudo"), campo("E-mail do contas a pagar", e.email_cobranca), campo("Responsável financeiro (\"… do Shopping X\")", e.resp_financeiro, "dois"),
+    campo("Como aparece no extrato (ajuda a conferência)", e.extrato_textos, "tudo"), campo("Observação", e.obs, "tudo")),
+    el("div", { class: "acoes", style: "margin-top:12px" }, el("button", { class: "btn", onclick: async () => {
+      const p = Object.fromEntries(Object.entries(e).map(([k, i]) => [k, i.value])); p.extrato_textos = p.extrato_textos.split(",").map(s => s.trim()).filter(Boolean); if (id) p.id = id;
+      await salvar(() => rpc("ctr_cliente_salvar", { p }), m); $("#dlg").close(); } }, "Salvar"),
+      id ? el("button", { class: "btn sec", onclick: () => dlgAvulsa(id) }, "+ Cobrança avulsa") : null, m)));
+}
+
+// ---------------------------------------------------------------- Extrato (OFX do Nubank) e conferência
+async function lerTexto(f) { const buf = await f.arrayBuffer(); try { return new TextDecoder("utf-8", { fatal: true }).decode(buf); } catch { return new TextDecoder("windows-1252").decode(buf); } }
+const tag = (b, t) => { const m = b.match(new RegExp("<" + t + ">([^<\\r\\n]*)", "i")); return m ? m[1].trim() : ""; };
+const num = t => { t = String(t || "").trim(); if (/,\d{1,2}$/.test(t)) t = t.replace(/\./g, "").replace(",", "."); return Number(t); };
+const data8 = t => /^\d{8}/.test(t) ? t.slice(0, 4) + "-" + t.slice(4, 6) + "-" + t.slice(6, 8) : "";
+function lerOfx(txt) {
+  const linhas = [], cont = {};
+  for (const b of txt.match(/<STMTTRN>[\s\S]*?(<\/STMTTRN>|(?=<STMTTRN>)|(?=<\/BANKTRANLIST>))/gi) || []) {
+    const v = num(tag(b, "TRNAMT")), data = data8(tag(b, "DTPOSTED")), memo = tag(b, "MEMO"), nome = tag(b, "NAME");
+    const desc = (memo && nome && !memo.includes(nome) && !nome.includes(memo) ? nome + " - " + memo : memo || nome).replace(/\s+/g, " ").trim();
+    if (!data || !isFinite(v) || v <= 0) continue;   // só créditos
+    const base = ["nubank", data, v.toFixed(2), semAc(desc)].join("|"); cont[base] = (cont[base] || 0) + 1;
+    linhas.push({ data, valor: v, descricao: desc, fitid: tag(b, "FITID"), chave: base + "|" + cont[base] });
+  }
+  const bal = (txt.match(/<LEDGERBAL>[\s\S]*?(<\/LEDGERBAL>|$)/i) || [""])[0];
+  return { linhas, saldo_final: bal ? num(tag(bal, "BALAMT")) : null, saldo_data: bal ? data8(tag(bal, "DTASOF")) : "" };
+}
+// pontos de cada cobrança em aberto para um crédito: CNPJ no texto, nome do cliente, valor igual, data perto do vencimento
+function pontuar(e, x) {
+  const cl = S.clientes.get(x.cliente_id) || {}, d = semAc(e.descricao), dig = e.descricao.replace(/\D/g, "");
+  let p = 0;
+  if (cl.cnpj && dig.includes(cl.cnpj)) p += 5;
+  else if (cl.cnpj && dig.includes(cl.cnpj.slice(0, 8))) p += 3;
+  const nomes = [cl.apelido, cl.razao_social, ...(cl.extrato_textos || [])].filter(Boolean).map(semAc);
+  if (nomes.some(n => n.length >= 4 && d.includes(n))) p += 3;
+  if (Math.abs(Number(x.valor) - Number(e.valor)) <= Number(S.cfg.tolerancia || 0.05)) p += 2;
+  const dias = Math.abs((Date.parse(e.data) - Date.parse(x.vencimento)) / 864e5);
+  if (dias <= 15) p += 1; else if (dias > 75) p -= 2;
+  return p;
+}
+function vExtrato(c) {
+  const arq = el("input", { type: "file", accept: ".ofx,.OFX" }), m = el("span", { class: "msg" });
+  c.append(el("div", { class: "painel" }, el("h2", {}, "Importar extrato do Nubank (OFX)"),
+    el("div", { class: "acoes" }, arq, el("button", { class: "btn", onclick: async () => {
+      const f = arq.files[0]; if (!f) { m.className = "msg erro"; m.textContent = "Escolha o arquivo .ofx."; return; }
+      try {
+        const r = lerOfx(await lerTexto(f));
+        if (!r.linhas.length) throw new Error("Nenhum crédito encontrado no arquivo (é o extrato OFX da conta Nubank?).");
+        await salvar(() => rpc("ctr_extrato_importar", { p: { arquivo: f.name, conta: "nubank", saldo_final: r.saldo_final, saldo_data: r.saldo_data, linhas: r.linhas } }), m,
+          res => res.novos + " crédito(s) novo(s)" + (res.repetidos ? ", " + res.repetidos + " já importado(s)" : "") + ".");
+      } catch (e) { m.className = "msg erro"; m.textContent = erroTxt(e); } } }, "Importar"), m),
+    el("p", { class: "mut", style: "margin:8px 0 0" }, "Nubank PJ → Extrato → Exportar → OFX. O arquivo é lido no seu computador; só os créditos (entradas) vão para o sistema. Importar o mesmo período de novo não duplica."),
+    S.imps.length ? el("p", { class: "mut", style: "margin:4px 0 0" }, "Última importação: " + S.imps[0].arquivo + " (" + br(S.imps[0].de) + " a " + br(S.imps[0].ate) + ", " + S.imps[0].novos + " novos)") : null));
+  const pago = new Map(); for (const x of S.cob) if (x.extrato_id) (pago.get(x.extrato_id) || pago.set(x.extrato_id, []).get(x.extrato_id)).push(x);
+  const f = S.fe.sit, l = S.extrato.filter(e => f === "todos" ? true : f === "ligados" ? pago.has(e.id) : f === "ignorados" ? !!e.ignorado_motivo : !e.ignorado_motivo && !pago.has(e.id));
+  const abertas = S.cob.filter(x => !x.pago_em);
+  c.append(el("div", { class: "filtros" }, campo("Mostrar", sel([["pendentes", "A conferir"], ["ligados", "Ligados a cobranças"], ["ignorados", "Não são de contrato"], ["todos", "Todos"]], f, { onchange: e => { S.fe.sit = e.target.value; render(); } }))));
+  c.append(el("div", { class: "painel rolar", style: "padding:0" }, el("table", { class: "tab" },
+    el("thead", {}, el("tr", {}, ["Data", "Valor", "Descrição", "Cobrança"].map((t, i) => el("th", { class: i === 1 ? "n" : "" }, t)))),
+    el("tbody", {}, l.length ? l.map(e => {
+      let col;
+      if (pago.has(e.id)) col = el("td", {}, pago.get(e.id).map(x => el("div", {}, pill(SIT_COB, x.situacao), " " + x.cliente + " " + compLabel(x.competencia) + " · " + N(x.valor_pago))));
+      else if (e.ignorado_motivo) col = el("td", { class: "mut" }, "Não é de contrato: " + e.ignorado_motivo);
+      else {
+        const melhor = abertas.map(x => [pontuar(e, x), x]).filter(([p]) => p >= 5).sort((a, b) => b[0] - a[0]);
+        const s = melhor.length && (melhor.length === 1 || melhor[0][0] > melhor[1][0]) ? melhor[0][1] : null;
+        col = el("td", { class: "sug" }, s ? [el("span", { class: "pill info" }, "sugestão"), " " + s.cliente + " " + compLabel(s.competencia) + " · " + N(s.valor) + " ",
+          el("button", { class: "btn lnk", onclick: () => conciliar(e, [s.id]) }, "ligar")] : el("span", { class: "mut" }, "sem sugestão"),
+          " ", el("button", { class: "btn lnk", onclick: () => dlgEscolher(e) }, "escolher…"),
+          " ", el("button", { class: "btn lnk", onclick: async () => { const mot = await pedir("Não é de contrato", "O que é este crédito? (ex.: rendimento, venda avulsa)", { obrigatorio: 3 }); if (mot) await salvar(() => rpc("ctr_extrato_ignorar", { p_id: e.id, p_motivo: mot })); } }, "não é de contrato"));
+      }
+      return el("tr", {}, el("td", { class: "mono" }, br(e.data)), el("td", { class: "n" }, N(e.valor)), el("td", {}, e.descricao), col);
+    }) : el("tr", {}, el("td", { colspan: 4, class: "mut" }, f === "pendentes" ? "Nenhum crédito a conferir." : "Nada aqui."))))));
+}
+async function conciliar(e, ids, obs = "") {
+  const lst = S.cob.filter(x => ids.includes(x.id)), soma = lst.reduce((s, x) => s + Number(x.valor), 0);
+  if (ids.length === 1 && Math.abs(soma - e.valor) > Number(S.cfg.tolerancia || 0.05) && !obs) {
+    obs = await pedir("Valor diferente", "O crédito (" + R(e.valor) + ") é diferente do cobrado (" + R(soma) + "). Explique a diferença:", { obrigatorio: 3 }); if (!obs) return;
+  }
+  await salvar(() => rpc("ctr_conciliar", { p_extrato: e.id, p_cobrancas: ids, p_obs: obs }));
+  if ($("#dlg").open) $("#dlg").close();
+}
+function dlgEscolher(e) {
+  const escolhidas = new Set(), lista = el("div", { class: "escolha" }), soma = el("b"), q = el("input", { type: "search", placeholder: "filtrar por cliente ou mês" });
+  const abertas = S.cob.filter(x => !x.pago_em).map(x => [pontuar(e, x), x]).sort((a, b) => b[0] - a[0] || a[1].vencimento.localeCompare(b[1].vencimento)).map(([, x]) => x);
+  const desenhar = () => {
+    const t = semAc(q.value);
+    lista.replaceChildren(...abertas.filter(x => !t || semAc(x.cliente + " " + compLabel(x.competencia)).includes(t)).map(x => el("label", {},
+      el("input", { type: "checkbox", checked: escolhidas.has(x.id), onchange: ev => { ev.target.checked ? escolhidas.add(x.id) : escolhidas.delete(x.id); tot(); } }),
+      el("span", { class: "mono" }, compLabel(x.competencia)), el("span", {}, x.cliente, x.descricao ? el("span", { class: "mut" }, " · " + x.descricao) : null),
+      el("span", { class: "mono opc" }, "venc. " + br(x.vencimento)), el("span", { class: "mono", style: "text-align:right" }, N(x.valor)))));
+  };
+  const tot = () => { const s = S.cob.filter(x => escolhidas.has(x.id)).reduce((a, x) => a + Number(x.valor), 0); soma.textContent = R(s) + (Math.abs(s - e.valor) <= 0.05 ? " ✓ bate com o crédito" : " (crédito " + R(e.valor) + ")"); };
+  q.addEventListener("input", desenhar); desenhar(); tot();
+  dialogo("Ligar o crédito de " + R(e.valor) + " de " + br(e.data), el("div", {}, el("p", { class: "mut" }, e.descricao),
+    el("div", { class: "acoes", style: "margin-bottom:8px" }, q, el("span", {}, "Marcadas: ", soma)), lista,
+    el("div", { class: "acoes", style: "margin-top:10px" }, el("button", { class: "btn", onclick: () => escolhidas.size && conciliar(e, [...escolhidas]) }, "Ligar às cobranças marcadas"),
+      el("span", { class: "mut" }, "Um Pix pode pagar mais de uma cobrança (a soma precisa bater)."))));
+}
+
+// ---------------------------------------------------------------- Configuração
+function vConfig(c) {
+  const cf = S.cfg, m = el("span", { class: "msg" });
+  const e = { contratada_nome: el("input", { type: "text", value: cf.contratada_nome }), contratada_cnpj: el("input", { type: "text", value: cf.contratada_cnpj }),
+    contratada_endereco: el("input", { type: "text", value: cf.contratada_endereco }), contratada_junta: el("input", { type: "text", value: cf.contratada_junta, placeholder: "Rio de Janeiro sob o número …" }),
+    contratada_email: el("input", { type: "text", value: cf.contratada_email }), servicos_esp: el("input", { type: "text", value: cf.servicos_esp }),
+    dia_nf: el("input", { type: "number", min: "1", max: "28", value: cf.dia_nf }), tolerancia: el("input", { type: "number", step: "0.01", min: "0", value: cf.tolerancia }) };
+  c.append(el("div", { class: "painel" }, el("h2", {}, "Nervia (contratada) e regras"), el("div", { class: "form" },
+    campo("Razão social", e.contratada_nome, "dois"), campo("CNPJ", e.contratada_cnpj), campo("Endereço", e.contratada_endereco, "tudo"), campo("Junta Comercial (texto do contrato)", e.contratada_junta, "dois"),
+    campo("E-mail de quem assina pela Nervia", e.contratada_email), campo("Serviços da contratada (\"… especializada em prestação de serviços …\")", e.servicos_esp, "dois"),
+    campo("NF até o dia", e.dia_nf), campo("Tolerância de diferença (R$)", e.tolerancia)),
+    el("div", { class: "acoes", style: "margin-top:12px" }, el("button", { class: "btn", onclick: () => salvar(() => rpc("ctr_config_salvar", { p: Object.fromEntries(Object.entries(e).map(([k, i]) => [k, i.value])) }), m) }, "Salvar"), m)));
+  // impostos
+  const di = el("input", { type: "date", value: hoje().slice(0, 8) + "01" }), pi = el("input", { type: "number", step: "0.01", min: "0", value: "16" }), mi = el("span", { class: "msg" });
+  c.append(el("div", { class: "painel" }, el("h2", {}, "Imposto sobre o recebido"), el("p", { class: "mut" }, "Vale a alíquota mais recente até a data do recebimento (ou do vencimento, se ainda não recebido). Serve para o líquido do painel."),
+    el("table", { class: "tab", style: "max-width:420px" }, el("thead", {}, el("tr", {}, el("th", {}, "Vale desde"), el("th", { class: "n" }, "Alíquota"), el("th", {}))),
+      el("tbody", {}, S.impostos.map(i => el("tr", {}, el("td", { class: "mono" }, br(i.vale_desde)), el("td", { class: "n" }, N(i.pct) + "%"),
+        el("td", {}, el("button", { class: "btn lnk", onclick: () => confirm("Excluir a alíquota de " + br(i.vale_desde) + "?") && salvar(() => rpc("ctr_imposto_excluir", { p_desde: i.vale_desde }), mi) }, "excluir")))))),
+    el("div", { class: "acoes", style: "margin-top:10px" }, campo("Vale desde", di), campo("Alíquota (%)", pi), el("button", { class: "btn sec", style: "align-self:flex-end", onclick: () => salvar(() => rpc("ctr_imposto_salvar", { p_desde: di.value, p_pct: pi.value }), mi) }, "Gravar alíquota"), mi)));
+  // modelo do Word
+  const mod = S.modelos.find(x => x.padrao), arq = el("input", { type: "file", accept: ".docx" }), mm = el("span", { class: "msg" });
+  c.append(el("div", { class: "painel" }, el("h2", {}, "Modelo do contrato (Word)"),
+    el("p", { class: "mut" }, mod ? "Em uso: " + mod.nome + " · " + mod.campos.length + " campos (" + mod.campos.join(", ") + ")." : "Nenhum modelo enviado ainda."),
+    el("p", { class: "mut" }, "É o mesmo .docx de mala direta usado hoje. O app troca cada campo («CTT-NOME», «CTRA-HONORARIOS»…) pelos dados do contrato e tira o vínculo com a planilha. Campos conhecidos: " + Object.keys(valoresMala({ cliente_id: 0, inicio: "2026-01-01", valor_mensal: 1, local_assinatura: "" })).join(", ") + "."),
+    el("div", { class: "acoes" }, arq, el("button", { class: "btn", onclick: async () => {
+      const f = arq.files[0]; if (!f) { mm.className = "msg erro"; mm.textContent = "Escolha o arquivo .docx."; return; }
+      try {
+        const campos = await A.camposDoModelo(await f.arrayBuffer());
+        const conhecidos = new Set(Object.keys(valoresMala({ cliente_id: 0, inicio: "2026-01-01", valor_mensal: 1, local_assinatura: "" })));
+        const desc = campos.filter(x => !conhecidos.has(x));
+        if (desc.length) throw new Error("O modelo tem campos que o app não conhece: " + desc.join(", ") + ".");
+        if (!campos.length) throw new Error("O documento não tem campos de mala direta.");
+        const caminho = "modelos/" + Date.now() + ".docx";
+        await salvar(async () => { const tipo = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+          checar(await sb.storage.from("ctr-arquivos").upload(caminho, new Blob([f], { type: tipo }), { contentType: tipo }));
+          return rpc("ctr_modelo_salvar", { p: { nome: f.name, caminho, campos } }); }, mm, "Modelo guardado (" + campos.length + " campos).");
+      } catch (e) { mm.className = "msg erro"; mm.textContent = erroTxt(e); } } }, "Enviar modelo"), mm)));
+  // carga da planilha
+  if (!S.clientes.size && !S.cob.length) c.append(painelCarga());
+}
+
+// ---------------------------------------------------------------- carga da planilha ContratoDados.xlsx
+const limpa = s => String(s ?? "").replace(/ /g, " ").replace(/\s+/g, " ").trim();
+const cabec = (linhas, texto) => linhas.findIndex(l => l && l.some(v => typeof v === "string" && semAc(v).trim() === semAc(texto)));
+const r2 = v => Math.round(Number(v) * 100) / 100;
+function montarCarga(abas, nomeArq) {
+  const pega = n => { const k = Object.keys(abas).find(x => semAc(x) === semAc(n)); if (!k) throw new Error("A planilha não tem a aba " + n + "."); return abas[k]; };
+  const ab = { cli: pega("Clientes"), dados: pega("Dados"), val: pega("clentesevalores"), rec: pega("RecebimentosControle"), res: pega("Resumo") };
+  const clientes = new Map(), porCnpj = new Map();
+  // Clientes: chave da conferência, nome, razão social, CNPJ
+  const hc = cabec(ab.cli, "CHAVE CONFERÊNCIA"); if (hc < 0) throw new Error("Aba Clientes sem o cabeçalho CHAVE CONFERÊNCIA.");
+  const col = (l, t) => l.findIndex(v => typeof v === "string" && semAc(v).trim() === semAc(t));
+  const cC = { ch: col(ab.cli[hc], "CHAVE CONFERÊNCIA"), nm: col(ab.cli[hc], "NOME DO SHOPPING"), rz: col(ab.cli[hc], "RAZÃO SOCIAL PARA FATURAMENTO"), cn: col(ab.cli[hc], "CNPJ") };
+  for (let i = hc + 1; i < ab.cli.length; i++) { const l = ab.cli[i]; if (!l || !l[cC.ch]) continue;
+    const c = { ref: limpa(l[cC.ch]), apelido: limpa(l[cC.nm] || l[cC.ch]), razao_social: limpa(l[cC.rz]), cnpj: String(l[cC.cn] || "").replace(/\D/g, ""), sigla: "", email_cobranca: "", endereco: "", resp_financeiro: "", ativo: true };
+    clientes.set(c.ref, c); if (c.cnpj) porCnpj.set(c.cnpj, c); }
+  // clentesevalores: sigla, razão, e-mail, chave, valor
+  const valores = new Map();
+  for (const l of ab.val) { if (!l || !l[5] || typeof l[6] !== "number") continue; const c = clientes.get(limpa(l[5])); if (c) { c.sigla = limpa(l[2]); c.email_cobranca = limpa(l[4]); valores.set(c.ref, Math.abs(l[6])); } }
+  // Dados: um contrato por linha
+  const hd = cabec(ab.dados, "CTT-NOME"); if (hd < 0) throw new Error("Aba Dados sem o cabeçalho CTT-NOME.");
+  const H = ab.dados[hd], cd = t => col(H, t), config = {}, contratos = [], atual = new Map();
+  for (let i = hd + 1; i < ab.dados.length; i++) {
+    const l = ab.dados[i]; if (!l || !l[cd("CTT-NOME")]) continue;
+    const g = t => limpa(l[cd(t)]), cnpj = g("CTT-CNPJ").replace(/\D/g, ""), c = porCnpj.get(cnpj);
+    if (!c) throw new Error("Contrato da aba Dados sem cliente na aba Clientes (CNPJ " + g("CTT-CNPJ") + ").");
+    c.razao_social = g("CTT-NOME") || c.razao_social; c.endereco = g("CTT-END"); c.resp_financeiro = g("RESP-FINAN");
+    Object.assign(config, { contratada_nome: g("CTRA-NOME"), contratada_cnpj: g("CTRA-CNPJ"), contratada_endereco: g("CTRA-END"), contratada_junta: g("CTRA-JUNTA"), contratada_email: g("CTRA-EMAIL"), servicos_esp: g("CTRA-SERVICOSESP") });
+    const hon = g("CTRA-HONORARIOS"), mv = hon.match(/R\$\s*([\d.]+,\d{2})/), valor = mv ? num(mv[1]) : valores.get(c.ref);
+    if (!valor) throw new Error("Não achei o valor do contrato de " + c.apelido + ".");
+    const local = g("LOCALDATAASSINATURA"), inicio = A.dataExcel(l[cd("CTRA-INI")]), fim = A.dataExcel(l[cd("CTRA-FIM")]);
+    const assinado = cd("Assinado") >= 0 && l[cd("Assinado")], enviado = cd("Enviado") >= 0 && l[cd("Enviado")];
+    const k = { ref: "D" + i, cliente_ref: c.ref, inicio, fim, valor_mensal: valor, objeto: g("CTRA-PRESTACAO"), servicos_esp: "", assinantes: g("CTT-EMAIL"),
+      testemunha1: g("TESTE1"), testemunha1_doc: g("TESTE1DOC"), testemunha2: g("TESTE2"), testemunha2_doc: g("TESTE2DOC"),
+      local_assinatura: local.includes(",") ? local.split(",")[0].trim() : "Rio de Janeiro", situacao: assinado ? "assinado" : enviado ? "enviado" : "gerado", historico: false };
+    contratos.push(k); atual.set(c.ref, k);
+  }
+  // RecebimentosControle (Tabela7): MesRef, DataLimPagto, Shopping, Valor, DataPag, ValorPago, …, NF
+  const hr = cabec(ab.rec, "MesRef"); if (hr < 0) throw new Error("Aba RecebimentosControle sem o cabeçalho MesRef.");
+  const HR = ab.rec[hr], cr = t => col(HR, t);
+  const imp = ab.rec.find(l => l && semAc(l[2] || "") === "imposto1"), pct = imp && typeof imp[3] === "number" ? r2(imp[3] * 100) : 16;
+  const cobrancas = [];
+  for (let i = hr + 1; i < ab.rec.length; i++) {
+    const l = ab.rec[i]; if (!l || !l[cr("MesRef")] || !l[cr("Shopping")]) continue;
+    const ref = limpa(l[cr("Shopping")]), pagoEm = A.dataExcel(l[cr("DataPag")]), vp = l[cr("ValorPago")];
+    if (!clientes.has(ref)) clientes.set(ref, { ref, apelido: ref.replace(/\s+\d+(-\d+)?$/, ""), razao_social: ref.replace(/\s+\d+(-\d+)?$/, ""), cnpj: "", sigla: "", email_cobranca: "", endereco: "", resp_financeiro: "", ativo: false, obs: "Cliente antigo trazido da planilha (sem CNPJ)." });
+    cobrancas.push({ cliente_ref: ref, competencia: limpa(l[cr("MesRef")]), vencimento: A.dataExcel(l[cr("DataLimPagto")]), valor: r2(Math.abs(l[cr("Valor")])),
+      pago_em: pagoEm || null, valor_pago: pagoEm ? r2(vp || 0) : null, nf_emitida: !!pagoEm || semAc(l[cr("NF")] || "") === "ok", linha: i });
+  }
+  // contratos anteriores (montados pelas cobranças) e avulsas
+  const porCli = new Map(); for (const x of cobrancas) (porCli.get(x.cliente_ref) || porCli.set(x.cliente_ref, []).get(x.cliente_ref)).push(x);
+  const mesIni = comp => comp.slice(0, 4) + "-" + (comp.endsWith("/13") ? "12" : comp.slice(5, 7)) + "-01";
+  for (const [ref, l] of porCli) {
+    const k = atual.get(ref), antes = l.filter(x => !k || mesIni(x.competencia) < k.inicio);
+    for (const x of l) if (!antes.includes(x)) x.contrato_ref = k.ref;
+    if (!antes.length) continue;
+    if (!k && l.length < 2) continue;   // uma cobrança só, sem contrato = avulsa
+    antes.sort((a, b) => a.competencia.localeCompare(b.competencia));
+    const regular = antes.filter(x => !x.competencia.endsWith("/13")), ult = regular[regular.length - 1] || antes[antes.length - 1];
+    const fimMes = c => { const [y, m] = [+c.slice(0, 4), c.endsWith("/13") ? 12 : +c.slice(5, 7)]; return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10); };
+    const hk = { ref: "H-" + ref, cliente_ref: ref, inicio: mesIni(antes[0].competencia), fim: k ? addDias(k.inicio, -1) : fimMes(antes[antes.length - 1].competencia),
+      valor_mensal: ult.valor, situacao: "encerrado", historico: true, objeto: k ? k.objeto : "", obs: "Contrato anterior, montado na carga a partir das cobranças da planilha." };
+    contratos.push(hk); for (const x of antes) x.contrato_ref = hk.ref;
+  }
+  // conferência com a aba Resumo (cobrado e pago por mês)
+  const resumo = new Map();
+  for (const l of ab.res) if (l && typeof l[2] === "string" && /^\d{4}\/\d{2}$/.test(l[2]) && typeof l[3] === "number") resumo.set(l[2], { c: Math.abs(l[3]), p: Number(l[4] || 0) });
+  const meses = [...new Set(cobrancas.map(x => x.competencia))].sort().map(comp => {
+    const l = cobrancas.filter(x => x.competencia === comp), c = r2(l.reduce((s, x) => s + x.valor, 0)), p = r2(l.reduce((s, x) => s + (x.valor_pago || 0), 0)), r = resumo.get(comp);
+    return { comp, n: l.length, c, p, rc: r ? r.c : null, rp: r ? r.p : null, ok: !r || (Math.abs(r.c - c) <= 0.05 * l.length && Math.abs(r.p - p) <= 0.05) };
+  });
+  const tot = { cobrancas: cobrancas.length, cobrado: r2(cobrancas.reduce((s, x) => s + x.valor, 0)), pago: r2(cobrancas.reduce((s, x) => s + (x.valor_pago || 0), 0)) };
+  return { payload: { arquivo: nomeArq, config, impostos: [{ desde: (cobrancas.map(x => x.vencimento).sort()[0] || "2024-01-01").slice(0, 4) + "-01-01", pct }],
+    clientes: [...clientes.values()], contratos, cobrancas: cobrancas.map(({ linha, ...x }) => x), conferir: tot }, meses, tot };
+}
+function painelCarga() {
+  const arq = el("input", { type: "file", accept: ".xlsx" }), m = el("span", { class: "msg" }), prev = el("div");
+  return el("div", { class: "painel" }, el("h2", {}, "Carga da planilha ContratoDados.xlsx (uma vez)"),
+    el("p", { class: "mut" }, "Traz os clientes, os contratos da aba Dados e todas as cobranças da aba RecebimentosControle, conferindo os totais de cada mês com a aba Resumo. A planilha é lida no seu computador. Só aparece com o app vazio."),
+    el("div", { class: "acoes" }, arq, el("button", { class: "btn sec", onclick: async () => {
+      const f = arq.files[0]; if (!f) { m.className = "msg erro"; m.textContent = "Escolha a planilha."; return; }
+      try {
+        const r = montarCarga(await A.lerXlsx(await f.arrayBuffer()), f.name), dif = r.meses.filter(x => !x.ok);
+        m.className = "msg"; m.textContent = "";
+        prev.replaceChildren(
+          el("p", {}, el("b", {}, r.payload.clientes.length + " clientes"), " (" + r.payload.clientes.filter(c => c.ativo).length + " ativos) · ", el("b", {}, r.payload.contratos.length + " contratos"),
+            " (" + r.payload.contratos.filter(k => !k.historico).length + " da aba Dados, " + r.payload.contratos.filter(k => k.historico).length + " anteriores) · ",
+            el("b", {}, r.tot.cobrancas + " cobranças"), " · cobrado " + R(r.tot.cobrado) + " · recebido " + R(r.tot.pago) + " · imposto " + N(r.payload.impostos[0].pct) + "%"),
+          el("div", { class: "rolar", style: "max-height:40vh" }, el("table", { class: "tab" }, el("thead", {}, el("tr", {}, ["Mês", "Cobranças", "Cobrado", "Resumo", "Recebido", "Resumo", ""].map((t, i) => el("th", { class: i && i < 6 ? "n" : "" }, t)))),
+            el("tbody", {}, r.meses.map(x => el("tr", {}, el("td", { class: "mono" }, x.comp), el("td", { class: "n" }, x.n), el("td", { class: "n" }, N(x.c)), el("td", { class: "n" }, x.rc == null ? "—" : N(x.rc)),
+              el("td", { class: "n" }, N(x.p)), el("td", { class: "n" }, x.rp == null ? "—" : N(x.rp)), el("td", {}, x.ok ? "✓" : el("span", { class: "pill alerta" }, "diferente"))))))),
+          dif.length ? el("p", { class: "aviso" }, dif.length + " mês(es) não batem com a aba Resumo: confira a planilha antes de carregar.") : el("p", { class: "msg" }, "Todos os meses batem com a aba Resumo."),
+          el("div", { class: "acoes" }, el("button", { class: "btn", disabled: !!dif.length, onclick: async () => {
+            const res = await salvar(() => rpc("ctr_carga", { p: r.payload }), m, "Carga feita.");
+            alert("Carga feita: " + res.clientes + " clientes, " + res.contratos + " contratos, " + res.cobrancas + " cobranças."); } }, "Carregar no sistema")));
+      } catch (e) { m.className = "msg erro"; m.textContent = erroTxt(e); } } }, "Ler planilha"), m), prev);
+}
+
+// ---------------------------------------------------------------- início
+(async () => {
+  const av = $("#aviso");
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { av.innerHTML = 'Entre na <a href="/cliente/" target="_top">Área do Cliente</a> para usar o app.'; return; }
+  try {
+    const p = checar(await sb.from("perfis").select("admin").eq("user_id", session.user.id).maybeSingle());
+    if (!p || !p.admin) { av.textContent = "O app Contratos é de uso interno da equipe Nervia."; return; }
+    await carregar();
+  } catch (e) { av.textContent = "Não foi possível carregar: " + erroTxt(e); return; }
+  av.hidden = true; $("#app").hidden = false;
+  if (!S.clientes.size) S.view = "config";
+  ir(S.view);
+})();
+})();
+</script>
+</body>
+</html>
