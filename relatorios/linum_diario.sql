@@ -19,7 +19,7 @@ aud as (
   select coalesce(nullif(a.nome, ''), (select nullif(p.nome, '') from perfis p where p.user_id = a.user_id), a.email, 'Correção no banco (Nervia)') quem, a.acao, a.detalhes, a.quando at time zone 'America/Sao_Paulo' q
     from auditoria a, dia
    where a.acao like 'linum\_%' and (a.quando at time zone 'America/Sao_Paulo')::date = dia.d
-     and a.acao ~ '^linum_(produto|variante|variantes|peca_especial|estoque|transferencia)'),
+     and a.acao ~ '^linum_(produto|variante|variantes|peca_especial|estoque|transferencia|beneficiamento)'),
 pessoas as (
   select coalesce(jsonb_agg(x order by x.pecas_entrada desc, x.quem), '[]') j from (
     select quem,
@@ -34,7 +34,8 @@ pessoas as (
       coalesce((select jsonb_object_agg(l, s) from (select detalhes ->> 'loja' l, sum((detalhes ->> 'quantidade')::numeric) s from aud a2
                  where a2.quem = aud.quem and a2.acao = 'linum_estoque_entrada' group by 1) y), '{}') entrada_por_loja,
       coalesce(sum((detalhes ->> 'quantidade')::numeric) filter (where acao = 'linum_estoque_saida'), 0) pecas_saida,
-      count(*) filter (where acao in ('linum_estoque_transferencia', 'linum_transferencia_enviada', 'linum_transferencia_recebida')) transferencias,
+      count(*) filter (where acao in ('linum_estoque_transferencia', 'linum_transferencia_enviada', 'linum_transferencia_recebida',
+                                         'linum_beneficiamento_enviado', 'linum_beneficiamento_retorno')) transferencias,
       count(*) filter (where acao = 'linum_estoque_ajuste') ajustes
     from aud group by quem) x)
 select jsonb_build_object(
@@ -63,5 +64,11 @@ select jsonb_build_object(
   'em_transito', (select coalesce(jsonb_agg(jsonb_build_object('n', t.id, 'de', (select nome from lin_lojas where id = t.origem_id),
        'para', (select nome from lin_lojas where id = t.destino_id), 'pecas', (select sum(quantidade) from lin_transferencia_itens where transferencia_id = t.id),
        'desde', to_char(t.enviado_em at time zone 'America/Sao_Paulo', 'DD/MM HH24:MI')) order by t.id), '[]') from lin_transferencias t where t.situacao = 'em_transito'),
+  -- beneficiamento (2.38): peças fora das lojas (bordado, tingimento…) ainda não voltaram
+  'no_beneficiamento', (select coalesce(jsonb_agg(jsonb_build_object('n', b.id, 'loja', (select nome from lin_lojas where id = b.loja_id),
+       'quem', b.beneficiador, 'servico', b.servico,
+       'pecas', (select sum(quantidade - voltaram - perdidas) from lin_benef_itens where beneficiamento_id = b.id),
+       'desde', to_char(b.enviado_em at time zone 'America/Sao_Paulo', 'DD/MM'), 'previsto', to_char(b.previsto, 'DD/MM'),
+       'atrasado', b.previsto < (select d from dia)) order by b.id), '[]') from lin_beneficiamentos b where b.situacao = 'no_beneficiamento'),
   'provisorias', (select coalesce(jsonb_agg(referencia || ' ' || descricao order by referencia), '[]') from lin_produtos where referencia ~ '^NOVA-')
 ) r;

@@ -49,8 +49,9 @@
   <table>
     <tr><td>Clique no quadrado</td><td>Abre a movimentação daquela variação.</td></tr>
     <tr><td>Entrada</td><td>Peças chegando na loja: soma.</td></tr>
-    <tr><td>Saída</td><td>Uso interno, perda, beneficiamento: tira. Não deixa ficar negativo.</td></tr>
+    <tr><td>Saída</td><td>Uso interno, perda: tira. Não deixa ficar negativo.</td></tr>
     <tr><td>Transferência</td><td>Abre o envio para a outra loja (com aceite; veja Transferências).</td></tr>
+    <tr><td>Beneficiamento</td><td>Abre o envio para bordado, tingimento, estampa… (veja Beneficiamento).</td></tr>
     <tr><td>Ajuste</td><td>Troca a quantidade pela contada (ex.: inventário). Guarda o antes e o depois.</td></tr>
     <tr><td>Loja (N) · Loja de destino</td><td>Onde a movimentação acontece; entre parênteses, quanto a loja tem hoje.</td></tr>
     <tr><td>Quantidade · Nova quantidade</td><td>Peças movimentadas (1 ou mais) ou, no ajuste, a quantidade certa (0 ou mais).</td></tr>
@@ -72,10 +73,25 @@
     <tr><td>Em trânsito · Recebidas · Com falta · Canceladas</td><td>Filtros da lista (até 90 dias).</td></tr>
   </table>
 
+  <h2>Beneficiamento <span class="eq">DONO · ESTOQUE</span> <span class="eq">TODA A EQUIPE VÊ</span></h2>
+  <table>
+    <tr><td>+ Enviar para beneficiamento · "Beneficiamento" ao movimentar</td><td>Abre o envio.</td></tr>
+    <tr><td>Sai da loja · Quem faz · Serviço</td><td>Loja de onde as peças saem, o beneficiador e o serviço (bordado, tingimento…). Obrigatórios.</td></tr>
+    <tr><td>Volta prevista</td><td>Opcional. Depois dela, aparece <b>Atrasado</b>.</td></tr>
+    <tr><td>Valor por peça</td><td>Só o Dono e quem tem "Valores da produção". É só registro: não muda custo nem preço.</td></tr>
+    <tr><td>Enviar peças</td><td>As peças saem da loja na hora e ficam <b>no beneficiamento</b>.</td></tr>
+    <tr><td>Registrar retorno</td><td>Por peça: <b>Voltou igual</b>, <b>Virou outra</b> (peça especial ou outra cor) ou <b>Perdida</b> (com motivo). Pode ser em partes.</td></tr>
+    <tr><td>As peças entram na loja</td><td>Loja onde as peças que voltaram entram (padrão: a de origem).</td></tr>
+    <tr><td>Virou qual? · + Nova peça especial</td><td>Escolhe a variação da mesma peça (★ = especial) ou cria a peça especial ali (edição, cor, tamanho, preço opcional).</td></tr>
+    <tr><td>Todas voltaram iguais</td><td>Preenche tudo como voltou igual.</td></tr>
+    <tr><td>Valor pago</td><td>Informa ou corrige o valor por peça depois.</td></tr>
+    <tr><td>No beneficiamento · Atrasados · Concluídos · Todos</td><td>Filtros da lista (até 180 dias).</td></tr>
+  </table>
+
   <h2>Movimentações <span class="eq">DONO · ESTOQUE</span></h2>
   <table>
     <tr><td>De · até</td><td>Período, pela data do movimento (abre com os últimos 7 dias).</td></tr>
-    <tr><td>Loja · Tipo · Busca</td><td>Uma loja ou todas; entrada, saída, transferência enviada/recebida/cancelada, ajuste, venda, devolução, produção; peça, descrição ou quem fez (sem acento).</td></tr>
+    <tr><td>Loja · Tipo · Busca</td><td>Uma loja ou todas; entrada, saída, transferência enviada/recebida/cancelada, saiu/voltou do beneficiamento, ajuste, venda, devolução, produção; peça, descrição ou quem fez (sem acento).</td></tr>
     <tr><td>Quadros</td><td>Movimentações, peças que entraram, que saíram e o resultado no estoque.</td></tr>
     <tr><td>Por descrição</td><td>Junta as movimentações com a mesma descrição (ex.: um levantamento). Clique para ver só elas; "Ver todas" volta.</td></tr>
     <tr><td>Lista</td><td>Data, peça, tipo, loja, quantidade (+ entrou, − saiu), antes → depois do ajuste, descrição, quem e quando registrou.</td></tr>

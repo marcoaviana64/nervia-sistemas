@@ -2378,6 +2378,102 @@ select pg_temp.ok((select count(*) = 0 from lin_transferencias), 'linum 2.33: lo
 select pg_temp.erro2($$select lin_transferencia_enviar('{}')$$, 'não tem acesso', 'linum 2.33: login sem papel não envia');
 reset role;
 
+-- linum 2.38: beneficiamento (sai da loja; volta igual, como outra variação/peça especial ou perdida)
+reset role;
+insert into lin_estoque (variante_id, loja_id, quantidade) values ('20000000-0000-0000-0000-000000000001', (select v from lin_ids where k = 'gav'), 6)
+  on conflict (variante_id, loja_id) do update set quantidade = excluded.quantidade;
+delete from lin_estoque where loja_id = (select v from lin_ids where k = 'ipa') and variante_id = '20000000-0000-0000-0000-000000000001';
+create temp table lin_bf (k text primary key, v bigint); grant all on lin_bf to authenticated;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora
+select pg_temp.erro2($$select lin_beneficiamento_enviar('{}')$$, 'Somente o Dono ou o Estoque', 'linum 2.38: vendedora não envia para o beneficiamento');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';   -- Estoque
+select pg_temp.erro2($$select lin_beneficiamento_enviar(jsonb_build_object('loja', (select v from lin_ids where k = 'gav'), 'beneficiador', 'Ateliê Flor', 'servico', 'bordado',
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 3, 'valor_unitario', 40))))$$,
+  'não registra valores', 'linum 2.38: Estoque não informa o valor pago');
+select pg_temp.erro2($$select lin_beneficiamento_enviar(jsonb_build_object('loja', (select v from lin_ids where k = 'gav'), 'beneficiador', 'Ateliê Flor', 'servico', 'bordado',
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 7))))$$,
+  'Estoque insuficiente', 'linum 2.38: não envia mais que o estoque');
+select pg_temp.erro2($$select lin_beneficiamento_enviar(jsonb_build_object('loja', (select v from lin_ids where k = 'gav'), 'beneficiador', 'Ateliê Flor', 'servico', '',
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 1))))$$,
+  'Informe o serviço', 'linum 2.38: serviço obrigatório');
+insert into lin_bf values ('b1', lin_beneficiamento_enviar(jsonb_build_object('loja', (select v from lin_ids where k = 'gav'), 'beneficiador', 'Ateliê Flor',
+  'servico', 'bordado à mão', 'previsto', (now() at time zone 'America/Sao_Paulo')::date + 10, 'observacao', 'flores na barra',
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 4)))));
+reset role;
+select pg_temp.ok((select quantidade = 2 from lin_estoque where variante_id = '20000000-0000-0000-0000-000000000001' and loja_id = (select v from lin_ids where k = 'gav'))
+  and (select situacao = 'no_beneficiamento' and beneficiador = 'Ateliê Flor' from lin_beneficiamentos where id = (select v from lin_bf where k = 'b1'))
+  and exists (select 1 from lin_movimentos where tipo = 'benef_envio' and quantidade = 4 and beneficiamento_id = (select v from lin_bf where k = 'b1'))
+  and exists (select 1 from auditoria where acao = 'linum_beneficiamento_enviado' and (detalhes ->> 'pecas')::int = 4 and detalhes ->> 'servico' = 'bordado à mão'),
+  'linum 2.38: envio tira da loja na hora, com movimento e auditoria');
+set role authenticated;
+-- valor pago: só Dono (ou Valores da produção)
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+select pg_temp.erro2(format($$select lin_beneficiamento_valores(%s, '[]')$$, (select v from lin_bf where k = 'b1')), 'não registra valores', 'linum 2.38: Estoque não grava valor');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';   -- Dono
+select lin_beneficiamento_valores((select v from lin_bf where k = 'b1'),
+  (select jsonb_agg(jsonb_build_object('item_id', id, 'valor_unitario', 45.5)) from lin_benef_itens where beneficiamento_id = (select v from lin_bf where k = 'b1')));
+select pg_temp.ok((select count(*) = 1 and min(valor_unitario) = 45.50 from lin_benef_valores), 'linum 2.38: Dono registra e lê o valor por peça');
+select set_config('teste.bord', lin_variante_salvar('{"produto_id":"10000000-0000-0000-0000-000000000001","cor":"Azul","tamanho":"P","edicao":"Bordada","preco_venda":"690"}')::text, false);
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+select pg_temp.ok((select count(*) = 0 from lin_benef_valores) and (select count(*) = 1 from lin_beneficiamentos), 'linum 2.38: Estoque vê o envio, mas não o valor');
+-- retorno
+select pg_temp.erro2(format($$select lin_beneficiamento_retorno(%s, jsonb_build_object('itens', jsonb_build_array(jsonb_build_object('item_id', %s, 'resultado', 'outra', 'quantidade', 1,
+  'variante_id', '20000000-0000-0000-0000-000000000003'))))$$, (select v from lin_bf where k = 'b1'), (select id from lin_benef_itens where beneficiamento_id = (select v from lin_bf where k = 'b1'))),
+  'mesma peça', 'linum 2.38: não volta como variação de outra peça');
+select pg_temp.erro2(format($$select lin_beneficiamento_retorno(%s, jsonb_build_object('itens', jsonb_build_array(jsonb_build_object('item_id', %s, 'resultado', 'perda', 'quantidade', 1))))$$,
+  (select v from lin_bf where k = 'b1'), (select id from lin_benef_itens where beneficiamento_id = (select v from lin_bf where k = 'b1'))),
+  'motivo da perda', 'linum 2.38: perda exige motivo');
+select pg_temp.erro2(format($$select lin_beneficiamento_retorno(%s, jsonb_build_object('itens', jsonb_build_array(jsonb_build_object('item_id', %s, 'resultado', 'igual', 'quantidade', 5))))$$,
+  (select v from lin_bf where k = 'b1'), (select id from lin_benef_itens where beneficiamento_id = (select v from lin_bf where k = 'b1'))),
+  'ainda estão no beneficiamento', 'linum 2.38: não volta mais do que foi');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.erro2(format($$select lin_beneficiamento_retorno(%s, '{}')$$, (select v from lin_bf where k = 'b1')), 'Somente o Dono ou o Estoque', 'linum 2.38: vendedora não registra o retorno');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+select pg_temp.ok(lin_beneficiamento_retorno((select v from lin_bf where k = 'b1'), jsonb_build_object('loja', (select v from lin_ids where k = 'ipa'), 'itens', jsonb_build_array(
+  jsonb_build_object('item_id', (select id from lin_benef_itens where beneficiamento_id = (select v from lin_bf where k = 'b1')), 'resultado', 'outra', 'quantidade', 2, 'variante_id', current_setting('teste.bord')),
+  jsonb_build_object('item_id', (select id from lin_benef_itens where beneficiamento_id = (select v from lin_bf where k = 'b1')), 'resultado', 'igual', 'quantidade', 1)))) = 'no_beneficiamento',
+  'linum 2.38: retorno parcial (2 bordadas + 1 igual) continua no beneficiamento');
+reset role;
+select pg_temp.ok((select quantidade = 2 from lin_estoque where variante_id = current_setting('teste.bord')::uuid and loja_id = (select v from lin_ids where k = 'ipa'))
+  and (select quantidade = 1 from lin_estoque where variante_id = '20000000-0000-0000-0000-000000000001' and loja_id = (select v from lin_ids where k = 'ipa'))
+  and (select voltaram = 3 and perdidas = 0 from lin_benef_itens where beneficiamento_id = (select v from lin_bf where k = 'b1'))
+  and (select count(*) = 2 from lin_movimentos where tipo = 'benef_retorno' and beneficiamento_id = (select v from lin_bf where k = 'b1'))
+  and exists (select 1 from lin_movimentos where tipo = 'benef_retorno' and variante_id = current_setting('teste.bord')::uuid and observacao like '%era Vestido Mar Azul P%')
+  and exists (select 1 from auditoria where acao = 'linum_beneficiamento_retorno' and (detalhes ->> 'voltaram')::int = 3 and detalhes ->> 'loja_retorno' = 'Ipanema'),
+  'linum 2.38: peças entram na loja escolhida, a bordada como peça especial');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok(lin_beneficiamento_retorno((select v from lin_bf where k = 'b1'), jsonb_build_object('itens', jsonb_build_array(
+  jsonb_build_object('item_id', (select id from lin_benef_itens where beneficiamento_id = (select v from lin_bf where k = 'b1')), 'resultado', 'perda', 'quantidade', 1, 'motivo', 'manchou no bordado')))) = 'concluido',
+  'linum 2.38: com a perda registrada, o beneficiamento é concluído');
+select pg_temp.erro2(format($$select lin_beneficiamento_retorno(%s, '{"itens":[{}]}')$$, (select v from lin_bf where k = 'b1')), 'já foi concluído', 'linum 2.38: concluído não recebe mais retorno');
+select pg_temp.erro2($$update lin_beneficiamentos set observacao = 'x'$$, 'permission denied', 'linum 2.38: a tela não altera o beneficiamento direto');
+select pg_temp.erro2($$insert into lin_benef_valores (item_id, valor_unitario) values (1, 1)$$, 'permission denied', 'linum 2.38: a tela não grava valor direto');
+reset role;
+select pg_temp.erro2($$delete from lin_benef_retornos$$, 'não podem ser alterados', 'linum 2.38: retornos não se apagam');
+select pg_temp.erro2($$update lin_beneficiamentos set observacao = 'x'$$, 'já foi concluído', 'linum 2.38: concluído não muda (nem fora da tela)');
+select pg_temp.ok((select situacao = 'concluido' and concluido_em is not null from lin_beneficiamentos where id = (select v from lin_bf where k = 'b1'))
+  and (select count(*) = 3 from lin_benef_retornos) and (select perdidas = 1 from lin_benef_itens where beneficiamento_id = (select v from lin_bf where k = 'b1'))
+  and exists (select 1 from auditoria where acao = 'linum_beneficiamento_valor')
+  and not exists (select 1 from auditoria where acao = 'linum_beneficiamento_retorno' and detalhes::text like '%45.5%'),
+  'linum 2.38: perda registrada, valor auditado à parte');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.ok((select count(*) = 1 from lin_beneficiamentos) and (select count(*) = 3 from lin_benef_retornos) and (select count(*) = 1 from lin_benef_valores),
+  'linum 2.38: a vendedora vê o beneficiamento (e o valor, porque tem "Valores da produção")');
+reset role;
+update lin_membros set permissoes = '{}' where user_id = '00000000-0000-0000-0000-00000000000c';
+set role authenticated;
+select pg_temp.ok((select count(*) = 1 from lin_beneficiamentos) and (select count(*) = 0 from lin_benef_valores),
+  'linum 2.38: sem "Valores da produção" a vendedora vê o beneficiamento, sem valor');
+reset role;
+update lin_membros set permissoes = '{producao,producao_valores}' where user_id = '00000000-0000-0000-0000-00000000000c';
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
+select pg_temp.ok((select count(*) = 0 from lin_beneficiamentos), 'linum 2.38: login sem papel não vê o beneficiamento');
+reset role;
+
 -- ================================================================ Atendimentos de TI (atd_)
 reset role; reset request.headers;
 select pg_temp.ok((select situacao = 'oculto' and manual_url like '/apps/atendimentos/ajuda/%' from apps where id = 'atendimentos'),

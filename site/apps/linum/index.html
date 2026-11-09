@@ -12,6 +12,7 @@
 <script src="custos.js"></script>
 <script src="etiquetas.js"></script>
 <script src="transferencias.js"></script>
+<script src="beneficiamento.js"></script>
 <script src="gerencial.js"></script>
 <script src="gerencial-vendas.js"></script>
 <style>
@@ -180,6 +181,7 @@ td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-n
         <button class="aba on" data-v="estoque" data-g="estoque">Estoque</button>
         <button class="aba oculto" data-v="movimentos" data-g="estoque" id="abaMovimentos">Movimentações</button>
         <button class="aba oculto" data-v="transferencias" data-g="estoque" id="abaTransf">Transferências</button>
+        <button class="aba oculto" data-v="beneficiamento" data-g="estoque" id="abaBenef">Beneficiamento</button>
         <button class="aba oculto" data-v="etiquetas" data-g="estoque" id="abaEtiquetas">Etiquetas</button>
         <button class="aba oculto" data-v="vendas" data-g="vendas" id="abaVendas">Vendas</button>
         <button class="aba oculto" data-v="clientes" data-g="vendas" id="abaClientes">Clientes</button>
@@ -261,7 +263,7 @@ async function iniciar() {
     PERM = checar(await sb.rpc("lin_minhas_permissoes")) || PERM;
     $("abaEquipe").classList.toggle("oculto", !ADMIN);
     $("abaProdutos").classList.toggle("oculto", !controla()); $("abaMovimentos").classList.toggle("oculto", !controla());
-    $("abaVendas").classList.toggle("oculto", !vende()); $("abaTransf").classList.toggle("oculto", !vende()); $("abaClientes").classList.toggle("oculto", !vende()); $("abaAjustes").classList.toggle("oculto", !vende());
+    $("abaVendas").classList.toggle("oculto", !vende()); $("abaTransf").classList.toggle("oculto", !vende()); $("abaBenef").classList.toggle("oculto", !vende()); $("abaClientes").classList.toggle("oculto", !vende()); $("abaAjustes").classList.toggle("oculto", !vende());
     $("abaComissoes").classList.toggle("oculto", !dono()); $("abaLucro").classList.toggle("oculto", !dono()); $("abaHorarios").classList.toggle("oculto", !dono()); $("abaCreditos").classList.toggle("oculto", !dono()); $("abaCustos").classList.toggle("oculto", !dono()); document.querySelectorAll(".aba.ger").forEach(x => x.classList.toggle("oculto", !dono())); $("abaRanking").classList.toggle("oculto", !vende()); $("abaEtiquetas").classList.toggle("oculto", !vende()); $("abaProducao").classList.toggle("oculto", !PERM.producao);
     $("quem").textContent = ADMIN ? "Equipe Nervia (Dono)" : dono() ? "Dono" : controla() ? "Estoque · sem custos" : "Vendedora" + (MINHA_LOJA ? " · " + loja(MINHA_LOJA).nome : "");
     $("aviso").classList.add("oculto"); $("app").classList.remove("oculto");
@@ -358,6 +360,7 @@ async function carregar() {
   PAPEL = d.papel; LOJAS = d.lojas || []; PRODUTOS = d.produtos || []; MINHA_LOJA = d.minha_loja || null; MINHA_COMISSAO = Number(d.comissao_pct || 0);
   QTD = new Map((d.estoque || []).map(([v, l, q]) => [chave(v, l), q]));
   await carregarTransito().catch(() => {});
+  await carregarBenef().catch(() => {});
 }
 function irPara(v) { if (VISTA === "custos" && v !== "custos" && !cuPodeSair()) return; CU_SUJO = false; VISTA = v; limparMsg(); render(); }
 document.querySelectorAll(".barra .aba").forEach(b => b.onclick = () => irPara(b.dataset.v));
@@ -383,6 +386,7 @@ function render() {
   if (VISTA === "produtos" && controla()) return telaProdutos();
   if (VISTA === "movimentos" && controla()) return telaMovimentos();
   if (VISTA === "transferencias" && vende()) return telaTransferencias();
+  if (VISTA === "beneficiamento" && vende()) return telaBeneficiamento();
   if (VISTA === "vendas" && vende()) return telaVendas();
   if (VISTA === "clientes" && vende()) return telaClientes();
   if (VISTA === "ajustes" && vende()) return telaAjustes();
@@ -491,7 +495,7 @@ function chipsLoja(p, l, vars) {
 }
 
 // ---------------------------------------------------------------- movimentar (Dono)
-const TIPOS = { entrada: "Entrada", saida: "Saída", transferencia: "Transferência", ajuste: "Ajuste" };
+const TIPOS = { entrada: "Entrada", saida: "Saída", transferencia: "Transferência", ajuste: "Ajuste", beneficiamento: "Beneficiamento" };
 async function movimentar(pid, vid, lid) {
   const p = PRODUTOS.find(x => x.id === pid), v = p.variantes.find(x => x.id === vid);
   const M = { tipo: "entrada", origem: lid, destino: (LOJAS.find(l => l.id !== lid) || {}).id || "", quantidade: "1", data: hoje(), obs: "" };
@@ -508,13 +512,15 @@ async function movimentar(pid, vid, lid) {
         <div><label for="mq">${ehA ? "Nova quantidade" : "Quantidade"}</label><input id="mq" type="number" inputmode="numeric" min="${ehA ? 0 : 1}" step="1" value="${esc(M.quantidade)}"></div>
         <div><label for="md">Data</label><input id="md" type="date" value="${esc(M.data)}"></div>
       </div>
-      <div class="campo"><label for="mo">Observação</label><input id="mo" maxlength="300" value="${esc(M.obs)}" placeholder="${ehA ? "Ex.: contagem do estoque" : "Ex.: chegada de peças, beneficiamento, perda"}"></div>
+      <div class="campo"><label for="mo">Observação</label><input id="mo" maxlength="300" value="${esc(M.obs)}" placeholder="${ehA ? "Ex.: contagem do estoque" : "Ex.: chegada de peças, perda"}"></div>
       ${erro ? `<div class="msg err">${esc(erro)}</div>` : ""}
       <div class="acoes"><button type="button" class="bt" id="mx">Cancelar</button><button type="button" class="bt pri" id="ms">Salvar movimentação</button></div>
       <div class="hist"><h4>Últimas movimentações desta variação</h4>${hist === null ? '<div class="mut">Carregando…</div>' : hist}</div>`;
     f.querySelectorAll("[data-g]").forEach(b => b.onclick = () => {
       // 2.33: transferência só com aceite da outra loja (sai agora, entra quando receberem)
       if (b.dataset.g === "tipo" && b.dataset.x === "transferencia") { $("dlg").close(); return novaTransferencia({ variante: vid, loja: M.origem }); }
+      // 2.38: beneficiamento (bordado, tingimento…) tem envio e retorno próprios
+      if (b.dataset.g === "tipo" && b.dataset.x === "beneficiamento") { $("dlg").close(); return novoBeneficiamento({ variante: vid, loja: M.origem }); }
       guardar(); M[b.dataset.g] = b.dataset.x;
       if (M.tipo === "transferencia" && (M.destino === M.origem || !M.destino)) M.destino = (LOJAS.find(l => l.id !== M.origem) || {}).id || "";
       if (b.dataset.g === "tipo" || b.dataset.g === "origem") M.quantidade = M.tipo === "ajuste" ? String(qtd(vid, M.origem)) : (M.quantidade === "0" ? "1" : M.quantidade);
@@ -2068,13 +2074,14 @@ async function telaCreditos() {
 // "Por descrição" junta as linhas da mesma ação (ex.: um levantamento de estoque) para ver o total de uma vez.
 const FMV = { de: "", ate: "", loja: "", tipo: "", q: "", obs: null };
 const MV_TIPO = { entrada: "Entrada", saida: "Saída", transferencia: "Transferência", ajuste: "Ajuste", venda: "Venda", devolucao: "Devolução", producao: "Produção",
-  transf_envio: "Transferência enviada", transf_recebida: "Transferência recebida", transf_retorno: "Transferência cancelada (voltou)" };
+  transf_envio: "Transferência enviada", transf_recebida: "Transferência recebida", transf_retorno: "Transferência cancelada (voltou)",
+  benef_envio: "Saiu para beneficiamento", benef_retorno: "Voltou do beneficiamento" };
 function mvEfeito(m, lj) {   // quanto a movimentação mudou o estoque (da loja lj ou, sem loja, de todas)
   const q = Number(m.quantidade || 0);
   if (m.tipo === "ajuste") return (!lj || m.loja_id === lj) ? Number(m.depois) - Number(m.antes) : 0;
   if (m.tipo === "transferencia") return !lj ? 0 : (m.loja_id === lj ? -q : 0) + (m.loja_destino_id === lj ? q : 0);
   if (lj && m.loja_id !== lj) return 0;
-  return ["saida", "venda", "transf_envio"].includes(m.tipo) ? -q : q;
+  return ["saida", "venda", "transf_envio", "benef_envio"].includes(m.tipo) ? -q : q;
 }
 async function telaMovimentos() {
   if (!FMV.de) { const d = new Date(hoje() + "T12:00:00"); d.setDate(d.getDate() - 6); FMV.de = d.toISOString().slice(0, 10); FMV.ate = hoje(); }

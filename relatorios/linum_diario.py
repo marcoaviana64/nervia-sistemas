@@ -75,6 +75,11 @@ def montar(r):
     if r.get("em_transito"):
         aten.append("<li><b>Transferências em trânsito (ainda não recebidas):</b> " + html.escape("; ".join(
             f"nº {t['n']} {t['de']} → {t['para']}, {t['pecas']} peça(s), desde {t['desde']}" for t in r["em_transito"])) + "</li>")
+    if r.get("no_beneficiamento"):
+        aten.append("<li><b>Peças no beneficiamento (ainda não voltaram):</b> " + html.escape("; ".join(
+            f"nº {b['n']} {b['servico']} com {b['quem']}, {b['pecas']} peça(s) de {b['loja']}, desde {b['desde']}"
+            + (f", volta prevista {b['previsto']}" + (" (ATRASADO)" if b.get("atrasado") else "") if b.get("previsto") else "")
+            for b in r["no_beneficiamento"])) + "</li>")
     if r.get("provisorias"):
         aten.append(f"<li><b>Referências provisórias para trocar ({len(r['provisorias'])}):</b> {html.escape(', '.join(r['provisorias']))}</li>")
     if r.get("excluidos"):
