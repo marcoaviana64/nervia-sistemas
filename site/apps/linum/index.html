@@ -2200,12 +2200,12 @@ async function telaMovimentos() {
       <input id="mvq" type="search" placeholder="Peça, descrição ou quem fez" value="${esc(FMV.q)}" style="min-width:220px">
     </div><div class="mut">A data é a do movimento. Transferência: com uma loja escolhida conta como saída de uma e entrada na outra; com todas as lojas, não muda o total.</div></div>
     <div class="kpis">
-      <div class="kpi"><small>Movimentações</small><b>${n(lista.length)}</b><span>${n(new Set(lista.map(m => m.variante_id)).size)} peça(s) (cor e tamanho)</span></div>
+      <div class="kpi"><small>Movimentações</small><b>${n(lista.length)}</b><span>${n(new Set(lista.map(m => m.variante_id)).size)} cor(es) e tamanho(s) diferentes</span></div>
       <div class="kpi"><small>Peças que entraram</small>${kb(ent)}<span>entradas, devoluções, produção e ajustes para cima</span></div>
       <div class="kpi"><small>Peças que saíram</small>${kb(sai)}<span>saídas, vendas e ajustes para baixo</span></div>
       <div class="kpi"><small>Resultado no estoque</small>${kb(ent + sai)}<span>${FMV.loja ? esc(loja(FMV.loja).nome) : "todas as lojas"}</span></div>
     </div>
-    <div class="card"><h2>Por descrição</h2><div class="tw"><table id="mvgrupos"><thead><tr><th>Descrição</th><th>Tipos</th><th>Quem</th><th>Datas</th><th class="num">Movimentações</th><th class="num">Peças</th><th class="num">Resultado</th></tr></thead><tbody>
+    <div class="card"><h2>Por descrição</h2><div class="tw"><table id="mvgrupos"><thead><tr><th>Descrição</th><th>Tipos</th><th>Quem</th><th>Datas</th><th class="num">Movimentações</th><th class="num" title="Quantas variações diferentes (cor e tamanho), não quantas peças">Cores/tamanhos</th><th class="num" title="Peças que entraram (+) ou saíram (−)">Resultado em peças</th></tr></thead><tbody>
       ${gl.length ? gl.map((g, i) => `<tr class="mvgr${FMV.obs === g.obs ? " sel" : ""}" data-i="${i}" style="cursor:pointer${FMV.obs === g.obs ? ";background:var(--fundo2,#eef6f8)" : ""}"><td><b>${esc(g.obs || "(sem descrição)")}</b></td><td>${esc([...g.tipos].join(", "))}</td><td>${esc([...g.quem].join(", ") || "—")}</td>
         <td>${g.de === g.ate ? dataBR(g.de) : dataBR(g.de) + " a " + dataBR(g.ate)}</td><td class="num">${n(g.n)}</td><td class="num">${n(g.pecas.size)}</td><td class="num">${sinal(g.efeito)}</td></tr>`).join("")
       : '<tr><td colspan="7" class="mut">Nenhuma movimentação neste período.</td></tr>'}
