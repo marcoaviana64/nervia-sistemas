@@ -2740,6 +2740,10 @@ insert into ctr_t values ('lagos', ctr_cliente_salvar('{"apelido":"Park Lagos","
 insert into ctr_t values ('rio2', ctr_cliente_salvar('{"apelido":"Rio2","razao_social":"EDIFICIO RIO 2","cnpj":"08935634000148"}'));
 insert into ctr_t values ('pom', ctr_cliente_salvar('{"apelido":"POM","razao_social":"PENINSULA OPEN MALL"}'));
 select pg_temp.ok((select cnpj = '34147021000156' from ctr_clientes where apelido = 'Park Lagos'), 'contratos: CNPJ guardado só com dígitos');
+select ctr_cliente_salvar(jsonb_build_object('id', (select v from ctr_t where k = 'lagos'), 'foro', 'Foro da Comarca de Cabo Frio', 'foro_local', 'cidade de Cabo Frio, Estado do Rio de Janeiro'));
+select pg_temp.ok((select foro = 'Foro da Comarca de Cabo Frio' and foro_local like 'cidade de Cabo Frio%' from ctr_clientes where apelido = 'Park Lagos')
+  and (select foro = '' from ctr_clientes where apelido = 'Rio2') and (select foro_padrao = 'Foro Central da Comarca do Rio de Janeiro' from ctr_config),
+  'contratos 1.1: foro por cliente; vazio = o padrão da configuração (Rio)');
 select pg_temp.erro2($$select ctr_cliente_salvar('{"apelido":"park lagos","razao_social":"Outro"}')$$, 'Já existe um cliente', 'contratos: nome curto repetido recusado');
 select pg_temp.erro2($$select ctr_cliente_salvar('{"apelido":"Outro","razao_social":"Outro","cnpj":"34147021000156"}')$$, 'CNPJ', 'contratos: CNPJ repetido recusado');
 select pg_temp.erro2($$select ctr_cliente_salvar('{"apelido":"Outro","razao_social":"Outro","cnpj":"123"}')$$, 'inválido', 'contratos: CNPJ com dígitos errados recusado');
