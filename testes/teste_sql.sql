@@ -141,7 +141,7 @@ end $$;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
 select pg_temp.ok((select count(*) = 0 from apps), 'login sem app liberado não vê apps');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
-select pg_temp.ok((select count(*) = 12 from apps), 'admin vê todos os apps, inclusive inativos');
+select pg_temp.ok((select count(*) = 13 from apps), 'admin vê todos os apps, inclusive inativos');
 insert into app_acessos values ('00000000-0000-0000-0000-00000000000c', 'chamados');
 update apps set ativo = false where id = 'chamados';
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
@@ -2723,6 +2723,148 @@ select pg_temp.ok((select count(*) = 2 from auditoria where acao = 'linum_gerenc
   and exists (select 1 from auditoria where acao = 'linum_gerencial_rede_excluida' and detalhes->>'motivo' = 'cartão da própria sócia')
   and exists (select 1 from auditoria where acao = 'linum_gerencial_outra_venda_excluida')
   and exists (select 1 from auditoria where acao = 'linum_gerencial_terminal' and detalhes->>'loja' = 'Gávea'), 'linum gerencial vendas: auditoria');
+
+-- ================================================================ Contratos (ctr_)
+reset role; reset request.headers;
+select pg_temp.ok((select situacao = 'oculto' and manual_url = '/apps/contratos/ajuda/manual.html' from apps where id = 'contratos'), 'contratos: app cadastrado, oculto, com cartão e manual');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.erro2($$select ctr_cliente_salvar('{"apelido":"X","razao_social":"X"}')$$, 'Somente a equipe Nervia', 'contratos: quem não é da equipe não grava');
+select pg_temp.erro2($$insert into ctr_clientes (apelido, razao_social) values ('X', 'X')$$, 'permission', 'contratos: a tela não grava direto na tabela');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select ctr_imposto_salvar('2024-01-01', 16.5);
+select ctr_config_salvar('{"contratada_nome":"NERVIA TESTE","dia_nf":5}');
+create temp table ctr_t (k text primary key, v bigint);
+grant all on ctr_t to authenticated;
+insert into ctr_t values ('lagos', ctr_cliente_salvar('{"apelido":"Park Lagos","razao_social":"FUNDO PARK LAGOS","cnpj":"34.147.021/0001-56","extrato_textos":["PARK LAGOS"]}'));
+insert into ctr_t values ('rio2', ctr_cliente_salvar('{"apelido":"Rio2","razao_social":"EDIFICIO RIO 2","cnpj":"08935634000148"}'));
+insert into ctr_t values ('pom', ctr_cliente_salvar('{"apelido":"POM","razao_social":"PENINSULA OPEN MALL"}'));
+select pg_temp.ok((select cnpj = '34147021000156' from ctr_clientes where apelido = 'Park Lagos'), 'contratos: CNPJ guardado só com dígitos');
+select pg_temp.erro2($$select ctr_cliente_salvar('{"apelido":"park lagos","razao_social":"Outro"}')$$, 'Já existe um cliente', 'contratos: nome curto repetido recusado');
+select pg_temp.erro2($$select ctr_cliente_salvar('{"apelido":"Outro","razao_social":"Outro","cnpj":"34147021000156"}')$$, 'CNPJ', 'contratos: CNPJ repetido recusado');
+select pg_temp.erro2($$select ctr_cliente_salvar('{"apelido":"Outro","razao_social":"Outro","cnpj":"123"}')$$, 'inválido', 'contratos: CNPJ com dígitos errados recusado');
+insert into ctr_t values ('k1', ctr_contrato_salvar(jsonb_build_object('cliente_id', (select v from ctr_t where k = 'lagos'), 'inicio', '2026-01-01', 'fim', '2026-12-31',
+  'valor_mensal', 3600, 'objeto', 'de consultoria de TI', 'assinantes', 'a@lagos.com', 'local_assinatura', 'Cabo Frio')));
+select pg_temp.ok((select situacao = 'rascunho' and dia_vencimento = 30 and parcela_extra from ctr_contratos where id = (select v from ctr_t where k = 'k1')), 'contratos: contrato novo em rascunho, vence dia 30, com parcela extra');
+select pg_temp.erro2($$select ctr_cobrancas_gerar((select v from ctr_t where k = 'k1'))$$, 'Gere o contrato', 'contratos: rascunho não gera cobranças');
+select pg_temp.erro2($$select ctr_contrato_etapa((select v from ctr_t where k = 'k1'), 'encerrado')$$, 'Só contrato assinado', 'contratos: não encerra sem assinatura');
+select ctr_contrato_etapa((select v from ctr_t where k = 'k1'), 'gerado', '2025-12-20');
+select ctr_contrato_etapa((select v from ctr_t where k = 'k1'), 'enviado', '2025-12-21');
+select pg_temp.erro2($$select ctr_contrato_etapa((select v from ctr_t where k = 'k1'), 'assinado', current_date + 5)$$, 'futuro', 'contratos: data no futuro recusada');
+select ctr_contrato_etapa((select v from ctr_t where k = 'k1'), 'assinado', '2025-12-22');
+select pg_temp.ok((select situacao = 'assinado' and gerado_em = '2025-12-20' and enviado_em = '2025-12-21' and assinado_em = '2025-12-22' from ctr_contratos where id = (select v from ctr_t where k = 'k1')),
+  'contratos: etapas gerado → enviado → assinado com as datas');
+select pg_temp.erro2($$select ctr_contrato_salvar(jsonb_build_object('id', (select v from ctr_t where k = 'k1'), 'valor_mensal', 3800))$$, 'informe o motivo', 'contratos: mudar valor depois de assinado exige motivo');
+select ctr_contrato_salvar(jsonb_build_object('id', (select v from ctr_t where k = 'k1'), 'obs', 'contato: Douglas'));
+select pg_temp.ok((select ctr_cobrancas_gerar((select v from ctr_t where k = 'k1'))) = 13, 'contratos: gera 12 meses + parcela extra');
+select pg_temp.ok((select ctr_cobrancas_gerar((select v from ctr_t where k = 'k1'))) = 0, 'contratos: gerar de novo não repete');
+select pg_temp.ok((select vencimento = '2026-02-28' from ctr_cobrancas where competencia = '2026/02') and (select vencimento = '2026-12-30' and valor = 3600 from ctr_cobrancas where competencia = '2026/13'),
+  'contratos: vencimento no último dia de fevereiro; parcela extra cheia em dezembro');
+-- contrato que começa em novembro: parcela extra proporcional (2/12)
+insert into ctr_t values ('k2', ctr_contrato_salvar(jsonb_build_object('cliente_id', (select v from ctr_t where k = 'rio2'), 'inicio', '2026-11-01', 'fim', '2026-12-31', 'valor_mensal', 2200)));
+select ctr_contrato_etapa((select v from ctr_t where k = 'k2'), 'gerado');
+select ctr_cobrancas_gerar((select v from ctr_t where k = 'k2'));
+select pg_temp.ok((select count(*) = 3 from ctr_cobrancas where contrato_id = (select v from ctr_t where k = 'k2'))
+  and (select valor = 366.67 and descricao like '%2/12%' from ctr_cobrancas where contrato_id = (select v from ctr_t where k = 'k2') and competencia = '2026/13'),
+  'contratos: parcela extra proporcional aos meses do ano');
+-- NF
+select pg_temp.erro2($$select ctr_nf_marcar(jsonb_build_object('ids', (select jsonb_agg(id) from ctr_cobrancas where competencia in ('2026/01','2026/02')), 'numero', '10'))$$,
+  'uma cobrança por vez', 'contratos: número da NF só com uma cobrança');
+select ctr_nf_marcar(jsonb_build_object('ids', (select jsonb_agg(id) from ctr_cobrancas where competencia in ('2026/01','2026/02') and contrato_id = (select v from ctr_t where k = 'k1')), 'data', '2026-01-05'));
+select ctr_nf_marcar(jsonb_build_object('ids', jsonb_build_array((select id from ctr_cobrancas where competencia = '2026/03' and contrato_id = (select v from ctr_t where k = 'k1'))), 'numero', '123'));
+select pg_temp.ok((select count(*) = 2 from ctr_cobrancas where nf_emitida and nf_data = '2026-01-05') and (select nf_numero = '123' and nf_emitida from ctr_cobrancas where competencia = '2026/03' and contrato_id = (select v from ctr_t where k = 'k1')),
+  'contratos: NF marcada em lote (data) e com número');
+select pg_temp.ok((select nf_situacao = 'atrasada' and situacao = 'atrasada' and dias_atraso > 0 from ctr_cobrancas_v where competencia = '2026/04' and cliente = 'Park Lagos'),
+  'contratos: sem NF depois do dia 5 e sem pagamento depois do vencimento = atrasadas');
+select pg_temp.ok((select nf_prazo = '2026-12-05' from ctr_cobrancas_v where competencia = '2026/13' and cliente = 'Park Lagos'), 'contratos: prazo da NF da parcela extra = 5 de dezembro');
+-- baixa manual
+select pg_temp.erro2($$select ctr_baixa(jsonb_build_object('id', (select id from ctr_cobrancas where competencia = '2026/01' and contrato_id = (select v from ctr_t where k = 'k1')), 'pago_em', '2026-01-26', 'valor_pago', 3500))$$,
+  'explique a diferença', 'contratos: baixa com diferença exige observação');
+select ctr_baixa(jsonb_build_object('id', (select id from ctr_cobrancas where competencia = '2026/01' and contrato_id = (select v from ctr_t where k = 'k1')), 'pago_em', '2026-01-26', 'valor_pago', 3600));
+select pg_temp.ok((select situacao = 'paga' and imposto_pct = 16.5 and imposto = 594 and liquido = 3006 from ctr_cobrancas_v where competencia = '2026/01' and cliente = 'Park Lagos'),
+  'contratos: paga no prazo; imposto 16,5% (R$ 594) e líquido (R$ 3.006)');
+select ctr_imposto_salvar('2026-02-01', 16);
+select ctr_baixa(jsonb_build_object('id', (select id from ctr_cobrancas where competencia = '2026/02' and contrato_id = (select v from ctr_t where k = 'k1')), 'pago_em', '2026-03-02', 'valor_pago', 3525.6, 'obs', 'retenção'));
+select pg_temp.ok((select situacao = 'diferenca' and imposto_pct = 16 from ctr_cobrancas_v where competencia = '2026/02' and cliente = 'Park Lagos'), 'contratos: diferença e alíquota pela data');
+select pg_temp.erro2($$select ctr_cobranca_salvar(jsonb_build_object('id', (select id from ctr_cobrancas where competencia = '2026/02' and contrato_id = (select v from ctr_t where k = 'k1')), 'valor', 1))$$,
+  'já paga', 'contratos: cobrança paga não muda de valor');
+select pg_temp.erro2($$select ctr_cobranca_excluir((select id from ctr_cobrancas where competencia = '2026/02' and contrato_id = (select v from ctr_t where k = 'k1')), 'engano no mês')$$,
+  'paga não se exclui', 'contratos: cobrança paga não se exclui');
+select pg_temp.erro2($$select ctr_baixa_desfazer((select id from ctr_cobrancas where competencia = '2026/02' and contrato_id = (select v from ctr_t where k = 'k1')), 'x')$$, 'motivo', 'contratos: desfazer baixa exige motivo');
+select ctr_baixa_desfazer((select id from ctr_cobrancas where competencia = '2026/02' and contrato_id = (select v from ctr_t where k = 'k1')), 'lançado no mês errado');
+select pg_temp.ok((select pago_em is null from ctr_cobrancas where competencia = '2026/02' and contrato_id = (select v from ctr_t where k = 'k1')), 'contratos: baixa desfeita');
+-- extrato e conferência
+select pg_temp.ok((ctr_extrato_importar(jsonb_build_object('arquivo', 'nubank.ofx', 'linhas', jsonb_build_array(
+    jsonb_build_object('chave', 'a1', 'fitid', 'F1', 'data', '2026-02-27', 'valor', 3600, 'descricao', 'Pix recebido FUNDO PARK LAGOS 34.147.021/0001-56'),
+    jsonb_build_object('chave', 'a2', 'fitid', 'F2', 'data', '2026-11-28', 'valor', 4400, 'descricao', 'Pix recebido RIO2 POM'),
+    jsonb_build_object('chave', 'a3', 'fitid', 'F3', 'data', '2026-11-28', 'valor', -50, 'descricao', 'débito'),
+    jsonb_build_object('chave', 'a4', 'fitid', 'F4', 'data', '2026-11-29', 'valor', 10, 'descricao', 'rendimento'))))) ->> 'novos' = '3',
+  'contratos: importa só os créditos do extrato');
+select pg_temp.ok((ctr_extrato_importar(jsonb_build_object('linhas', jsonb_build_array(jsonb_build_object('chave', 'outra', 'fitid', 'F1', 'data', '2026-02-27', 'valor', 3600))))) ->> 'repetidos' = '1',
+  'contratos: o mesmo lançamento (FITID) não entra duas vezes');
+select ctr_conciliar((select id from ctr_extrato where fitid = 'F1'), array[(select id from ctr_cobrancas where competencia = '2026/02' and contrato_id = (select v from ctr_t where k = 'k1'))]);
+select pg_temp.ok((select situacao = 'paga' and pago_em = '2026-02-27' and extrato_id is not null from ctr_cobrancas_v where competencia = '2026/02' and cliente = 'Park Lagos'), 'contratos: crédito do extrato dá a baixa');
+select pg_temp.erro2($$select ctr_conciliar((select id from ctr_extrato where fitid = 'F1'), array[(select id from ctr_cobrancas where competencia = '2026/03' and contrato_id = (select v from ctr_t where k = 'k1'))])$$,
+  'já foi ligado', 'contratos: o mesmo crédito não paga duas vezes');
+insert into ctr_t values ('avulsa', ctr_cobranca_avulsa(jsonb_build_object('cliente_id', (select v from ctr_t where k = 'pom'), 'vencimento', '2026-11-30', 'valor', 2200, 'descricao', 'Projeto Wi-Fi')));
+select pg_temp.erro2($$select ctr_conciliar((select id from ctr_extrato where fitid = 'F2'), array[(select v from ctr_t where k = 'avulsa'), (select id from ctr_cobrancas where competencia = '2026/12' and contrato_id = (select v from ctr_t where k = 'k1'))])$$,
+  'não bate', 'contratos: várias cobranças só se a soma bater');
+select ctr_conciliar((select id from ctr_extrato where fitid = 'F2'), array[(select v from ctr_t where k = 'avulsa'), (select id from ctr_cobrancas where competencia = '2026/11' and contrato_id = (select v from ctr_t where k = 'k2'))]);
+select pg_temp.ok((select count(*) = 2 and sum(valor_pago) = 4400 from ctr_cobrancas where extrato_id = (select id from ctr_extrato where fitid = 'F2')), 'contratos: um Pix paga duas cobranças');
+select ctr_extrato_ignorar((select id from ctr_extrato where fitid = 'F4'), 'rendimento da conta');
+select pg_temp.erro2($$select ctr_conciliar((select id from ctr_extrato where fitid = 'F4'), array[(select id from ctr_cobrancas where competencia = '2026/12' and contrato_id = (select v from ctr_t where k = 'k1'))])$$,
+  'não é de contrato', 'contratos: crédito ignorado não dá baixa');
+-- renovar, encerrar, rescindir, histórico
+insert into ctr_t values ('k3', ctr_contrato_renovar((select v from ctr_t where k = 'k1'), '{"inicio":"2027-01-01","fim":"2027-12-31","valor_mensal":3800}'));
+select pg_temp.ok((select situacao = 'rascunho' and valor_mensal = 3800 and anterior_id = (select v from ctr_t where k = 'k1') and local_assinatura = 'Cabo Frio' from ctr_contratos where id = (select v from ctr_t where k = 'k3')),
+  'contratos: renovação copia os dados com novo prazo e valor');
+select pg_temp.erro2($$select ctr_contrato_renovar((select v from ctr_t where k = 'k1'), '{"inicio":"2026-06-01"}')$$, 'antes do fim', 'contratos: renovação não sobrepõe o contrato atual');
+select pg_temp.erro2($$select ctr_contrato_etapa((select v from ctr_t where k = 'k2'), 'rescindido')$$, 'motivo', 'contratos: rescindir exige motivo');
+select ctr_contrato_etapa((select v from ctr_t where k = 'k2'), 'rescindido', null, 'cliente pediu o fim');
+select ctr_contrato_etapa((select v from ctr_t where k = 'k2'), 'voltar', null, 'rescisão lançada errado');
+select pg_temp.ok((select situacao = 'gerado' and encerrado_em is null from ctr_contratos where id = (select v from ctr_t where k = 'k2')), 'contratos: voltar desfaz a rescisão');
+select ctr_contrato_documento((select v from ctr_t where k = 'k1'), 'contratos/' || (select v from ctr_t where k = 'k1') || '/assinado.pdf', 'assinado.pdf');
+select pg_temp.erro2($$select ctr_contrato_documento((select v from ctr_t where k = 'k1'), 'modelos/x.pdf')$$, 'inválido', 'contratos: PDF só na pasta do contrato');
+select pg_temp.erro2($$update ctr_eventos set evento = 'x'$$, 'permission', 'contratos: a tela não altera o histórico');
+reset role;
+select pg_temp.erro2($$update ctr_eventos set evento = 'x'$$, 'não pode ser alterado', 'contratos: histórico do contrato é somente inclusão');
+select pg_temp.ok((select count(*) = 7 from ctr_eventos where contrato_id = (select v from ctr_t where k = 'k1')), 'contratos: histórico do contrato registrado');
+select pg_temp.ok((select count(*) from auditoria where acao like 'contratos_%') >= 20
+  and exists (select 1 from auditoria where acao = 'contratos_conciliado' and jsonb_array_length(detalhes -> 'cobrancas') = 2)
+  and exists (select 1 from auditoria where acao = 'contratos_baixa_desfeita' and detalhes ->> 'motivo' = 'lançado no mês errado')
+  and exists (select 1 from auditoria where acao = 'contratos_etapa' and detalhes ->> 'etapa' = 'assinado')
+  and not exists (select 1 from auditoria where acao = 'contratos_contrato_alterado' and detalhes ? 'antes' and detalhes -> 'antes' ? 'situacao'),
+  'contratos: auditoria das ações (só os campos que mudaram)');
+-- leitura: só a equipe
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.ok((select count(*) = 0 from ctr_clientes) and (select count(*) = 0 from ctr_cobrancas_v) and (select count(*) = 0 from ctr_extrato) and (select count(*) = 0 from ctr_config),
+  'contratos: quem não é da equipe não vê nada');
+-- carga: só com o app vazio, conferindo os totais
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select pg_temp.erro2($$select ctr_carga('{"clientes":[]}')$$, 'app vazio', 'contratos: carga recusada com dados');
+reset role;
+truncate ctr_t;
+delete from ctr_cobrancas; delete from ctr_extrato; delete from ctr_importacoes;
+alter table ctr_eventos disable trigger ctr_eventos_fixo; delete from ctr_eventos; alter table ctr_eventos enable trigger ctr_eventos_fixo;
+update ctr_contratos set anterior_id = null; delete from ctr_contratos; delete from ctr_clientes;
+set role authenticated;
+select pg_temp.erro2($$select ctr_carga('{"clientes":[{"ref":"A","apelido":"A","razao_social":"A"}],"contratos":[{"ref":"k","cliente_ref":"A","inicio":"2025-01-01","fim":"2025-12-31","valor_mensal":100,"situacao":"encerrado","historico":true}],
+  "cobrancas":[{"cliente_ref":"A","contrato_ref":"k","competencia":"2025/01","vencimento":"2025-01-30","valor":100,"pago_em":"2025-01-29","valor_pago":100}],
+  "conferir":{"cobrancas":1,"cobrado":100,"pago":90}}')$$, 'não batem', 'contratos: carga com total diferente da planilha é desfeita');
+select pg_temp.ok((select count(*) = 0 from ctr_clientes), 'contratos: carga recusada não deixa nada gravado');
+select pg_temp.ok((ctr_carga('{"arquivo":"ContratoDados.xlsx","impostos":[{"desde":"2024-01-01","pct":16.5}],
+  "clientes":[{"ref":"A","apelido":"A","razao_social":"A","cnpj":"11.111.111/0001-11"},{"ref":"B","apelido":"B","razao_social":"B","ativo":false}],
+  "contratos":[{"ref":"k","cliente_ref":"A","inicio":"2025-01-01","fim":"2025-12-31","valor_mensal":100,"situacao":"encerrado","historico":true}],
+  "cobrancas":[{"cliente_ref":"A","contrato_ref":"k","competencia":"2025/01","vencimento":"2025-01-30","valor":100,"pago_em":"2025-01-29","valor_pago":100,"nf_emitida":true},
+               {"cliente_ref":"A","contrato_ref":"k","competencia":"2025/01","vencimento":"2025-01-30","valor":5,"descricao":"complemento"},
+               {"cliente_ref":"B","competencia":"2025/07","vencimento":"2025-07-27","valor":1500}],
+  "conferir":{"cobrancas":3,"cobrado":1605,"pago":100}}') ->> 'cobrancas') = '3', 'contratos: carga da planilha com conferência dos totais');
+select pg_temp.ok((select situacao = 'encerrado' and encerrado_em = '2025-12-31' and historico from ctr_contratos)
+  and (select count(*) = 2 from ctr_cobrancas where competencia = '2025/01'),
+  'contratos: carga da planilha (contrato antigo encerrado, duas cobranças no mesmo mês, avulsa sem contrato)');
+reset role;
+select pg_temp.ok(exists (select 1 from auditoria where acao = 'contratos_carga' and (detalhes ->> 'cobrancas')::int = 3), 'contratos: carga registrada na auditoria');
 
 reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'
