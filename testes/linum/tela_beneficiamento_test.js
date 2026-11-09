@@ -30,14 +30,14 @@ const FALSO = `(() => {
   S.D.papel = '__PAPEL__';
   const ok = data => Promise.resolve({ data, error: null }), erro = m => Promise.resolve({ data: null, error: { message: m } });
   const tabela = t => ({ lin_beneficiamentos: S.bf, lin_benef_itens: S.it, lin_benef_retornos: S.rt, lin_benef_valores: S.perm.producao_valores ? S.val : [], lin_movimentos: S.mov }[t] || []);
-  const consulta = tab => { const f = []; let head = false;
+  const consulta = tab => { const f = []; let head = false, um = false;
     const q = { select: (c, o) => { head = !!(o && o.head); return q; }, order: () => q, limit: () => q,
       eq: (c, v) => { f.push(x => x[c] === v); return q; }, in: (c, v) => { f.push(x => v.includes(x[c])); return q; },
       gte: (c, v) => { f.push(x => x[c] >= v); return q; }, lte: (c, v) => { f.push(x => x[c] <= v); return q; },
-      or: () => q, maybeSingle: () => ok({ admin: false }),
+      or: () => q, maybeSingle: () => { if (tab === 'perfis') return ok({ admin: false }); um = true; return q; },
       range: (a, b) => ok(tabela(tab).filter(x => f.every(g => g(x))).slice(a, b + 1)),
       then: (r, j) => { const l = tabela(tab).filter(x => f.every(g => g(x)));
-        return Promise.resolve(head ? { data: null, count: l.length, error: null } : { data: l, error: null }).then(r, j); } };
+        return Promise.resolve(head ? { data: null, count: l.length, error: null } : { data: um ? (l[0] || null) : l, error: null }).then(r, j); } };
     return q; };
   const est = (v, l) => S.D.estoque.find(e => e[0] === v && e[1] === l);
   const somar = (v, l, q) => { const e = est(v, l); if (e) e[2] += q; else S.D.estoque.push([v, l, q]); };
@@ -153,6 +153,16 @@ const ultimaRpc = (pg, fn) => pg.evaluate(fn => { const l = window.__S.rpc.filte
        && env.p.itens[0].quantidade === 4 && !('valor_unitario' in env.p.itens[0]), 'envio manda loja, quem faz, serviço e peças (sem valor)');
     ok(await estoque(pg, 'v1', 'l-gav') === 1 && (await pg.locator('#msg').innerText()).includes('Beneficiamento nº 1'), 'peças saem do estoque; mensagem com o número');
     ok((await pg.locator('#abaBenef').innerText()).trim().endsWith('1'), 'número na aba');
+    // 2.40: depois do envio, a ficha abre sozinha (para imprimir e mandar junto com as peças)
+    await pg.waitForSelector('#dlg[open] #bffimp');
+    let fic = await pg.locator('#dlgf').innerText();
+    ok(fic.includes('Beneficiamento nº 1') && fic.includes('bordado à mão') && fic.includes('Ateliê Flor') && fic.includes('Enviado para Ateliê Flor') && fic.includes('Próximo: registrar a volta de 5 peça(s)'),
+      'ficha abre depois do envio: serviço, quem faz, andamento e próximo passo');
+    ok(!/R\$/.test(fic) && await pg.locator('#bffval').count() === 0, 'ficha do Estoque sem valor');
+    const [pop] = await Promise.all([pg.context().waitForEvent('page'), pg.click('#bffimp')]);
+    await pop.waitForLoadState(); const imp = await pop.evaluate(() => document.body.innerText); await pop.close();
+    ok(imp.includes('Beneficiamento nº 1') && imp.includes('Ateliê Flor') && imp.includes('Recebido por Ateliê Flor') && imp.includes('Andamento') && !imp.includes('R$'), 'ficha impressa para ir com as peças (sem valor para o Estoque)');
+    await pg.click('#bffx');
 
     // ---------------------------------------------------------------- aba Beneficiamento + retorno
     await aba(pg, '#abaBenef'); await pg.waitForSelector('[data-bfret]');
@@ -206,6 +216,12 @@ const ultimaRpc = (pg, fn) => pg.evaluate(fn => { const l = window.__S.rpc.filte
     await pg.click('[data-fbf="concluido"]'); await pg.waitForSelector('[data-bf="1"]');
     const card3 = await pg.locator('[data-bf="1"]').innerText();
     ok(card3.includes('Concluído') && card3.includes('virou Marinho P Tingida') && card3.includes('manchou no bordado'), 'concluído mostra a peça especial nova e a perda');
+    await pg.click('[data-bf="1"] [data-bfficha] >> nth=0'); await pg.waitForSelector('#dlg[open] .ajlinha');
+    const and = await pg.locator('#dlgf .ajlinha li').allInnerTexts();
+    ok(and.length === 6 && and[0].startsWith('Enviado para Ateliê Flor') && and.some(x => x.includes('voltou como Azul P Bordada → Ipanema')) && and.some(x => x.includes('perdida') && x.includes('manchou no bordado'))
+       && and[5].startsWith('Concluído') && await pg.locator('#bffret').count() === 0, 'ficha do concluído: envio, cada volta, a perda e o fim, sem "Registrar retorno"');
+    await print(pg, 'benef_ficha');
+    await pg.click('#bffx');
 
     // ---------------------------------------------------------------- Movimentações mostram os tipos novos
     const tipos = await pg.evaluate(() => [MV_TIPO.benef_envio, MV_TIPO.benef_retorno, mvEfeito({ tipo: 'benef_envio', quantidade: 3 }), mvEfeito({ tipo: 'benef_retorno', quantidade: 2 })]);
@@ -221,6 +237,9 @@ const ultimaRpc = (pg, fn) => pg.evaluate(fn => { const l = window.__S.rpc.filte
     d.pg.once('dialog', x => x.accept()); await d.pg.click('#bfok'); await d.pg.waitForTimeout(500);
     const env2 = await ultimaRpc(d.pg, 'lin_beneficiamento_enviar');
     ok(env2 && env2.p.itens[0].valor_unitario === 35.5, 'valor por peça vai no envio (vírgula vira ponto)');
+    await d.pg.waitForSelector('#dlg[open] #bffimp');
+    ok((await d.pg.locator('#dlgf').innerText()).replace(/\u00a0/g, ' ').includes('R$ 71,00') && await d.pg.locator('#bffval').count() === 1, 'ficha do Dono mostra o valor pago e "Valor pago"');
+    await d.pg.click('#bffx');
     await aba(d.pg, '#abaBenef'); await d.pg.waitForSelector('[data-bfval]');
     const t = (await d.pg.locator('#tela').innerText()).replace(/\u00a0/g, ' ');
     ok(t.includes('R$ 35,50/peça') && t.includes('Valor pago: R$ 71,00') && /Valor das peças fora\s*R\$\s*71,00/.test(t), 'Dono vê valor por peça, total e o valor das peças fora');
@@ -251,7 +270,9 @@ const ultimaRpc = (pg, fn) => pg.evaluate(fn => { const l = window.__S.rpc.filte
     await c.pg.click('button.chip[data-v="v1"][data-l="l-gav"]'); await c.pg.waitForSelector('#dlg[open]'); await c.pg.waitForTimeout(300);
     await c.pg.click('#dlgf [data-g="tipo"][data-x="beneficiamento"]'); await c.pg.waitForSelector('#dlg[open] #bfquem');
     await c.pg.fill('#bfquem', 'Ateliê'); await c.pg.fill('#bfserv', 'bordado');
-    c.pg.once('dialog', x => x.accept()); await c.pg.click('#bfok'); await c.pg.waitForTimeout(400);
+    c.pg.once('dialog', x => x.accept()); await c.pg.click('#bfok'); await c.pg.waitForSelector('#dlg[open] #bffimp');
+    ok(await c.pg.evaluate(() => document.getElementById('dlg').scrollWidth <= document.getElementById('dlg').clientWidth + 1), 'celular: ficha sem rolagem lateral');
+    await c.pg.click('#bffx');
     await aba(c.pg, '#abaBenef'); await c.pg.waitForSelector('[data-bfret]');
     await c.pg.click('[data-bfret="1"]'); await c.pg.waitForSelector('#dlg[open] #rbok');
     ok(await c.pg.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'celular: retorno sem rolagem lateral');

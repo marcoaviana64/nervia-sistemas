@@ -62,7 +62,7 @@ async function telaBeneficiamento() {
     <div class="filtros">${pil("no_beneficiamento", "No beneficiamento")}${pil("atrasados", "Atrasados")}${pil("concluido", "Concluídos")}${pil("todos", "Todos (180 dias)")}</div>
     <div>${vis.length ? vis.map(b => { const l = itensDe(b.id), r = retDe(b.id), tot = soma(b.id, i => i.quantidade), pend = soma(b.id, bfPend);
       return `<div class="card" data-bf="${b.id}"><div class="cab" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
-          <h3 style="margin:0">Nº ${b.id} · ${esc(b.servico)} · ${esc(b.beneficiador)} <span class="tag ${b.situacao === "concluido" ? "ok" : atrasado(b) ? "fora" : "possivel"}">${atrasado(b) ? "Atrasado" : BF_SIT[b.situacao]}</span></h3>
+          <h3 style="margin:0"><button type="button" class="lnk" data-bfficha="${b.id}" title="Abrir a ficha" style="font:inherit;font-weight:700">Nº ${b.id}</button> · ${esc(b.servico)} · ${esc(b.beneficiador)} <span class="tag ${b.situacao === "concluido" ? "ok" : atrasado(b) ? "fora" : "possivel"}">${atrasado(b) ? "Atrasado" : BF_SIT[b.situacao]}</span></h3>
           <span class="mut">${n(tot)} peça(s)${pend && pend < tot ? ` · ${n(pend)} ainda fora` : ""}</span></div>
         <div class="mut">Saiu de ${esc(loja(b.loja_id).nome)} · enviado por ${esc(b.enviado_nome || "—")} em ${quando(b.enviado_em)}${b.previsto ? ` · volta prevista ${bfData(b.previsto)}` : ""}${b.observacao ? " · " + esc(b.observacao) : ""}</div>
         ${b.concluido_em ? `<div class="mut">Concluído em ${quando(b.concluido_em)}</div>` : ""}
@@ -72,12 +72,99 @@ async function telaBeneficiamento() {
         ${bfValores() && valorDe(b.id) ? `<div style="margin-top:6px"><b>Valor pago: ${brl(valorDe(b.id))}</b></div>` : ""}
         <div class="acoes" style="justify-content:flex-start;margin-top:10px">
           ${controla() && b.situacao === "no_beneficiamento" ? `<button type="button" class="bt pri" data-bfret="${b.id}">Registrar retorno</button>` : ""}
-          ${bfValores() ? `<button type="button" class="bt" data-bfval="${b.id}">Valor pago</button>` : ""}</div>
+          ${bfValores() ? `<button type="button" class="bt" data-bfval="${b.id}">Valor pago</button>` : ""}
+          <button type="button" class="bt" data-bfficha="${b.id}">Ficha / imprimir</button></div>
       </div>`; }).join("") : `<div class="vazio">${FBF.sit === "no_beneficiamento" ? "Nenhuma peça no beneficiamento." : "Nada aqui."}</div>`}</div>`;
   if ($("bfnovo")) $("bfnovo").onclick = () => novoBeneficiamento(null, bs);
   document.querySelectorAll("[data-fbf]").forEach(b => b.onclick = () => { FBF.sit = b.dataset.fbf; telaBeneficiamento(); });
   document.querySelectorAll("[data-bfret]").forEach(b => b.onclick = () => { const x = bs.find(y => y.id === +b.dataset.bfret); retornoBeneficiamento(x, itensDe(x.id)); });
   document.querySelectorAll("[data-bfval]").forEach(b => b.onclick = () => { const x = bs.find(y => y.id === +b.dataset.bfval); valoresBeneficiamento(x, itensDe(x.id), val); });
+  document.querySelectorAll("[data-bfficha]").forEach(b => b.onclick = () => { const x = bs.find(y => y.id === +b.dataset.bfficha); fichaBeneficiamento(x, itensDe(x.id), retDe(x.id), val); });
+}
+
+// ---------------------------------------------------------------- ficha do beneficiamento (versão 2.40, pergunta do Marco em
+// 09/11/2026: "beneficiamento não tem ficha?"): dados, peças (enviadas, voltaram, perdidas, fora), andamento (envio e cada
+// retorno ou perda, com quem e quando), as ações e Imprimir / PDF para ir junto com as peças ao beneficiador.
+async function abrirFichaBenef(id) {
+  const b = checar(await sb.from("lin_beneficiamentos").select("*").eq("id", id).maybeSingle());
+  const [its, rs] = await Promise.all([todas(() => sb.from("lin_benef_itens").select("*").eq("beneficiamento_id", id).order("id")),
+    todas(() => sb.from("lin_benef_retornos").select("*").eq("beneficiamento_id", id).order("id"))]);
+  let vals = [];
+  if (bfValores() && its.length) vals = await todas(() => sb.from("lin_benef_valores").select("item_id, valor_unitario").in("item_id", its.map(i => i.id)));
+  fichaBeneficiamento(b, its, rs, new Map(vals.map(v => [v.item_id, Number(v.valor_unitario)])));
+}
+const bfComo = x => [x.cor, x.tamanho, x.edicao].filter(Boolean).join(" ");
+// linha do tempo: o envio e cada retorno (ou perda), na ordem
+function bfAndamento(b, its, rs) {
+  const ev = [{ em: b.enviado_em, tipo: "enviado", txt: `Enviado para ${b.beneficiador} (${b.servico})`, quem: b.enviado_nome,
+    det: its.map(i => `${i.quantidade}× ${i.descricao} ${bfComo(i)}`).join("; ") }];
+  rs.forEach(x => { const i = its.find(y => y.id === x.item_id) || {};
+    ev.push({ em: x.criado_em, tipo: x.resultado, quem: x.criado_nome,
+      txt: x.resultado === "perda" ? `${x.quantidade}× ${i.descricao || ""} ${bfComo(i)} perdida${x.quantidade > 1 ? "s" : ""}`
+        : `${x.quantidade}× ${i.descricao || ""} ${bfComo(i)} ${x.resultado === "outra" ? "voltou como " + bfComo(x) : "voltou igual"} → ${loja(x.loja_id).nome}`,
+      det: x.motivo || "" }); });
+  if (b.concluido_em) ev.push({ em: b.concluido_em, tipo: "concluido", txt: "Concluído: todas as peças voltaram ou foram perdidas", quem: "" });
+  return ev;
+}
+function fichaBeneficiamento(b, its, rs, val) {
+  const f = $("dlgf"), h = hoje(), atr = b.situacao === "no_beneficiamento" && b.previsto && b.previsto < h;
+  const tot = its.reduce((s, i) => s + i.quantidade, 0), fora = its.reduce((s, i) => s + bfPend(i), 0);
+  const valor = its.reduce((s, i) => s + (val && val.has(i.id) ? val.get(i.id) * i.quantidade : 0), 0);
+  const linha = (rot, v) => v ? `<div class="vlin"><span class="mut">${rot}</span><span style="text-align:right">${v}</span></div>` : "";
+  const ev = bfAndamento(b, its, rs);
+  f.innerHTML = `<h3>Beneficiamento nº ${b.id} <span class="tag ${b.situacao === "concluido" ? "ok" : atr ? "fora" : "possivel"}">${atr ? "Atrasado" : BF_SIT[b.situacao]}</span></h3>
+    <div class="campo">
+      ${linha("Serviço", `<b>${esc(b.servico)}</b>`)}
+      ${linha("Quem faz", esc(b.beneficiador))}
+      ${linha("Saiu da loja", esc(loja(b.loja_id).nome))}
+      ${linha("Enviado", `${quando(b.enviado_em)} · ${esc(b.enviado_nome || "—")}`)}
+      ${linha("Volta prevista", b.previsto ? (atr ? `<b style="color:var(--crit)">${bfData(b.previsto)} · atrasado</b>` : bfData(b.previsto)) : '<span class="mut">não informada</span>')}
+      ${b.observacao ? linha("Observação", esc(b.observacao)) : ""}
+      ${bfValores() && valor ? linha("Valor pago", `<b>${brl(valor)}</b>`) : ""}
+    </div>
+    <div class="campo tw"><table><thead><tr><th>Peça</th><th class="num">Enviadas</th><th class="num">Voltaram</th><th class="num">Perdidas</th><th class="num">Fora</th>${bfValores() ? '<th class="num">R$/peça</th>' : ""}</tr></thead><tbody>
+      ${its.map(i => `<tr><td>${bfPeca(i)}</td><td class="num">${i.quantidade}</td><td class="num">${i.voltaram || "—"}</td><td class="num">${i.perdidas ? `<b style="color:var(--crit)">${i.perdidas}</b>` : "—"}</td>
+        <td class="num">${bfPend(i) ? `<b>${bfPend(i)}</b>` : "—"}</td>${bfValores() ? `<td class="num">${val && val.has(i.id) ? brl(val.get(i.id)) : "—"}</td>` : ""}</tr>`).join("")}
+      <tr><td><b>Total</b></td><td class="num"><b>${tot}</b></td><td class="num">${its.reduce((s, i) => s + i.voltaram, 0)}</td><td class="num">${its.reduce((s, i) => s + i.perdidas, 0)}</td><td class="num"><b>${fora}</b></td>${bfValores() ? "<td></td>" : ""}</tr>
+    </tbody></table></div>
+    <div class="campo"><b>Andamento</b>
+      <ol class="ajlinha">${ev.map(e => `<li class="ev-${e.tipo === "perda" ? "cancelado" : e.tipo === "concluido" ? "entregue" : e.tipo}"><b>${esc(e.txt)}</b> <span class="mut">${quando(e.em)}${e.quem ? " · " + esc(e.quem) : ""}</span>${e.det ? `<div>${esc(e.det)}</div>` : ""}</li>`).join("")}
+        ${b.situacao === "no_beneficiamento" ? `<li class="prox"><span class="mut">Próximo: registrar a volta de ${fora} peça(s)${b.previsto ? " até " + bfData(b.previsto) : ""}</span></li>` : ""}</ol></div>
+    <div class="acoes" style="flex-wrap:wrap">
+      ${controla() && b.situacao === "no_beneficiamento" ? '<button type="button" class="bt pri" id="bffret">Registrar retorno</button>' : ""}
+      ${bfValores() ? '<button type="button" class="bt" id="bffval">Valor pago</button>' : ""}
+      <button type="button" class="bt" id="bffimp">Imprimir / PDF</button><button type="button" class="bt" id="bffx">Fechar</button></div>`;
+  if ($("bffret")) $("bffret").onclick = () => retornoBeneficiamento(b, its, () => fichaBeneficiamento(b, its, rs, val));
+  if ($("bffval")) $("bffval").onclick = () => valoresBeneficiamento(b, its, val || new Map());
+  $("bffimp").onclick = () => imprimirBeneficiamento(b, its, rs, val);
+  $("bffx").onclick = () => $("dlg").close();
+  if (!$("dlg").open) $("dlg").showModal();
+}
+// ficha para imprimir ou salvar em PDF (vai junto com as peças); valor só para quem pode ver
+function imprimirBeneficiamento(b, its, rs, val) {
+  const w = window.open("", "_blank"); if (!w) return msg("err", "O navegador bloqueou a janela de impressão.");
+  const vv = bfValores() && val, ev = bfAndamento(b, its, rs);
+  w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Beneficiamento nº ${b.id} — Linum</title>
+    <style>body{font:14px system-ui,sans-serif;margin:24px;color:#111}h1{font-size:20px;margin:0 0 2px}.mut{color:#555}table{width:100%;border-collapse:collapse;margin-top:10px}
+    td,th{padding:5px 6px;border-bottom:1px solid #ccc;text-align:left;vertical-align:top}th{font-size:12px;color:#555}.n{text-align:right}.cx{border:1px solid #999;border-radius:6px;padding:10px 12px;margin-top:12px}
+    .ass{margin-top:26px;display:flex;gap:30px;flex-wrap:wrap}.ass div{flex:1;min-width:220px;border-top:1px solid #333;padding-top:4px;font-size:12px;color:#555}</style></head><body>
+    <h1>LINUM · Beneficiamento nº ${b.id}</h1><div class="mut">Emitida em ${bfData(hoje())} · situação: <b>${BF_SIT[b.situacao]}</b></div>
+    <div class="cx"><table>
+      <tr><td class="mut" style="width:150px">Serviço</td><td><b>${esc(b.servico)}</b></td></tr>
+      <tr><td class="mut">Quem faz</td><td><b>${esc(b.beneficiador)}</b></td></tr>
+      <tr><td class="mut">Saiu da loja</td><td>${esc(loja(b.loja_id).nome)} · ${quando(b.enviado_em)} · ${esc(b.enviado_nome || "")}</td></tr>
+      <tr><td class="mut">Volta prevista</td><td><b>${b.previsto ? bfData(b.previsto) : "—"}</b></td></tr>
+      ${b.observacao ? `<tr><td class="mut">Observação</td><td>${esc(b.observacao)}</td></tr>` : ""}
+    </table></div>
+    <table><thead><tr><th>Peça</th><th class="n">Enviadas</th><th class="n">Voltaram</th><th class="n">Perdidas</th><th class="n">Fora</th>${vv ? '<th class="n">R$/peça</th>' : ""}</tr></thead><tbody>
+      ${its.map(i => `<tr><td>${esc(i.referencia)} ${esc(i.descricao)} — ${esc(bfComo(i) || "—")}</td><td class="n">${i.quantidade}</td><td class="n">${i.voltaram}</td><td class="n">${i.perdidas}</td><td class="n">${bfPend(i)}</td>${vv ? `<td class="n">${val.has(i.id) ? brl(val.get(i.id)) : "—"}</td>` : ""}</tr>`).join("")}
+      <tr><td><b>Total</b></td><td class="n"><b>${its.reduce((s, i) => s + i.quantidade, 0)}</b></td><td class="n">${its.reduce((s, i) => s + i.voltaram, 0)}</td><td class="n">${its.reduce((s, i) => s + i.perdidas, 0)}</td><td class="n"><b>${its.reduce((s, i) => s + bfPend(i), 0)}</b></td>${vv ? `<td class="n"><b>${brl(its.reduce((s, i) => s + (val.get(i.id) || 0) * i.quantidade, 0))}</b></td>` : ""}</tr>
+    </tbody></table>
+    <h3 style="margin:18px 0 4px;font-size:15px">Andamento</h3>
+    ${ev.map(e => `<div>${quando(e.em)} · <b>${esc(e.txt)}</b>${e.quem ? " · " + esc(e.quem) : ""}${e.det && e.tipo !== "enviado" ? ` — ${esc(e.det)}` : ""}</div>`).join("")}
+    <div class="ass"><div>Recebido por ${esc(b.beneficiador)} em ____/____/______</div><div>Devolvido à loja em ____/____/______ · conferido por</div></div>
+    </body></html>`);
+  w.document.close(); w.focus(); w.print();
 }
 
 // envio; ini = {variante, loja} quando vem do quadrado do Estoque; anteriores = para sugerir beneficiador e serviço
@@ -161,7 +248,8 @@ async function novoBeneficiamento(ini, anteriores) {
       await carregar(); await carregarBenef();
       FBF.sit = "no_beneficiamento";
       if (VISTA === "beneficiamento") telaBeneficiamento(); else render();
-      msg("ok", `Beneficiamento nº ${id}: ${tot} peça(s) enviadas para ${T.serv.trim()}.`);
+      msg("ok", `Beneficiamento nº ${id}: ${tot} peça(s) enviadas para ${T.serv.trim()}. Imprima a ficha para ir junto com as peças.`);
+      abrirFichaBenef(id).catch(() => {});
     } catch (e) { desenhar(e.message); }
   };
   desenhar();
@@ -171,7 +259,7 @@ async function novoBeneficiamento(ini, anteriores) {
 
 // retorno: para cada peça ainda fora, quantas voltaram iguais, quantas viraram outra variação (escolhida ou criada
 // na hora como peça especial) e quantas se perderam (com motivo); a loja de entrada é escolhida (padrão = a de origem)
-function retornoBeneficiamento(b, its) {
+function retornoBeneficiamento(b, its, voltar) {   // voltar (opcional) = o botão "Voltar" volta para a ficha
   const f = $("dlgf");
   let vmap = bfVariantes();   // relida depois de criar uma peça especial (carregar() troca o PRODUTOS)
   const pend = its.filter(i => bfPend(i) > 0);
@@ -210,7 +298,7 @@ function retornoBeneficiamento(b, its) {
     f.querySelectorAll('[data-rbf="outra"],[data-rbf="perda"]').forEach(el => el.onchange = () => { guardar(); desenhar(); });
     f.querySelectorAll("[data-rbnova]").forEach(x => x.onclick = () => { guardar(); novaEspecialRetorno(pend[+x.dataset.rbnova], vid => { vmap = bfVariantes(); R[+x.dataset.rbnova].alvo = vid; desenhar(); }); });
     $("rbtodas").onclick = () => { R.forEach((r, k) => { r.igual = String(bfPend(pend[k])); r.outra = ""; r.perda = ""; }); desenhar(); };
-    $("rbx").onclick = () => $("dlg").close();
+    $("rbx").onclick = () => voltar ? voltar() : $("dlg").close();
     $("rbok").onclick = registrar;
   };
   const registrar = async () => {
