@@ -128,6 +128,9 @@ h2.temesp::after{content:"★";color:#c9a227;font-size:.7em;margin-left:5px;vert
 .grade2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .caixa{border:1px solid var(--border);border-radius:10px;padding:10px;margin-top:12px}
 .caixa h4{margin:0 0 4px;font-size:13px}
+.ajlinha{list-style:none;margin:6px 0 0;padding:0 0 0 14px;border-left:2px solid var(--border)}.ajlinha li{position:relative;padding:4px 0 8px 8px;font-size:13px}
+.ajlinha li::before{content:"";position:absolute;left:-21px;top:8px;width:10px;height:10px;border-radius:50%;background:var(--primary);border:2px solid var(--surface)}
+.ajlinha li.ev-cancelado::before,.ajlinha li.ev-reaberto::before{background:var(--crit)}.ajlinha li.ev-entregue::before{background:var(--ok)}.ajlinha li.prox::before{background:var(--surface);border-color:var(--border)}
 .vlin{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:6px 0;border-top:1px dashed var(--border);font-size:13px}
 .vlin:first-of-type{border-top:0}
 .vlin .acs{display:flex;gap:12px}
@@ -1017,7 +1020,8 @@ function verVenda(id) {
   f.querySelectorAll("[data-ajuste]").forEach(b => b.onclick = () => novoAjuste(v, its.find(i => i.id === +b.dataset.ajuste), () => verVenda(id)));
   sb.from("lin_ajustes").select("*").eq("venda_id", v.id).order("id").then(({ data }) => {
     if (!data || !data.length || !$("vajustes")) return;
-    $("vajustes").innerHTML = `<div class="campo"><b>Ajustes</b>${data.map(a => `<div class="vlin"><span>${esc(a.peca)} · ${esc(a.servico)} · ${esc(a.costureira)}</span><span>${AJ_SIT[a.situacao]}${a.situacao === "na_costureira" ? ` · volta ${dataBR(a.prazo)}` : ""}</span></div>`).join("")}</div>`;
+    $("vajustes").innerHTML = `<div class="campo"><b>Ajustes</b>${data.map(a => `<div class="vlin"><span>${esc(a.peca)} · ${esc(a.servico)} · ${esc(a.costureira)}</span><span>${AJ_SIT[a.situacao]}${a.situacao === "na_costureira" ? ` · volta ${dataBR(a.prazo)}` : ""} <button type="button" class="lnk" data-vfa="${a.id}">Ficha / status</button></span></div>`).join("")}</div>`;
+    $("vajustes").querySelectorAll("[data-vfa]").forEach(b => b.onclick = () => fichaAjuste(data.find(a => a.id === +b.dataset.vfa), () => { if ($("dlg").open) verVenda(id); }));
   });
   if ($("vdata")) $("vdata").onclick = () => { $("vdatabox").hidden = false; $("vdnova").focus(); };
   if ($("vdsalvar")) $("vdsalvar").onclick = async () => {
@@ -1290,7 +1294,84 @@ const zapAjusteCliente = a => { const c = cliente(a.cliente_id); if (!c || !c.te
   const txt = `Olá, ${c.nome.split(" ")[0]}! Aqui é da Linum. Sua peça (${a.peca}) já voltou do ajuste e está pronta para retirar na loja ${loja(a.loja_id).nome}. Até breve!`;
   window.open(`https://wa.me/55${c.telefone}?text=${encodeURIComponent(txt)}`, "_blank", "noopener"); };
 
+// andamento do ajuste (versão 2.39, pedido do Marco em 09/11/2026): linha do tempo em lin_ajuste_eventos; ao marcar
+// "Voltou" e "Entregue" dá para escrever uma observação (opcional); voltar para a costureira e cancelar exigem o motivo
+const AJ_EV = { enviado: "Enviado para a costureira", pronto: "Voltou para a loja", entregue: "Entregue à cliente", reaberto: "Voltou para a costureira", cancelado: "Cancelado" };
+const AJ_TAG = { na_costureira: "possivel", pronto: "ok", entregue: "", cancelado: "fora" };
+async function eventosAjustes(ids) {
+  const m = {}; ids.forEach(i => { m[i] = []; });
+  if (!ids.length) return m;
+  const r = await sb.from("lin_ajuste_eventos").select("*").in("ajuste_id", ids).order("criado_em").order("id");
+  (r.error ? [] : r.data || []).forEach(e => { (m[e.ajuste_id] = m[e.ajuste_id] || []).push(e); });   // sem a tabela (antes da migração): sem linha do tempo
+  return m;
+}
+const AJ_ACAO = {
+  pronto:   { tit: "A peça voltou da costureira", rot: "Como voltou? (opcional)", ph: "Ex.: bainha feita e conferida; ficou ótima", obr: false, bt: "Marcar como pronta na loja", ok: "Peça de volta na loja: avise a cliente." },
+  entregue: { tit: "Entregar à cliente", rot: "Observação do retorno (opcional)", ph: "Ex.: a cliente provou e gostou; levou na sacola", obr: false, bt: "Marcar como entregue", ok: "Ajuste entregue à cliente." },
+  reabrir:  { tit: "Voltar para a costureira", rot: "O que faltou ajustar? (obrigatório)", ph: "Ex.: a bainha ficou torta do lado esquerdo", obr: true, bt: "Voltar para a costureira", ok: "Peça voltou para a costureira." },
+  cancelar: { tit: "Cancelar o ajuste", rot: "Motivo do cancelamento (obrigatório)", ph: "Ex.: a cliente desistiu do ajuste", obr: true, bt: "Cancelar o ajuste", ok: "Ajuste cancelado." },
+};
+// depois(ajusteAtualizado) é chamado depois de gravar; voltar() (opcional) = o botão "Voltar" (ex.: de volta à ficha)
+function andamentoAjuste(a, acao, depois, voltar) {
+  const g = $("dlg2f"), x = AJ_ACAO[acao];
+  g.innerHTML = `<h3>${x.tit}</h3><div class="mut">Ajuste nº ${a.id} · ${a.quantidade > 1 ? a.quantidade + "× " : ""}${esc(a.peca)} · ${esc(a.servico)}</div>
+    ${acao === "entregue" && a.situacao === "na_costureira" ? '<div class="msg info">A volta da costureira ainda não foi marcada: ela fica registrada junto, agora.</div>' : ""}
+    <div class="campo"><label for="ajandobs">${x.rot}</label><textarea id="ajandobs" rows="3" maxlength="300" placeholder="${esc(x.ph)}"></textarea></div>
+    <div id="ajanderr"></div>
+    <div class="acoes"><button type="button" class="bt" id="ajandx">${voltar ? "Voltar" : "Fechar"}</button><button type="button" class="bt pri" id="ajandok">${x.bt}</button></div>`;
+  $("ajandx").onclick = () => voltar ? voltar() : $("dlg2").close();
+  $("ajandok").onclick = async () => {
+    const t = $("ajandobs").value.trim();
+    if (x.obr && t.length < 3) { $("ajanderr").innerHTML = '<div class="msg err">Escreva pelo menos 3 letras.</div>'; return; }
+    $("ajandok").disabled = true;
+    try {
+      checar(await sb.rpc("lin_ajuste_andamento", { p_ajuste: a.id, p_acao: acao, p_motivo: t || null }));
+      const { data: novo } = await sb.from("lin_ajustes").select("*").eq("id", a.id).maybeSingle();
+      msg("ok", x.ok);
+      depois(novo || a);
+    } catch (e) { $("ajanderr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; $("ajandok").disabled = false; }
+  };
+  if (!$("dlg2").open) $("dlg2").showModal();
+  $("ajandobs").focus();
+}
+// ficha do ajuste: dados, situação, linha do tempo e as ações; depois() atualiza a tela de trás (lista ou venda)
+async function fichaAjuste(a, depois) {
+  const g = $("dlg2f");
+  let evs = [];
+  try { await Promise.all([carregarClientes(), carregarCostureiras()]); evs = (await eventosAjustes([a.id]))[a.id]; } catch (e) { return msg("err", e.message); }
+  const c = cliente(a.cliente_id), h = hoje(), atr = a.situacao === "na_costureira" && a.prazo < h;
+  const pode = ["na_costureira", "pronto"].includes(a.situacao), podeCanc = pode && (dono() || a.enviado_por === EU);
+  const linha = (rot, val) => val ? `<div class="vlin"><span class="mut">${rot}</span><span style="text-align:right">${val}</span></div>` : "";
+  g.innerHTML = `<h3>Ajuste nº ${a.id} <span class="tag ${AJ_TAG[a.situacao]}">${AJ_SIT[a.situacao]}</span>${atr ? ' <span class="tag fora">atrasado</span>' : ""}</h3>
+    <div class="mut">Venda nº ${a.venda_id} · loja ${esc(loja(a.loja_id).nome)}</div>
+    <div class="campo">
+      ${linha("Peça", `<b>${a.quantidade > 1 ? a.quantidade + "× " : ""}${esc(a.peca)}</b>`)}
+      ${linha("Cliente", c ? esc(c.nome) + (c.telefone ? " · " + esc(fone(c.telefone)) : "") : "—")}
+      ${linha("O que fazer", `<b>${esc(a.servico)}</b>`)}
+      ${linha("Costureira", esc(a.costureira) + (Number(a.valor_costureira) ? " · " + brl(a.valor_costureira) : ""))}
+      ${Number(a.valor_cliente) ? linha("Cobrado da cliente", brl(a.valor_cliente)) : ""}
+      ${linha("Volta até", atr ? `<b style="color:var(--crit)">${dataBR(a.prazo)} · atrasado</b>` : dataBR(a.prazo))}
+      ${a.observacao ? `<div class="vlin"><span class="mut">Observações para a costureira</span></div><div style="white-space:pre-line;font-size:13px">${esc(a.observacao)}</div>` : ""}
+    </div>
+    <div class="campo"><b>Andamento</b>
+      <ol class="ajlinha">${evs.length ? evs.map(e => `<li class="ev-${e.evento}"><b>${AJ_EV[e.evento]}</b> <span class="mut">${quando(e.criado_em)}${e.criado_nome ? " · " + esc(e.criado_nome) : ""}</span>${e.texto && e.evento !== "enviado" ? `<div>${esc(e.texto)}</div>` : ""}</li>`).join("")
+        : `<li><b>${AJ_EV.enviado}</b> <span class="mut">${quando(a.enviado_em)} · ${esc(a.enviado_nome || "")}</span></li>`}
+        ${a.situacao === "na_costureira" ? `<li class="prox"><span class="mut">Próximo: voltar para a loja até ${dataBR(a.prazo)}</span></li>` : a.situacao === "pronto" ? '<li class="prox"><span class="mut">Próximo: avisar a cliente e entregar</span></li>' : ""}</ol></div>
+    <div class="acoes" style="flex-wrap:wrap">
+      ${a.situacao === "na_costureira" ? '<button type="button" class="bt pri" data-fa="pronto">Voltou da costureira</button><button type="button" class="bt" id="fazapc">WhatsApp costureira</button>' : ""}
+      ${a.situacao === "pronto" ? '<button type="button" class="bt pri" data-fa="entregue">Entregue à cliente</button><button type="button" class="bt" id="fazapcli">Avisar cliente</button><button type="button" class="bt" data-fa="reabrir">Voltar p/ costureira</button>' : ""}
+      ${podeCanc ? '<button type="button" class="bt" data-fa="cancelar" style="color:var(--crit);border-color:var(--crit)">Cancelar</button>' : ""}
+      <button type="button" class="bt" id="faimp">Imprimir / PDF</button><button type="button" class="bt" id="fax">Fechar</button></div>`;
+  g.querySelectorAll("[data-fa]").forEach(b => b.onclick = () => andamentoAjuste(a, b.dataset.fa, novo => { fichaAjuste(novo, depois); if (depois) depois(); }, () => fichaAjuste(a, depois)));
+  if ($("fazapc")) $("fazapc").onclick = () => zapAjusteCostureira(a);
+  if ($("fazapcli")) $("fazapcli").onclick = () => zapAjusteCliente(a);
+  $("faimp").onclick = () => imprimirAjustes([a], { [a.id]: evs });
+  $("fax").onclick = () => $("dlg2").close();
+  if (!$("dlg2").open) $("dlg2").showModal();
+}
+
 // ficha de ajuste para a costureira (imprimir ou salvar em PDF); várias de uma vez = uma folha com todas
+// evs (opcional) = linha do tempo de cada ajuste, impressa no fim da ficha (situação e andamento)
 // ficha da venda para imprimir / PDF, no jeito do espelho da nota (pedido do Marco em 30/10/2026); não é documento fiscal
 function imprimirVenda(v, its, c) {
   const w = window.open("", "_blank"); if (!w) return msg("err", "O navegador bloqueou a janela de impressão.");
@@ -1332,7 +1413,7 @@ function imprimirVenda(v, its, c) {
   w.document.close(); w.focus(); w.print();
 }
 
-function imprimirAjustes(lista) {
+function imprimirAjustes(lista, evs) {
   const w = window.open("", "_blank"); if (!w) return msg("err", "O navegador bloqueou a janela de impressão.");
   const nome = c => c ? c.nome.split(" ")[0] : "—";
   w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Ajuste${lista.length > 1 ? "s" : ""} ${lista.map(a => "nº " + a.id).join(", ")} — Linum</title>
@@ -1348,6 +1429,8 @@ function imprimirAjustes(lista) {
       <tr><td class="r">Enviado em</td><td>${quando(a.enviado_em)}</td></tr>
       <tr><td class="r">Volta até</td><td><b>${dataBR(a.prazo)}</b></td></tr>
       ${Number(a.valor_costureira) ? `<tr><td class="r">Valor combinado</td><td>${brl(a.valor_costureira)}</td></tr>` : ""}
+      ${evs && evs[a.id] ? `<tr><td class="r">Situação</td><td><b>${AJ_SIT[a.situacao]}</b></td></tr>
+      <tr><td class="r">Andamento</td><td>${evs[a.id].map(e => `<div>${quando(e.criado_em)} · <b>${AJ_EV[e.evento]}</b>${e.criado_nome ? " · " + esc(e.criado_nome) : ""}${e.texto && e.evento !== "enviado" ? ` — ${esc(e.texto)}` : ""}</div>`).join("")}</td></tr>` : ""}
     </table><div class="ass">Recebido pela costureira: ______________________ em ____/____/______ &nbsp; Devolvido em ____/____/______</div></div>`).join("")}
     </body></html>`);
   w.document.close(); w.focus(); w.print();
@@ -1414,27 +1497,25 @@ async function telaAjustes() {
     <div class="filtros">${fora.length ? `<select id="ajimpc" style="width:auto" aria-label="Imprimir as fichas de uma costureira"><option value="">Imprimir / PDF de uma costureira…</option>${[...new Set(fora.map(a => a.costureira))].map(c => `<option value="${esc(c)}">${esc(c)} (${fora.filter(a => a.costureira === c).length})</option>`).join("")}</select>` : ""}${pil("abertos", "Em aberto")}${pil("atrasados", "Atrasados")}${pil("na_costureira", "Com a costureira")}${pil("pronto", "Prontos")}${pil("entregue", "Entregues")}${pil("cancelado", "Cancelados")}</div>
     <div class="card"><div class="tw"><table><thead><tr><th>Nº</th><th>Cliente</th><th>Peça e ajuste</th><th>Costureira</th><th>Volta até</th><th>Situação</th><th></th></tr></thead><tbody id="ajtab">
     ${vis.length ? vis.map(a => { const c = cliente(a.cliente_id), atr = a.situacao === "na_costureira" && a.prazo < h;
-      return `<tr class="ajrow"><td>${a.id}<br><span class="mut">venda ${a.venda_id}</span></td><td>${c ? esc(c.nome) : '<span class="mut">—</span>'}</td>
+      return `<tr class="ajrow"><td><button type="button" class="lnk" data-ficha="${a.id}" title="Abrir a ficha do ajuste">nº ${a.id}</button><br><span class="mut">venda ${a.venda_id}</span></td><td>${c ? esc(c.nome) : '<span class="mut">—</span>'}</td>
         <td><b>${a.quantidade > 1 ? a.quantidade + "× " : ""}${esc(a.peca)}</b><br>${esc(a.servico)}${a.observacao ? `<br><span class="mut" style="white-space:pre-line">${esc(a.observacao)}</span>` : ""}</td>
         <td>${esc(a.costureira)}${Number(a.valor_costureira) ? `<br><span class="mut">${brl(a.valor_costureira)}</span>` : ""}${Number(a.valor_cliente) ? `<br><span class="mut">cliente paga ${brl(a.valor_cliente)}</span>` : ""}</td>
         <td>${atr ? `<b style="color:var(--crit)">${dataBR(a.prazo)} · atrasado</b>` : dataBR(a.prazo)}<br><span class="mut">enviado ${quando(a.enviado_em)}</span></td>
-        <td><span class="tag">${AJ_SIT[a.situacao]}</span>${a.situacao === "entregue" ? `<br><span class="mut">${quando(a.entregue_em)}</span>` : a.situacao === "cancelado" ? `<br><span class="mut">${esc(a.motivo_cancelamento || "")}</span>` : ""}</td>
-        <td class="acs" style="white-space:nowrap">${a.situacao === "na_costureira" ? `<button type="button" class="lnk" data-aj="pronto" data-id="${a.id}">Voltou</button> <button type="button" class="lnk" data-zapc="${a.id}">WhatsApp</button> <button type="button" class="lnk" data-imp="${a.id}">Imprimir / PDF</button>` : ""}
+        <td><span class="tag ${AJ_TAG[a.situacao]}">${AJ_SIT[a.situacao]}</span>${a.situacao === "pronto" ? `<br><span class="mut">voltou ${quando(a.pronto_em)}</span>${a.pronto_obs ? `<br><span class="mut">${esc(a.pronto_obs)}</span>` : ""}` : a.situacao === "entregue" ? `<br><span class="mut">${quando(a.entregue_em)}</span>${a.entrega_obs ? `<br><span class="mut">${esc(a.entrega_obs)}</span>` : ""}` : a.situacao === "cancelado" ? `<br><span class="mut">${esc(a.motivo_cancelamento || "")}</span>` : ""}</td>
+        <td class="acs" style="white-space:nowrap"><button type="button" class="lnk" data-ficha="${a.id}">Ficha</button> ${a.situacao === "na_costureira" ? `<button type="button" class="lnk" data-aj="pronto" data-id="${a.id}">Voltou</button> <button type="button" class="lnk" data-zapc="${a.id}">WhatsApp</button> <button type="button" class="lnk" data-imp="${a.id}">Imprimir / PDF</button>` : ""}
           ${a.situacao === "pronto" ? `<button type="button" class="lnk" data-aj="entregue" data-id="${a.id}">Entregue</button> <button type="button" class="lnk" data-zapcli="${a.id}">Avisar cliente</button> <button type="button" class="lnk" data-aj="reabrir" data-id="${a.id}">Voltar p/ costureira</button>` : ""}
           ${["na_costureira", "pronto"].includes(a.situacao) && (dono() || a.enviado_por === EU) ? `<button type="button" class="lnk perigo" data-aj="cancelar" data-id="${a.id}">Cancelar</button>` : ""}</td></tr>`; }).join("")
       : '<tr><td colspan="7" class="mut">Nenhum ajuste aqui.</td></tr>'}</tbody></table></div></div>`;
   document.querySelectorAll("[data-fsit]").forEach(b => b.onclick = () => { FAJ.sit = b.dataset.fsit; telaAjustes(); });
-  document.querySelectorAll("[data-imp]").forEach(b => b.onclick = () => imprimirAjustes([l.find(a => a.id === +b.dataset.imp)]));
-  if ($("ajimpc")) $("ajimpc").onchange = e => { const nm = e.target.value; e.target.value = ""; if (nm) imprimirAjustes(fora.filter(a => a.costureira === nm)); };
+  document.querySelectorAll("[data-imp]").forEach(b => b.onclick = async () => { const a = l.find(x => x.id === +b.dataset.imp); imprimirAjustes([a], await eventosAjustes([a.id])); });
   document.querySelectorAll("[data-zapc]").forEach(b => b.onclick = () => zapAjusteCostureira(l.find(a => a.id === +b.dataset.zapc)));
   document.querySelectorAll("[data-zapcli]").forEach(b => b.onclick = () => zapAjusteCliente(l.find(a => a.id === +b.dataset.zapcli)));
-  document.querySelectorAll("[data-aj]").forEach(b => b.onclick = async () => {
-    const acao = b.dataset.aj; let motivo = null;
-    if (acao === "cancelar" || acao === "reabrir") { motivo = prompt(acao === "cancelar" ? "Motivo do cancelamento do ajuste:" : "O que faltou ajustar?"); if (motivo === null) return; }
-    try { checar(await sb.rpc("lin_ajuste_andamento", { p_ajuste: +b.dataset.id, p_acao: acao, p_motivo: motivo }));
-      msg("ok", { pronto: "Peça de volta na loja: avise a cliente.", entregue: "Ajuste entregue à cliente.", reabrir: "Peça voltou para a costureira.", cancelar: "Ajuste cancelado." }[acao]); await telaAjustes(); }
-    catch (e) { msg("err", e.message); }
-  });
+  // 2.39: cada ação abre o formulário com a observação (opcional ao voltar e ao entregar); "Ficha" = dados + andamento
+  document.querySelectorAll("[data-aj]").forEach(b => b.onclick = () =>
+    andamentoAjuste(l.find(a => a.id === +b.dataset.id), b.dataset.aj, () => { $("dlg2").close(); telaAjustes(); }));
+  document.querySelectorAll("[data-ficha]").forEach(b => b.onclick = () => fichaAjuste(l.find(a => a.id === +b.dataset.ficha), () => { if (VISTA === "ajustes") telaAjustes(); }));
+  if ($("ajimpc")) $("ajimpc").onchange = async e => { const nm = e.target.value; e.target.value = ""; if (!nm) return;
+    const ls = fora.filter(a => a.costureira === nm); imprimirAjustes(ls, await eventosAjustes(ls.map(a => a.id))); };
 }
 
 // ---------------------------------------------------------------- trocas (a opção "Troca" da boleta)
