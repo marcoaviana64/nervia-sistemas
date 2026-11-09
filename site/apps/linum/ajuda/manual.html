@@ -22,6 +22,7 @@
     <li><a href="#consultar">1. Consultar o estoque</a></li>
     <li><a href="#movimentar">2. Registrar entrada, saída ou ajuste (Dono ou Estoque)</a></li>
     <li><a href="#transferir">2a. Transferir peças entre lojas, com aceite da outra loja (toda a equipe)</a></li>
+    <li><a href="#beneficiamento">2b. Enviar peças para beneficiamento e registrar a volta (Dono ou Estoque)</a></li>
     <li><a href="#historico">3. Ver o histórico de uma variação (Dono ou Estoque)</a></li>
     <li><a href="#equipe">4. Definir os papéis: Dono, Estoque e Vendedora (equipe Nervia)</a></li>
     <li><a href="#vender">5. Registrar uma venda (a boleta)</a></li>
@@ -99,6 +100,29 @@
   </ol>
   <p><b>Cancelar</b>: enquanto estiver em trânsito, quem enviou, o Dono ou o Estoque pode clicar em <b>Cancelar</b> e escrever o motivo. As peças voltam para a loja de origem. Transferência recebida ou cancelada não muda mais.</p>
   <p>Envio, recebimento e cancelamento aparecem nas movimentações da peça e na aba <b>Movimentações</b> (tipos "Transferência enviada", "Transferência recebida" e "Transferência cancelada (voltou)"), e ficam na auditoria com quem fez e quando.</p>
+
+  <h2 id="beneficiamento">2b. Enviar peças para beneficiamento e registrar a volta (Dono ou Estoque)</h2>
+  <p>Beneficiamento é quando a peça sai da loja para um serviço (bordado, tingimento, estampa…) e depois volta, igual ou transformada, por exemplo em uma <b>peça especial</b>. A peça <b>sai</b> do estoque no envio e só <b>volta</b> quando o retorno é registrado. Só o Dono e o Estoque enviam e registram a volta; toda a equipe vê, na aba <b>Beneficiamento</b>, o que está fora.</p>
+  <p><b>Enviar</b></p>
+  <ol>
+    <li>Na aba <b>Estoque</b>, clique no quadrado da peça e escolha <b>Beneficiamento</b>, ou abra a aba <b>Beneficiamento</b> e clique em <b>+ Enviar para beneficiamento</b>.</li>
+    <li>Confira a loja em <b>Sai da loja</b>. Preencha <b>Quem faz</b> (o beneficiador) e o <b>Serviço</b>. Os nomes já usados aparecem como sugestão.</li>
+    <li>Se quiser, informe a <b>Volta prevista</b>. Depois dessa data, o envio aparece como <b>Atrasado</b>.</li>
+    <li>Acrescente as peças (nome, referência ou código de barras) e as quantidades. O Dono, e quem tem a permissão "Valores da produção", também podem informar o <b>valor por peça</b> pago ao beneficiador.</li>
+    <li>Clique em <b>Enviar peças</b> e confirme. As peças já saem do estoque da loja.</li>
+  </ol>
+  <p>O que a peça vai virar <b>não</b> se escolhe no envio, só na volta.</p>
+  <p><b>Registrar a volta</b></p>
+  <ol>
+    <li>Na aba <b>Beneficiamento</b>, clique em <b>Registrar retorno</b>.</li>
+    <li>Escolha a loja em <b>As peças entram na loja</b>. O padrão é a loja de onde as peças saíram.</li>
+    <li>Para cada peça, informe quantas <b>voltaram iguais</b>, quantas <b>viraram outra</b> e quantas foram <b>perdidas</b>. Se todas voltaram iguais, use <b>Todas voltaram iguais</b>.</li>
+    <li>Em <b>Virou outra</b>, escolha em <b>Virou qual?</b> a variação da mesma peça (as peças especiais aparecem primeiro, com ★). Se a peça especial ainda não existe, clique em <b>+ Nova peça especial</b> e informe a edição (ex.: "Bordada à mão"), a cor, o tamanho e, se quiser, o preço de venda. Ela é criada no cadastro e já fica escolhida.</li>
+    <li>Em <b>Perdida</b>, escreva o que aconteceu (obrigatório).</li>
+    <li>Clique em <b>Registrar retorno</b>. As peças que voltaram entram no estoque da loja escolhida. Pode registrar só uma parte: o resto continua no beneficiamento. Quando todas as peças tiverem voltado (ou sido perdidas), o envio fica <b>Concluído</b>.</li>
+  </ol>
+  <p><b>Valor pago</b> (Dono e "Valores da produção"): o botão <b>Valor pago</b> informa ou corrige o valor por peça a qualquer hora. Esse valor é só um registro do que foi pago: ele <b>não muda</b> o custo nem o preço da peça. O preço e o custo da peça especial são acertados depois, em <b>Produtos</b>. A vendedora e o Estoque não veem valores.</p>
+  <p>Envio e volta aparecem nas movimentações da peça e na aba <b>Movimentações</b> (tipos "Saiu para beneficiamento" e "Voltou do beneficiamento"; a peça transformada mostra de qual peça ela veio) e ficam na auditoria. O relatório diário lista o que ainda está no beneficiamento e o que está atrasado.</p>
 
   <h2 id="historico">3. Ver o histórico de uma variação (Dono ou Estoque)</h2>
   <ol>
@@ -407,6 +431,13 @@
     <tr><td>Esta transferência não está em trânsito</td><td>Alguém já recebeu ou cancelou. Atualize a tela.</td></tr>
     <tr><td>Só quem enviou, o Dono ou o Estoque pode cancelar</td><td>Peça para quem enviou (ou para o Dono) cancelar.</td></tr>
     <tr><td>Escolha lojas de origem e destino diferentes</td><td>Na transferência, a loja de destino precisa ser outra.</td></tr>
+    <tr><td>Informe quem vai fazer o beneficiamento / Informe o serviço</td><td>No envio para beneficiamento, preencha Quem faz e o Serviço.</td></tr>
+    <tr><td>… só N peça(s) ainda estão no beneficiamento</td><td>No retorno, a soma de igual + outra + perdida passou do que ainda está fora daquela peça.</td></tr>
+    <tr><td>Escolha em que peça … se transformou</td><td>Em "Virou outra", escolha a variação ou crie a peça especial.</td></tr>
+    <tr><td>A peça que voltou tem de ser uma variação da mesma peça</td><td>Peça especial ou outra cor tem de ser da mesma referência. Se virou outro produto, registre o retorno como igual e faça uma saída e uma entrada.</td></tr>
+    <tr><td>Escreva o motivo da perda / o que aconteceu com a peça perdida</td><td>Peça perdida no beneficiamento exige o motivo.</td></tr>
+    <tr><td>Seu login não registra valores do beneficiamento</td><td>Só o Dono e quem tem "Valores da produção" informam o valor pago.</td></tr>
+    <tr><td>Este beneficiamento já foi concluído</td><td>Todas as peças já voltaram ou foram perdidas. Atualize a tela.</td></tr>
     <tr><td>A loja já tem N peça(s): nada a ajustar</td><td>No ajuste, a nova quantidade é igual à atual.</td></tr>
     <tr><td>Informe uma quantidade inteira maior que zero</td><td>Digite um número inteiro (1 ou mais; no ajuste, 0 ou mais).</td></tr>
     <tr><td>Somente o Dono ou o Estoque …</td><td>Vendedora não cadastra peças nem movimenta o estoque (a venda já dá baixa sozinha). Se precisar, peça ao Dono ou a quem cuida do estoque.</td></tr>
