@@ -1532,9 +1532,9 @@ select pg_temp.ok(jsonb_typeof(lin_costureiras()) = 'array' and coalesce(not (li
 select pg_temp.erro2($$select lin_ajuste_andamento((select v from lin_aj where k = 'a1')::bigint, 'reabrir', 'x')$$, 'pronto na loja', 'linum ajuste: só reabre o que voltou');
 select lin_ajuste_andamento((select v from lin_aj where k = 'a1')::bigint, 'pronto');
 select lin_ajuste_andamento((select v from lin_aj where k = 'a1')::bigint, 'reabrir', 'bainha torta');
-select lin_ajuste_andamento((select v from lin_aj where k = 'a1')::bigint, 'pronto');
+select lin_ajuste_andamento((select v from lin_aj where k = 'a1')::bigint, 'pronto', 'bainha refeita, conferida');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';   -- quem está na loja entrega
-select lin_ajuste_andamento((select v from lin_aj where k = 'a1')::bigint, 'entregue');
+select lin_ajuste_andamento((select v from lin_aj where k = 'a1')::bigint, 'entregue', '  cliente provou e gostou  ');
 select pg_temp.erro2($$select lin_ajuste_andamento((select v from lin_aj where k = 'a1')::bigint, 'cancelar', 'teste')$$, 'já foi encerrado', 'linum ajuste: entregue não se cancela');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
 select pg_temp.ok((select count(*) = 0 from lin_ajustes), 'linum ajuste: login fora da Linum não vê');
@@ -1542,6 +1542,31 @@ reset role;
 select pg_temp.ok((select situacao = 'entregue' and entregue_nome <> '' and observacao like '%bainha torta%' from lin_ajustes where id = (select v from lin_aj where k = 'a1')::bigint)
   and (select count(*) = 5 from auditoria where acao like 'linum_ajuste_%'),
   'linum ajuste: pronto, voltou para a costureira, pronto e entregue, tudo na auditoria');
+-- 2.39: andamento (linha do tempo) e observação ao voltar e ao entregar
+select pg_temp.ok((select pronto_obs = 'bainha refeita, conferida' and entrega_obs = 'cliente provou e gostou' from lin_ajustes where id = (select v from lin_aj where k = 'a1')::bigint)
+  and (select string_agg(evento, '>' order by id) = 'enviado>pronto>reaberto>pronto>entregue' from lin_ajuste_eventos where ajuste_id = (select v from lin_aj where k = 'a1')::bigint)
+  and (select texto = 'bainha torta' from lin_ajuste_eventos where ajuste_id = (select v from lin_aj where k = 'a1')::bigint and evento = 'reaberto')
+  and (select texto = 'cliente provou e gostou' and criado_por = '00000000-0000-0000-0000-00000000000d' from lin_ajuste_eventos where ajuste_id = (select v from lin_aj where k = 'a1')::bigint and evento = 'entregue')
+  and (select texto = 'Bainha 2 cm e apertar a cava' from lin_ajuste_eventos where ajuste_id = (select v from lin_aj where k = 'a1')::bigint and evento = 'enviado')
+  and exists (select 1 from auditoria where acao = 'linum_ajuste_entregue' and detalhes ->> 'observacao' = 'cliente provou e gostou'),
+  'linum 2.39: linha do tempo do ajuste (enviado, voltou, voltou para a costureira, voltou, entregue) com as observações');
+select pg_temp.erro2($$update lin_ajuste_eventos set texto = 'x'$$, 'não pode ser alterado', 'linum 2.39: andamento não se altera');
+select pg_temp.erro2($$delete from lin_ajuste_eventos$$, 'não pode ser alterado', 'linum 2.39: andamento não se apaga');
+-- entregue direto (sem marcar a volta) registra a volta junto; cancelar com motivo
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+insert into lin_aj select 'a2', lin_ajuste_registrar(jsonb_build_object('venda_item_id', (select v from lin_aj where k = 'item'), 'servico', 'Apertar lateral', 'costureira', 'Dona Rosa'))::text;
+insert into lin_aj select 'a3', lin_ajuste_registrar(jsonb_build_object('venda_item_id', (select v from lin_aj where k = 'item'), 'servico', 'Bainha', 'costureira', 'Dona Rosa'))::text;
+select lin_ajuste_andamento((select v from lin_aj where k = 'a2')::bigint, 'entregue');
+select pg_temp.erro2($$update lin_ajuste_eventos set texto = 'x'$$, 'permission denied', 'linum 2.39: a tela não grava andamento direto');
+select pg_temp.erro2($$select lin_ajuste_andamento((select v from lin_aj where k = 'a3')::bigint, 'cancelar', '')$$, 'motivo', 'linum 2.39: cancelar continua exigindo motivo');
+select lin_ajuste_andamento((select v from lin_aj where k = 'a3')::bigint, 'cancelar', 'cliente desistiu');
+select pg_temp.ok((select string_agg(evento, '>' order by id) = 'enviado>pronto>entregue' from lin_ajuste_eventos where ajuste_id = (select v from lin_aj where k = 'a2')::bigint)
+  and (select entrega_obs = '' from lin_ajustes where id = (select v from lin_aj where k = 'a2')::bigint)
+  and (select string_agg(evento || ':' || texto, '>' order by id) = 'enviado:Bainha>cancelado:cliente desistiu' from lin_ajuste_eventos where ajuste_id = (select v from lin_aj where k = 'a3')::bigint),
+  'linum 2.39: entregue sem marcar a volta registra a volta; observação é opcional; cancelado com o motivo');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
+select pg_temp.ok((select count(*) = 0 from lin_ajuste_eventos), 'linum 2.39: login fora da Linum não vê o andamento');
 reset role;
 set role anon;
 select pg_temp.erro2('select * from apps_vitrine()', 'permission', 'anônimo não vê a vitrine');
