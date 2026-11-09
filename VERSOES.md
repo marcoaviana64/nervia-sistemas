@@ -146,5 +146,6 @@ Ao publicar mudança num app: linha nova no topo do app aqui (com a data) e em `
 
 | Versão | Data | O que mudou |
 |---|---|---|
+| 1.2 | 09/11/2026 | Textos do app sem citar um serviço de assinatura específico: o contrato pode ser assinado pela plataforma de assinatura digital que você preferir. |
 | 1.1 | 09/11/2026 | Foro por cliente: cada cliente tem o foro eleito e a sede da arbitragem do contrato (montados pela cidade e UF), para contratos fora do Rio de Janeiro; sem preencher, vale o padrão da Configuração. |
 | 1.0 | 09/11/2026 | Lançamento: contratos de prestação de serviço da Nervia, do Word ao recebimento — contrato gerado pelo modelo de mala direta, envio e assinatura com o PDF guardado, cobranças de cada mês (com a parcela extra de dezembro), NF até o dia 5, conferência com o extrato OFX do Nubank e resumo gerencial. |

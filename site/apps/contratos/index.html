@@ -475,7 +475,7 @@ function abrirContrato(id) {
     const fim = ["encerrado", "rescindido"].includes(k.situacao);
     corpo.append(el("div", { class: "acoes", style: "margin-bottom:12px" },
       !fim ? el("button", { class: "btn", onclick: async () => { if (await gerarWord([k.id], m)) abrirContrato(k.id); } }, "Gerar Word") : null,
-      ["rascunho", "gerado"].includes(k.situacao) ? el("button", { class: "btn sec", onclick: () => etapa("enviado", "Enviado para assinatura (DocuSign)") }, "Marcar enviado") : null,
+      ["rascunho", "gerado"].includes(k.situacao) ? el("button", { class: "btn sec", onclick: () => etapa("enviado", "Enviado para assinatura") }, "Marcar enviado") : null,
       ["rascunho", "gerado", "enviado"].includes(k.situacao) ? el("button", { class: "btn sec", onclick: () => etapa("assinado", "Data da assinatura") }, "Marcar assinado") : null,
       pdf, el("button", { class: "btn sec", onclick: () => pdf.click() }, k.documento ? "Trocar PDF assinado" : "Guardar PDF assinado"),
       k.documento ? el("button", { class: "btn sec", onclick: async () => { try { const u = checar(await sb.storage.from("ctr-arquivos").createSignedUrl(k.documento, 300)); window.open(u.signedUrl, "_blank"); } catch (e) { m.className = "msg erro"; m.textContent = erroTxt(e); } } }, "Abrir PDF") : null,
