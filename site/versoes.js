@@ -60,6 +60,7 @@ window.NERVIA_VERSOES = {
     ["1.0", "Lançamento: vídeos e imagens nas TVs da empresa a partir de uma pasta do Google Drive (cada subpasta é uma playlist), TVs vinculadas por código, status online/offline e conferência automática dos arquivos."],
   ],
   "contratos": [
+    ["1.1", "Foro por cliente: cada cliente tem o foro eleito e a sede da arbitragem do contrato (montados pela cidade e UF), para contratos fora do Rio de Janeiro; sem preencher, vale o padrão da Configuração."],
     ["1.0", "Lançamento: contratos de prestação de serviço da Nervia, do Word ao recebimento — contrato gerado pelo modelo de mala direta, envio e assinatura com o PDF guardado, cobranças de cada mês (com a parcela extra de dezembro), NF até o dia 5, conferência com o extrato OFX do Nubank e resumo gerencial."],
   ],
   "atendimentos": [

@@ -150,6 +150,11 @@ function csv(nome, cab, linhas) {
   baixar(nome, "﻿" + [cab, ...linhas].map(l => l.map(q).join(";")).join("\r\n"), "text/csv;charset=utf-8");
 }
 
+// UF → "Estado do/da/de …" (para montar o foro do cliente)
+const UF_ESTADO = { AC: "do Acre", AL: "de Alagoas", AP: "do Amapá", AM: "do Amazonas", BA: "da Bahia", CE: "do Ceará", DF: "do Distrito Federal", ES: "do Espírito Santo",
+  GO: "de Goiás", MA: "do Maranhão", MT: "de Mato Grosso", MS: "de Mato Grosso do Sul", MG: "de Minas Gerais", PA: "do Pará", PB: "da Paraíba", PR: "do Paraná",
+  PE: "de Pernambuco", PI: "do Piauí", RJ: "do Rio de Janeiro", RN: "do Rio Grande do Norte", RS: "do Rio Grande do Sul", RO: "de Rondônia", RR: "de Roraima",
+  SC: "de Santa Catarina", SP: "de São Paulo", SE: "de Sergipe", TO: "do Tocantins" };
 const SIT_COB = { a_vencer: ["A vencer", "info"], atrasada: ["Atrasada", "alerta"], paga: ["Paga", "ok"], paga_atraso: ["Paga com atraso", "atencao"], diferenca: ["Diferença", "atencao"] };
 const SIT_NF = { emitida: ["NF emitida", "ok"], pendente: ["NF a emitir", ""], atrasada: ["NF atrasada", "alerta"] };
 const SIT_K = { rascunho: ["Rascunho", ""], gerado: ["Gerado", "info"], enviado: ["Enviado p/ assinatura", "atencao"], assinado: ["Assinado", "ok"], encerrado: ["Encerrado", ""], rescindido: ["Rescindido", "alerta"] };
@@ -407,7 +412,8 @@ function valoresMala(k) {
     CTRAJUNTA: cf.contratada_junta, CTRAEMAIL: cf.contratada_email, CTRASERVICOSESP: k.servicos_esp || cf.servicos_esp, CTRAPRESTACAO: k.objeto, CTRAOBJ: k.objeto,
     CTRAINI: br(k.inicio), CTRAFIM: k.fim ? br(k.fim) : "prazo indeterminado", CTRAHONORARIOS: A.valorContrato(k.valor_mensal),
     TESTE1: k.testemunha1, TESTE1DOC: k.testemunha1_doc, TESTE2: k.testemunha2, TESTE2DOC: k.testemunha2_doc,
-    LOCALDATAASSINATURA: k.local_assinatura + ", " + A.dataExtenso(k.data_assinatura || k.inicio) };
+    LOCALDATAASSINATURA: k.local_assinatura + ", " + A.dataExtenso(k.data_assinatura || k.inicio),
+    FORO: cl.foro || cf.foro_padrao || "", FOROLOCAL: cl.foro_local || cf.foro_local_padrao || "" };
 }
 async function modeloBytes(k) {
   const mod = (k.modelo_id && S.modelos.find(x => x.id === k.modelo_id)) || S.modelos.find(x => x.padrao);
@@ -525,12 +531,12 @@ function vClientes(c) {
   c.append(el("div", { class: "acoes", style: "margin-bottom:10px" }, el("button", { class: "btn", onclick: () => dlgCliente(null) }, "+ Novo cliente")));
   const l = [...S.clientes.values()].sort((a, b) => (b.ativo - a.ativo) || a.apelido.localeCompare(b.apelido, "pt"));
   c.append(el("div", { class: "painel rolar", style: "padding:0" }, el("table", { class: "tab" },
-    el("thead", {}, el("tr", {}, ["Cliente", "Razão social", "CNPJ", "E-mail de cobrança", "Contrato atual", "Em aberto"].map((t, i) => el("th", { class: i === 5 ? "n" : "" }, t)))),
+    el("thead", {}, el("tr", {}, ["Cliente", "Razão social", "CNPJ", "E-mail de cobrança", "Foro", "Contrato atual", "Em aberto"].map((t, i) => el("th", { class: i === 6 ? "n" : "" }, t)))),
     el("tbody", {}, l.map(x => {
       const k = [...S.contratos.values()].filter(y => y.cliente_id === x.id && !["encerrado", "rescindido"].includes(y.situacao)).sort((a, b) => b.inicio.localeCompare(a.inicio))[0];
       const ab = S.cob.filter(y => y.cliente_id === x.id && !y.pago_em).reduce((s, y) => s + Number(y.valor), 0);
       return el("tr", { class: "clica", onclick: () => dlgCliente(x.id) }, el("td", {}, x.apelido, x.sigla ? el("span", { class: "mut" }, " · " + x.sigla) : null, x.ativo ? null : el("span", { class: "pill" }, "inativo")),
-        el("td", {}, x.razao_social), el("td", { class: "mono" }, fmtDoc(x.cnpj)), el("td", {}, x.email_cobranca),
+        el("td", {}, x.razao_social), el("td", { class: "mono" }, fmtDoc(x.cnpj)), el("td", {}, x.email_cobranca), el("td", { class: x.foro ? "" : "mut" }, x.foro || "padrão"),
         el("td", {}, k ? [R(k.valor_mensal) + " · ", pill(SIT_K, k.situacao)] : el("span", { class: "mut" }, "—")), el("td", { class: "n" }, ab ? N(ab) : ""));
     })))));
 }
@@ -539,12 +545,23 @@ function dlgCliente(id) {
   const e = { apelido: el("input", { type: "text", value: x.apelido }), sigla: el("input", { type: "text", value: x.sigla }), razao_social: el("input", { type: "text", value: x.razao_social }),
     cnpj: el("input", { type: "text", value: fmtDoc(x.cnpj) }), endereco: el("input", { type: "text", value: x.endereco }), email_cobranca: el("input", { type: "text", value: x.email_cobranca }),
     resp_financeiro: el("input", { type: "text", value: x.resp_financeiro, placeholder: "Ex.: Shopping Park Lagos" }), extrato_textos: el("input", { type: "text", value: (x.extrato_textos || []).join(", "), placeholder: "nome como aparece no extrato, separado por vírgula" }),
-    ativo: sel([["true", "Ativo"], ["false", "Inativo"]], String(x.ativo)), obs: el("input", { type: "text", value: x.obs }) };
-  const m = el("span", { class: "msg" });
+    ativo: sel([["true", "Ativo"], ["false", "Inativo"]], String(x.ativo)), obs: el("input", { type: "text", value: x.obs }),
+    foro: el("input", { type: "text", value: x.foro || "", placeholder: "vazio = " + (S.cfg.foro_padrao || "") }),
+    foro_local: el("input", { type: "text", value: x.foro_local || "", placeholder: "vazio = " + (S.cfg.foro_local_padrao || "") }) };
+  const m = el("span", { class: "msg" }), fc = el("input", { type: "text", placeholder: "Cidade, ex.: Cabo Frio" }), fu = sel([["", "UF"], ...Object.keys(UF_ESTADO).map(u => [u, u])], "");
+  const montar = el("button", { class: "btn sec", type: "button", onclick: () => {
+    const c = fc.value.trim(), u = fu.value; if (!c || !u) { m.className = "msg erro"; m.textContent = "Informe a cidade e a UF do foro."; return; }
+    const rio = semAc(c) === "rio de janeiro" && u === "RJ", dc = rio ? "do Rio de Janeiro" : "de " + c;
+    e.foro.value = (rio ? "Foro Central da Comarca " : "Foro da Comarca ") + dc; e.foro_local.value = "cidade " + dc + ", Estado " + UF_ESTADO[u];
+    m.className = "msg"; m.textContent = "Confira o texto (ex.: \"do\"/\"da\" no nome da cidade) e salve."; } }, "Montar");
   dialogo(id ? "Cliente " + x.apelido : "Novo cliente", el("div", {}, el("div", { class: "form" },
     campo("Nome curto", e.apelido), campo("Sigla", e.sigla), campo("Situação", e.ativo), campo("Razão social (vai no contrato)", e.razao_social, "dois"), campo("CNPJ", e.cnpj),
     campo("Endereço (vai no contrato)", e.endereco, "tudo"), campo("E-mail do contas a pagar", e.email_cobranca), campo("Responsável financeiro (\"… do Shopping X\")", e.resp_financeiro, "dois"),
-    campo("Como aparece no extrato (ajuda a conferência)", e.extrato_textos, "tudo"), campo("Observação", e.obs, "tudo")),
+    campo("Como aparece no extrato (ajuda a conferência)", e.extrato_textos, "tudo"),
+    el("div", { class: "tudo" }, el("h3", { style: "margin:4px 0 0" }, "Foro do contrato"), el("p", { class: "mut", style: "margin:2px 0 0" }, "Cláusula 10.6 (foro eleito) e 10.1.6 (sede da arbitragem). Vazio = o padrão da Configuração.")),
+    campo("Montar pela cidade", el("div", { class: "acoes" }, fc, fu, montar), "tudo"),
+    campo("Foro eleito (\"elegem o … como competente\")", e.foro, "tudo"), campo("Sede da arbitragem (\"será a …\")", e.foro_local, "tudo"),
+    campo("Observação", e.obs, "tudo")),
     el("div", { class: "acoes", style: "margin-top:12px" }, el("button", { class: "btn", onclick: async () => {
       const p = Object.fromEntries(Object.entries(e).map(([k, i]) => [k, i.value])); p.extrato_textos = p.extrato_textos.split(",").map(s => s.trim()).filter(Boolean); if (id) p.id = id;
       await salvar(() => rpc("ctr_cliente_salvar", { p }), m); $("#dlg").close(); } }, "Salvar"),
@@ -647,11 +664,13 @@ function vConfig(c) {
   const e = { contratada_nome: el("input", { type: "text", value: cf.contratada_nome }), contratada_cnpj: el("input", { type: "text", value: cf.contratada_cnpj }),
     contratada_endereco: el("input", { type: "text", value: cf.contratada_endereco }), contratada_junta: el("input", { type: "text", value: cf.contratada_junta, placeholder: "Rio de Janeiro sob o número …" }),
     contratada_email: el("input", { type: "text", value: cf.contratada_email }), servicos_esp: el("input", { type: "text", value: cf.servicos_esp }),
-    dia_nf: el("input", { type: "number", min: "1", max: "28", value: cf.dia_nf }), tolerancia: el("input", { type: "number", step: "0.01", min: "0", value: cf.tolerancia }) };
+    dia_nf: el("input", { type: "number", min: "1", max: "28", value: cf.dia_nf }), tolerancia: el("input", { type: "number", step: "0.01", min: "0", value: cf.tolerancia }),
+    foro_padrao: el("input", { type: "text", value: cf.foro_padrao || "" }), foro_local_padrao: el("input", { type: "text", value: cf.foro_local_padrao || "" }) };
   c.append(el("div", { class: "painel" }, el("h2", {}, "Nervia (contratada) e regras"), el("div", { class: "form" },
     campo("Razão social", e.contratada_nome, "dois"), campo("CNPJ", e.contratada_cnpj), campo("Endereço", e.contratada_endereco, "tudo"), campo("Junta Comercial (texto do contrato)", e.contratada_junta, "dois"),
     campo("E-mail de quem assina pela Nervia", e.contratada_email), campo("Serviços da contratada (\"… especializada em prestação de serviços …\")", e.servicos_esp, "dois"),
-    campo("NF até o dia", e.dia_nf), campo("Tolerância de diferença (R$)", e.tolerancia)),
+    campo("NF até o dia", e.dia_nf), campo("Tolerância de diferença (R$)", e.tolerancia),
+    campo("Foro padrão (cliente sem foro próprio)", e.foro_padrao, "dois"), campo("Sede da arbitragem padrão", e.foro_local_padrao)),
     el("div", { class: "acoes", style: "margin-top:12px" }, el("button", { class: "btn", onclick: () => salvar(() => rpc("ctr_config_salvar", { p: Object.fromEntries(Object.entries(e).map(([k, i]) => [k, i.value])) }), m) }, "Salvar"), m)));
   // impostos
   const di = el("input", { type: "date", value: hoje().slice(0, 8) + "01" }), pi = el("input", { type: "number", step: "0.01", min: "0", value: "16" }), mi = el("span", { class: "msg" });

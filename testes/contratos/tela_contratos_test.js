@@ -176,7 +176,8 @@ async function modeloFicticio() {
     p("Responsável: ", campo("RESPFINAN"), ". Serviços ", campo("CTRASERVICOSESP"), "; prestação ", campo("CTRAPRESTACAO"), ".") +
     p("Vigência de ", campo("CTRAINI"), " a ", campo("CTRAFIM"), ". Honorários: ", campo("CTRAHONORARIOS"), ".") +
     p("Assinam ", campo("CTTEMAIL"), " e ", campo("CTRAEMAIL"), ". ", `<w:fldSimple w:instr=" MERGEFIELD LOCALDATAASSINATURA "><w:r><w:t>«LOCALDATAASSINATURA»</w:t></w:r></w:fldSimple>`) +
-    p("Testemunhas: ", campo("TESTE1"), " ", campo("TESTE1DOC"), " / ", campo("TESTE2"), " ", campo("TESTE2DOC")) + `</w:body></w:document>`;
+    p("Testemunhas: ", campo("TESTE1"), " ", campo("TESTE1DOC"), " / ", campo("TESTE2"), " ", campo("TESTE2DOC")) +
+    p("10.1.6. A sede da arbitragem será a ", campo("FOROLOCAL"), ". 10.6. As Partes elegem o ", campo("FORO"), " como competente.") + `</w:body></w:document>`;
   return ARQ.gravarZip([
     ["[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/><Override PartName="/word/recipientData.xml" ContentType="application/vnd.ms-word.mailMergeRecipientData+xml"/></Types>`],
     ["_rels/.rels", `<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`],
@@ -254,7 +255,16 @@ const aba = (pg, v) => pg.click(`.orelhas .aba[data-v="${v}"]`);
     await pg.setInputFiles('input[accept=".docx"]', { name: "Modelo contrato.docx", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", buffer: Buffer.from(await modeloFicticio()) });
     await pg.click("text=Enviar modelo");
     await pg.waitForSelector("text=Em uso: Modelo contrato.docx");
-    ok((await um(pool, "select array_length(campos, 1) n from ctr_modelos where padrao")).n === 20, "modelo: guardado com os 20 campos");
+    ok((await um(pool, "select array_length(campos, 1) n from ctr_modelos where padrao")).n === 22, "modelo: guardado com os 22 campos (inclusive FORO e FOROLOCAL)");
+
+    // ---------- foro do cliente (Alfa em Niterói; Beta fica com o padrão do Rio)
+    await aba(pg, "clientes");
+    await pg.click("tr.clica:has-text('Alfa Center')");
+    await pg.fill("#dlg input[placeholder^='Cidade']", "Niterói"); await pg.selectOption("#dlg select >> nth=1", "RJ");
+    await pg.click("#dlg button:text-is('Montar')"); await pg.click("#dlg button:text-is('Salvar')");
+    await pg.waitForTimeout(500);
+    const fo = await um(pool, "select foro, foro_local from ctr_clientes where apelido = 'Alfa Center'");
+    ok(fo.foro === "Foro da Comarca de Niterói" && fo.foro_local === "cidade de Niterói, Estado do Rio de Janeiro", "foro do cliente montado pela cidade e UF");
 
     // ---------- contrato: gerar Word, enviado, assinado, cobranças
     await aba(pg, "contratos");
@@ -267,6 +277,7 @@ const aba = (pg, v) => pg.click(`.orelhas .aba[data-v="${v}"]`);
       && doc.includes("31/12/2026") && doc.includes("Niterói, 01 de janeiro de 2026") && doc.includes("99.888.777/0001-66") && doc.includes("Ana Teste"), "Word: campos preenchidos (razão, CNPJ, valor por extenso, datas, local)");
     ok(!doc.includes("MERGEFIELD") && !doc.includes("fldChar") && !z.has("word/recipientData.xml") && !new TextDecoder().decode(z.get("word/settings.xml")).includes("mailMerge")
       && !new TextDecoder().decode(z.get("word/_rels/settings.xml.rels")).includes("mailMergeSource"), "Word: sem campos e sem o vínculo com a planilha");
+    ok(doc.includes("elegem o </w:t></w:r><w:r><w:rPr><w:b/></w:rPr><w:t xml:space=\"preserve\">Foro da Comarca de Niterói") && doc.includes("cidade de Niterói, Estado do Rio de Janeiro"), "Word: foro e sede da arbitragem do cliente");
     await pg.waitForSelector("#dlg[open] .etapas .atual:has-text('Gerado')");
     await pg.click("#dlg >> text=Marcar enviado"); await pg.click("#dlg2 >> text=Confirmar");
     await pg.waitForSelector("#dlg[open] .etapas .atual:has-text('Enviado')");
