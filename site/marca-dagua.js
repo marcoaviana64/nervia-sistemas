@@ -3,6 +3,7 @@
 // (conteúdo, não fundo), então também sai na impressão, em todas as folhas, com o crédito na margem de baixo.
 // Uso: <script src="/marca-dagua.js" data-tipo="demo"></script>  — páginas de /demo/ (dados fictícios)
 //      <script src="/marca-dagua.js" data-tipo="doc"></script>   — cartões, manuais e mapas mentais dos apps
+//      <script src="/marca-dagua.js" data-tipo="modelo"></script> — modelos de proposta (site/modelos/)
 (function () {
   "use strict";
   var el = document.currentScript, tipo = (el && el.getAttribute("data-tipo")) || "demo";
@@ -11,6 +12,9 @@
       rodape: "Demonstração com dados fictícios · Aplicativo criado pela Nervia Tecnologia · nervia.com.br · Não é um sistema real; ao mostrar, cite a Nervia." },
     doc: { texto: "ECOSSISTEMA NERVIA APP · NERVIA TECNOLOGIA · nervia.com.br", opacidade: 0.07,
       rodape: "Documentação de um aplicativo do Ecossistema Nervia App · Nervia Tecnologia · nervia.com.br · Material da Nervia: ao reproduzir, cite a fonte." },
+    // modelo de site/tela feito para uma proposta (site/modelos/): é do cliente só depois de contratado
+    modelo: { texto: "MODELO PARA APROVAÇÃO · NERVIA TECNOLOGIA · nervia.com.br", opacidade: 0.08,
+      rodape: "Modelo para aprovação feito pela Nervia Tecnologia · nervia.com.br · Uso permitido somente após a contratação." },
   }[tipo];
   if (!MODELO) return;
   // página aberta dentro de outra que já tem a marca (app no portal de demonstração, ajuda no painel lateral da demo):

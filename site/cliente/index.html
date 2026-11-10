@@ -253,6 +253,7 @@ td.mono{font-family:ui-monospace,Consolas,monospace;font-size:.8rem}
         <button type="button" class="aba" id="abaAcs" onclick="aba('acs')" title="Acessos do site"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9S14.5 18.4 12 21c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg><span>Acessos do site</span></button>
         <button type="button" class="aba" id="abaEml" onclick="aba('eml')" title="E-mails"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="1.5"/><path d="m4 7 8 6 8-6"/></svg><span>E-mails</span></button>
         <button type="button" class="aba" id="abaPrc" onclick="aba('prc')" title="Preços"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.3"/></svg><span>Preços</span></button>
+        <button type="button" class="aba" id="abaPrp" onclick="aba('prp')" title="Propostas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h4"/></svg><span>Propostas</span></button>
       </div>
       <div class="ficha"></div>
     </div>
@@ -506,9 +507,162 @@ function fecharAjuda() { $("painelAjuda").classList.add("oculto"); }
 // ------------------------------------------------------------ administração
 async function aba(qual) {
   abaAtual = qual;
-  ["usu", "apps", "int", "aud", "acs", "eml", "prc"].forEach(k => $("aba" + k[0].toUpperCase() + k.slice(1)).classList.toggle("on", qual === k));
+  ["usu", "apps", "int", "aud", "acs", "eml", "prc", "prp"].forEach(k => $("aba" + k[0].toUpperCase() + k.slice(1)).classList.toggle("on", qual === k));
   msg($("msgAdm"), "", "");
-  try { qual === "usu" ? await admLogins() : qual === "aud" ? await admAuditoria() : qual === "acs" ? await admAcessos() : qual === "int" ? await admInteresse() : qual === "eml" ? await admEmails() : qual === "prc" ? await admPrecos() : admApps(); } catch (e) { msg($("msgAdm"), "err", e.message); }
+  try { qual === "usu" ? await admLogins() : qual === "aud" ? await admAuditoria() : qual === "acs" ? await admAcessos() : qual === "int" ? await admInteresse() : qual === "eml" ? await admEmails() : qual === "prc" ? await admPrecos() : qual === "prp" ? await admPropostas() : admApps(); } catch (e) { msg($("msgAdm"), "err", e.message); }
+}
+
+// Propostas para prospects (pedido do Marco em 10/11/2026; migração ..._propostas.sql). O prospect abre
+// /proposta/#<link> e digita o código de 6 dígitos (sem login); aqui a equipe monta, manda pelo WhatsApp e acompanha.
+const PROP_SIT = { rascunho: ["Rascunho", "#eef0f4", "#4b5563"], enviada: ["Enviada", "#e0edff", "#1d4ed8"], ajuste: ["Ajuste pedido", "#fff4d6", "#8a5a00"],
+  aprovada: ["Aprovada", "#e6f4ec", "#1d7f46"], cancelada: ["Cancelada", "#fbeaea", "#b3261e"], cliente: ["Virou cliente", "#dff1f2", "#084e55"] };
+const PROP_EVT = { criada: "Criada", alterada: "Alterada", enviada: "Enviada", visualizada: "Aberta pelo prospect", ajuste: "Ajuste pedido", aprovada: "Aprovada",
+  novo_codigo: "Código trocado", cancelada: "Cancelada", reaberta: "Reaberta", cliente: "Virou cliente" };
+const propTag = p => { const [t, bg, fg] = PROP_SIT[p.situacao] || [p.situacao, "#eee", "#333"];
+  const venc = ["enviada", "ajuste"].includes(p.situacao) && p.valida_ate < new Date().toLocaleDateString("sv", { timeZone: "America/Sao_Paulo" });
+  return `<span class="tag" style="margin:0;background:${bg};color:${fg}">${t}</span>${venc ? ' <span class="tag" style="margin:0;background:#fbeaea;color:#b3261e">vencida</span>' : ""}`; };
+const propLink = p => location.origin + "/proposta/#" + p.link;
+const propMensagem = p => `Olá${p.contato ? ", " + p.contato.split(" ")[0].replace(/^(Dra?\.?)$/i, p.contato) : ""}! Sua proposta da Nervia está pronta:\n${propLink(p)}\nCódigo de acesso: ${p.codigo}`;
+// listas do formulário: uma por linha; "Título | descrição" (investimento: "Item | detalhe | valor")
+const propParaTexto = (l, campos) => (l || []).map(i => typeof i === "string" ? i : campos.map(c => i[c] || "").join(" | ").replace(/( \| )+$/, "")).join("\n");
+const propDoTexto = (t, campos) => String(t || "").split("\n").map(l => l.trim()).filter(Boolean).map(l => {
+  if (!campos) return l; const p = l.split("|").map(x => x.trim()); return Object.fromEntries(campos.map((c, i) => [c, p[i] || ""])); });
+
+async function admPropostas(abrirId) {
+  $("admConteudo").innerHTML = '<div class="cartao"><h2>Propostas</h2><div class="small">Carregando…</div></div>';
+  const lista = checar(await sb.from("prop_propostas").select("*").order("id", { ascending: false })) || [];
+  window._props = lista;
+  const A = window.NERVIA_AUDITORIA;
+  $("admConteudo").innerHTML = `<div class="cartao"><h2>Propostas</h2>
+    <div class="small">O prospect abre a proposta pelo link e digita o código de 6 dígitos (sem login). Aprovar só avisa a Nervia: nada é cobrado nem liberado sozinho.</div>
+    <p style="margin:12px 0"><button onclick="editarProposta(0)">+ Nova proposta</button></p>
+    ${lista.length ? `<div style="overflow-x:auto"><table class="aud"><tr><th>Nº</th><th>Prospect</th><th>Título</th><th>Situação</th><th>Visitas</th><th>Última visita</th><th>Validade</th><th></th></tr>
+    ${lista.map(p => `<tr><td>${esc(p.numero)}${p.versao > 1 ? `<div class="small">versão ${p.versao}</div>` : ""}</td><td><b>${esc(p.prospect)}</b>${p.contato ? `<div class="small">${esc(p.contato)}</div>` : ""}</td>
+      <td>${esc(p.titulo)}</td><td>${propTag(p)}</td><td>${p.visualizacoes}</td><td>${p.ultima_visita ? A.dataHora(p.ultima_visita) : "—"}</td>
+      <td>${dataBR(p.valida_ate)}</td><td><button class="lnk" onclick="verProposta(${p.id})">abrir</button></td></tr>`).join("")}</table></div>`
+      : '<div class="small">Nenhuma proposta ainda.</div>'}
+    </div><div id="propDetalhe"></div>`;
+  if (abrirId) verProposta(abrirId);
+}
+
+async function verProposta(id) {
+  const p = (window._props || []).find(x => x.id === id); if (!p) return;
+  const ev = checar(await sb.from("prop_eventos").select("*").eq("proposta_id", id).order("quando", { ascending: false })) || [];
+  const A = window.NERVIA_AUDITORIA, ativa = !["cancelada", "cliente"].includes(p.situacao);
+  const zap = String(p.whatsapp || "").replace(/\D/g, ""), zapNum = zap ? (zap.length <= 11 ? "55" + zap : zap) : "";
+  $("propDetalhe").innerHTML = `<div class="cartao" style="border-color:var(--primary)">
+    <h2>Proposta ${esc(p.numero)} · ${esc(p.prospect)} ${propTag(p)}</h2>
+    <div class="small">${esc(p.titulo)} · válida até ${dataBR(p.valida_ate)}${p.versao > 1 ? " · versão " + p.versao : ""}${p.obs ? " · nota interna: " + esc(p.obs) : ""}</div>
+    ${p.situacao === "ajuste" ? `<div class="msg" style="display:block;background:#fff4d6;color:#8a5a00;margin-top:10px">Ajuste pedido por ${esc(p.resposta_nome)} em ${A.dataHora(p.respondida_em)}: “${esc(p.resposta_texto)}”. Edite a proposta: ela vira a versão ${p.versao + 1} no mesmo link e código.</div>` : ""}
+    ${p.situacao === "aprovada" ? `<div class="msg ok" style="display:block;margin-top:10px">Aprovada por ${esc(p.resposta_nome)} em ${A.dataHora(p.respondida_em)}${p.resposta_texto ? ": " + esc(p.resposta_texto) : ""}. Combine os próximos passos e, quando for o caso, crie o login.</div>` : ""}
+    ${p.situacao === "cancelada" ? `<div class="msg err" style="display:block;margin-top:10px">Cancelada: ${esc(p.cancelada_motivo)}</div>` : ""}
+    ${ativa ? `<div style="background:#f0f8f8;border:1px solid #bfe0e2;border-radius:12px;padding:12px 14px;margin-top:12px">
+      <div><span class="small">Link:</span> <b id="propLinkTxt">${esc(propLink(p))}</b></div>
+      <div><span class="small">Código:</span> <b style="font-size:1.2rem;letter-spacing:.15em">${esc(p.codigo)}</b></div>
+      <textarea id="propMsg" rows="3" style="margin-top:8px;width:100%">${esc(propMensagem(p))}</textarea>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        ${zapNum ? `<button onclick="enviarProposta(${p.id}, '${zapNum}')">Enviar no WhatsApp</button>` : '<span class="small">Sem WhatsApp cadastrado: copie a mensagem.</span>'}
+        <button class="sec" onclick="copiarProposta(${p.id})">Copiar mensagem</button>
+        <a class="lnk" href="${esc(propLink(p))}" target="_blank" rel="noopener" style="align-self:center">Ver como o prospect</a>
+      </div></div>` : ""}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+      ${["rascunho", "enviada", "ajuste"].includes(p.situacao) ? `<button class="sec" onclick="editarProposta(${p.id})">Editar</button>` : ""}
+      ${p.situacao === "rascunho" ? `<button class="sec" onclick="acaoProposta(${p.id}, 'enviada')">Marcar como enviada</button>` : ""}
+      ${ativa ? `<button class="sec" onclick="acaoProposta(${p.id}, 'novo_codigo')">Trocar o código</button>` : ""}
+      ${p.situacao === "aprovada" ? `<button onclick="propostaCliente(${p.id})">Tornar cliente (criar login)</button>` : ""}
+      ${ativa ? `<button class="sec" onclick="acaoProposta(${p.id}, 'cancelar')">Cancelar</button>` : ""}
+      ${p.situacao === "cancelada" ? `<button class="sec" onclick="acaoProposta(${p.id}, 'reabrir')">Reabrir como rascunho</button>` : ""}
+    </div>
+    <h3 style="margin:18px 0 6px">Histórico</h3>
+    <div style="overflow-x:auto"><table class="aud"><tr><th>Quando</th><th>O quê</th><th>Detalhe</th><th>Quem</th><th>IP</th></tr>
+    ${ev.map(e => `<tr><td>${A.dataHora(e.quando)}</td><td>${esc(PROP_EVT[e.tipo] || e.tipo)}</td><td>${esc(e.texto)}</td><td>${esc(e.quem_nome || (e.quem ? "" : "prospect"))}</td><td class="small">${esc(e.ip || "")}</td></tr>`).join("")}</table></div>
+    <div id="propEditor"></div></div>`;
+  $("propDetalhe").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function editarProposta(id) {
+  const p = (window._props || []).find(x => x.id === id) || { id: 0, prospect: "", contato: "", whatsapp: "", email: "", titulo: "", resumo: "", modelo_url: "", obs: "",
+    valida_ate: new Date(Date.now() + 15 * 864e5).toLocaleDateString("sv", { timeZone: "America/Sao_Paulo" }),
+    conteudo: { etapas: [{ t: "Aprovação", d: "Você aprova esta proposta." }, { t: "Informações", d: "Envia textos, fotos e valores." }, { t: "Montagem", d: "Prazo: [X dias úteis]." }, { t: "Revisão", d: "Você confere e pede ajustes." }, { t: "Entrega", d: "Tudo no ar." }] } };
+  const c = p.conteudo || {};
+  if (!id) $("propDetalhe").innerHTML = '<div class="cartao" style="border-color:var(--primary)"><div id="propEditor"></div></div>';
+  const ta = (idc, rot, val, dica, linhas = 4) => `<div style="grid-column:1/-1"><label for="${idc}">${rot}</label><textarea id="${idc}" rows="${linhas}" style="width:100%" placeholder="${esc(dica)}">${esc(val)}</textarea></div>`;
+  const inp = (idc, rot, val, extra = "") => `<div><label for="${idc}">${rot}</label><input id="${idc}" value="${esc(val)}" ${extra}></div>`;
+  $("propEditor").innerHTML = `<form onsubmit="salvarProposta(event, ${id || 0})" style="margin-top:14px">
+    <h2>${id ? "Editar proposta " + esc(p.numero) : "Nova proposta"}</h2>
+    ${id && ["enviada", "ajuste"].includes(p.situacao) ? '<div class="small">Esta proposta já foi enviada: ao salvar, vira a versão ' + (p.versao + 1) + ' no mesmo link e código.</div>' : ""}
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:10px">
+      ${inp("prProspect", "Prospect (empresa)", p.prospect, 'required maxlength="160"')}
+      ${inp("prContato", "Contato (para quem)", p.contato, 'maxlength="160"')}
+      ${inp("prZap", "WhatsApp do contato", p.whatsapp, 'maxlength="40" placeholder="(21) 9 0000-0000"')}
+      ${inp("prEmail", "E-mail do contato", p.email, 'type="email" maxlength="160"')}
+      <div style="grid-column:1/-1"><label for="prTitulo">Título (o que está sendo proposto)</label><input id="prTitulo" required maxlength="200" value="${esc(p.titulo)}"></div>
+      ${ta("prResumo", "Resumo", p.resumo, "Uma ou duas frases sobre a proposta", 2)}
+      ${inp("prModelo", "Modelo (endereço, opcional)", p.modelo_url, 'placeholder="/modelos/nome-do-cliente-xxxxxx/"')}
+      ${inp("prValida", "Válida até", p.valida_ate, 'type="date" required')}
+      ${ta("prIncluido", "Incluído nesta proposta — um por linha: Título | descrição", propParaTexto(c.incluido, ["t", "d"]), "Site completo, pronto para celular | Início, serviços, sobre, planos e contato")}
+      ${ta("prDepois", "Pode ser incluído depois — um por linha: Título | descrição", propParaTexto(c.depois, ["t", "d"]), "Agenda do studio | Horários do dia, confirmações e faltas")}
+      ${ta("prEtapas", "Etapas — uma por linha: Título | descrição", propParaTexto(c.etapas, ["t", "d"]), "Aprovação | Você aprova esta proposta.")}
+      ${ta("prPrecisamos", "O que precisamos do cliente — um por linha", propParaTexto(c.precisamos), "Fotos reais do local")}
+      ${ta("prInv", "Investimento — um por linha: Item | detalhe | valor", propParaTexto(c.investimento, ["t", "d", "v"]), "Criação do site | pagamento único | R$ 0,00", 3)}
+      ${ta("prCond", "Condições (forma de pagamento, domínio, observações)", c.condicoes || "", "", 2)}
+      ${ta("prObs", "Nota interna (o prospect não vê)", p.obs || "", "", 2)}
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px"><button>${id ? "Salvar" : "Criar proposta"}</button><button type="button" class="sec" onclick="${id ? `verProposta(${id})` : "document.getElementById('propDetalhe').innerHTML=''"}">Voltar</button></div>
+  </form>`;
+  $("propEditor").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function salvarProposta(ev, id) {
+  ev.preventDefault();
+  const v = idc => $(idc).value.trim();
+  const dados = { prospect: v("prProspect"), contato: v("prContato"), whatsapp: v("prZap"), email: v("prEmail"), titulo: v("prTitulo"), resumo: v("prResumo"),
+    modelo_url: v("prModelo"), valida_ate: v("prValida"), obs: v("prObs"),
+    conteudo: { incluido: propDoTexto(v("prIncluido"), ["t", "d"]), depois: propDoTexto(v("prDepois"), ["t", "d"]), etapas: propDoTexto(v("prEtapas"), ["t", "d"]),
+      precisamos: propDoTexto(v("prPrecisamos")), investimento: propDoTexto(v("prInv"), ["t", "d", "v"]), condicoes: v("prCond") } };
+  if (id) dados.id = id;
+  try {
+    const r = checar(await sb.rpc("prop_salvar", { p: dados }));
+    await admPropostas(r.id);
+    msg($("msgAdm"), "ok", id ? `Proposta ${r.numero} salva${r.versao > 1 ? " (versão " + r.versao + ")" : ""}.` : `Proposta ${r.numero} criada. Confira e mande o link e o código pelo WhatsApp.`);
+  } catch (e) { msg($("msgAdm"), "err", e.message); }
+}
+
+async function acaoProposta(id, acao) {
+  let motivo = "";
+  if (acao === "cancelar") { motivo = prompt("Motivo do cancelamento (o prospect não poderá mais abrir a proposta):"); if (motivo === null) return; }
+  if (acao === "novo_codigo" && !confirm("Trocar o código? O código atual deixa de valer e você precisa mandar o novo ao prospect.")) return;
+  try {
+    checar(await sb.rpc("prop_acao", { p_id: id, p_acao: acao, p_motivo: motivo }));
+    await admPropostas(id);
+    msg($("msgAdm"), "ok", { enviada: "Marcada como enviada.", novo_codigo: "Código trocado. Mande a mensagem nova ao prospect.", cancelar: "Proposta cancelada.", reabrir: "Proposta reaberta como rascunho." }[acao] || "Feito.");
+  } catch (e) { msg($("msgAdm"), "err", e.message); }
+}
+
+async function enviarProposta(id, zapNum) {
+  const p = window._props.find(x => x.id === id);
+  window.open("https://wa.me/" + zapNum + "?text=" + encodeURIComponent($("propMsg").value), "_blank", "noopener");
+  if (p.situacao === "rascunho" || p.situacao === "enviada") {
+    try { checar(await sb.rpc("prop_acao", { p_id: id, p_acao: "enviada" })); await admPropostas(id); msg($("msgAdm"), "ok", "WhatsApp aberto e proposta marcada como enviada."); }
+    catch (e) { msg($("msgAdm"), "err", e.message); }
+  }
+}
+
+async function copiarProposta(id) {
+  try { await navigator.clipboard.writeText($("propMsg").value); msg($("msgAdm"), "ok", "Mensagem copiada."); }
+  catch { $("propMsg").select(); msg($("msgAdm"), "", "Selecionei a mensagem: copie com Ctrl+C."); }
+}
+
+async function propostaCliente(id) {
+  const p = window._props.find(x => x.id === id);
+  if (!confirm(`Marcar ${p.prospect} como cliente e abrir o cadastro do login?`)) return;
+  try {
+    checar(await sb.rpc("prop_acao", { p_id: id, p_acao: "cliente", p_motivo: "" }));
+    await aba("usu");
+    $("nNome").value = p.contato || p.prospect; $("nEmail").value = p.email || ""; $("nEmpresa").value = p.prospect;
+    $("nNome").scrollIntoView({ behavior: "smooth", block: "center" });
+    msg($("msgAdm"), "ok", `Proposta ${p.numero} marcada como cliente. Confira os dados abaixo, escolha os aplicativos e crie o login.`);
+  } catch (e) { msg($("msgAdm"), "err", e.message); }
 }
 
 // E-mails automáticos pelo Microsoft 365 (função email): situação, teste e os últimos envios (tabela email_envios)

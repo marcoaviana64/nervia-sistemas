@@ -16,3 +16,11 @@
 /cotacao/*
   X-Robots-Tag: noindex, nofollow
   Referrer-Policy: no-referrer
+
+# Proposta para prospect (link + código, sem login) e modelos de proposta: fora dos buscadores e sem Referer
+/proposta/*
+  X-Robots-Tag: noindex, nofollow
+  Referrer-Policy: no-referrer
+/modelos/*
+  X-Robots-Tag: noindex, nofollow
+  Referrer-Policy: no-referrer
