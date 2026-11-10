@@ -141,7 +141,7 @@ end $$;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
 select pg_temp.ok((select count(*) = 0 from apps), 'login sem app liberado não vê apps');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
-select pg_temp.ok((select count(*) = 13 from apps), 'admin vê todos os apps, inclusive inativos');
+select pg_temp.ok((select count(*) = 15 from apps), 'admin vê todos os apps, inclusive inativos');
 insert into app_acessos values ('00000000-0000-0000-0000-00000000000c', 'chamados');
 update apps set ativo = false where id = 'chamados';
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
@@ -990,7 +990,7 @@ select pg_temp.ok((select not ativo and demo_url = '/demo/produtos/' from apps w
 update apps set situacao = 'em_desenvolvimento', demo_url = '/segredo/' where id = 'velho';
 set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
-select pg_temp.ok((select string_agg(id, ',' order by id) from apps_vitrine()) = 'compras,contratos,painel-nf,produtos,telefonia,velho',
+select pg_temp.ok((select string_agg(id, ',' order by id) from apps_vitrine()) = 'compras,contratos,painel-nf,produtos,site-negocios,studio,telefonia,velho',
   'vitrine: apps fora da grade do login, sem oculto');
 select pg_temp.ok((select demo_url = '' from apps_vitrine() where id = 'velho') and (select demo_url = '/demo/compras/' from apps_vitrine() where id = 'compras'),
   'em desenvolvimento não mostra link de demonstração');
@@ -1020,7 +1020,7 @@ set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
 select pg_temp.ok((select count(*) = 0 from app_reacoes), 'outro login não vê a reação dos outros');
 select pg_temp.ok((select reacao is null from apps_vitrine() where id = 'compras'), 'vitrine do outro login sem reação');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
-select pg_temp.ok((select string_agg(id, ',' order by id) from apps_vitrine()) = 'produtos,velho', 'admin: vitrine só com o que não está ativo');
+select pg_temp.ok((select string_agg(id, ',' order by id) from apps_vitrine()) = 'produtos,site-negocios,studio,velho', 'admin: vitrine só com o que não está ativo');
 select pg_temp.ok((select count(*) = 2 from app_reacoes) and (select count(*) = 2 from app_cliques), 'admin lê reações e cliques (clique repetido em 1 min conta uma vez)');
 select pg_temp.ok((select empresa <> 'Eu mesmo' and empresa <> '' and cliques_demo = 1 and cliques_conhecer = 1 and reacao = 'interesse'
   from apps_interesse() where app_id = 'compras'), 'interesse: empresa pelos acessos do login, cliques e reação');
@@ -3151,5 +3151,104 @@ select pg_temp.ok(exists (select 1 from auditoria where acao = 'contratos_membro
   and exists (select 1 from auditoria where acao = 'contratos_empresa_alterada' and detalhes -> 'depois' ->> 'ativo' = 'false'),
   'contratos 2.0: auditoria com a empresa no detalhe (empresas, papéis e ações do gestor)');
 
+-- ================================================================ propostas (link + código, sem login)
+reset role;
+reset request.headers;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+set role authenticated;
+create temp table if not exists prop_ids (k text primary key, v text);
+grant all on prop_ids to anon, authenticated;
+insert into prop_ids select 'p1', prop_salvar(jsonb_build_object('prospect', 'Harmonia do Corpo', 'contato', 'Dra. Deborah', 'whatsapp', '(21) 98235-3913',
+  'titulo', 'Site com agendamento online', 'valida_ate', (now() at time zone 'America/Sao_Paulo')::date + 15, 'obs', 'nota interna',
+  'conteudo', '{"incluido":[{"t":"Site completo","d":"pronto para celular"},{"t":"  "}],"precisamos":["CREFITO","",{"t":"Fotos"}],"investimento":[{"t":"Criação","d":"único","v":"R$ 1.000"}],"condicoes":"Pix"}'::jsonb))::text;
+select pg_temp.ok((select numero like extract(year from now())::int || '-%' and situacao = 'rascunho' and codigo ~ '^[0-9]{6}$' and link ~ '^[a-f0-9]{12}$'
+  and jsonb_array_length(conteudo -> 'incluido') = 1 and conteudo -> 'precisamos' = '["CREFITO","Fotos"]'::jsonb
+  and conteudo -> 'investimento' -> 0 ->> 'v' = 'R$ 1.000' from prop_propostas), 'propostas: criada como rascunho, com link, código e conteúdo limpo');
+select pg_temp.erro2($$select prop_salvar('{"prospect":"X","titulo":"Teste","valida_ate":"2020-01-01"}')$$, 'hoje ou depois', 'propostas: validade no passado é recusada');
+select pg_temp.erro2($$select prop_salvar('{"prospect":"Y","titulo":"Teste"}')$$, 'até quando', 'propostas: validade obrigatória');
+-- cliente não monta proposta nem lê
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.erro2($$select prop_salvar('{"prospect":"Z","titulo":"Teste","valida_ate":"2099-01-01"}')$$, 'equipe Nervia', 'propostas: cliente não monta proposta');
+select pg_temp.ok((select count(*) = 0 from prop_propostas) and (select count(*) = 0 from prop_eventos), 'propostas: cliente não lê propostas nem histórico');
+-- prospect: rascunho não abre
+reset request.jwt.claim.sub;
+set role anon;
+set request.headers = '{"x-forwarded-for":"200.1.2.3","user-agent":"Teste/1.0"}';
+select pg_temp.erro2('select * from prop_propostas', 'permission', 'propostas: anônimo não lê a tabela');
+reset role;
+select pg_temp.ok((prop_ler((select link from prop_propostas), (select codigo from prop_propostas)) ->> 'erro') like '%não está disponível%', 'propostas: rascunho não abre pelo link');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+set role authenticated;
+select prop_acao((select id from prop_propostas), 'enviada');
+reset role;
+create temp table prop_cred as select link, codigo from prop_propostas;
+grant select on prop_cred to anon;
+reset request.jwt.claim.sub;
+set role anon;
+select pg_temp.ok((select prop_ler(link, codigo) -> 'proposta' ->> 'titulo' = 'Site com agendamento online'
+  and not (prop_ler(link, codigo) -> 'proposta') ? 'codigo' and not (prop_ler(link, codigo) -> 'proposta') ? 'obs'
+  and not (prop_ler(link, codigo) -> 'proposta') ? 'whatsapp' from prop_cred), 'propostas: link + código abre a proposta (sem código, telefone nem nota interna)');
+select pg_temp.ok((select prop_ler(link, '000000') ->> 'erro' like 'Código incorreto%' from prop_cred), 'propostas: código errado não abre');
+select pg_temp.ok((select prop_ler('zzz', codigo) ->> 'erro' like 'Link inválido%' from prop_cred), 'propostas: link malformado');
+select pg_temp.ok((select prop_responder(link, codigo, 'ajuste', 'Deborah', '') ->> 'erro' like '%o que você gostaria%' from prop_cred), 'propostas: ajuste exige o que mudar');
+select pg_temp.ok((select prop_responder(link, codigo, 'aprovar', ' ') ->> 'erro' = 'Informe o seu nome.' from prop_cred), 'propostas: resposta exige o nome');
+select pg_temp.ok((select prop_responder(link, codigo, 'ajuste', 'Deborah', 'Trocar a foto do topo') ->> 'situacao' = 'ajuste' from prop_cred), 'propostas: prospect pede ajuste');
+reset role;
+select pg_temp.ok((select situacao = 'ajuste' and resposta_nome = 'Deborah' and visualizacoes = 1 and primeira_visita is not null from prop_propostas)
+  and exists (select 1 from auditoria where acao = 'proposta_ajuste' and papel = 'sistema' and ip = '200.1.2.3' and nome like 'Deborah%')
+  and exists (select 1 from auditoria where acao = 'proposta_visualizada')
+  and (select count(*) = 1 from prop_eventos where tipo = 'visualizada'), 'propostas: visita conta uma vez em 30 min; ajuste no histórico e na auditoria com IP');
+-- nova versão volta a "enviada"; aprovar; depois de aprovada não muda
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+set role authenticated;
+select prop_salvar(jsonb_build_object('id', (select id from prop_propostas), 'resumo', 'Com a foto nova'));
+select pg_temp.ok((select situacao = 'enviada' and versao = 2 and resumo = 'Com a foto nova' and conteudo -> 'precisamos' = '["CREFITO","Fotos"]'::jsonb from prop_propostas),
+  'propostas: editar depois do ajuste = versão 2, volta a enviada, conteúdo mantido');
+reset role;
+reset request.jwt.claim.sub;
+set role anon;
+select pg_temp.ok((select prop_responder(link, codigo, 'aprovar', 'Deborah Gleichman') ->> 'situacao' = 'aprovada' from prop_cred), 'propostas: prospect aprova');
+select pg_temp.ok((select prop_responder(link, codigo, 'ajuste', 'Deborah', 'mais uma coisa') ->> 'erro' like '%já foi respondida%' from prop_cred), 'propostas: aprovada não aceita outra resposta');
+select pg_temp.ok((select prop_ler(link, codigo) -> 'proposta' ->> 'situacao' = 'aprovada' from prop_cred), 'propostas: prospect continua vendo a proposta aprovada');
+reset role;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+set role authenticated;
+select pg_temp.erro2($$select prop_salvar(jsonb_build_object('id', (select id from prop_propostas), 'resumo', 'x'))$$, 'aprovada', 'propostas: aprovada não se altera');
+select pg_temp.erro2($$select prop_acao((select id from prop_propostas), 'cancelar', 'x')$$, 'motivo', 'propostas: cancelar exige motivo');
+select prop_acao((select id from prop_propostas), 'cliente');
+select pg_temp.ok((select situacao = 'cliente' from prop_propostas), 'propostas: aprovada vira cliente');
+select pg_temp.erro2($$delete from prop_propostas$$, 'permission', 'propostas: tela não apaga proposta');
+reset role;
+select pg_temp.erro2($$delete from prop_propostas$$, 'não se apaga', 'propostas: proposta não se apaga nem pelo banco');
+select pg_temp.erro2($$update prop_eventos set texto = 'x'$$, 'somente inclusão', 'propostas: histórico somente inclusão');
+-- limite de tentativas: 5 códigos errados no mesmo link em 15 min bloqueiam (inclusive o certo)
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+set role authenticated;
+insert into prop_ids select 'p2', (prop_salvar(jsonb_build_object('prospect', 'Padaria', 'titulo', 'Site', 'valida_ate', '2099-01-01')) ->> 'id');
+select prop_acao((select v::bigint from prop_ids where k = 'p2'), 'enviada');
+reset role;
+truncate prop_cred; insert into prop_cred select link, codigo from prop_propostas where id = (select v::bigint from prop_ids where k = 'p2');
+reset request.jwt.claim.sub;
+set role anon;
+set request.headers = '{"x-forwarded-for":"200.9.9.9"}';
+select prop_ler(link, '111111') from prop_cred, generate_series(1, 5);
+select pg_temp.ok((select prop_ler(link, codigo) ->> 'erro' like 'Muitas tentativas%' from prop_cred), 'propostas: 5 códigos errados em 15 min bloqueiam o link');
+reset role;
+delete from prop_tentativas;
+-- trocar o código: o antigo deixa de valer; vencida abre sem resposta
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+set role authenticated;
+select prop_acao((select v::bigint from prop_ids where k = 'p2'), 'novo_codigo');
+reset role;
+select pg_temp.ok((select prop_ler(c.link, c.codigo) ->> 'erro' like 'Código incorreto%' from prop_cred c), 'propostas: novo código invalida o anterior');
+update prop_propostas set valida_ate = current_date - 1 where id = (select v::bigint from prop_ids where k = 'p2');
+select pg_temp.ok((select (prop_ler(link, codigo) -> 'proposta' ->> 'vencida')::boolean and prop_responder(link, codigo, 'aprovar', 'Ana') ->> 'erro' like '%venceu%'
+  from prop_propostas where id = (select v::bigint from prop_ids where k = 'p2')), 'propostas: vencida abre só para leitura');
+-- vitrine pública
+set role anon;
+select pg_temp.ok((select count(*) > 0 from apps_vitrine_publica()) and not exists (select 1 from apps_vitrine_publica() where situacao = 'oculto')
+  and exists (select 1 from apps_vitrine_publica() where id = 'site-negocios'), 'vitrine pública: anônimo vê os produtos fora de "oculto"');
+reset role;
+reset request.headers;
 reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'

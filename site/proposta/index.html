@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Proposta | Nervia</title>
+<script src="/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<style>
+/* Proposta para prospect (pedido do Marco em 10/11/2026). Abre pelo link nervia.com.br/proposta/#<link>, sem login:
+   o link vem depois do "#" (não vai ao servidor nem ao Referer) e o código de 6 dígitos é conferido em prop_ler. */
+:root{
+  --bg:#f3f6f8;--surface:#fff;--surface-2:#f6f9fa;--border:#dde6ec;--ink:#0f1b2d;--ink-soft:#4f5f73;--ink-faint:#6b7a8c;
+  --accent:#0b6f78;--accent-ink:#084e55;--accent-soft:#dff1f2;
+  --ok:#1d7f46;--ok-bg:#e6f4ec;--crit:#b3261e;--crit-bg:#fbeaea;--warn:#8a5300;--warn-bg:#fff3e0;--info:#2568a8;--info-bg:#e7f1fa;
+  color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.oculto{display:none!important}
+.topo{background:var(--surface);border-bottom:1px solid var(--border)}
+.topo .in{max-width:1000px;margin:0 auto;padding:12px 20px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
+.topo img{height:34px;display:block}
+.topo .num{font-size:14px;color:var(--ink-soft)}
+.casca{max-width:1000px;margin:0 auto;padding:24px 20px 48px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:24px;margin-bottom:20px}
+h1{font-size:clamp(28px,5vw,40px);line-height:1.12;margin:6px 0 10px}
+h2{font-size:21px;margin:0 0 14px}
+.sobre{margin:0;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.lead{font-size:17px;color:var(--ink-soft);margin:0;white-space:pre-line}
+.mut{color:var(--ink-soft);font-size:14px}
+.duas{display:flex;flex-wrap:wrap;gap:20px}
+.duas>.card{flex:1 1 380px;min-width:0;margin-bottom:0}
+.item{display:flex;gap:12px;align-items:flex-start;margin:0 0 12px}
+.item .ic{flex:0 0 26px;height:26px;border-radius:999px;display:flex;align-items:center;justify-content:center}
+.item .ic.sim{background:var(--ok-bg);color:var(--ok)}.item .ic.mais{background:#e6eef1;color:#3b4f56}
+.item b{display:block}.item span{display:block;font-size:14px;color:var(--ink-soft)}
+.etapas{display:flex;flex-wrap:wrap;gap:12px}
+.etapa{flex:1 1 160px;min-width:0;background:var(--surface-2);border-radius:14px;padding:14px}
+.etapa .n{width:30px;height:30px;border-radius:999px;background:var(--accent);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;margin-bottom:6px}
+.etapa span{display:block;font-size:13px;color:var(--ink-soft)}
+.inv{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
+.inv:last-of-type{border-bottom:0}
+.inv .v{font-size:22px;font-weight:700;white-space:nowrap}
+.chk{display:flex;gap:10px;align-items:center;min-height:30px}
+.chk i{flex:0 0 18px;height:18px;border:2px solid #9fb3ba;border-radius:5px}
+.modelo{border:1px solid var(--border);border-radius:14px;overflow:hidden;background:#fff}
+.modelo .barra{background:#eaf0f2;padding:8px 12px;font-size:13px;color:var(--ink-soft);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.modelo iframe{display:block;width:100%;height:560px;border:0}
+.bt{font:inherit;font-weight:700;padding:12px 20px;border-radius:12px;border:2px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;text-decoration:none;display:inline-block;min-height:48px}
+.bt.sec{background:#fff;color:var(--accent-ink)}
+.bt:disabled{opacity:.55;cursor:wait}
+.acoes{display:flex;flex-wrap:wrap;gap:10px}
+label{display:block;font-size:14px;font-weight:600;color:#2c3f46;margin-bottom:6px}
+input,textarea{font:inherit;padding:11px 12px;border:1px solid #c8d5da;border-radius:10px;background:#fff;color:var(--ink);width:100%}
+textarea{min-height:100px;resize:vertical}
+.aviso{border-radius:12px;padding:12px 14px;font-size:15px;margin:0 0 16px;white-space:pre-line}
+.aviso.crit{background:var(--crit-bg);color:var(--crit)}.aviso.ok{background:var(--ok-bg);color:var(--ok)}.aviso.info{background:var(--info-bg);color:var(--info)}.aviso.warn{background:var(--warn-bg);color:var(--warn)}
+.resposta{border:2px solid var(--accent)}
+/* entrada pelo código */
+.entrada{max-width:420px;margin:30px auto;text-align:left}
+.entrada input{height:64px;font-size:30px;letter-spacing:.4em;text-align:center}
+.rodape{font-size:13px;color:var(--ink-faint);text-align:center;margin-top:10px}
+.rodape a{color:inherit}
+@media print{.topo .num,.acoes,.resposta,.modelo iframe,#imprimir{display:none!important}body{background:#fff}.card{break-inside:avoid;border-color:#ccc}}
+</style>
+</head>
+<body>
+<div class="topo"><div class="in"><img src="/img/nervia-logo.png" alt="Nervia Tecnologia"><span class="num" id="numero"></span></div></div>
+<div class="casca">
+  <div id="carregando" class="mut" style="padding:40px 0;text-align:center">Carregando…</div>
+
+  <form id="entrada" class="card entrada oculto" novalidate>
+    <p class="sobre">Proposta exclusiva</p>
+    <h1 style="font-size:28px">Olá! Sua proposta está pronta.</h1>
+    <p class="mut" style="font-size:16px">Digite o código de 6 dígitos que enviamos pelo WhatsApp junto com este link.</p>
+    <label for="codigo">Código de acesso</label>
+    <input id="codigo" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000">
+    <div id="erroEntrada" class="aviso crit oculto" style="margin-top:12px"></div>
+    <p><button class="bt" id="bEntrar" type="submit" style="width:100%">Ver proposta</button></p>
+    <p class="mut">Não recebeu o código? Fale com a Nervia no WhatsApp <a class="js-zap" href="#">(21) 96686-9374</a>.</p>
+    <p class="mut" style="font-size:12px">Este link é pessoal. Não compartilhe o código.</p>
+  </form>
+
+  <div id="pagina" class="oculto">
+    <div class="card">
+      <p class="sobre">Proposta para</p>
+      <h1 id="prospect"></h1>
+      <p class="lead" id="titulo" style="font-weight:600;color:var(--ink)"></p>
+      <p class="lead" id="resumo" style="margin-top:8px"></p>
+      <p class="mut" id="validade" style="margin-top:12px"></p>
+      <div class="acoes" style="margin-top:14px">
+        <a class="bt oculto" id="bModelo" href="#modelo">Ver o modelo</a>
+        <a class="bt sec" id="bResponder" href="#resposta">Responder proposta</a>
+        <button class="bt sec" type="button" id="imprimir" onclick="window.print()">Imprimir / salvar PDF</button>
+      </div>
+    </div>
+    <div id="situacao"></div>
+
+    <div class="card oculto" id="cxModelo">
+      <h2 id="modelo">Como vai ficar</h2>
+      <p class="mut" style="margin-top:-8px">O modelo já funciona: navegue e teste.</p>
+      <div class="modelo">
+        <div class="barra"><span id="modeloEnd"></span><a id="modeloAbrir" href="#" target="_blank" rel="noopener">Abrir em tela cheia ↗</a></div>
+        <iframe id="modeloQuadro" title="Modelo" loading="lazy"></iframe>
+      </div>
+    </div>
+
+    <div class="duas" style="margin-bottom:20px">
+      <div class="card oculto" id="cxIncluido"><h2>Incluído nesta proposta</h2><div id="incluido"></div></div>
+      <div class="card oculto" id="cxDepois"><h2>Pode ser incluído depois</h2><div id="depois"></div></div>
+    </div>
+
+    <div class="card oculto" id="cxEtapas"><h2>Como vamos trabalhar</h2><div class="etapas" id="etapas"></div></div>
+
+    <div class="duas" style="margin-bottom:20px">
+      <div class="card oculto" id="cxInv"><h2>Investimento</h2><div id="inv"></div><p class="mut" id="condicoes" style="white-space:pre-line;margin:10px 0 0"></p></div>
+      <div class="card oculto" id="cxPrecisamos"><h2>O que precisamos de você</h2><div id="precisamos"></div></div>
+    </div>
+
+    <form class="card resposta" id="resposta" novalidate>
+      <h2>Sua resposta</h2>
+      <div id="formResp">
+        <div style="max-width:420px;margin-bottom:14px"><label for="nome">Seu nome</label><input id="nome" maxlength="120" autocomplete="name" placeholder="Nome de quem está respondendo"></div>
+        <div id="cxTexto" class="oculto" style="margin-bottom:14px"><label for="texto">O que você gostaria de mudar?</label><textarea id="texto" maxlength="2000"></textarea></div>
+        <div id="erroResp" class="aviso crit oculto"></div>
+        <div class="acoes">
+          <button class="bt" type="button" id="bAprovar">Aprovar proposta</button>
+          <button class="bt sec" type="button" id="bAjuste">Pedir ajuste</button>
+        </div>
+        <p class="mut" style="margin-bottom:0">Ao aprovar, a Nervia entra em contato para combinar os próximos passos. Nenhuma cobrança é feita automaticamente.</p>
+      </div>
+      <div id="respFeita" class="oculto"></div>
+    </form>
+  </div>
+  <div class="rodape">Nervia Tecnologia da Informação · WhatsApp <a class="js-zap" href="#">(21) 96686-9374</a> · atendimento@nervia.com.br</div>
+</div>
+
+<script>
+const CFG = window.NERVIA_CONFIG || {};
+// sem sessão: mesmo que alguém da equipe abra o link, a página age como o prospect
+const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
+const $ = id => document.getElementById(id);
+const LINK = location.hash.replace(/^#/, "").trim().toLowerCase();
+const ZAP = (CFG.CONTATO && CFG.CONTATO.whatsapp) || "5521966869374";
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const dataBR = v => v ? new Date(String(v).length === 10 ? v + "T12:00:00" : v).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "";
+let CODIGO = "", P = null, AJUSTE = false;
+const CHAVE = "nervia-proposta-" + LINK;   // código guardado só nesta aba (sessionStorage)
+
+document.querySelectorAll(".js-zap").forEach(a => { a.href = "https://wa.me/" + ZAP + "?text=" + encodeURIComponent("Olá! Recebi uma proposta da Nervia e tenho uma dúvida."); a.target = "_blank"; a.rel = "noopener"; });
+
+function aviso(el, tipo, txt) { el.className = "aviso " + tipo + (txt ? "" : " oculto"); el.textContent = txt || ""; }
+const ICO_SIM = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const ICO_MAIS = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
+
+async function abrir(cod) {
+  const { data, error } = await sb.rpc("prop_ler", { p_link: LINK, p_codigo: cod });
+  if (error) throw new Error("Não foi possível abrir a proposta agora (" + error.message + "). Tente de novo em instantes.");
+  return data;
+}
+
+function mostrar(p) {
+  P = p;
+  document.title = `Proposta ${p.numero} · ${p.prospect} | Nervia`;
+  $("numero").textContent = `Proposta nº ${p.numero}${p.versao > 1 ? " · versão " + p.versao : ""}`;
+  $("prospect").textContent = p.prospect;
+  $("titulo").textContent = p.titulo;
+  $("resumo").textContent = p.resumo || ""; $("resumo").classList.toggle("oculto", !p.resumo);
+  $("validade").textContent = (p.contato ? "Preparada para " + p.contato + " · " : "") + "válida até " + dataBR(p.valida_ate);
+  const c = p.conteudo || {};
+  const itens = (l, ic, cls) => (l || []).map(i => `<div class="item"><span class="ic ${cls}">${ic}</span><div><b>${esc(i.t)}</b>${i.d ? `<span>${esc(i.d)}</span>` : ""}</div></div>`).join("");
+  $("incluido").innerHTML = itens(c.incluido, ICO_SIM, "sim"); $("cxIncluido").classList.toggle("oculto", !(c.incluido || []).length);
+  $("depois").innerHTML = itens(c.depois, ICO_MAIS, "mais"); $("cxDepois").classList.toggle("oculto", !(c.depois || []).length);
+  $("etapas").innerHTML = (c.etapas || []).map((e, i) => `<div class="etapa"><div class="n">${i + 1}</div><b>${esc(e.t)}</b>${e.d ? `<span>${esc(e.d)}</span>` : ""}</div>`).join("");
+  $("cxEtapas").classList.toggle("oculto", !(c.etapas || []).length);
+  $("inv").innerHTML = (c.investimento || []).map(i => `<div class="inv"><div><b>${esc(i.t)}</b>${i.d ? `<div class="mut">${esc(i.d)}</div>` : ""}</div><span class="v">${esc(i.v)}</span></div>`).join("");
+  $("condicoes").textContent = c.condicoes || "";
+  $("cxInv").classList.toggle("oculto", !(c.investimento || []).length && !c.condicoes);
+  $("precisamos").innerHTML = (c.precisamos || []).map(t => `<div class="chk"><i></i>${esc(t)}</div>`).join("");
+  $("cxPrecisamos").classList.toggle("oculto", !(c.precisamos || []).length);
+  // modelo: página do próprio site (abre aqui dentro) ou endereço externo (só o link)
+  const m = p.modelo_url || "";
+  $("cxModelo").classList.toggle("oculto", !m); $("bModelo").classList.toggle("oculto", !m);
+  if (m) {
+    $("modeloAbrir").href = m; $("modeloEnd").textContent = m.startsWith("/") ? "nervia.com.br" + m.split("#")[0] : m;
+    if (m.startsWith("/")) $("modeloQuadro").src = m; else $("modeloQuadro").classList.add("oculto");
+  }
+  situacao();
+  $("entrada").classList.add("oculto"); $("pagina").classList.remove("oculto");
+}
+
+function situacao() {
+  const p = P, el = $("situacao");
+  let tipo = "", txt = "";
+  if (p.situacao === "aprovada") { tipo = "ok"; txt = `Proposta aprovada por ${p.resposta_nome} em ${dataBR(p.respondida_em)}. Obrigado! A Nervia vai falar com você pelo WhatsApp.`; }
+  else if (p.vencida) { tipo = "warn"; txt = `Esta proposta venceu em ${dataBR(p.valida_ate)}. Fale com a Nervia para renovar.`; }
+  else if (p.situacao === "ajuste") { tipo = "info"; txt = `Você pediu um ajuste em ${dataBR(p.respondida_em)}: "${p.resposta_texto}"\nA Nervia vai mandar uma nova versão neste mesmo link. Se preferir, já pode aprovar assim mesmo.`; }
+  el.innerHTML = txt ? '<div class="aviso"></div>' : ""; if (txt) aviso(el.firstChild, tipo, txt);
+  const fechada = p.situacao === "aprovada" || p.vencida;
+  $("resposta").classList.toggle("oculto", fechada); $("bResponder").classList.toggle("oculto", fechada);
+}
+
+async function entrar(ev) {
+  ev && ev.preventDefault();
+  const cod = $("codigo").value.replace(/\D/g, "");
+  if (cod.length !== 6) return aviso($("erroEntrada"), "crit", "Digite os 6 números do código.");
+  $("bEntrar").disabled = true;
+  try {
+    const r = await abrir(cod);
+    if (!r.ok) return aviso($("erroEntrada"), "crit", r.erro);
+    CODIGO = cod; try { sessionStorage.setItem(CHAVE, cod); } catch {}
+    mostrar(r.proposta);
+  } catch (e) { aviso($("erroEntrada"), "crit", e.message); }
+  finally { $("bEntrar").disabled = false; }
+}
+
+async function responder(acao) {
+  const nome = $("nome").value.trim(), texto = $("texto").value.trim();
+  if (acao === "ajuste" && !AJUSTE) { AJUSTE = true; $("cxTexto").classList.remove("oculto"); $("bAjuste").textContent = "Enviar pedido de ajuste"; $("texto").focus(); return; }
+  if (nome.length < 2) return aviso($("erroResp"), "crit", "Informe o seu nome.");
+  if (acao === "ajuste" && texto.length < 5) return aviso($("erroResp"), "crit", "Escreva o que você gostaria de mudar.");
+  if (acao === "aprovar" && !confirm("Confirmar a aprovação da proposta " + P.numero + "?")) return;
+  $("bAprovar").disabled = $("bAjuste").disabled = true;
+  try {
+    const { data, error } = await sb.rpc("prop_responder", { p_link: LINK, p_codigo: CODIGO, p_acao: acao, p_nome: nome, p_texto: acao === "ajuste" ? texto : "" });
+    if (error) throw new Error("Não foi possível enviar agora (" + error.message + "). Tente de novo.");
+    if (!data.ok) return aviso($("erroResp"), "crit", data.erro);
+    const r = await abrir(CODIGO); if (r.ok) P = r.proposta;
+    $("formResp").classList.add("oculto"); $("respFeita").classList.remove("oculto");
+    $("respFeita").innerHTML = acao === "aprovar"
+      ? '<div class="aviso ok">Proposta aprovada! Obrigado. A Nervia vai falar com você pelo WhatsApp para começar.</div>'
+      : '<div class="aviso info">Recebemos o seu pedido de ajuste. Você vai receber uma nova versão neste mesmo link.</div>';
+    situacao(); $("resposta").classList.remove("oculto");
+  } catch (e) { aviso($("erroResp"), "crit", e.message); }
+  finally { $("bAprovar").disabled = $("bAjuste").disabled = false; }
+}
+
+$("entrada").addEventListener("submit", entrar);
+$("codigo").addEventListener("input", () => { $("codigo").value = $("codigo").value.replace(/\D/g, "").slice(0, 6); aviso($("erroEntrada"), "", ""); });
+$("bAprovar").onclick = () => responder("aprovar");
+$("bAjuste").onclick = () => responder("ajuste");
+$("resposta").addEventListener("submit", e => e.preventDefault());
+
+(async () => {
+  $("carregando").classList.add("oculto");
+  if (!/^[a-f0-9]{12}$/.test(LINK)) {
+    $("entrada").classList.remove("oculto"); $("bEntrar").disabled = true;
+    return aviso($("erroEntrada"), "crit", "Link incompleto. Abra o endereço completo que você recebeu pelo WhatsApp.");
+  }
+  let salvo = ""; try { salvo = sessionStorage.getItem(CHAVE) || ""; } catch {}
+  if (salvo) {
+    try { const r = await abrir(salvo); if (r.ok) { CODIGO = salvo; return mostrar(r.proposta); } } catch {}
+  }
+  $("entrada").classList.remove("oculto"); $("codigo").focus();
+})();
+</script>
+</body>
+</html>

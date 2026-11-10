@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Produtos | Nervia Tecnologia</title>
+<meta name="description" content="Sistemas da Nervia para empresas: sites com agendamento, notas fiscais, orçamentos de compras e mais, usados na Área do Cliente.">
+<script src="/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<style>
+/* Vitrine pública de produtos (pedido do Marco em 10/11/2026). Lista o que está na vitrine da Área do Cliente
+   (Administração → Aplicativos, coluna Situação) pela função apps_vitrine_publica(). Sem preço (decisão do Marco). */
+:root{--bg:#f3f6f7;--surface:#fff;--border:#dde5e8;--ink:#12232b;--ink-soft:#44575e;--accent:#0b6f78;--accent-ink:#084e55;--accent-soft:#dff1f2}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--accent)}
+.topo{background:var(--surface);border-bottom:1px solid var(--border)}
+.in{max-width:1160px;margin:0 auto;padding:0 20px}
+.topo .in{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding-top:12px;padding-bottom:12px}
+.topo img{height:36px;display:block}
+.topo nav{display:flex;flex-wrap:wrap;gap:18px;align-items:center;font-weight:600}
+.topo nav a{text-decoration:none;color:#2c3f46}
+.topo nav a.bt{background:var(--accent);color:#fff;padding:10px 16px;border-radius:10px}
+.hero{background:var(--surface)}
+.hero .in{padding-top:48px;padding-bottom:40px}
+.eyebrow{margin:0;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+h1{font-size:clamp(30px,5vw,42px);line-height:1.1;margin:10px 0 12px;max-width:760px}
+.lead{font-size:18px;color:var(--ink-soft);margin:0;max-width:680px}
+.grade{display:flex;flex-wrap:wrap;gap:20px;padding-top:36px;padding-bottom:20px}
+.card{flex:1 1 320px;min-width:0;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:24px;display:flex;flex-direction:column;gap:12px}
+.card .cab{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.ic{width:48px;height:48px;border-radius:14px;background:var(--accent-soft);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;font-weight:800}
+.tag{padding:5px 10px;border-radius:999px;font-size:12px;font-weight:700}
+.tag.disponivel{background:#dcfce7;color:#166534}.tag.em_breve{background:#e0edff;color:#1d4ed8}.tag.em_desenvolvimento{background:#fef3c7;color:#92400e}
+.card h2{font-size:21px;margin:0}
+.card p{margin:0;color:var(--ink-soft)}
+.card .acoes{margin-top:auto;display:flex;flex-wrap:wrap;gap:8px}
+.btn{text-decoration:none;font-weight:700;font-size:14px;padding:11px 14px;border-radius:10px;border:1px solid #c8d5da;color:var(--ink);min-height:44px;display:inline-flex;align-items:center}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.como{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:26px;margin:20px 0 56px}
+.como h2{margin:0 0 16px;font-size:24px}
+.passos{display:flex;flex-wrap:wrap;gap:18px}
+.passo{flex:1 1 240px;display:flex;gap:12px}
+.passo b.n{flex:0 0 34px;height:34px;border-radius:999px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center}
+.passo span{display:block;font-size:14px;color:var(--ink-soft);margin-top:3px}
+footer{background:#12232b;color:#d6e1e4;font-size:14px}
+footer .in{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;padding-top:24px;padding-bottom:24px}
+footer a{color:#fff;font-weight:700}
+.mut{color:var(--ink-soft)}
+</style>
+</head>
+<body>
+<header class="topo"><div class="in">
+  <a href="/"><img src="/img/nervia-logo.png" alt="Nervia Tecnologia"></a>
+  <nav aria-label="Menu"><a href="/#servicos">Serviços</a><a href="/produtos/" aria-current="page" style="color:var(--accent-ink)">Produtos</a><a href="/#contato">Contato</a><a class="bt" href="/cliente/">Área do Cliente</a></nav>
+</div></header>
+
+<section class="hero"><div class="in">
+  <p class="eyebrow">Produtos Nervia</p>
+  <h1>Sistemas prontos para o dia a dia da sua empresa</h1>
+  <p class="lead">Você usa tudo dentro da Área do Cliente da Nervia, no computador ou no celular, com um login só e suporte da nossa equipe. A Nervia adapta ao seu negócio.</p>
+</div></section>
+
+<main class="in">
+  <div class="grade" id="grade"><p class="mut">Carregando…</p></div>
+  <div class="como">
+    <h2>Como contratar</h2>
+    <div class="passos">
+      <div class="passo"><b class="n">1</b><div><b>Conversa e demonstração</b><span>Entendemos o que a sua empresa precisa.</span></div></div>
+      <div class="passo"><b class="n">2</b><div><b>Proposta com link e código</b><span>Você vê o modelo, os detalhes e responde online.</span></div></div>
+      <div class="passo"><b class="n">3</b><div><b>Acesso na Área do Cliente</b><span>O seu login libera os produtos contratados.</span></div></div>
+    </div>
+  </div>
+</main>
+
+<footer><div class="in">
+  <span>Nervia Tecnologia da Informação</span>
+  <span>WhatsApp <a class="js-zap" href="#">(21) 96686-9374</a> · atendimento@nervia.com.br</span>
+</div></footer>
+
+<script>
+(async () => {
+  const CFG = window.NERVIA_CONFIG || {};
+  const ZAP = (CFG.CONTATO && CFG.CONTATO.whatsapp) || "5521966869374";
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const zap = t => "https://wa.me/" + ZAP + "?text=" + encodeURIComponent(t);
+  document.querySelectorAll(".js-zap").forEach(a => { a.href = zap("Olá! Vim pela página de produtos da Nervia."); a.target = "_blank"; a.rel = "noopener"; });
+  const SIT = { disponivel: "Disponível", em_breve: "Em breve", em_desenvolvimento: "Em desenvolvimento" };
+  const grade = document.getElementById("grade");
+  try {
+    const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { data, error } = await sb.rpc("apps_vitrine_publica");
+    if (error) throw error;
+    grade.innerHTML = (data || []).map(a => `<article class="card">
+      <div class="cab"><span class="ic" aria-hidden="true">${esc(a.icone || a.nome.slice(0, 2))}</span><span class="tag ${esc(a.situacao)}">${SIT[a.situacao] || ""}</span></div>
+      <h2>${esc(a.nome)}</h2><p>${esc(a.descricao)}</p>
+      <div class="acoes">
+        ${a.demo_url ? `<a class="btn" href="${esc(a.demo_url)}" target="_blank" rel="noopener">Ver demonstração</a>` : ""}
+        <a class="btn pri" href="${esc(zap((a.situacao === "disponivel" ? "Olá! Quero uma demonstração de " : "Olá! Quero saber mais sobre ") + a.nome + "."))}" target="_blank" rel="noopener">${a.situacao === "disponivel" ? "Quero uma demonstração" : "Quero saber mais"}</a>
+      </div></article>`).join("") || '<p class="mut">Fale com a Nervia pelo WhatsApp para conhecer os produtos.</p>';
+  } catch (e) {
+    grade.innerHTML = `<p class="mut">Não foi possível carregar a lista agora. Fale com a Nervia pelo <a href="${zap("Olá! Quero conhecer os produtos da Nervia.")}" target="_blank" rel="noopener">WhatsApp</a>.</p>`;
+  }
+})();
+</script>
+<script src="/acesso.js" defer></script>
+</body>
+</html>
