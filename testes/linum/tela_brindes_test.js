@@ -149,6 +149,7 @@ const hojeBR = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America
     const txt = await pg.locator('#tela').innerText();
     ok(txt.includes('Nº 2 · Presente para Maria Souza') && txt.includes('cliente do cadastro') && /Registros\s*2/.test(txt) && txt.includes('Por motivo'), 'lista, KPIs e quadro por motivo');
     ok(await pg.locator('[data-brcan]').count() === 0, 'Estoque não cancela');
+    ok(await pg.locator('#brcsv').count() === 0, 'Estoque não baixa o CSV');
     await print(pg, 'brindes_estoque');
     ok(erros.length === 0, 'sem erro de JavaScript (Estoque) ' + erros.join(' | '));
 
@@ -159,6 +160,9 @@ const hojeBR = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America
     await aba(d.pg, '#abaBrindes'); await d.pg.waitForSelector('#brnovo');
     const td = await d.pg.locator('#tela').innerText();
     ok(td.includes('Custo das peças') && td.includes('150,00') && td.includes('489,00'), 'Dono vê o custo e o valor a preço de venda');
+    const [dl] = await Promise.all([d.pg.waitForEvent('download'), d.pg.click('#brcsv')]);
+    const csv = fs.readFileSync(await dl.path(), 'utf8');
+    ok(csv.includes('Custo unitário') && csv.includes('"150,00"') && csv.includes('"Ana"'), 'Dono baixa o CSV, com o custo');
     await d.pg.click('[data-brcan="5"]'); await d.pg.waitForSelector('#brcok');
     await d.pg.click('#brcok'); await d.pg.waitForTimeout(150);
     ok((await d.pg.locator('#dlgf .msg.err').innerText()).includes('motivo'), 'cancelar exige motivo');
