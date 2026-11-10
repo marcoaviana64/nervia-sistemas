@@ -990,7 +990,7 @@ select pg_temp.ok((select not ativo and demo_url = '/demo/produtos/' from apps w
 update apps set situacao = 'em_desenvolvimento', demo_url = '/segredo/' where id = 'velho';
 set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
-select pg_temp.ok((select string_agg(id, ',' order by id) from apps_vitrine()) = 'compras,painel-nf,produtos,telefonia,velho',
+select pg_temp.ok((select string_agg(id, ',' order by id) from apps_vitrine()) = 'compras,contratos,painel-nf,produtos,telefonia,velho',
   'vitrine: apps fora da grade do login, sem oculto');
 select pg_temp.ok((select demo_url = '' from apps_vitrine() where id = 'velho') and (select demo_url = '/demo/compras/' from apps_vitrine() where id = 'compras'),
   'em desenvolvimento não mostra link de demonstração');
@@ -2847,27 +2847,30 @@ select pg_temp.ok((select count(*) = 2 from auditoria where acao = 'linum_gerenc
 
 -- ================================================================ Contratos (ctr_)
 reset role; reset request.headers;
-select pg_temp.ok((select situacao = 'oculto' and manual_url = '/apps/contratos/ajuda/manual.html' from apps where id = 'contratos'), 'contratos: app cadastrado, oculto, com cartão e manual');
+select pg_temp.ok((select situacao = 'disponivel' and manual_url = '/apps/contratos/ajuda/manual.html' and coalesce(demo_url, '') = '' from apps where id = 'contratos'), 'contratos 2.0: app na vitrine (disponível, sem demonstração), com cartão e manual');
+select set_config('ctr.nervia', (select id::text from ctr_empresas where nome = 'Nervia'), false);
+select pg_temp.ok((select count(*) = 1 from ctr_empresas) and (select foro_padrao = 'Foro Central da Comarca do Rio de Janeiro' and dia_nf = 5 and tolerancia = 0.05 from ctr_empresas where nome = 'Nervia'),
+  'contratos 2.0: a Nervia é a primeira empresa, com os dados da configuração antiga');
 set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
-select pg_temp.erro2($$select ctr_cliente_salvar('{"apelido":"X","razao_social":"X"}')$$, 'Somente a equipe Nervia', 'contratos: quem não é da equipe não grava');
+select pg_temp.erro2($$select ctr_cliente_salvar(jsonb_build_object('apelido', 'X', 'razao_social', 'X', 'empresa_id', current_setting('ctr.nervia')::bigint))$$, 'Somente o gestor', 'contratos: quem não é da empresa não grava');
 select pg_temp.erro2($$insert into ctr_clientes (apelido, razao_social) values ('X', 'X')$$, 'permission', 'contratos: a tela não grava direto na tabela');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
-select ctr_imposto_salvar('2024-01-01', 16.5);
-select ctr_config_salvar('{"contratada_nome":"NERVIA TESTE","dia_nf":5}');
+select ctr_imposto_salvar(current_setting('ctr.nervia')::bigint, '2024-01-01', 16.5);
+select ctr_empresa_salvar(jsonb_build_object('id', current_setting('ctr.nervia')::bigint, 'contratada_nome', 'NERVIA TESTE', 'dia_nf', 5));
 create temp table ctr_t (k text primary key, v bigint);
 grant all on ctr_t to authenticated;
-insert into ctr_t values ('lagos', ctr_cliente_salvar('{"apelido":"Park Lagos","razao_social":"FUNDO PARK LAGOS","cnpj":"34.147.021/0001-56","extrato_textos":["PARK LAGOS"]}'));
-insert into ctr_t values ('rio2', ctr_cliente_salvar('{"apelido":"Rio2","razao_social":"EDIFICIO RIO 2","cnpj":"08935634000148"}'));
-insert into ctr_t values ('pom', ctr_cliente_salvar('{"apelido":"POM","razao_social":"PENINSULA OPEN MALL"}'));
+insert into ctr_t values ('lagos', ctr_cliente_salvar('{"apelido":"Park Lagos","razao_social":"FUNDO PARK LAGOS","cnpj":"34.147.021/0001-56","extrato_textos":["PARK LAGOS"]}'::jsonb || jsonb_build_object('empresa_id', current_setting('ctr.nervia')::bigint)));
+insert into ctr_t values ('rio2', ctr_cliente_salvar('{"apelido":"Rio2","razao_social":"EDIFICIO RIO 2","cnpj":"08935634000148"}'::jsonb || jsonb_build_object('empresa_id', current_setting('ctr.nervia')::bigint)));
+insert into ctr_t values ('pom', ctr_cliente_salvar('{"apelido":"POM","razao_social":"PENINSULA OPEN MALL"}'::jsonb || jsonb_build_object('empresa_id', current_setting('ctr.nervia')::bigint)));
 select pg_temp.ok((select cnpj = '34147021000156' from ctr_clientes where apelido = 'Park Lagos'), 'contratos: CNPJ guardado só com dígitos');
 select ctr_cliente_salvar(jsonb_build_object('id', (select v from ctr_t where k = 'lagos'), 'foro', 'Foro da Comarca de Cabo Frio', 'foro_local', 'cidade de Cabo Frio, Estado do Rio de Janeiro'));
 select pg_temp.ok((select foro = 'Foro da Comarca de Cabo Frio' and foro_local like 'cidade de Cabo Frio%' from ctr_clientes where apelido = 'Park Lagos')
-  and (select foro = '' from ctr_clientes where apelido = 'Rio2') and (select foro_padrao = 'Foro Central da Comarca do Rio de Janeiro' from ctr_config),
+  and (select foro = '' from ctr_clientes where apelido = 'Rio2') and (select foro_padrao = 'Foro Central da Comarca do Rio de Janeiro' from ctr_empresas where nome = 'Nervia'),
   'contratos 1.1: foro por cliente; vazio = o padrão da configuração (Rio)');
-select pg_temp.erro2($$select ctr_cliente_salvar('{"apelido":"park lagos","razao_social":"Outro"}')$$, 'Já existe um cliente', 'contratos: nome curto repetido recusado');
-select pg_temp.erro2($$select ctr_cliente_salvar('{"apelido":"Outro","razao_social":"Outro","cnpj":"34147021000156"}')$$, 'CNPJ', 'contratos: CNPJ repetido recusado');
-select pg_temp.erro2($$select ctr_cliente_salvar('{"apelido":"Outro","razao_social":"Outro","cnpj":"123"}')$$, 'inválido', 'contratos: CNPJ com dígitos errados recusado');
+select pg_temp.erro2($$select ctr_cliente_salvar('{"apelido":"park lagos","razao_social":"Outro"}'::jsonb || jsonb_build_object('empresa_id', current_setting('ctr.nervia')::bigint))$$, 'Já existe um cliente', 'contratos: nome curto repetido recusado');
+select pg_temp.erro2($$select ctr_cliente_salvar('{"apelido":"Outro","razao_social":"Outro","cnpj":"34147021000156"}'::jsonb || jsonb_build_object('empresa_id', current_setting('ctr.nervia')::bigint))$$, 'CNPJ', 'contratos: CNPJ repetido recusado');
+select pg_temp.erro2($$select ctr_cliente_salvar('{"apelido":"Outro","razao_social":"Outro","cnpj":"123"}'::jsonb || jsonb_build_object('empresa_id', current_setting('ctr.nervia')::bigint))$$, 'inválido', 'contratos: CNPJ com dígitos errados recusado');
 insert into ctr_t values ('k1', ctr_contrato_salvar(jsonb_build_object('cliente_id', (select v from ctr_t where k = 'lagos'), 'inicio', '2026-01-01', 'fim', '2026-12-31',
   'valor_mensal', 3600, 'objeto', 'de consultoria de TI', 'assinantes', 'a@lagos.com', 'local_assinatura', 'Cabo Frio')));
 select pg_temp.ok((select situacao = 'rascunho' and dia_vencimento = 30 and parcela_extra from ctr_contratos where id = (select v from ctr_t where k = 'k1')), 'contratos: contrato novo em rascunho, vence dia 30, com parcela extra');
@@ -2908,7 +2911,7 @@ select pg_temp.erro2($$select ctr_baixa(jsonb_build_object('id', (select id from
 select ctr_baixa(jsonb_build_object('id', (select id from ctr_cobrancas where competencia = '2026/01' and contrato_id = (select v from ctr_t where k = 'k1')), 'pago_em', '2026-01-26', 'valor_pago', 3600));
 select pg_temp.ok((select situacao = 'paga' and imposto_pct = 16.5 and imposto = 594 and liquido = 3006 from ctr_cobrancas_v where competencia = '2026/01' and cliente = 'Park Lagos'),
   'contratos: paga no prazo; imposto 16,5% (R$ 594) e líquido (R$ 3.006)');
-select ctr_imposto_salvar('2026-02-01', 16);
+select ctr_imposto_salvar(current_setting('ctr.nervia')::bigint, '2026-02-01', 16);
 select ctr_baixa(jsonb_build_object('id', (select id from ctr_cobrancas where competencia = '2026/02' and contrato_id = (select v from ctr_t where k = 'k1')), 'pago_em', '2026-03-02', 'valor_pago', 3525.6, 'obs', 'retenção'));
 select pg_temp.ok((select situacao = 'diferenca' and imposto_pct = 16 from ctr_cobrancas_v where competencia = '2026/02' and cliente = 'Park Lagos'), 'contratos: diferença e alíquota pela data');
 select pg_temp.erro2($$select ctr_cobranca_salvar(jsonb_build_object('id', (select id from ctr_cobrancas where competencia = '2026/02' and contrato_id = (select v from ctr_t where k = 'k1')), 'valor', 1))$$,
@@ -2919,13 +2922,13 @@ select pg_temp.erro2($$select ctr_baixa_desfazer((select id from ctr_cobrancas w
 select ctr_baixa_desfazer((select id from ctr_cobrancas where competencia = '2026/02' and contrato_id = (select v from ctr_t where k = 'k1')), 'lançado no mês errado');
 select pg_temp.ok((select pago_em is null from ctr_cobrancas where competencia = '2026/02' and contrato_id = (select v from ctr_t where k = 'k1')), 'contratos: baixa desfeita');
 -- extrato e conferência
-select pg_temp.ok((ctr_extrato_importar(jsonb_build_object('arquivo', 'nubank.ofx', 'linhas', jsonb_build_array(
+select pg_temp.ok((ctr_extrato_importar(jsonb_build_object('empresa_id', current_setting('ctr.nervia')::bigint, 'arquivo', 'nubank.ofx', 'linhas', jsonb_build_array(
     jsonb_build_object('chave', 'a1', 'fitid', 'F1', 'data', '2026-02-27', 'valor', 3600, 'descricao', 'Pix recebido FUNDO PARK LAGOS 34.147.021/0001-56'),
     jsonb_build_object('chave', 'a2', 'fitid', 'F2', 'data', '2026-11-28', 'valor', 4400, 'descricao', 'Pix recebido RIO2 POM'),
     jsonb_build_object('chave', 'a3', 'fitid', 'F3', 'data', '2026-11-28', 'valor', -50, 'descricao', 'débito'),
     jsonb_build_object('chave', 'a4', 'fitid', 'F4', 'data', '2026-11-29', 'valor', 10, 'descricao', 'rendimento'))))) ->> 'novos' = '3',
   'contratos: importa só os créditos do extrato');
-select pg_temp.ok((ctr_extrato_importar(jsonb_build_object('linhas', jsonb_build_array(jsonb_build_object('chave', 'outra', 'fitid', 'F1', 'data', '2026-02-27', 'valor', 3600))))) ->> 'repetidos' = '1',
+select pg_temp.ok((ctr_extrato_importar(jsonb_build_object('empresa_id', current_setting('ctr.nervia')::bigint, 'linhas', jsonb_build_array(jsonb_build_object('chave', 'outra', 'fitid', 'F1', 'data', '2026-02-27', 'valor', 3600))))) ->> 'repetidos' = '1',
   'contratos: o mesmo lançamento (FITID) não entra duas vezes');
 select ctr_conciliar((select id from ctr_extrato where fitid = 'F1'), array[(select id from ctr_cobrancas where competencia = '2026/02' and contrato_id = (select v from ctr_t where k = 'k1'))]);
 select pg_temp.ok((select situacao = 'paga' and pago_em = '2026-02-27' and extrato_id is not null from ctr_cobrancas_v where competencia = '2026/02' and cliente = 'Park Lagos'), 'contratos: crédito do extrato dá a baixa');
@@ -2948,7 +2951,7 @@ select pg_temp.erro2($$select ctr_contrato_etapa((select v from ctr_t where k = 
 select ctr_contrato_etapa((select v from ctr_t where k = 'k2'), 'rescindido', null, 'cliente pediu o fim');
 select ctr_contrato_etapa((select v from ctr_t where k = 'k2'), 'voltar', null, 'rescisão lançada errado');
 select pg_temp.ok((select situacao = 'gerado' and encerrado_em is null from ctr_contratos where id = (select v from ctr_t where k = 'k2')), 'contratos: voltar desfaz a rescisão');
-select ctr_contrato_documento((select v from ctr_t where k = 'k1'), 'contratos/' || (select v from ctr_t where k = 'k1') || '/assinado.pdf', 'assinado.pdf');
+select ctr_contrato_documento((select v from ctr_t where k = 'k1'), current_setting('ctr.nervia') || '/contratos/' || (select v from ctr_t where k = 'k1') || '/assinado.pdf', 'assinado.pdf');
 select pg_temp.erro2($$select ctr_contrato_documento((select v from ctr_t where k = 'k1'), 'modelos/x.pdf')$$, 'inválido', 'contratos: PDF só na pasta do contrato');
 select pg_temp.erro2($$update ctr_eventos set evento = 'x'$$, 'permission', 'contratos: a tela não altera o histórico');
 reset role;
@@ -2963,11 +2966,11 @@ select pg_temp.ok((select count(*) from auditoria where acao like 'contratos_%')
 -- leitura: só a equipe
 set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
-select pg_temp.ok((select count(*) = 0 from ctr_clientes) and (select count(*) = 0 from ctr_cobrancas_v) and (select count(*) = 0 from ctr_extrato) and (select count(*) = 0 from ctr_config),
+select pg_temp.ok((select count(*) = 0 from ctr_clientes) and (select count(*) = 0 from ctr_cobrancas_v) and (select count(*) = 0 from ctr_extrato) and (select count(*) = 0 from ctr_config) and (select count(*) = 0 from ctr_empresas),
   'contratos: quem não é da equipe não vê nada');
 -- carga: só com o app vazio, conferindo os totais
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
-select pg_temp.erro2($$select ctr_carga('{"clientes":[]}')$$, 'app vazio', 'contratos: carga recusada com dados');
+select pg_temp.erro2($$select ctr_carga(jsonb_build_object('empresa_id', current_setting('ctr.nervia')::bigint, 'clientes', '[]'::jsonb))$$, 'empresa vazia', 'contratos: carga recusada com dados');
 reset role;
 truncate ctr_t;
 delete from ctr_cobrancas; delete from ctr_extrato; delete from ctr_importacoes;
@@ -2976,7 +2979,7 @@ update ctr_contratos set anterior_id = null; delete from ctr_contratos; delete f
 set role authenticated;
 select pg_temp.erro2($$select ctr_carga('{"clientes":[{"ref":"A","apelido":"A","razao_social":"A"}],"contratos":[{"ref":"k","cliente_ref":"A","inicio":"2025-01-01","fim":"2025-12-31","valor_mensal":100,"situacao":"encerrado","historico":true}],
   "cobrancas":[{"cliente_ref":"A","contrato_ref":"k","competencia":"2025/01","vencimento":"2025-01-30","valor":100,"pago_em":"2025-01-29","valor_pago":100}],
-  "conferir":{"cobrancas":1,"cobrado":100,"pago":90}}')$$, 'não batem', 'contratos: carga com total diferente da planilha é desfeita');
+  "conferir":{"cobrancas":1,"cobrado":100,"pago":90}}'::jsonb || jsonb_build_object('empresa_id', current_setting('ctr.nervia')::bigint))$$, 'não batem', 'contratos: carga com total diferente da planilha é desfeita');
 select pg_temp.ok((select count(*) = 0 from ctr_clientes), 'contratos: carga recusada não deixa nada gravado');
 select pg_temp.ok((ctr_carga('{"arquivo":"ContratoDados.xlsx","impostos":[{"desde":"2024-01-01","pct":16.5}],
   "clientes":[{"ref":"A","apelido":"A","razao_social":"A","cnpj":"11.111.111/0001-11"},{"ref":"B","apelido":"B","razao_social":"B","ativo":false}],
@@ -2984,12 +2987,94 @@ select pg_temp.ok((ctr_carga('{"arquivo":"ContratoDados.xlsx","impostos":[{"desd
   "cobrancas":[{"cliente_ref":"A","contrato_ref":"k","competencia":"2025/01","vencimento":"2025-01-30","valor":100,"pago_em":"2025-01-29","valor_pago":100,"nf_emitida":true},
                {"cliente_ref":"A","contrato_ref":"k","competencia":"2025/01","vencimento":"2025-01-30","valor":5,"descricao":"complemento"},
                {"cliente_ref":"B","competencia":"2025/07","vencimento":"2025-07-27","valor":1500}],
-  "conferir":{"cobrancas":3,"cobrado":1605,"pago":100}}') ->> 'cobrancas') = '3', 'contratos: carga da planilha com conferência dos totais');
+  "conferir":{"cobrancas":3,"cobrado":1605,"pago":100}}'::jsonb || jsonb_build_object('empresa_id', current_setting('ctr.nervia')::bigint)) ->> 'cobrancas') = '3', 'contratos: carga da planilha com conferência dos totais');
 select pg_temp.ok((select situacao = 'encerrado' and encerrado_em = '2025-12-31' and historico from ctr_contratos)
   and (select count(*) = 2 from ctr_cobrancas where competencia = '2025/01'),
   'contratos: carga da planilha (contrato antigo encerrado, duas cobranças no mesmo mês, avulsa sem contrato)');
 reset role;
 select pg_temp.ok(exists (select 1 from auditoria where acao = 'contratos_carga' and (detalhes ->> 'cobrancas')::int = 3), 'contratos: carga registrada na auditoria');
+
+-- ---------------- Contratos 2.0: várias empresas, papéis gestor × consulta, RLS entre empresas, arquivos por empresa
+-- b = financeiro@linum (gestor da Alfa), c = outro@x (consulta da Alfa), a = equipe Nervia
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.erro2($$select ctr_empresa_salvar('{"nome":"Intrusa"}')$$, 'Somente a equipe Nervia', 'contratos 2.0: só a equipe Nervia cadastra empresa');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select set_config('ctr.alfa', ctr_empresa_salvar('{"nome":"Alfa Engenharia","contratada_nome":"ALFA ENGENHARIA LTDA","contratada_cnpj":"12.345.678/0001-90","dia_nf":10,"foro_padrao":"Foro da Comarca de São Paulo"}')::text, false);
+select pg_temp.erro2($$select ctr_empresa_salvar('{"nome":"alfa engenharia"}')$$, 'Já existe uma empresa', 'contratos 2.0: nome de empresa repetido recusado');
+select pg_temp.erro2($$select ctr_membro_salvar(current_setting('ctr.alfa')::bigint, '00000000-0000-0000-0000-00000000000b', 'dono')$$, 'Papel inválido', 'contratos 2.0: papel inválido recusado');
+select ctr_membro_salvar(current_setting('ctr.alfa')::bigint, '00000000-0000-0000-0000-00000000000b', 'gestor');
+select ctr_membro_salvar(current_setting('ctr.alfa')::bigint, '00000000-0000-0000-0000-00000000000c', 'consulta');
+select pg_temp.ok((select count(*) = 2 from app_acessos where app_id = 'contratos' and user_id in ('00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-00000000000c')),
+  'contratos 2.0: quem recebe papel ganha o app na Área do Cliente');
+select pg_temp.ok((select jsonb_array_length(ctr_equipe(current_setting('ctr.alfa')::bigint)) = (select count(*) from perfis))
+  and (select x ->> 'papel' = 'gestor' from jsonb_array_elements(ctr_equipe(current_setting('ctr.alfa')::bigint)) x where x ->> 'email' = 'financeiro@linum.com.br'),
+  'contratos 2.0: lista de logins com o papel na empresa');
+select set_config('ctr.cli_nervia', (select min(id)::text from ctr_clientes where empresa_id = current_setting('ctr.nervia')::bigint), false);
+-- gestor da Alfa
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok((select count(*) = 1 and min(nome) = 'Alfa Engenharia' from ctr_empresas) and (select count(*) = 0 from ctr_clientes) and (select count(*) = 0 from ctr_cobrancas_v)
+  and (select ctr_papel(current_setting('ctr.alfa')::bigint)) = 'gestor' and (select ctr_papel(current_setting('ctr.nervia')::bigint)) is null,
+  'contratos 2.0: o gestor vê só a própria empresa (nada da Nervia)');
+select pg_temp.erro2($$select ctr_membro_salvar(current_setting('ctr.alfa')::bigint, '00000000-0000-0000-0000-00000000000c', 'gestor')$$, 'Somente a equipe Nervia', 'contratos 2.0: gestor não define papéis');
+select pg_temp.erro2($$select ctr_empresa_salvar(jsonb_build_object('id', current_setting('ctr.alfa')::bigint, 'ativo', false))$$, 'Somente a equipe Nervia', 'contratos 2.0: gestor não desativa a empresa');
+select ctr_empresa_salvar(jsonb_build_object('id', current_setting('ctr.alfa')::bigint, 'contratada_endereco', 'Av. Paulista, 1000'));
+select ctr_imposto_salvar(current_setting('ctr.alfa')::bigint, '2026-01-01', 11.33);
+select set_config('ctr.cli_alfa', ctr_cliente_salvar(jsonb_build_object('empresa_id', current_setting('ctr.alfa')::bigint, 'apelido', 'A', 'razao_social', 'CLIENTE A DA ALFA', 'cnpj', '11.111.111/0001-11'))::text, false);
+select pg_temp.ok((select count(*) = 1 from ctr_clientes), 'contratos 2.0: o mesmo nome curto e CNPJ podem existir em empresas diferentes');
+select pg_temp.erro2($$select ctr_cliente_salvar(jsonb_build_object('empresa_id', current_setting('ctr.nervia')::bigint, 'apelido', 'Z', 'razao_social', 'Z'))$$, 'Somente o gestor', 'contratos 2.0: gestor de uma empresa não grava na outra');
+select pg_temp.erro2($$select ctr_cliente_salvar(jsonb_build_object('id', current_setting('ctr.cli_nervia')::bigint, 'obs', 'x'))$$,
+  'Somente o gestor', 'contratos 2.0: nem altera cliente da outra empresa pelo número');
+select set_config('ctr.k_alfa', ctr_contrato_salvar(jsonb_build_object('cliente_id', current_setting('ctr.cli_alfa')::bigint, 'inicio', '2026-01-01', 'fim', '2026-03-31', 'valor_mensal', 1000, 'parcela_extra', false))::text, false);
+select ctr_contrato_etapa(current_setting('ctr.k_alfa')::bigint, 'gerado', '2026-01-01');
+select pg_temp.ok(ctr_cobrancas_gerar(current_setting('ctr.k_alfa')::bigint) = 3, 'contratos 2.0: gestor cria contrato e cobranças na própria empresa');
+select pg_temp.ok((select count(*) = 3 and bool_and(imposto_pct = 11.33 or pago_em is null) and bool_and(nf_prazo = make_date(left(competencia, 4)::int, right(competencia, 2)::int, 10)) from ctr_cobrancas_v),
+  'contratos 2.0: alíquota e dia da NF da própria empresa');
+select pg_temp.erro2($$select ctr_contrato_salvar(jsonb_build_object('cliente_id', current_setting('ctr.cli_nervia')::bigint, 'inicio', '2026-01-01', 'valor_mensal', 1))$$,
+  'Somente o gestor', 'contratos 2.0: não cria contrato para cliente da outra empresa');
+select pg_temp.erro2($$select ctr_carga(jsonb_build_object('empresa_id', current_setting('ctr.alfa')::bigint, 'clientes', '[]'::jsonb))$$, 'empresa vazia', 'contratos 2.0: carga só com a empresa vazia');
+-- arquivos: pasta da empresa
+insert into storage.objects (bucket_id, name) values ('ctr-arquivos', current_setting('ctr.alfa') || '/modelos/1.docx');
+select pg_temp.erro2($$insert into storage.objects (bucket_id, name) values ('ctr-arquivos', current_setting('ctr.nervia') || '/modelos/2.docx')$$, 'row-level security', 'contratos 2.0: não envia arquivo na pasta de outra empresa');
+select pg_temp.erro2($$insert into storage.objects (bucket_id, name) values ('ctr-arquivos', 'modelos/3.docx')$$, 'row-level security', 'contratos 2.0: arquivo novo só dentro da pasta da empresa');
+select pg_temp.erro2($$select ctr_modelo_salvar(jsonb_build_object('empresa_id', current_setting('ctr.alfa')::bigint, 'nome', 'm', 'caminho', current_setting('ctr.nervia') || '/modelos/1.docx'))$$,
+  'inválido', 'contratos 2.0: modelo só na pasta da própria empresa');
+select ctr_modelo_salvar(jsonb_build_object('empresa_id', current_setting('ctr.alfa')::bigint, 'nome', 'Modelo Alfa.docx', 'caminho', current_setting('ctr.alfa') || '/modelos/1.docx', 'campos', '["CTTNOME"]'::jsonb));
+reset role;
+insert into storage.objects (bucket_id, name) values ('ctr-arquivos', 'modelos/antigo.docx'), ('ctr-arquivos', current_setting('ctr.nervia') || '/modelos/n.docx');
+insert into ctr_modelos (empresa_id, nome, caminho, padrao) values (current_setting('ctr.nervia')::bigint, 'antigo', 'modelos/antigo.docx', true);
+set role authenticated;
+select pg_temp.ok((select count(*) = 1 from storage.objects where bucket_id = 'ctr-arquivos') and (select count(*) = 1 from ctr_modelos),
+  'contratos 2.0: gestor lê só os arquivos e modelos da própria empresa');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select pg_temp.ok((select count(*) = 3 from storage.objects where bucket_id = 'ctr-arquivos'), 'contratos 2.0: a equipe Nervia lê todos os arquivos (inclusive os da 1.x)');
+-- consulta da Alfa: lê, não grava
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.ok((select count(*) = 1 from ctr_clientes) and (select count(*) = 3 from ctr_cobrancas_v) and (select count(*) = 1 from ctr_empresas)
+  and (select ctr_papel(current_setting('ctr.alfa')::bigint)) = 'consulta', 'contratos 2.0: consulta lê a empresa');
+select pg_temp.erro2($$select ctr_cliente_salvar(jsonb_build_object('id', current_setting('ctr.cli_alfa')::bigint, 'obs', 'x'))$$, 'só de consulta', 'contratos 2.0: consulta não altera cliente');
+select pg_temp.erro2($$select ctr_baixa(jsonb_build_object('id', (select min(id) from ctr_cobrancas), 'pago_em', '2026-01-30', 'valor_pago', 1000))$$, 'só de consulta', 'contratos 2.0: consulta não dá baixa');
+select pg_temp.erro2($$select ctr_nf_marcar(jsonb_build_object('ids', (select jsonb_agg(id) from ctr_cobrancas)))$$, 'só de consulta', 'contratos 2.0: consulta não marca NF');
+select pg_temp.erro2($$insert into storage.objects (bucket_id, name) values ('ctr-arquivos', current_setting('ctr.alfa') || '/modelos/9.docx')$$, 'row-level security', 'contratos 2.0: consulta não envia arquivo');
+-- equipe Nervia: lote de NF não mistura empresas; desativar a empresa tira o acesso; retirar o papel tira o app
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select pg_temp.erro2($$select ctr_nf_marcar(jsonb_build_object('ids', (select jsonb_agg(id) from ctr_cobrancas)))$$, 'uma empresa só', 'contratos 2.0: NF em lote só de uma empresa');
+select ctr_empresa_salvar(jsonb_build_object('id', current_setting('ctr.alfa')::bigint, 'ativo', false));
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok((select count(*) = 0 from ctr_empresas) and (select count(*) = 0 from ctr_clientes), 'contratos 2.0: empresa desativada some para os membros');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select ctr_empresa_salvar(jsonb_build_object('id', current_setting('ctr.alfa')::bigint, 'ativo', true));
+select ctr_membro_salvar(current_setting('ctr.alfa')::bigint, '00000000-0000-0000-0000-00000000000c', '');
+select pg_temp.ok(not exists (select 1 from ctr_membros where user_id = '00000000-0000-0000-0000-00000000000c')
+  and not exists (select 1 from app_acessos where app_id = 'contratos' and user_id = '00000000-0000-0000-0000-00000000000c')
+  and exists (select 1 from app_acessos where app_id = 'contratos' and user_id = '00000000-0000-0000-0000-00000000000b'), 'contratos 2.0: retirar o último papel tira o app');
+reset role;
+select pg_temp.ok(exists (select 1 from auditoria where acao = 'contratos_membro_definido' and detalhes ->> 'papel' = 'gestor' and detalhes ->> 'empresa' = 'Alfa Engenharia')
+  and exists (select 1 from auditoria where acao = 'contratos_membro_retirado' and detalhes ->> 'papel_antes' = 'consulta')
+  and exists (select 1 from auditoria where acao = 'contratos_empresa_criada' and detalhes ->> 'empresa' = 'Alfa Engenharia')
+  and exists (select 1 from auditoria where acao = 'contratos_cliente_criado' and email = 'financeiro@linum.com.br' and (detalhes ->> 'empresa_id')::bigint = current_setting('ctr.alfa')::bigint)
+  and exists (select 1 from auditoria where acao = 'contratos_empresa_alterada' and detalhes -> 'depois' ->> 'ativo' = 'false'),
+  'contratos 2.0: auditoria com a empresa no detalhe (empresas, papéis e ações do gestor)');
 
 reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'

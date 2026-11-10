@@ -15,25 +15,49 @@ const RAIZ = path.resolve(__dirname, "..", ".."), SITE = path.join(RAIZ, "site")
 const SAIDA = process.argv[2] || fs.mkdtempSync(path.join(os.tmpdir(), "contratos-"));
 const PORTA = 8843, DB = "teste_contratos";
 const ADMIN = "00000000-0000-0000-0000-0000000000a1", CLIENTE = "00000000-0000-0000-0000-0000000000c1";
+const GESTOR = "00000000-0000-0000-0000-0000000000b1", CONSULTA = "00000000-0000-0000-0000-0000000000b2";
 const PGC = { host: process.env.PGHOST || "127.0.0.1", port: +(process.env.PGPORT || 5432), user: process.env.PGUSER || "postgres", password: process.env.PGPASSWORD };
 
 let falhas = 0, oks = 0;
 const ok = (c, nome) => { if (c) { oks++; console.log("ok  " + nome); } else { falhas++; console.log("FALHOU  " + nome); } };
 
 // ---------------------------------------------------------------- banco
+// Aplica as migrações em duas partes: até a 1.x do Contratos, depois dados "antigos" (como os que já estão no ar, só da
+// Nervia, com arquivos nas pastas da 1.x) e então o resto (2.0: várias empresas) — para conferir que nada se perde.
+const LEGADO = { cobrado: 0, pago: 0 };
 async function prepararBanco() {
   const adm = new Pool({ ...PGC, database: "postgres" });
   await adm.query(`drop database if exists ${DB}`); await adm.query(`create database ${DB}`); await adm.end();
-  const sql = fs.readFileSync(path.join(RAIZ, "testes", "stubs_supabase.sql"), "utf8") + "\n" +
-    fs.readdirSync(path.join(RAIZ, "supabase", "migrations")).filter(f => f.endsWith(".sql")).sort()
-      .map(f => fs.readFileSync(path.join(RAIZ, "supabase", "migrations", f), "utf8").split("\n").filter(l => !l.startsWith("create extension")).join("\n")).join("\n");
-  const tmp = path.join(SAIDA, "_migracoes.sql"); fs.writeFileSync(tmp, sql);
-  execFileSync("psql", ["-h", PGC.host, "-p", String(PGC.port), "-U", PGC.user, "-d", DB, "-v", "ON_ERROR_STOP=1", "-q", "-f", tmp],
-    { env: { ...process.env, PGPASSWORD: PGC.password }, stdio: ["ignore", "ignore", "pipe"] });
-  fs.unlinkSync(tmp);
+  const migs = fs.readdirSync(path.join(RAIZ, "supabase", "migrations")).filter(f => f.endsWith(".sql")).sort();
+  const ler = l => l.map(f => fs.readFileSync(path.join(RAIZ, "supabase", "migrations", f), "utf8").split("\n").filter(x => !x.startsWith("create extension")).join("\n")).join("\n");
+  const psql = sql => { const tmp = path.join(SAIDA, "_migracoes.sql"); fs.writeFileSync(tmp, sql);
+    execFileSync("psql", ["-h", PGC.host, "-p", String(PGC.port), "-U", PGC.user, "-d", DB, "-v", "ON_ERROR_STOP=1", "-q", "-f", tmp],
+      { env: { ...process.env, PGPASSWORD: PGC.password }, stdio: ["ignore", "ignore", "pipe"] }); fs.unlinkSync(tmp); };
+  const corte = migs.indexOf("20261109000200_contratos_foro.sql") + 1;
+  psql(fs.readFileSync(path.join(RAIZ, "testes", "stubs_supabase.sql"), "utf8") + "\n" + ler(migs.slice(0, corte)));
   const pool = new Pool({ ...PGC, database: DB });
-  await pool.query(`insert into auth.users (id, email) values ($1, 'marco@nervia.com.br'), ($2, 'financeiro@cliente.com.br')`, [ADMIN, CLIENTE]);
+  await pool.query(`insert into auth.users (id, email) values ($1, 'marco@nervia.com.br'), ($2, 'financeiro@cliente.com.br'), ($3, 'gestora@alfa.example'), ($4, 'consulta@alfa.example')`, [ADMIN, CLIENTE, GESTOR, CONSULTA]);
   await pool.query(`update perfis set admin = true, nome = 'Marco' where user_id = $1`, [ADMIN]);
+  await pool.query(`update perfis set nome = 'Gestora Alfa' where user_id = $1`, [GESTOR]);
+  // dados da 1.x (só da Nervia), gravados direto como se já estivessem no ar
+  await pool.query(`update ctr_config set contratada_nome = 'NERVIA LEGADO LTDA', dia_nf = 7;
+    insert into ctr_impostos (vale_desde, pct) values ('2024-01-01', 16.5);
+    insert into ctr_clientes (apelido, razao_social, cnpj) values ('Legado', 'CONDOMINIO LEGADO', '55666777000188');
+    insert into ctr_modelos (nome, caminho, padrao) values ('Modelo antigo.docx', 'modelos/legado.docx', true);
+    insert into ctr_contratos (cliente_id, inicio, fim, valor_mensal, situacao, documento) select id, '2026-01-01', '2026-12-31', 900, 'assinado', null from ctr_clientes;
+    update ctr_contratos set documento = 'contratos/' || id || '/legado.pdf';
+    insert into ctr_eventos (contrato_id, data, evento) select id, '2026-01-01', 'Trazido da planilha' from ctr_contratos;
+    insert into ctr_importacoes (arquivo) values ('nubank.ofx');
+    insert into ctr_extrato (data, valor, descricao, chave, fitid, importacao_id) select '2026-02-27', 900, 'Pix LEGADO', 'nubank|x|1', 'L1', id from ctr_importacoes;
+    insert into ctr_cobrancas (cliente_id, contrato_id, competencia, vencimento, valor, pago_em, valor_pago, extrato_id)
+      select k.cliente_id, k.id, c.comp, c.venc::date, 900, c.pago::date, case when c.pago is null then null else 900 end, case when c.comp = '2026/02' then (select id from ctr_extrato) end
+        from ctr_contratos k, (values ('2026/01', '2026-01-30', '2026-01-29'), ('2026/02', '2026-02-27', '2026-02-27'), ('2026/03', '2026-03-30', null)) c(comp, venc, pago);
+    insert into storage.objects (bucket_id, name) select 'ctr-arquivos', 'modelos/legado.docx' union all select 'ctr-arquivos', documento from ctr_contratos;`);
+  for (const r of (await pool.query("select name from storage.objects")).rows) ARQUIVOS.set("ctr-arquivos/" + r.name, Buffer.from("%PDF-1.4 legado"));
+  const antes = (await pool.query(`select (select count(*) from ctr_clientes) + (select count(*) from ctr_contratos) * 10 + (select count(*) from ctr_cobrancas) * 100
+    + (select count(*) from ctr_eventos) * 1000 + (select count(*) from ctr_extrato) * 10000 + (select count(*) from ctr_modelos) * 100000 as n, (select sum(valor) from ctr_cobrancas)::float c`)).rows[0];
+  LEGADO.antes = antes;
+  psql(ler(migs.slice(corte)));
   return pool;
 }
 
@@ -93,9 +117,14 @@ function servidor(pool) {
       if (url.pathname.startsWith("/storage/v1/object/")) {
         let resto = decodeURIComponent(url.pathname.slice(19)), assinado = false;
         if (resto.startsWith("sign/")) { resto = resto.slice(5); assinado = true; }
-        const admin = sub && (await comoUsuario(sub, c => c.query("select public.eh_admin() as a"))).rows[0].a;
-        if (!resto.startsWith("ctr-arquivos/") || (!admin && !(assinado && req.method === "GET" && url.searchParams.get("token") === "t"))) return json(403, { message: "new row violates row-level security policy", statusCode: "403" });
-        if (assinado && req.method === "POST") return json(200, { signedURL: "/object/sign/" + resto + "?token=t" });
+        if (resto.startsWith("authenticated/")) resto = resto.slice(14);
+        if (!resto.startsWith("ctr-arquivos/")) return json(403, { message: "bucket" });
+        const nome = resto.slice(13), negado = () => json(403, { message: "new row violates row-level security policy", statusCode: "403" });
+        // as regras de acesso aos arquivos são as policies de storage.objects, rodando como o usuário do token
+        const podeLer = async () => sub && (await comoUsuario(sub, c => c.query("select count(*)::int n from storage.objects where bucket_id = 'ctr-arquivos' and name = $1", [nome]))).rows[0].n > 0;
+        if (assinado && req.method === "GET") { if (url.searchParams.get("token") !== "t") return negado(); }
+        else if (assinado && req.method === "POST") { if (!(await podeLer())) return json(400, { message: "Object not found", statusCode: "404" }); return json(200, { signedURL: "/object/sign/" + resto + "?token=t" }); }
+        else if (req.method === "GET" && !(await podeLer())) return json(400, { message: "Object not found", statusCode: "404" });
         if (req.method === "POST") {
           if (ARQUIVOS.has(resto)) return json(409, { message: "The resource already exists" });
           // o supabase-js manda o arquivo como multipart/form-data (parte sem nome); o Storage guarda só o conteúdo
@@ -111,6 +140,7 @@ function servidor(pool) {
             }
           }
           if (!["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"].includes(mime.trim())) return json(400, { message: "mime type " + mime + " is not supported", statusCode: "415" });
+          try { await comoUsuario(sub, c => c.query("insert into storage.objects (bucket_id, name) values ('ctr-arquivos', $1)", [nome])); } catch { return negado(); }
           ARQUIVOS.set(resto, dados); return json(200, { Key: resto, Id: resto });
         }
         if (!ARQUIVOS.has(resto)) return json(404, { message: "Object not found" });
@@ -218,16 +248,63 @@ const aba = (pg, v) => pg.click(`.orelhas .aba[data-v="${v}"]`);
   const pool = await prepararBanco(), srv = servidor(pool).listen(PORTA);
   const browser = await chromium.launch();
   try {
-    // ---------- quem não é da equipe
+    // ---------- migração 2.0: os dados da 1.x viram da Nervia, sem perder nada
+    const mg = await um(pool, `select e.id, e.contratada_nome, e.dia_nf, e.foro_padrao,
+      (select count(*) from ctr_clientes) + (select count(*) from ctr_contratos) * 10 + (select count(*) from ctr_cobrancas) * 100
+        + (select count(*) from ctr_eventos) * 1000 + (select count(*) from ctr_extrato) * 10000 + (select count(*) from ctr_modelos) * 100000 as n,
+      (select sum(valor) from ctr_cobrancas)::float c,
+      (select count(*) from ctr_cobrancas where empresa_id <> e.id)::int + (select count(*) from ctr_eventos where empresa_id <> e.id)::int + (select count(*) from ctr_extrato where empresa_id <> e.id)::int
+        + (select count(*) from ctr_impostos where empresa_id <> e.id)::int + (select count(*) from ctr_modelos where empresa_id <> e.id)::int + (select count(*) from ctr_importacoes where empresa_id <> e.id)::int fora
+      from ctr_empresas e where e.nome = 'Nervia'`);
+    ok(mg && mg.contratada_nome === "NERVIA LEGADO LTDA" && mg.dia_nf === 7 && mg.foro_padrao.startsWith("Foro Central"), "migração: a Nervia vira a primeira empresa com os dados da configuração");
+    ok(mg && Number(mg.n) === Number(LEGADO.antes.n) && mg.c === LEGADO.antes.c && mg.fora === 0, "migração: todos os dados que já existiam passam para a Nervia, sem perder nenhum");
+    const NERVIA = mg.id;
+
+    // ---------- login sem empresa
     { const { pg, ctx } = await pagina(browser, CLIENTE);
       await pg.goto(`http://127.0.0.1:${PORTA}/apps/contratos/`); await pg.waitForFunction(() => !document.querySelector("#aviso").textContent.includes("Carregando"));
-      ok((await pg.textContent("#aviso")).includes("uso interno"), "login de cliente não usa o app");
+      ok((await pg.textContent("#aviso")).includes("não tem acesso a nenhuma empresa"), "login sem empresa não usa o app");
       await ctx.close(); }
 
-    const { pg, erros } = await pagina(browser, ADMIN);
+    // ---------- equipe Nervia: dashboard da Nervia (dados antigos), PDF antigo e nova empresa com gestor e consulta
+    let EMP;
+    { const { pg, erros, ctx } = await pagina(browser, ADMIN);
+      await pg.goto(`http://127.0.0.1:${PORTA}/apps/contratos/`);
+      await pg.waitForSelector("#app:not([hidden])");
+      await pg.waitForSelector(".orelhas .aba.on[data-v=dashboard]");
+      ok((await pg.locator("svg.grafico").count()) >= 4 && (await pg.textContent("#conteudo")).includes("R$ 1.800,00"), "dashboard: abre primeiro, com os gráficos e o recebido da empresa");
+      ok((await pg.textContent("#empsel")).includes("Nervia") && (await pg.textContent("#empsel")).includes("equipe Nervia"), "topo: empresa aberta e papel");
+      await pg.hover("svg.grafico rect[data-dica] >> nth=11");
+      ok(await pg.isVisible(".dica"), "dashboard: dica ao passar o mouse");
+      await pg.click(".vertab summary >> nth=0");
+      ok(await pg.isVisible(".vertab[open] table"), "dashboard: cada gráfico tem a tabela");
+      await aba(pg, "contratos"); await pg.click("tr.clica:has-text('Legado')");
+      await pg.click("#dlg >> text=Abrir PDF"); await pg.waitForFunction(() => window.__abertos.length > 0);
+      ok((await pg.evaluate(() => window.__abertos[0])).includes("contratos/") && (await pg.evaluate(() => window.__abertos[0])).includes("token="), "arquivo da 1.x (pasta antiga) continua abrindo");
+      await pg.keyboard.press("Escape");
+      await aba(pg, "empresas");
+      await pg.click("text=+ Nova empresa");
+      await pg.fill("#dlg .form input >> nth=0", "Alfa Serviços"); await pg.fill("#dlg .form input >> nth=1", "ALFA SERVICOS LTDA");
+      await pg.click("#dlg >> text=Criar empresa");
+      await pg.waitForSelector("#dlg[open] >> text=Quem usa esta empresa");
+      await pg.waitForSelector('#dlg select[aria-label="Papel de gestora@alfa.example"]');
+      EMP = (await um(pool, "select id from ctr_empresas where nome = 'Alfa Serviços'")).id;
+      await pg.selectOption('#dlg select[aria-label="Papel de gestora@alfa.example"]', "gestor");
+      await pg.waitForSelector("#dlg >> text=Papel gravado");
+      await pg.selectOption('#dlg select[aria-label="Papel de consulta@alfa.example"]', "consulta");
+      await pg.waitForTimeout(500);
+      const mb = await um(pool, `select (select string_agg(papel, ',' order by papel) from ctr_membros where empresa_id = $1) p,
+        (select count(*)::int from app_acessos where app_id = 'contratos' and user_id in ($2, $3)) a`, [EMP, GESTOR, CONSULTA]);
+      ok(mb.p === "consulta,gestor" && mb.a === 2, "empresas: equipe Nervia cria a empresa, dá os papéis e o app é liberado");
+      ok(erros.length === 0, "equipe Nervia sem erros de JavaScript" + (erros.length ? ": " + erros.join(" | ") : ""));
+      await ctx.close(); }
+
+    // ---------- a gestora da nova empresa faz todo o fluxo
+    const { pg, erros } = await pagina(browser, GESTOR);
     await pg.goto(`http://127.0.0.1:${PORTA}/apps/contratos/`);
     await pg.waitForSelector("#app:not([hidden])");
-    ok(await pg.isVisible("text=Carga da planilha ContratoDados.xlsx"), "app vazio abre na Configuração com a carga da planilha");
+    ok(await pg.isVisible("text=Carga da planilha ContratoDados.xlsx"), "empresa vazia abre na Configuração com a carga da planilha");
+    ok((await pg.textContent("#empsel")).includes("Alfa Serviços") && !(await pg.isVisible("#empresa")) && !(await pg.isVisible(".aba[data-v=empresas]")), "gestora: só a própria empresa, sem a aba Empresas");
 
     // ---------- carga da planilha (fictícia)
     const xlsx = path.join(SAIDA, "ContratoDados-ficticio.xlsx"); planilhaFicticia(xlsx);
@@ -238,13 +315,13 @@ const aba = (pg, v) => pg.click(`.orelhas .aba[data-v="${v}"]`);
     ok(prev.includes("4 clientes") && prev.includes("2 ativos") && prev.includes("2 da aba Dados") && prev.includes("12 cobranças"), "carga: prévia com clientes, contratos e cobranças");
     await pg.click("text=Carregar no sistema");
     await pg.waitForFunction(() => window.__alerta);
-    const cg = await um(pool, `select (select count(*) from ctr_clientes)::int cli, (select count(*) from ctr_contratos)::int k, (select count(*) from ctr_contratos where historico)::int h,
-      (select count(*) from ctr_cobrancas)::int cob, (select count(*) from ctr_cobrancas where contrato_id is null)::int av, (select sum(valor) from ctr_cobrancas)::float cobrado,
-      (select pct from ctr_impostos)::float pct, (select contratada_nome from ctr_config) cnome,
-      (select apelido from ctr_clientes where cnpj = '44555666000172') beta, (select ativo from ctr_clientes where apelido = 'Gama Antigo') gama`);
+    const cg = await um(pool, `select (select count(*) from ctr_clientes where empresa_id = $1)::int cli, (select count(*) from ctr_contratos where empresa_id = $1)::int k, (select count(*) from ctr_contratos where historico and empresa_id = $1)::int h,
+      (select count(*) from ctr_cobrancas where empresa_id = $1)::int cob, (select count(*) from ctr_cobrancas where contrato_id is null and empresa_id = $1)::int av, (select sum(valor) from ctr_cobrancas where empresa_id = $1)::float cobrado,
+      (select pct from ctr_impostos where empresa_id = $1)::float pct, (select contratada_nome from ctr_empresas where id = $1) cnome,
+      (select apelido from ctr_clientes where cnpj = '44555666000172') beta, (select ativo from ctr_clientes where apelido = 'Gama Antigo') gama`, [EMP]);
     if (process.env.DEPURAR) console.log(cg);
     ok(cg.cli === 4 && cg.k === 4 && cg.h === 2 && cg.cob === 12 && cg.av === 2, "carga: 4 clientes, 2 contratos da aba Dados + 2 anteriores, 12 cobranças (2 avulsas: cobrança única sem contrato)");
-    ok(Math.abs(cg.cobrado - 22350) < 0.01 && cg.pct === 16.5 && cg.cnome === "NERVIA TESTE CONSULTORIA", "carga: total cobrado, imposto da planilha e dados da Nervia");
+    ok(Math.abs(cg.cobrado - 22350) < 0.01 && cg.pct === 16.5 && cg.cnome === "NERVIA TESTE CONSULTORIA", "carga: total cobrado, imposto da planilha e dados da empresa");
     ok(cg.beta === "Beta Mall" && cg.gama === false, "carga: nomes limpos (espaço duplo) e cliente antigo inativo");
     const kb = await um(pool, `select k.inicio::text, k.fim::text, (select count(*) from ctr_cobrancas c where c.contrato_id = k.id)::int n from ctr_contratos k join ctr_clientes c on c.id = k.cliente_id where c.apelido = 'Beta Mall' and k.historico`);
     ok(kb && kb.inicio === "2025-11-01" && kb.fim === "2026-10-31" && kb.n === 4, "carga: cobranças antes do contrato novo vão para o contrato anterior (até a véspera do início)");
@@ -255,7 +332,7 @@ const aba = (pg, v) => pg.click(`.orelhas .aba[data-v="${v}"]`);
     await pg.setInputFiles('input[accept=".docx"]', { name: "Modelo contrato.docx", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", buffer: Buffer.from(await modeloFicticio()) });
     await pg.click("text=Enviar modelo");
     await pg.waitForSelector("text=Em uso: Modelo contrato.docx");
-    ok((await um(pool, "select array_length(campos, 1) n from ctr_modelos where padrao")).n === 22, "modelo: guardado com os 22 campos (inclusive FORO e FOROLOCAL)");
+    ok((await um(pool, "select array_length(campos, 1) n, caminho from ctr_modelos where padrao and empresa_id = $1", [EMP])).n === 22, "modelo: guardado com os 22 campos (inclusive FORO e FOROLOCAL), na pasta da empresa");
 
     // ---------- foro do cliente (Alfa em Niterói; Beta fica com o padrão do Rio)
     await aba(pg, "clientes");
@@ -288,7 +365,7 @@ const aba = (pg, v) => pg.click(`.orelhas .aba[data-v="${v}"]`);
     await pg.setInputFiles("#dlg input[type=file]", { name: "assinado.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4 teste") });
     await pg.waitForSelector("#dlg >> text=Abrir PDF");
     await pg.click("#dlg >> text=Abrir PDF"); await pg.waitForFunction(() => window.__abertos.length > 0);
-    ok((await um(pool, "select documento from ctr_contratos where id = $1", [ka.id])).documento.startsWith(`contratos/${ka.id}/`) && (await pg.evaluate(() => window.__abertos[0])).includes("token="),
+    ok((await um(pool, "select documento from ctr_contratos where id = $1", [ka.id])).documento.startsWith(`${EMP}/contratos/${ka.id}/`) && (await pg.evaluate(() => window.__abertos[0])).includes("token="),
       "PDF assinado guardado e aberto por link temporário");
     await pg.click("#dlg >> text=Criar cobranças");
     await pg.waitForSelector("#toast:not([hidden])"); await pg.waitForSelector("#dlg h3:has-text('Cobranças (14)')");
@@ -343,10 +420,10 @@ const aba = (pg, v) => pg.click(`.orelhas .aba[data-v="${v}"]`);
     await pg.setInputFiles('input[accept=".ofx,.OFX"]', arqOfx);
     await pg.click("button:text-is(\"Importar\")");
     await pg.waitForSelector("#toast:has-text('3 crédito(s) novo(s)')");
-    ok((await um(pool, "select count(*)::int n from ctr_extrato")).n === 3, "extrato: só os créditos entram");
+    ok((await um(pool, "select count(*)::int n from ctr_extrato where empresa_id = $1", [EMP])).n === 3, "extrato: só os créditos entram");
     await pg.setInputFiles('input[accept=".ofx,.OFX"]', arqOfx); await pg.click("button:text-is(\"Importar\")");
     await pg.waitForSelector("#toast:has-text('3 já importado(s)')");
-    ok((await um(pool, "select count(*)::int n from ctr_extrato")).n === 3, "extrato: importar de novo não duplica");
+    ok((await um(pool, "select count(*)::int n from ctr_extrato where empresa_id = $1", [EMP])).n === 3, "extrato: importar de novo não duplica");
     const linhaAlfa = pg.locator("tbody tr:has-text('11.222.333/0001-91')");
     ok((await linhaAlfa.textContent()).includes("Alfa Center") && (await linhaAlfa.textContent()).includes("sugestão"), "extrato: sugere a cobrança pelo CNPJ");
     await linhaAlfa.locator("text=ligar").click();
@@ -367,7 +444,13 @@ const aba = (pg, v) => pg.click(`.orelhas .aba[data-v="${v}"]`);
     await pg.waitForTimeout(400);
     ok((await pg.textContent("#conteudo")).includes("Nenhum crédito a conferir."), "extrato: nada mais a conferir");
 
-    // ---------- painel
+    // ---------- dashboard com os dados carregados
+    await aba(pg, "dashboard");
+    await pg.waitForSelector("svg.grafico");
+    ok((await pg.locator("svg.grafico").count()) >= 5 && (await pg.textContent("#conteudo")).includes("Concentração da receita") && (await pg.textContent("#conteudo")).includes("Contratos que terminam"),
+      "dashboard: cobrado × recebido, previsão, atraso, concentração, prazo e contratos que terminam");
+    await pg.screenshot({ path: path.join(SAIDA, "contratos-dashboard.png"), fullPage: true });
+    // ---------- resumo (o antigo Painel)
     await aba(pg, "painel");
     const painel = await pg.textContent("#conteudo");
     ok(painel.includes("Pendências") && painel.includes("Resumo por mês de") && painel.includes("Por cliente em"), "painel: pendências, resumo por mês e por cliente");
@@ -377,6 +460,33 @@ const aba = (pg, v) => pg.click(`.orelhas .aba[data-v="${v}"]`);
     const au = await um(pool, `select count(*)::int n, count(distinct acao)::int d from auditoria where acao like 'contratos_%'`);
     ok(au.d >= 10, `auditoria: ${au.n} registros, ${au.d} tipos de ação`);
     ok(erros.length === 0, "sem erros de JavaScript" + (erros.length ? ": " + erros.join(" | ") : ""));
+
+    // ---------- consulta: lê tudo, não altera nada
+    { const c = await pagina(browser, CONSULTA);
+      await c.pg.goto(`http://127.0.0.1:${PORTA}/apps/contratos/`); await c.pg.waitForSelector("#app:not([hidden])");
+      await c.pg.waitForSelector("svg.grafico");
+      ok((await c.pg.textContent("#empsel")).includes("só consulta") && !(await c.pg.isVisible(".aba[data-v=config]")) && !(await c.pg.isVisible(".aba[data-v=empresas]")),
+        "consulta: dashboard da empresa, sem Configuração e sem Empresas");
+      await aba(c.pg, "contratos"); await c.pg.waitForSelector("tr.clica");
+      ok(!(await c.pg.isVisible("text=+ Novo contrato")), "consulta: sem botão de novo contrato");
+      await c.pg.click("tr.clica:has-text('Alfa Center'):has-text('31/12/2026')");
+      ok(!(await c.pg.isVisible("#dlg >> text=Salvar dados")) && !(await c.pg.isVisible("#dlg >> text=Gerar Word")) && (await c.pg.isVisible("#dlg >> text=Abrir PDF")), "consulta: abre o contrato e o PDF, sem alterar");
+      await c.pg.keyboard.press("Escape");
+      await aba(c.pg, "cobrancas"); await c.pg.click("tbody tr.clica >> nth=0");
+      ok(!(await c.pg.isVisible("#dlg >> text=Registrar recebimento")) && !(await c.pg.isVisible("text=Marcar NF emitida")), "consulta: cobranças sem baixa e sem NF");
+      ok(c.erros.length === 0, "consulta sem erros de JavaScript" + (c.erros.length ? ": " + c.erros.join(" | ") : ""));
+      await c.ctx.close(); }
+
+    // ---------- equipe Nervia troca de empresa pelo seletor do topo
+    { const c = await pagina(browser, ADMIN);
+      await c.pg.goto(`http://127.0.0.1:${PORTA}/apps/contratos/`); await c.pg.waitForSelector("#app:not([hidden])");
+      await c.pg.selectOption("#empresa", String(EMP)); await c.pg.waitForTimeout(400);
+      await aba(c.pg, "clientes");
+      const tA = await c.pg.textContent("#conteudo");
+      await c.pg.selectOption("#empresa", String(NERVIA)); await c.pg.waitForTimeout(400);
+      const tN = await c.pg.textContent("#conteudo");
+      ok(tA.includes("Alfa Center") && !tA.includes("Legado") && tN.includes("Legado") && !tN.includes("Alfa Center"), "seletor de empresa: cada empresa com os seus clientes");
+      await c.ctx.close(); }
 
     // ---------- celular
     { const c = await pagina(browser, ADMIN, 390);

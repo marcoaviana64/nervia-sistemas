@@ -10,39 +10,47 @@
 <div class="pagina">
   <div class="cab">
     <img src="/img/nervia-logo.png" alt="Nervia">
-    <div><div class="t">Contratos · Manual de utilização</div><div class="s">Contratos de prestação de serviço da Nervia, do Word ao recebimento</div></div>
+    <div><div class="t">Contratos · Manual de utilização</div><div class="s">Contratos de prestação de serviço da sua empresa, do Word ao recebimento</div></div>
     <div class="acoes"><a href="cartao.html">Cartão rápido</a><button onclick="print()">Imprimir</button></div>
   </div>
 
   <h1>Como usar o app Contratos</h1>
-  <p class="lead">Substitui a planilha ContratoDados.xlsx: a mala direta do Word, a conferência dos recebimentos com o extrato e o resumo gerencial. Cada contrato passa por <b>Rascunho → Gerado → Enviado → Assinado</b>; cada mês do contrato vira uma <b>cobrança</b>, com a NF e o recebimento. Uso interno da equipe Nervia.</p>
+  <p class="lead">Substitui a planilha de contratos: a mala direta do Word, a conferência dos recebimentos com o extrato e o resumo gerencial. Cada contrato passa por <b>Rascunho → Gerado → Enviado → Assinado</b>; cada mês do contrato vira uma <b>cobrança</b>, com a NF e o recebimento. Cada empresa que usa o app tem os próprios dados; quem entra é <b>gestor</b> (faz tudo) ou <b>consulta</b> (só vê).</p>
 
   <ul class="indice">
+    <li><a href="#empresa">0. Empresa e papéis (gestor e consulta)</a></li>
     <li><a href="#comecar">1. Começar: carga da planilha e modelo do Word</a></li>
     <li><a href="#contrato">2. Novo contrato, gerar o Word e assinatura</a></li>
     <li><a href="#cobrancas">3. Cobranças do contrato</a></li>
-    <li><a href="#nf">4. NF do mês (até o dia 5)</a></li>
-    <li><a href="#extrato">5. Conferir os recebimentos com o extrato do Nubank</a></li>
-    <li><a href="#painel">6. Painel e resumo gerencial</a></li>
+    <li><a href="#nf">4. NF do mês</a></li>
+    <li><a href="#extrato">5. Conferir os recebimentos com o extrato do banco</a></li>
+    <li><a href="#painel">6. Dashboard e Resumo</a></li>
     <li><a href="#renovar">7. Renovar, encerrar e rescindir</a></li>
     <li><a href="#problemas">8. Mensagens e o que fazer</a></li>
   </ul>
 
+  <h2 id="empresa">0. Empresa e papéis (gestor e consulta)</h2>
+  <ul>
+    <li>O nome da empresa aberta aparece no alto, ao lado do seu papel. Quem usa mais de uma empresa troca pelo seletor <b>Empresa</b>; o app lembra a última escolhida.</li>
+    <li><b>Gestor</b>: faz tudo na empresa (contratos, cobranças, NF, baixas, extrato, configuração e modelo). <b>Consulta</b>: vê tudo, mas não altera (os botões de alterar e a aba Configuração não aparecem).</li>
+    <li>A liberação é feita pela equipe Nervia, na aba <b>Empresas</b> (só ela vê): <b>+ Nova empresa</b> cadastra a empresa; em cada empresa, <b>Quem usa esta empresa</b> dá o papel a cada login (o login é criado antes na Área do Cliente, em Administração → Logins) e libera o app para ele. "—" retira o papel. Empresa <b>inativa</b>: ninguém dela entra.</li>
+  </ul>
+
   <h2 id="comecar">1. Começar: carga da planilha e modelo do Word</h2>
   <ol>
-    <li>Com o app vazio, ele abre em <b>Configuração</b>. Em <b>Carga da planilha ContratoDados.xlsx</b>, escolha a planilha e clique em <b>Ler planilha</b>.</li>
+    <li>Com a empresa vazia, o app abre em <b>Configuração</b>. Em <b>Carga da planilha ContratoDados.xlsx</b>, escolha a planilha e clique em <b>Ler planilha</b>.</li>
     <li>Confira a prévia: quantidade de clientes, contratos e cobranças e, mês a mês, o cobrado e o recebido ao lado dos números da aba <b>Resumo</b>. Se algum mês não bater, o botão fica bloqueado: corrija a planilha e leia de novo.</li>
     <li>Clique em <b>Carregar no sistema</b>. Vêm os clientes (abas Clientes e clentesevalores), os contratos da aba Dados, todas as cobranças da aba RecebimentosControle e a alíquota de imposto da planilha. As cobranças anteriores ao contrato atual de cada cliente (e as dos clientes antigos) ficam num <b>contrato anterior</b>, já encerrado, montado pelas próprias cobranças; cliente com uma cobrança só e sem contrato fica com cobrança avulsa.</li>
     <li>Em <b>Modelo do contrato (Word)</b>, envie o .docx de mala direta usado hoje. O app confere os campos (CTT-NOME, CTRA-HONORARIOS…) e recusa o modelo se houver campo que ele não sabe preencher.</li>
-    <li>Confira os <b>dados da Nervia (contratada)</b> que vieram da planilha e a <b>alíquota</b> de imposto; para mudar a alíquota a partir de um mês, grave uma linha nova com a data (as antigas continuam valendo para o passado).</li>
+    <li>Confira os <b>dados da empresa (contratada)</b> que vieram da planilha e a <b>alíquota</b> de imposto; para mudar a alíquota a partir de um mês, grave uma linha nova com a data (as antigas continuam valendo para o passado).</li>
   </ol>
-  <div class="nota"><b>Foro:</b> o modelo precisa dos campos <b>FORO</b> (cláusula 10.6, "elegem o «FORO» como competente") e <b>FOROLOCAL</b> (cláusula 10.1.6, "a sede da arbitragem será a «FOROLOCAL»"). Em <b>Clientes</b>, preencha o foro de quem fica fora do Rio de Janeiro ("Montar" faz o texto pela cidade e UF); quem não tiver usa o padrão da Configuração (Foro Central da Comarca do Rio de Janeiro).</div>
-  <div class="nota">A carga só aparece com o app vazio e grava tudo ou nada. Os arquivos são lidos no seu computador.</div>
+  <div class="nota"><b>Foro:</b> o modelo precisa dos campos <b>FORO</b> (cláusula 10.6, "elegem o «FORO» como competente") e <b>FOROLOCAL</b> (cláusula 10.1.6, "a sede da arbitragem será a «FOROLOCAL»"). Em <b>Clientes</b>, preencha o foro de quem fica fora do Rio de Janeiro ("Montar" faz o texto pela cidade e UF); quem não tiver usa o foro padrão da Configuração da empresa.</div>
+  <div class="nota">A carga só aparece com a empresa vazia e grava tudo ou nada. Os arquivos são lidos no seu computador.</div>
 
   <h2 id="contrato">2. Novo contrato, gerar o Word e assinatura</h2>
   <ol>
     <li>Em <b>Contratos</b>, clique em <b>+ Novo contrato</b>: cliente, início, fim (vazio = prazo indeterminado), valor mensal, dia do vencimento (30), parcela extra em dezembro, objeto, quem assina pelo cliente, testemunhas e local. O contrato começa em <b>Rascunho</b>.</li>
-    <li>Clique em <b>Gerar Word</b>: o app preenche o modelo com os dados do cliente, da Nervia e do contrato (valor por extenso e data por extenso automáticos) e baixa o arquivo, sem o vínculo com a planilha. O contrato passa a <b>Gerado</b>. Para gerar vários de uma vez, marque as caixas na lista e clique em <b>Gerar Word</b> (vem um .zip).</li>
+    <li>Clique em <b>Gerar Word</b>: o app preenche o modelo com os dados do cliente, da empresa e do contrato (valor por extenso e data por extenso automáticos) e baixa o arquivo, sem o vínculo com a planilha. O contrato passa a <b>Gerado</b>. Para gerar vários de uma vez, marque as caixas na lista e clique em <b>Gerar Word</b> (vem um .zip).</li>
     <li>Mande para assinatura pela plataforma de assinatura digital que preferir (ou em papel) e clique em <b>Marcar enviado</b> com a data.</li>
     <li>Quando voltar assinado, clique em <b>Marcar assinado</b> com a data e em <b>Guardar PDF assinado</b>. <b>Abrir PDF</b> mostra o arquivo guardado.</li>
   </ol>
@@ -56,29 +64,30 @@
     <li>Recebeu fora do extrato? <b>Registrar recebimento</b> com a data e o valor; valor diferente pede a explicação (retenção, desconto…).</li>
   </ol>
 
-  <h2 id="nf">4. NF do mês (até o dia 5)</h2>
+  <h2 id="nf">4. NF do mês</h2>
   <ol>
     <li>Emita as notas no emissor, como hoje.</li>
     <li>Em <b>Cobranças</b>, filtre o mês, marque as caixas das notas emitidas e clique em <b>Marcar NF emitida</b>, com a data. Com uma cobrança só, dá para informar o número da NF (opcional).</li>
-    <li>Depois do dia 5, a cobrança sem NF aparece como <b>NF atrasada</b> e entra nas pendências do Painel.</li>
+    <li>Depois do dia limite da Configuração (padrão: dia 5), a cobrança sem NF aparece como <b>NF atrasada</b> e entra nas pendências do Resumo.</li>
   </ol>
 
-  <h2 id="extrato">5. Conferir os recebimentos com o extrato do Nubank</h2>
+  <h2 id="extrato">5. Conferir os recebimentos com o extrato do banco</h2>
   <ol>
-    <li>No Nubank PJ, exporte o extrato do período em <b>OFX</b>.</li>
-    <li>Em <b>Extrato</b>, escolha o arquivo e clique em <b>Importar</b>. Só os créditos entram; o que já foi importado é pulado sozinho.</li>
+    <li>No site ou app do banco, exporte o extrato do período em <b>OFX</b> (às vezes chamado "Money" ou "Quicken").</li>
+    <li>Em <b>Extrato</b>, confira o nome da <b>Conta</b> (com mais de um banco, use um nome para cada, sempre o mesmo), escolha o arquivo e clique em <b>Importar</b>. Só os créditos entram; o que já foi importado é pulado sozinho.</li>
     <li>Para cada crédito a conferir, o app sugere a cobrança em aberto pelo CNPJ ou nome no texto do Pix, pelo valor e pela data. Confira e clique em <b>ligar</b>: a cobrança recebe a baixa na data do crédito.</li>
     <li>Sem sugestão, ou um Pix que paga mais de uma cobrança: <b>escolher…</b>, marque as cobranças (a soma precisa bater com o crédito) e <b>Ligar às cobranças marcadas</b>.</li>
     <li>Crédito que não é de cliente (rendimento, outra receita): <b>não é de contrato</b>, com o motivo.</li>
   </ol>
   <div class="nota">Para a sugestão acertar mais, preencha em Clientes o campo <b>Como aparece no extrato</b> com o nome que o banco mostra no Pix daquele cliente.</div>
 
-  <h2 id="painel">6. Painel e resumo gerencial</h2>
-  <p>O <b>Painel</b> mostra, para o ano escolhido, o cobrado, o recebido, o imposto estimado e o líquido, o que está a vencer e o que está em atraso (de qualquer ano); as <b>pendências</b> (NF a emitir, atrasos, contratos sem assinatura, contratos que terminam em 60 dias, créditos a conferir); o <b>resumo por mês</b>, igual à aba Resumo da planilha; e o resumo por cliente. Clique num mês ou cliente para ver as cobranças.</p>
+  <h2 id="painel">6. Dashboard e Resumo</h2>
+  <p>O <b>Dashboard</b> é a primeira aba. Para o período escolhido (12, 24 ou 36 meses) mostra o recebido, o imposto estimado e o líquido, o que está em atraso hoje, o que vence nos próximos 6 meses, o <b>prazo médio de recebimento</b> (dias entre o vencimento e o pagamento; negativo = pagou antes) e a receita mensal dos contratos assinados em vigor. Os gráficos: <b>cobrado × recebido por mês</b> (cobrado pelo mês de competência, com a parcela extra em dezembro; recebido pelo dia em que o dinheiro entrou), <b>previsão</b> dos próximos 6 meses, <b>atraso no fim de cada mês</b>, <b>concentração da receita</b> por cliente e <b>prazo por cliente</b>. Passe o mouse para ver o valor; <b>Ver tabela</b> mostra os números. Embaixo, os contratos que terminam nos próximos 6 meses.</p>
+  <p>O <b>Resumo</b> (antigo Painel) mostra, para o ano escolhido, o cobrado, o recebido, o imposto estimado e o líquido, o que está a vencer e o que está em atraso (de qualquer ano); as <b>pendências</b> (NF a emitir, atrasos, contratos sem assinatura, contratos que terminam em 60 dias, créditos a conferir); o <b>resumo por mês</b>, igual à aba Resumo da planilha; e o resumo por cliente. Clique num mês ou cliente para ver as cobranças.</p>
 
   <h2 id="renovar">7. Renovar, encerrar e rescindir</h2>
   <ul>
-    <li><b>Renovar</b>: cria o contrato do novo período (rascunho) com os mesmos dados; ajuste o valor e gere o Word. O Painel avisa 60 dias antes do fim dos contratos que ainda não foram renovados.</li>
+    <li><b>Renovar</b>: cria o contrato do novo período (rascunho) com os mesmos dados; ajuste o valor e gere o Word. O Resumo avisa 60 dias antes do fim dos contratos que ainda não foram renovados.</li>
     <li><b>Encerrar</b>: fim normal de um contrato assinado.</li>
     <li><b>Rescindir</b>: fim antecipado, com o motivo. As cobranças em aberto depois da rescisão podem ser excluídas (com motivo) ou ajustadas (a parcela extra proporcional, por exemplo).</li>
   </ul>
@@ -87,16 +96,18 @@
   <table>
     <tr><td>Nenhum modelo do Word cadastrado</td><td>Envie o modelo em Configuração → Modelo do contrato.</td></tr>
     <tr><td>O modelo tem campos que o app não conhece</td><td>O .docx tem um campo de mala direta que o app não preenche. Tire o campo do modelo ou peça à equipe para incluí-lo no app.</td></tr>
-    <tr><td>Preencha os dados da Nervia (contratada)</td><td>Configuração → Nervia (contratada) e regras.</td></tr>
+    <tr><td>Preencha os dados da empresa (contratada)</td><td>Configuração → Dados da empresa (contratada) e regras.</td></tr>
+    <tr><td>Somente o gestor da empresa (ou a equipe Nervia) altera os contratos</td><td>Seu papel nesta empresa é de consulta. Peça à Nervia para mudar o papel, se precisar alterar.</td></tr>
+    <tr><td>Seu login ainda não tem acesso a nenhuma empresa</td><td>A Nervia ainda não deu papel ao seu login em nenhuma empresa.</td></tr>
     <tr><td>Gere o contrato (Word) antes de criar as cobranças</td><td>O contrato ainda está em rascunho.</td></tr>
     <tr><td>O contrato já foi assinado: … informe o motivo</td><td>Mudança de valor, prazo ou vencimento depois da assinatura: escreva o motivo (ex.: aditivo assinado em …).</td></tr>
     <tr><td>O valor recebido é diferente do cobrado</td><td>Explique a diferença na observação (retenção, desconto, pagamento parcial).</td></tr>
     <tr><td>A soma das cobranças não bate com o crédito</td><td>Para ligar várias cobranças a um crédito, a soma precisa ser igual. Com valor diferente, ligue uma por vez.</td></tr>
     <tr><td>Cobrança já paga · Cobrança paga não se exclui</td><td>Desfaça a baixa antes (com o motivo), se foi engano.</td></tr>
-    <tr><td>A carga só pode ser feita com o app vazio</td><td>A planilha já foi carregada; o restante entra pelo próprio app.</td></tr>
+    <tr><td>A carga só pode ser feita com a empresa vazia</td><td>A planilha já foi carregada nesta empresa; o restante entra pelo próprio app.</td></tr>
     <tr><td>Os totais gravados não batem com a planilha</td><td>Nada foi gravado. Leia a planilha de novo e confira a prévia.</td></tr>
   </table>
-  <div class="rodape">Dúvidas: WhatsApp (21) 96686-9374 · atendimento@nervia.com.br<br>Nervia Tecnologia · Manual do app Contratos · atualizado em 09/11/2026</div>
+  <div class="rodape">Dúvidas: WhatsApp (21) 96686-9374 · atendimento@nervia.com.br<br>Nervia Tecnologia · Manual do app Contratos · atualizado em 10/11/2026</div>
 </div>
 <script src="/marca-dagua.js" data-tipo="doc"></script>
 </body>
