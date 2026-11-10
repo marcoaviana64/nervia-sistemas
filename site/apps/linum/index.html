@@ -505,9 +505,10 @@ function chipsLoja(p, l, vars) {
     ant = (v.tamanho || "").trim();
     // peça especial (edição: pintura, bordado...) pode ter preço próprio; mostra só quando difere do preço da peça
     const preco = v.preco_venda != null && Number(v.preco_venda) !== Number(p.preco_venda) ? `<small>${brl(v.preco_venda)}</small>` : "";
-    const corpo = `<b title="${esc(v.cor)}">${esc(v.cor || "—")}</b><small>${esc([v.tamanho, v.edicao].filter(Boolean).join(" · "))}</small>${preco}<strong>${n(q)} un.</strong>`;
     const bfT = bfTexto(v.id, l.id);
     const esp = (v.edicao ? " esp" : "") + (bfT ? " bf" : ""), tit = [v.edicao ? `Peça especial: ${esc(v.edicao)}` : "", esc(bfT)].filter(Boolean).join(" · ");
+    // o title do nome da cor vence o do quadrado: com aviso (especial/beneficiamento), ele leva o aviso junto
+    const corpo = `<b title="${esc(v.cor)}${tit ? " · " + tit : ""}">${esc(v.cor || "—")}</b><small>${esc([v.tamanho, v.edicao].filter(Boolean).join(" · "))}</small>${preco}<strong>${n(q)} un.</strong>`;
     return sep + (controla() || (vende() && q > 0)
       ? `<button type="button" class="chip ${q > 0 ? "" : "zero"}${esp}" data-p="${p.id}" data-v="${v.id}" data-l="${l.id}" title="${tit ? tit + " · " : ""}${controla() ? "Movimentar" : "Transferir para outra loja"}">${corpo}</button>`
       : `<div class="chip ${q > 0 ? "" : "zero"}${esp}" data-v="${v.id}" data-l="${l.id}"${tit ? ` title="${tit}"` : ""}${bfT ? ` data-bfinfo="${esc(bfT)}" tabindex="0" role="button"` : ""}>${corpo}</div>`);

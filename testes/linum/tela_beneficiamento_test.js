@@ -181,6 +181,8 @@ const ultimaRpc = (pg, fn) => pg.evaluate(fn => { const l = window.__S.rpc.filte
     const tit = await pg.getAttribute('button.chip[data-v="v1"][data-l="l-gav"]', 'title');
     ok(await pg.locator('button.chip.bf[data-v="v1"][data-l="l-gav"]').count() === 1 && tit.includes('No beneficiamento: 4 peça(s)') && tit.includes('vai virar: peça especial bordada à mão') && tit.includes('volta prevista 30/11'),
       'Estoque: o quadrado da peça ganha a marca ⟳ e o aviso com peças fora, vai virar e volta prevista');
+    const titCor = await pg.getAttribute('button.chip[data-v="v1"][data-l="l-gav"] b', 'title');
+    ok(titCor.includes('No beneficiamento: 4 peça(s)') && titCor.includes('volta prevista 30/11'), 'apontar o mouse no nome da cor (e no ⟳) também mostra o aviso, não só a cor');
 
     // ---------------------------------------------------------------- aba Beneficiamento + retorno
     await aba(pg, '#abaBenef'); await pg.waitForSelector('[data-bfret]');
@@ -281,6 +283,7 @@ const ultimaRpc = (pg, fn) => pg.evaluate(fn => { const l = window.__S.rpc.filte
     const tv = await q.getAttribute('title');
     ok(tv.includes('No beneficiamento: 2 peça(s) fora da loja, voltam ao estoque') && tv.includes('2 em tingimento') && tv.includes('vai virar: peça especial marinho') && tv.includes('volta prevista 30/11') && !tv.includes('Tigre'),
       'aviso ao apontar o mouse: peças fora, serviço, vai virar e volta prevista (sem o beneficiador)');
+    ok(((await q.locator('b').getAttribute('title')) || '').includes('vai virar: peça especial marinho'), 'vendedora: apontar no nome da cor também mostra o aviso');
     await q.click(); await v.pg.waitForTimeout(150);
     ok((await v.pg.locator('#msg').innerText()).includes('vai virar: peça especial marinho'), 'no celular, tocar no quadrado mostra o aviso');
     await print(v.pg, 'benef_estoque_vendedora');

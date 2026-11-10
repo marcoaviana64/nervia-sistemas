@@ -71,6 +71,7 @@ window.NERVIA_VERSOES = {
     ["1.0", "Lançamento na Plataforma: os chamados de suporte de TI da Nervia por empreendimento, com o histórico de andamentos, a ficha do atendimento em PDF e os equipamentos com código e histórico de usuários."],
   ],
   "linum": [
+    ["2.43", "No Estoque, apontar o mouse no nome da cor ou na marca ⟳ (ou na estrela da peça especial) agora mostra o aviso completo, e não só o nome da cor."],
     ["2.42", "Beneficiamento: a aba fica só para a Dona e o Estoque. No Estoque, toda a equipe vê a marca ⟳ na cor e no tamanho que estão no beneficiamento; ao apontar o mouse (no celular, tocando), aparece quantas peças estão fora, o serviço, o que a peça vai virar e a volta prevista. O tamanho com todas as peças fora continua aparecendo, em azul, mesmo com “Ocultar zerados”. Novo campo “Vai virar” no envio e botão “Editar previsão” na ficha."],
     ["2.41", "Movimentações: em “Por descrição”, a coluna que contava as cores e tamanhos diferentes (e parecia contar peças) agora se chama “Cores/tamanhos”, e a do saldo “Resultado em peças”. Ex.: um envio com P, M (2 peças), G e GG mostra 4 cores/tamanhos e −5 peças."],
     ["2.40", "Beneficiamento: ficha de cada envio com serviço, quem faz, loja, volta prevista, as peças (enviadas, voltaram, perdidas e ainda fora) e o andamento (o envio, cada volta ou perda, com quem registrou e quando, e a conclusão), aberta pelo número ou por “Ficha / imprimir”. Imprimir / PDF para a ficha ir junto com as peças ao beneficiador, com espaço para assinar. Depois de enviar, a ficha já abre para imprimir."],
