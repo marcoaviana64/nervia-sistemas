@@ -42,7 +42,7 @@ async function telaBrindes() {
       ${Object.keys(BR_MOTIVO).filter(k => ativos.some(b => b.motivo === k)).map(k => { const l = ativos.filter(b => b.motivo === k);
         return `<tr><td>${BR_MOTIVO[k]}</td><td class="num">${n(l.length)}</td><td class="num">${n(l.reduce((s, b) => s + brPecas(b), 0))}</td><td class="num">${brl(l.reduce((s, b) => s + brVenda(b), 0))}</td>${dono() ? `<td class="num">${brl(l.reduce((s, b) => s + brCusto(b), 0))}</td>` : ""}</tr>`; }).join("")}
       </tbody></table></div></div>` : ""}
-    <div class="acoes" style="justify-content:flex-start"><button type="button" class="bt" id="brcsv"${vis.length ? "" : " disabled"}>Baixar CSV</button></div>
+    ${dono() ? `<div class="acoes" style="justify-content:flex-start"><button type="button" class="bt" id="brcsv"${vis.length ? "" : " disabled"}>Baixar CSV</button></div>` : ""}
     <div id="brlista">${vis.length ? vis.map(b => `<div class="card brcard" data-br="${b.id}">
         <div class="cab" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
           <h3 style="margin:0">Nº ${b.id} · ${esc(BR_MOTIVO[b.motivo] || b.motivo)} para ${esc(b.destinatario)}${b.cancelado_em ? ' <span class="tag fora">Cancelado</span>' : ""}</h3>
@@ -57,11 +57,11 @@ async function telaBrindes() {
   $("brate").onchange = () => { FBR.ate = $("brate").value; telaBrindes(); };
   document.querySelectorAll("[data-fbr]").forEach(b => b.onclick = () => { FBR[b.dataset.fbr] = b.dataset.x; telaBrindes(); });
   document.querySelectorAll("[data-brcan]").forEach(b => b.onclick = () => cancelarBrinde(bs.find(x => x.id === +b.dataset.brcan)));
-  $("brcsv").onclick = () => {
+  if ($("brcsv")) $("brcsv").onclick = () => {   // 2.45: CSV só para a Dona e a equipe Nervia
     const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`, num = v => v == null ? "" : String(Number(v).toFixed(2)).replace(".", ",");
-    const lin = [["Nº", "Data", "Loja", "Motivo", "Para quem", "Referência", "Peça", "Cor", "Tamanho", "Edição", "Quantidade", "Preço de venda", ...(dono() ? ["Custo unitário"] : []), "Observação", "Registrado por", "Cancelado"].map(q).join(";")];
+    const lin = [["Nº", "Data", "Loja", "Motivo", "Para quem", "Referência", "Peça", "Cor", "Tamanho", "Edição", "Quantidade", "Preço de venda", "Custo unitário", "Observação", "Registrado por", "Cancelado"].map(q).join(";")];
     vis.forEach(b => (b.itens || []).forEach(i => lin.push([b.id, dataBR(b.data), loja(b.loja_id).nome, BR_MOTIVO[b.motivo], b.destinatario, i.referencia, i.descricao, i.cor, i.tamanho, i.edicao,
-      i.quantidade, num(i.preco_venda), ...(dono() ? [num(i.custo_unitario)] : []), b.observacao, b.criado_nome, b.cancelado_em ? "sim: " + (b.cancelamento_motivo || "") : ""].map(q).join(";"))));
+      i.quantidade, num(i.preco_venda), num(i.custo_unitario), b.observacao, b.criado_nome, b.cancelado_em ? "sim: " + (b.cancelamento_motivo || "") : ""].map(q).join(";"))));
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob(["﻿" + lin.join("\r\n")], { type: "text/csv;charset=utf-8" }));
     a.download = `brindes-linum-${FBR.de || "inicio"}-a-${FBR.ate || "hoje"}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
