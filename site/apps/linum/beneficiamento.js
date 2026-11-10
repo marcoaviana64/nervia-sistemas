@@ -1,4 +1,5 @@
-// Sistema Linum 2.38 — BENEFICIAMENTO (pedido do Marco em 09/11/2026).
+// Sistema Linum 2.38 — BENEFICIAMENTO (pedido do Marco em 09/11/2026). Desde a 2.42, só Dono e Estoque veem a aba; a equipe vê
+// a marca ⟳ no quadrado do Estoque (lin_benef_no_estoque, em index.html: bfTexto).
 // A peça sai da loja para bordado, tingimento, estampa… e, na volta, pode voltar igual, virar outra variação da mesma
 // peça (uma peça especial que já existe ou uma nova, criada ali) ou ser perdida. Só o Dono e o Estoque enviam e
 // registram o retorno; toda a equipe vê o que está fora. O valor pago ao beneficiador é só registrado (por peça), por
@@ -14,6 +15,7 @@ const bfValores = () => !!(PERM && PERM.producao_valores);
 const bfData = d => d ? d.split("-").reverse().join("/") : "";
 
 async function carregarBenef() {
+  if (!controla()) { BENEF_FORA = 0; return; }   // 2.42: só Dono e Estoque veem a aba
   const r = await sb.from("lin_beneficiamentos").select("id", { count: "exact", head: true }).eq("situacao", "no_beneficiamento");
   BENEF_FORA = r.error ? 0 : r.count || 0;   // sem a tabela (antes da migração) a tela segue sem beneficiamento
   const b = $("abaBenef");
@@ -65,6 +67,7 @@ async function telaBeneficiamento() {
           <h3 style="margin:0"><button type="button" class="lnk" data-bfficha="${b.id}" title="Abrir a ficha" style="font:inherit;font-weight:700">Nº ${b.id}</button> · ${esc(b.servico)} · ${esc(b.beneficiador)} <span class="tag ${b.situacao === "concluido" ? "ok" : atrasado(b) ? "fora" : "possivel"}">${atrasado(b) ? "Atrasado" : BF_SIT[b.situacao]}</span></h3>
           <span class="mut">${n(tot)} peça(s)${pend && pend < tot ? ` · ${n(pend)} ainda fora` : ""}</span></div>
         <div class="mut">Saiu de ${esc(loja(b.loja_id).nome)} · enviado por ${esc(b.enviado_nome || "—")} em ${quando(b.enviado_em)}${b.previsto ? ` · volta prevista ${bfData(b.previsto)}` : ""}${b.observacao ? " · " + esc(b.observacao) : ""}</div>
+        ${b.vai_virar ? `<div><b>Vai virar:</b> ${esc(b.vai_virar)}</div>` : ""}
         ${b.concluido_em ? `<div class="mut">Concluído em ${quando(b.concluido_em)}</div>` : ""}
         <ul style="margin:8px 0 0;padding-left:18px">${l.map(i => `<li>${i.quantidade}× ${bfPeca(i)}${i.voltaram ? ` · voltaram ${i.voltaram}` : ""}${i.perdidas ? ` · <b style="color:var(--crit)">perdidas ${i.perdidas}</b>` : ""}${bfPend(i) && bfPend(i) < i.quantidade ? ` · <b>fora ${bfPend(i)}</b>` : ""}${bfValores() && val.has(i.id) ? ` · <span class="mut">${brl(val.get(i.id))}/peça</span>` : ""}</li>`).join("")}</ul>
         ${r.length ? `<div style="margin-top:6px"><b style="font-size:13px">Retornos</b><ul style="margin:4px 0 0;padding-left:18px">${r.map(x => { const i = l.find(y => y.id === x.item_id) || {};
@@ -119,6 +122,7 @@ function fichaBeneficiamento(b, its, rs, val) {
       ${linha("Saiu da loja", esc(loja(b.loja_id).nome))}
       ${linha("Enviado", `${quando(b.enviado_em)} · ${esc(b.enviado_nome || "—")}`)}
       ${linha("Volta prevista", b.previsto ? (atr ? `<b style="color:var(--crit)">${bfData(b.previsto)} · atrasado</b>` : bfData(b.previsto)) : '<span class="mut">não informada</span>')}
+      ${b.vai_virar ? linha("Vai virar", `<b>${esc(b.vai_virar)}</b>`) : ""}
       ${b.observacao ? linha("Observação", esc(b.observacao)) : ""}
       ${bfValores() && valor ? linha("Valor pago", `<b>${brl(valor)}</b>`) : ""}
     </div>
@@ -131,10 +135,11 @@ function fichaBeneficiamento(b, its, rs, val) {
       <ol class="ajlinha">${ev.map(e => `<li class="ev-${e.tipo === "perda" ? "cancelado" : e.tipo === "concluido" ? "entregue" : e.tipo}"><b>${esc(e.txt)}</b> <span class="mut">${quando(e.em)}${e.quem ? " · " + esc(e.quem) : ""}</span>${e.det ? `<div>${esc(e.det)}</div>` : ""}</li>`).join("")}
         ${b.situacao === "no_beneficiamento" ? `<li class="prox"><span class="mut">Próximo: registrar a volta de ${fora} peça(s)${b.previsto ? " até " + bfData(b.previsto) : ""}</span></li>` : ""}</ol></div>
     <div class="acoes" style="flex-wrap:wrap">
-      ${controla() && b.situacao === "no_beneficiamento" ? '<button type="button" class="bt pri" id="bffret">Registrar retorno</button>' : ""}
+      ${controla() && b.situacao === "no_beneficiamento" ? '<button type="button" class="bt pri" id="bffret">Registrar retorno</button><button type="button" class="bt" id="bffedit">Editar previsão</button>' : ""}
       ${bfValores() ? '<button type="button" class="bt" id="bffval">Valor pago</button>' : ""}
       <button type="button" class="bt" id="bffimp">Imprimir / PDF</button><button type="button" class="bt" id="bffx">Fechar</button></div>`;
   if ($("bffret")) $("bffret").onclick = () => retornoBeneficiamento(b, its, () => fichaBeneficiamento(b, its, rs, val));
+  if ($("bffedit")) $("bffedit").onclick = () => editarPrevisaoBenef(b, () => abrirFichaBenef(b.id).catch(e => msg("err", e.message)), () => fichaBeneficiamento(b, its, rs, val));
   if ($("bffval")) $("bffval").onclick = () => valoresBeneficiamento(b, its, val || new Map());
   $("bffimp").onclick = () => imprimirBeneficiamento(b, its, rs, val);
   $("bffx").onclick = () => $("dlg").close();
@@ -154,6 +159,7 @@ function imprimirBeneficiamento(b, its, rs, val) {
       <tr><td class="mut">Quem faz</td><td><b>${esc(b.beneficiador)}</b></td></tr>
       <tr><td class="mut">Saiu da loja</td><td>${esc(loja(b.loja_id).nome)} · ${quando(b.enviado_em)} · ${esc(b.enviado_nome || "")}</td></tr>
       <tr><td class="mut">Volta prevista</td><td><b>${b.previsto ? bfData(b.previsto) : "—"}</b></td></tr>
+      ${b.vai_virar ? `<tr><td class="mut">Vai virar</td><td>${esc(b.vai_virar)}</td></tr>` : ""}
       ${b.observacao ? `<tr><td class="mut">Observação</td><td>${esc(b.observacao)}</td></tr>` : ""}
     </table></div>
     <table><thead><tr><th>Peça</th><th class="n">Enviadas</th><th class="n">Voltaram</th><th class="n">Perdidas</th><th class="n">Fora</th>${vv ? '<th class="n">R$/peça</th>' : ""}</tr></thead><tbody>
@@ -172,7 +178,7 @@ async function novoBeneficiamento(ini, anteriores) {
   const f = $("dlgf");
   if (!anteriores) { const r = await sb.from("lin_beneficiamentos").select("beneficiador, servico").order("id", { ascending: false }).limit(200); anteriores = r.data || []; }
   const unicos = k => [...new Set(anteriores.map(b => b[k]).filter(Boolean))];
-  const T = { loja: (ini && ini.loja) || MINHA_LOJA || (LOJAS[0] || {}).id || "", quem: "", serv: "", prev: "", obs: "", itens: [], q: "" };
+  const T = { loja: (ini && ini.loja) || MINHA_LOJA || (LOJAS[0] || {}).id || "", quem: "", serv: "", prev: "", virar: "", obs: "", itens: [], q: "" };
   const vmap = bfVariantes();
   if (ini && ini.variante && vmap.has(ini.variante)) T.itens.push({ variante: ini.variante, quantidade: 1, valor: "" });
   const rot = id => { const x = vmap.get(id); return x ? `${esc(x.p.descricao)} <span class="mut">(${esc(x.p.referencia || "")})</span> — ${esc(nomeVar(x.v))}` : "?"; };
@@ -190,7 +196,7 @@ async function novoBeneficiamento(ini, anteriores) {
     return out;
   };
   const guardar = () => {
-    [["bfq", "q"], ["bfquem", "quem"], ["bfserv", "serv"], ["bfprev", "prev"], ["bfobs", "obs"]].forEach(([id, k]) => { if ($(id)) T[k] = $(id).value; });
+    [["bfq", "q"], ["bfquem", "quem"], ["bfserv", "serv"], ["bfprev", "prev"], ["bfvirar", "virar"], ["bfobs", "obs"]].forEach(([id, k]) => { if ($(id)) T[k] = $(id).value; });
     f.querySelectorAll("[data-bfq]").forEach(i => { const it = T.itens[+i.dataset.bfq]; if (it) it.quantidade = i.value; });
     f.querySelectorAll("[data-bfv]").forEach(i => { const it = T.itens[+i.dataset.bfv]; if (it) it.valor = i.value; });
   };
@@ -208,6 +214,7 @@ async function novoBeneficiamento(ini, anteriores) {
       <div class="campo"><label for="bfquem">Quem faz (beneficiador)</label><input id="bfquem" list="bfdlq" maxlength="120" value="${esc(T.quem)}" placeholder="Ex.: Ateliê da Rosa"><datalist id="bfdlq">${unicos("beneficiador").map(x => `<option value="${esc(x)}">`).join("")}</datalist></div>
       <div class="campo"><label for="bfserv">Serviço</label><input id="bfserv" list="bfdls" maxlength="200" value="${esc(T.serv)}" placeholder="Ex.: bordado à mão, tingimento, estampa"><datalist id="bfdls">${unicos("servico").map(x => `<option value="${esc(x)}">`).join("")}</datalist></div>
       <div class="campo"><label for="bfprev">Volta prevista (opcional)</label><input id="bfprev" type="date" min="${hoje()}" value="${esc(T.prev)}"></div>
+      <div class="campo"><label for="bfvirar">Vai virar (opcional)</label><input id="bfvirar" maxlength="120" value="${esc(T.virar)}" placeholder="Ex.: peça especial bordada; tingida de azul-marinho"><div class="mut" style="font-size:12px">Aparece para toda a equipe no quadrado da peça no Estoque, junto com a volta prevista.</div></div>
       <div class="campo"><label for="bfq">Acrescentar peça</label><input id="bfq" type="search" autocomplete="off" placeholder="Nome, referência ou código de barras" value="${esc(T.q)}"><div id="bfres"></div></div>
       <div class="campo"><label>Peças que vão</label>${T.itens.length ? `<div class="tw"><table><thead><tr><th>Peça</th><th class="num">Em ${esc(loja(T.loja).nome)}</th><th class="num">Enviar</th>${bfValores() ? '<th class="num">Valor por peça (R$)</th>' : ""}<th></th></tr></thead><tbody>
         ${T.itens.map((it, k) => `<tr><td>${rot(it.variante)}</td><td class="num">${n(qtd(it.variante, T.loja))}</td>
@@ -216,7 +223,7 @@ async function novoBeneficiamento(ini, anteriores) {
           <td><button type="button" class="lnk perigo" data-bfdel="${k}">Tirar</button></td></tr>`).join("")}</tbody></table></div>
         <div class="mut" style="font-size:12px">${n(T.itens.reduce((s, i) => s + (Number(i.quantidade) || 0), 0))} peça(s)${bfValores() ? " · o valor pago é só registro: não muda o custo nem o preço da peça" : ""}</div>` : '<div class="mut">Nenhuma peça ainda: procure acima.</div>'}</div>
       <div class="campo"><label for="bfobs">Observação (opcional)</label><input id="bfobs" maxlength="300" value="${esc(T.obs)}" placeholder="Ex.: flores na barra, cor azul-marinho"></div>
-      <p class="mut" style="font-size:12.5px">O que a peça vai virar (peça especial, outra cor) é escolhido na volta.</p>
+      <p class="mut" style="font-size:12.5px">A variação em que a peça vai entrar (peça especial, outra cor) é escolhida na volta.</p>
       ${erro ? `<div class="msg err">${esc(erro)}</div>` : ""}
       <div class="acoes"><button type="button" class="bt" id="bfx">Cancelar</button><button type="button" class="bt pri" id="bfok">Enviar peças</button></div>`;
     f.querySelectorAll("[data-bfl]").forEach(b => b.onclick = () => { guardar(); T.loja = b.dataset.bfl; T.itens = T.itens.filter(i => qtd(i.variante, T.loja) > 0); desenhar(); });
@@ -242,7 +249,7 @@ async function novoBeneficiamento(ini, anteriores) {
     if (!confirm(`Enviar ${tot} peça(s) de ${loja(T.loja).nome} para ${T.serv.trim()} com ${T.quem.trim()}?\n\nAs peças saem agora do estoque de ${loja(T.loja).nome} e só voltam quando o retorno for registrado.`)) return;
     $("bfok").disabled = true; $("bfok").textContent = "Enviando…";
     try {
-      const id = checar(await sb.rpc("lin_beneficiamento_enviar", { p: { loja: T.loja, beneficiador: T.quem.trim(), servico: T.serv.trim(), previsto: T.prev, observacao: T.obs.trim(),
+      const id = checar(await sb.rpc("lin_beneficiamento_enviar", { p: { loja: T.loja, beneficiador: T.quem.trim(), servico: T.serv.trim(), previsto: T.prev, vai_virar: T.virar.trim(), observacao: T.obs.trim(),
         itens: T.itens.map(i => Object.assign({ variante_id: i.variante, quantidade: Number(i.quantidade) }, bfValores() && String(i.valor || "").trim() ? { valor_unitario: Number(numBR(i.valor)) } : {})) } }));
       $("dlg").close();
       await carregar(); await carregarBenef();
@@ -397,4 +404,25 @@ function valoresBeneficiamento(b, its, val) {
   };
   desenhar();
   $("dlg").showModal();
+}
+
+// 2.42: editar a volta prevista e o que a peça vai virar (Dono e Estoque, enquanto as peças estão fora)
+function editarPrevisaoBenef(b, depois, voltar) {
+  const f = $("dlgf");
+  f.innerHTML = `<h3>Previsão · beneficiamento nº ${b.id}</h3><div class="mut">${esc(b.servico)} · ${esc(b.beneficiador)}</div>
+    <div class="campo"><label for="bepre">Volta prevista</label><input id="bepre" type="date" value="${esc(b.previsto || "")}"><div class="mut" style="font-size:12px">Vazio = sem data prevista.</div></div>
+    <div class="campo"><label for="bevir">Vai virar</label><input id="bevir" maxlength="120" value="${esc(b.vai_virar || "")}" placeholder="Ex.: peça especial bordada"></div>
+    <p class="mut" style="font-size:12.5px">A volta prevista e o "vai virar" aparecem para toda a equipe no quadrado da peça no Estoque.</p>
+    <div id="beerr"></div>
+    <div class="acoes"><button type="button" class="bt" id="bex">Voltar</button><button type="button" class="bt pri" id="beok">Salvar</button></div>`;
+  $("bex").onclick = voltar;
+  $("beok").onclick = async () => {
+    $("beok").disabled = true;
+    try {
+      checar(await sb.rpc("lin_beneficiamento_editar", { p_id: b.id, p_previsto: $("bepre").value || null, p_vai_virar: $("bevir").value.trim() }));
+      await carregar(); if (VISTA === "beneficiamento") telaBeneficiamento(); else if (VISTA === "estoque") lista();
+      msg("ok", `Previsão do beneficiamento nº ${b.id} salva.`); depois();
+    } catch (e) { $("beerr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; $("beok").disabled = false; }
+  };
+  if (!$("dlg").open) $("dlg").showModal();
 }

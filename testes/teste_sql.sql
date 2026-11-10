@@ -2483,17 +2483,40 @@ select pg_temp.ok((select situacao = 'concluido' and concluido_em is not null fr
   and exists (select 1 from auditoria where acao = 'linum_beneficiamento_valor')
   and not exists (select 1 from auditoria where acao = 'linum_beneficiamento_retorno' and detalhes::text like '%45.5%'),
   'linum 2.38: perda registrada, valor auditado à parte');
+-- 2.42: só Dono e Estoque leem o beneficiamento; a equipe vê só o resumo da marca no Estoque
 set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora (mesmo com "Valores da produção")
+select pg_temp.ok((select count(*) = 0 from lin_beneficiamentos) and (select count(*) = 0 from lin_benef_itens)
+  and (select count(*) = 0 from lin_benef_retornos) and (select count(*) = 0 from lin_benef_valores),
+  'linum 2.42: a vendedora não lê o beneficiamento (nem o valor)');
+select pg_temp.erro2($$select lin_beneficiamento_editar(1, null, 'x')$$, 'Somente o Dono ou o Estoque', 'linum 2.42: vendedora não edita a previsão');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';   -- Estoque (sem Valores)
+select pg_temp.ok((select count(*) = 1 from lin_beneficiamentos) and (select count(*) = 3 from lin_benef_retornos) and (select count(*) = 0 from lin_benef_valores),
+  'linum 2.42: Estoque lê o beneficiamento, sem valor');
+reset role;
+insert into lin_estoque (variante_id, loja_id, quantidade) values ('20000000-0000-0000-0000-000000000002', (select v from lin_ids where k = 'gav'), 5)
+  on conflict (variante_id, loja_id) do update set quantidade = excluded.quantidade;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+insert into lin_bf values ('b2', lin_beneficiamento_enviar(jsonb_build_object('loja', (select v from lin_ids where k = 'gav'), 'beneficiador', 'Tigre',
+  'servico', 'tingimento', 'vai_virar', 'Peça especial azul-marinho', 'previsto', (now() at time zone 'America/Sao_Paulo')::date + 20,
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 3)))));
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
-select pg_temp.ok((select count(*) = 1 from lin_beneficiamentos) and (select count(*) = 3 from lin_benef_retornos) and (select count(*) = 1 from lin_benef_valores),
-  'linum 2.38: a vendedora vê o beneficiamento (e o valor, porque tem "Valores da produção")');
+select pg_temp.ok((select jsonb_array_length(lin_benef_no_estoque()) = 1)
+  and (select e ->> 'variante_id' = '20000000-0000-0000-0000-000000000002' and (e ->> 'pecas')::int = 3 and e ->> 'loja_id' = (select v from lin_ids where k = 'gav')::text
+        and e -> 'itens' -> 0 ->> 'vai_virar' = 'Peça especial azul-marinho' and e -> 'itens' -> 0 ->> 'servico' = 'tingimento'
+        and not (e -> 'itens' -> 0 ? 'beneficiador') from jsonb_array_elements(lin_benef_no_estoque()) e),
+  'linum 2.42: a vendedora vê o resumo (peças fora, serviço, vai virar, previsão; sem o beneficiador), só do que está fora');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+select pg_temp.erro2(format($$select lin_beneficiamento_editar(%s, '2020-01-01', 'x')$$, (select v from lin_bf where k = 'b2')), 'antes de hoje', 'linum 2.42: previsão no passado recusada');
+select pg_temp.erro2(format($$select lin_beneficiamento_editar(%s, null, 'x')$$, (select v from lin_bf where k = 'b1')), 'já foi concluído', 'linum 2.42: concluído não muda a previsão');
+select lin_beneficiamento_editar((select v from lin_bf where k = 'b2'), (now() at time zone 'America/Sao_Paulo')::date + 30, 'Peça especial Tingida Marinho');
 reset role;
-update lin_membros set permissoes = '{}' where user_id = '00000000-0000-0000-0000-00000000000c';
-set role authenticated;
-select pg_temp.ok((select count(*) = 1 from lin_beneficiamentos) and (select count(*) = 0 from lin_benef_valores),
-  'linum 2.38: sem "Valores da produção" a vendedora vê o beneficiamento, sem valor');
-reset role;
-update lin_membros set permissoes = '{producao,producao_valores}' where user_id = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.ok((select vai_virar = 'Peça especial Tingida Marinho' and previsto = (now() at time zone 'America/Sao_Paulo')::date + 30 from lin_beneficiamentos where id = (select v from lin_bf where k = 'b2'))
+  and exists (select 1 from auditoria where acao = 'linum_beneficiamento_enviado' and detalhes ->> 'vai_virar' = 'Peça especial azul-marinho')
+  and exists (select 1 from auditoria where acao = 'linum_beneficiamento_editado' and detalhes -> 'antes' ->> 'vai_virar' = 'Peça especial azul-marinho'
+                and detalhes -> 'depois' ->> 'vai_virar' = 'Peça especial Tingida Marinho'),
+  'linum 2.42: "vai virar" no envio e na edição, com auditoria do antes e depois');
 set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
 select pg_temp.ok((select count(*) = 0 from lin_beneficiamentos), 'linum 2.38: login sem papel não vê o beneficiamento');

@@ -1,7 +1,7 @@
 // Teste de tela do Beneficiamento do Sistema Linum (versão 2.38) com o Playwright do Node e um Supabase IMITADO no
 // navegador (estoque, lin_beneficiamento_*, lin_variante_salvar). Dados FICTÍCIOS. As regras do banco estão nos testes SQL
 // (testes/teste_sql.sql, "linum 2.38"); aqui confere a tela e o que ela manda ao servidor.
-// Confere: aba para toda a equipe (vendedora só vê, sem botões nem valor); "Beneficiamento" ao movimentar a peça abre o
+// Confere: aba só para Dono e Estoque (2.42; a vendedora vê só a marca ⟳ no Estoque, com o aviso ao apontar o mouse); "Beneficiamento" ao movimentar a peça abre o
 // envio; serviço e quem faz obrigatórios; envio maior que o estoque barrado; valor por peça só com "Valores da produção";
 // retorno parcial (igual + peça especial escolhida), perda exige motivo, nova peça especial criada na hora, loja de entrada,
 // concluído; Valor pago; Movimentações com os tipos novos; celular sem rolagem lateral.
@@ -28,6 +28,7 @@ const DADOS = {
 const FALSO = `(() => {
   const S = window.__S = { D: ${JSON.stringify(DADOS)}, bf: [], it: [], rt: [], val: [], mov: [], rpc: [], perm: __PERM__ };
   S.D.papel = '__PAPEL__';
+  const PRE = __PRESET__; if (PRE.bf) S.bf.push(...PRE.bf); if (PRE.it) S.it.push(...PRE.it); if (PRE.estoque) S.D.estoque = PRE.estoque;
   const ok = data => Promise.resolve({ data, error: null }), erro = m => Promise.resolve({ data: null, error: { message: m } });
   const tabela = t => ({ lin_beneficiamentos: S.bf, lin_benef_itens: S.it, lin_benef_retornos: S.rt, lin_benef_valores: S.perm.producao_valores ? S.val : [], lin_movimentos: S.mov }[t] || []);
   const consulta = tab => { const f = []; let head = false, um = false;
@@ -52,7 +53,7 @@ const FALSO = `(() => {
       for (const i of p.itens) { const e = est(i.variante_id, p.loja); if (!e || e[2] < i.quantidade) return erro('Estoque insuficiente'); }
       if (p.itens.some(i => i.valor_unitario != null) && !S.perm.producao_valores) return erro('Seu login não registra valores do beneficiamento');
       const id = S.bf.length + 1;
-      S.bf.push({ id, loja_id: p.loja, beneficiador: p.beneficiador, servico: p.servico, previsto: p.previsto || null, observacao: p.observacao,
+      S.bf.push({ id, loja_id: p.loja, beneficiador: p.beneficiador, servico: p.servico, previsto: p.previsto || null, vai_virar: p.vai_virar || '', observacao: p.observacao,
         situacao: 'no_beneficiamento', enviado_nome: 'Edu Estoque', enviado_em: agora(), concluido_em: null });
       for (const i of p.itens) {
         est(i.variante_id, p.loja)[2] -= i.quantidade;
@@ -80,6 +81,13 @@ const FALSO = `(() => {
       return ok(fim ? 'concluido' : 'no_beneficiamento');
     },
     lin_beneficiamento_valores: ({ p_itens }) => { for (const v of p_itens) { S.val = S.val.filter(x => x.item_id !== v.item_id); if (v.valor_unitario !== '') S.val.push(v); } return ok(null); },
+    lin_benef_no_estoque: () => { const m = new Map();
+      for (const i of S.it) { const b = S.bf.find(x => x.id === i.beneficiamento_id), pend = i.quantidade - i.voltaram - i.perdidas;
+        if (!b || b.situacao !== 'no_beneficiamento' || pend <= 0) continue;
+        const k = i.variante_id + ':' + b.loja_id, x = m.get(k) || { variante_id: i.variante_id, loja_id: b.loja_id, pecas: 0, itens: [] };
+        x.pecas += pend; x.itens.push({ servico: b.servico, vai_virar: b.vai_virar || '', previsto: b.previsto, pecas: pend }); m.set(k, x); }
+      return ok([...m.values()]); },
+    lin_beneficiamento_editar: ({ p_id, p_previsto, p_vai_virar }) => { const b = S.bf.find(x => x.id === p_id); b.previsto = p_previsto; b.vai_virar = p_vai_virar; return ok(null); },
     lin_variante_salvar: ({ p }) => { const pr = S.D.produtos.find(x => x.id === p.produto_id); const id = 'v' + (100 + S.rpc.length);
       pr.variantes.push({ id, cor: p.cor, tamanho: p.tamanho, edicao: p.edicao }); return ok(id); },
   };
@@ -104,10 +112,10 @@ function servidor() {
 let falhas = 0, oks = 0;
 function ok(cond, nome) { if (cond) { oks++; console.log('ok  ' + nome); } else { falhas++; console.log('FALHOU  ' + nome); } }
 
-async function pagina(ctx, papel, valores) {
+async function pagina(ctx, papel, valores, preset) {
   const pg = await ctx.newPage(); const erros = [];
   pg.on('pageerror', e => erros.push(String(e)));
-  const corpo = FALSO.replace('__PAPEL__', papel).replace('__PERM__', JSON.stringify({ producao: !!valores, producao_valores: !!valores }));
+  const corpo = FALSO.replace('__PAPEL__', papel).replace('__PERM__', JSON.stringify({ producao: !!valores, producao_valores: !!valores })).replace('__PRESET__', JSON.stringify(preset || {}));
   await pg.route('**/supabase-js@*/**', r => r.fulfill({ body: corpo, contentType: 'text/javascript' }));
   await pg.goto(`http://127.0.0.1:${PORTA}/apps/linum/`);
   await pg.waitForSelector('#app:not(.oculto)');
@@ -140,7 +148,7 @@ const ultimaRpc = (pg, fn) => pg.evaluate(fn => { const l = window.__S.rpc.filte
     ok((await pg.locator('#dlgf .msg.err').innerText()).includes('quem vai fazer'), 'quem faz é obrigatório');
     await pg.fill('#bfquem', 'Ateliê Flor'); await pg.click('#bfok'); await pg.waitForTimeout(150);
     ok((await pg.locator('#dlgf .msg.err').innerText()).includes('serviço'), 'serviço é obrigatório');
-    await pg.fill('#bfserv', 'bordado à mão');
+    await pg.fill('#bfserv', 'bordado à mão'); await pg.fill('#bfvirar', 'peça especial bordada');
     await pg.fill('[data-bfq="0"]', '9'); await pg.click('#bfok'); await pg.waitForTimeout(150);
     ok((await pg.locator('#dlgf .msg.err').innerText()).includes('só tem 5'), 'mais que o estoque: barrado na tela');
     await pg.fill('[data-bfq="0"]', '4');
@@ -150,7 +158,7 @@ const ultimaRpc = (pg, fn) => pg.evaluate(fn => { const l = window.__S.rpc.filte
     pg.once('dialog', d => d.accept()); await pg.click('#bfok'); await pg.waitForTimeout(500);
     const env = await ultimaRpc(pg, 'lin_beneficiamento_enviar');
     ok(env && env.p.loja === 'l-gav' && env.p.beneficiador === 'Ateliê Flor' && env.p.servico === 'bordado à mão' && env.p.itens.length === 2
-       && env.p.itens[0].quantidade === 4 && !('valor_unitario' in env.p.itens[0]), 'envio manda loja, quem faz, serviço e peças (sem valor)');
+       && env.p.itens[0].quantidade === 4 && !('valor_unitario' in env.p.itens[0]) && env.p.vai_virar === 'peça especial bordada', 'envio manda loja, quem faz, serviço, vai virar e peças (sem valor)');
     ok(await estoque(pg, 'v1', 'l-gav') === 1 && (await pg.locator('#msg').innerText()).includes('Beneficiamento nº 1'), 'peças saem do estoque; mensagem com o número');
     ok((await pg.locator('#abaBenef').innerText()).trim().endsWith('1'), 'número na aba');
     // 2.40: depois do envio, a ficha abre sozinha (para imprimir e mandar junto com as peças)
@@ -159,10 +167,20 @@ const ultimaRpc = (pg, fn) => pg.evaluate(fn => { const l = window.__S.rpc.filte
     ok(fic.includes('Beneficiamento nº 1') && fic.includes('bordado à mão') && fic.includes('Ateliê Flor') && fic.includes('Enviado para Ateliê Flor') && fic.includes('Próximo: registrar a volta de 5 peça(s)'),
       'ficha abre depois do envio: serviço, quem faz, andamento e próximo passo');
     ok(!/R\$/.test(fic) && await pg.locator('#bffval').count() === 0, 'ficha do Estoque sem valor');
+    ok(fic.includes('Vai virar') && fic.includes('peça especial bordada'), 'ficha mostra o que a peça vai virar');
+    // 2.42: editar a previsão pela ficha
+    await pg.click('#bffedit'); await pg.waitForSelector('#dlg[open] #bevir');
+    await pg.fill('#bepre', '2099-11-30'); await pg.fill('#bevir', 'peça especial bordada à mão'); await pg.click('#beok'); await pg.waitForSelector('#dlg[open] #bffimp');
+    const ed = await ultimaRpc(pg, 'lin_beneficiamento_editar');
+    ok(ed && ed.p_id === 1 && ed.p_previsto === '2099-11-30' && ed.p_vai_virar === 'peça especial bordada à mão'
+       && (await pg.locator('#dlgf').innerText()).includes('peça especial bordada à mão'), '"Editar previsão" grava a volta e o vai virar e volta para a ficha');
     const [pop] = await Promise.all([pg.context().waitForEvent('page'), pg.click('#bffimp')]);
     await pop.waitForLoadState(); const imp = await pop.evaluate(() => document.body.innerText); await pop.close();
     ok(imp.includes('Beneficiamento nº 1') && imp.includes('Ateliê Flor') && imp.includes('Recebido por Ateliê Flor') && imp.includes('Andamento') && !imp.includes('R$'), 'ficha impressa para ir com as peças (sem valor para o Estoque)');
     await pg.click('#bffx');
+    const tit = await pg.getAttribute('button.chip[data-v="v1"][data-l="l-gav"]', 'title');
+    ok(await pg.locator('button.chip.bf[data-v="v1"][data-l="l-gav"]').count() === 1 && tit.includes('No beneficiamento: 4 peça(s)') && tit.includes('vai virar: peça especial bordada à mão') && tit.includes('volta prevista 30/11'),
+      'Estoque: o quadrado da peça ganha a marca ⟳ e o aviso com peças fora, vai virar e volta prevista');
 
     // ---------------------------------------------------------------- aba Beneficiamento + retorno
     await aba(pg, '#abaBenef'); await pg.waitForSelector('[data-bfret]');
@@ -250,17 +268,24 @@ const ultimaRpc = (pg, fn) => pg.evaluate(fn => { const l = window.__S.rpc.filte
     await print(d.pg, 'benef_dono');
     ok(d.erros.length === 0, 'sem erro de JavaScript (Dono) ' + d.erros.join(' | '));
 
-    // ---------------------------------------------------------------- vendedora: só vê
-    const v = await pagina(ctx, 'vendedora', false);
-    ok(await v.pg.locator('#abaBenef').count() === 1, 'vendedora tem a aba');
-    await v.pg.evaluate(() => { const S = window.__S; S.bf.push({ id: 7, loja_id: 'l-gav', beneficiador: 'Ateliê', servico: 'estampa', previsto: '2020-01-01', observacao: '',
-      situacao: 'no_beneficiamento', enviado_nome: 'Dona', enviado_em: new Date().toISOString() });
-      S.it.push({ id: 9, beneficiamento_id: 7, variante_id: 'v1', quantidade: 1, voltaram: 0, perdidas: 0, referencia: 'VES-MAR', descricao: 'Vestido Mar', cor: 'Azul', tamanho: 'P', edicao: '' }); });
-    await aba(v.pg, '#abaBenef'); await v.pg.waitForSelector('[data-bf="7"]');
-    ok(await v.pg.locator('#bfnovo, [data-bfret], [data-bfval]').count() === 0, 'vendedora não envia nem registra retorno');
-    ok((await v.pg.locator('[data-bf="7"]').innerText()).includes('Atrasado') && (await v.pg.locator('.kpis').innerText()).includes('Atrasados\n1'), 'volta prevista vencida = Atrasado');
-    // vendedora no Estoque: o quadrado continua sendo a transferência
-    await aba(v.pg, '.aba[data-v="estoque"]'); await v.pg.click('button.chip[data-v="v1"][data-l="l-gav"]'); await v.pg.waitForSelector('#dlg[open]');
+    // ---------------------------------------------------------------- vendedora (2.42): sem a aba; vê a marca no Estoque
+    const pre = { bf: [{ id: 7, loja_id: 'l-gav', beneficiador: 'Tigre', servico: 'tingimento', vai_virar: 'peça especial marinho', previsto: '2099-11-30',
+        observacao: '', situacao: 'no_beneficiamento', enviado_nome: 'Dona', enviado_em: new Date().toISOString() }],
+      it: [{ id: 9, beneficiamento_id: 7, variante_id: 'v2', quantidade: 2, voltaram: 0, perdidas: 0, referencia: 'VES-MAR', descricao: 'Vestido Mar', cor: 'Azul', tamanho: 'M', edicao: '' }],
+      estoque: [['v1', 'l-gav', 5], ['v5', 'l-gav', 4]] };
+    const v = await pagina(ctx, 'vendedora', false, pre);
+    ok(await v.pg.locator('#abaBenef').evaluate(e => e.classList.contains('oculto')), 'vendedora não tem a aba Beneficiamento');
+    ok(await v.pg.evaluate(() => !window.__S.rpc.some(x => /beneficiamento_/.test(x[0]))), 'vendedora não chama as funções do beneficiamento');
+    const q = v.pg.locator('div.chip.bf[data-v="v2"][data-l="l-gav"]');
+    ok(await q.count() === 1, 'Estoque: a peça toda no beneficiamento (0 na loja) continua aparecendo com "ocultar zerados", com a marca ⟳');
+    const tv = await q.getAttribute('title');
+    ok(tv.includes('No beneficiamento: 2 peça(s) fora da loja, voltam ao estoque') && tv.includes('2 em tingimento') && tv.includes('vai virar: peça especial marinho') && tv.includes('volta prevista 30/11') && !tv.includes('Tigre'),
+      'aviso ao apontar o mouse: peças fora, serviço, vai virar e volta prevista (sem o beneficiador)');
+    await q.click(); await v.pg.waitForTimeout(150);
+    ok((await v.pg.locator('#msg').innerText()).includes('vai virar: peça especial marinho'), 'no celular, tocar no quadrado mostra o aviso');
+    await print(v.pg, 'benef_estoque_vendedora');
+    // vendedora no Estoque: o quadrado com peça continua sendo a transferência
+    await v.pg.click('button.chip[data-v="v1"][data-l="l-gav"]'); await v.pg.waitForSelector('#dlg[open]');
     ok(await v.pg.locator('#trq').count() === 1, 'vendedora: o quadrado do Estoque continua abrindo a transferência');
     ok(v.erros.length === 0, 'sem erro de JavaScript (vendedora) ' + v.erros.join(' | '));
 

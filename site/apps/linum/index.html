@@ -117,6 +117,9 @@ dialog h3{margin:0 0 4px;font-size:17px}
 .tag{display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;font-weight:600;background:var(--surface-2);color:var(--ink-soft);margin-left:6px;vertical-align:middle}
 /* peça especial: estrela dourada pequena (pedido do Marco); só por CSS, o texto da etiqueta não muda */
 .chip.esp b::before,.vtag.esp::before,.vlin.esp>span:first-child::before{content:"★";color:#c9a227;font-size:.9em;margin-right:3px}
+/* 2.42: peça no beneficiamento — setas azuis depois do nome da cor; o texto aparece ao apontar o mouse (title) */
+.chip.bf b::after{content:"⟳";color:#2a6fb0;font-weight:700;margin-left:3px}.chip.bf{border-style:dashed}
+.chip.zero.bf{background:var(--info-bg);color:var(--info);border-color:var(--info)}.chip.zero.bf *{color:var(--info)}
 h2.temesp::after{content:"★";color:#c9a227;font-size:.7em;margin-left:5px;vertical-align:.15em}
 .vtag{display:inline-block;font-size:12px;padding:2px 8px;border:1px solid var(--border);border-radius:7px;margin:2px 4px 2px 0}
 .esplinha{margin-top:8px;padding:6px 8px;border-left:3px solid #c9a227;background:rgba(201,162,39,.07);border-radius:0 8px 8px 0}.esptit{font-size:12px;font-weight:700;color:#8a6d12;margin-bottom:4px}.prod .loja .esplinha .chips{margin-top:4px}
@@ -239,6 +242,14 @@ let MINHA_COMISSAO = 0;
 const vende = () => !!PAPEL;   // Vendas e Clientes: qualquer pessoa da equipe da Linum vende, em qualquer loja
 const chave = (v, l) => v + ":" + l;
 const qtd = (v, l) => QTD.get(chave(v, l)) || 0;
+let BENEF_EST = new Map();   // variação × loja de origem → peças no beneficiamento (lin_benef_no_estoque)
+const bfFora = (v, l) => (BENEF_EST.get(chave(v, l)) || {}).pecas || 0;
+const bfDataBR = d => d ? d.split("-").reverse().slice(0, 2).join("/") : "";
+function bfTexto(v, l) {   // texto do aviso ao apontar o mouse
+  const x = BENEF_EST.get(chave(v, l)); if (!x) return "";
+  return `No beneficiamento: ${x.pecas} peça(s) fora da loja, voltam ao estoque — ` + x.itens.map(i => [`${i.pecas} em ${i.servico}`,
+    i.vai_virar ? `vai virar: ${i.vai_virar}` : "", i.previsto ? `volta prevista ${bfDataBR(i.previsto)}` : "volta sem data prevista"].filter(Boolean).join(", ")).join("; ");
+}
 const loja = id => LOJAS.find(l => l.id === id) || { nome: "?" };
 
 // tamanhos na ordem das araras; o resto em ordem alfabética/numérica (como no sistema antigo)
@@ -266,7 +277,7 @@ async function iniciar() {
     PERM = checar(await sb.rpc("lin_minhas_permissoes")) || PERM;
     $("abaEquipe").classList.toggle("oculto", !ADMIN);
     $("abaProdutos").classList.toggle("oculto", !controla()); $("abaMovimentos").classList.toggle("oculto", !controla());
-    $("abaVendas").classList.toggle("oculto", !vende()); $("abaTransf").classList.toggle("oculto", !vende()); $("abaBenef").classList.toggle("oculto", !vende()); $("abaClientes").classList.toggle("oculto", !vende()); $("abaAjustes").classList.toggle("oculto", !vende());
+    $("abaVendas").classList.toggle("oculto", !vende()); $("abaTransf").classList.toggle("oculto", !vende()); $("abaBenef").classList.toggle("oculto", !controla()); $("abaClientes").classList.toggle("oculto", !vende()); $("abaAjustes").classList.toggle("oculto", !vende());
     $("abaComissoes").classList.toggle("oculto", !dono()); $("abaLucro").classList.toggle("oculto", !dono()); $("abaHorarios").classList.toggle("oculto", !dono()); $("abaCreditos").classList.toggle("oculto", !dono()); $("abaCustos").classList.toggle("oculto", !dono()); document.querySelectorAll(".aba.ger").forEach(x => x.classList.toggle("oculto", !dono())); $("abaRanking").classList.toggle("oculto", !vende()); $("abaEtiquetas").classList.toggle("oculto", !vende()); $("abaProducao").classList.toggle("oculto", !PERM.producao);
     $("quem").textContent = ADMIN ? "Equipe Nervia (Dono)" : dono() ? "Dono" : controla() ? "Estoque · sem custos" : "Vendedora" + (MINHA_LOJA ? " · " + loja(MINHA_LOJA).nome : "");
     $("aviso").classList.add("oculto"); $("app").classList.remove("oculto");
@@ -364,6 +375,9 @@ async function carregar() {
   QTD = new Map((d.estoque || []).map(([v, l, q]) => [chave(v, l), q]));
   await carregarTransito().catch(() => {});
   await carregarBenef().catch(() => {});
+  // 2.42: peças fora no beneficiamento (resumo para a marca no Estoque; toda a equipe)
+  const bf = await sb.rpc("lin_benef_no_estoque");
+  BENEF_EST = new Map((bf.error ? [] : bf.data || []).map(x => [chave(x.variante_id, x.loja_id), x]));
 }
 function irPara(v) { if (VISTA === "custos" && v !== "custos" && !cuPodeSair()) return; CU_SUJO = false; VISTA = v; limparMsg(); render(); }
 document.querySelectorAll(".barra .aba").forEach(b => b.onclick = () => irPara(b.dataset.v));
@@ -389,7 +403,7 @@ function render() {
   if (VISTA === "produtos" && controla()) return telaProdutos();
   if (VISTA === "movimentos" && controla()) return telaMovimentos();
   if (VISTA === "transferencias" && vende()) return telaTransferencias();
-  if (VISTA === "beneficiamento" && vende()) return telaBeneficiamento();
+  if (VISTA === "beneficiamento" && controla()) return telaBeneficiamento();
   if (VISTA === "vendas" && vende()) return telaVendas();
   if (VISTA === "clientes" && vende()) return telaClientes();
   if (VISTA === "ajustes" && vende()) return telaAjustes();
@@ -448,7 +462,7 @@ function lista() {
     // um cartão por produto; cada loja numa faixa própria, separadas por linha tracejada (pedido do Marco)
     const grupos = [];
     for (const l of lojas) {
-      const vis = F.zerados ? vars.filter(v => qtd(v.id, l.id) > 0) : vars;
+      const vis = F.zerados ? vars.filter(v => qtd(v.id, l.id) > 0 || bfFora(v.id, l.id) > 0) : vars;   // no beneficiamento continua aparecendo
       if (!vis.length) continue;
       vis.forEach(v => pecas += qtd(v.id, l.id));
       grupos.push([l, vis]);
@@ -464,6 +478,8 @@ function lista() {
   // Dono/Estoque: movimentar; vendedora: transferir para outra loja (2.33)
   document.querySelectorAll("#lista button.chip").forEach(b => b.onclick = () => controla() ? movimentar(b.dataset.p, b.dataset.v, b.dataset.l)
     : novaTransferencia({ variante: b.dataset.v, loja: b.dataset.l }));
+  // no celular não há "apontar o mouse": tocar no quadrado sem peça mostra o aviso do beneficiamento
+  document.querySelectorAll("#lista div.chip[data-bfinfo]").forEach(d => d.onclick = () => msg("info", d.dataset.bfinfo));
 }
 // peças especiais separadas das comuns (pedido do Marco: "estava confundindo com as normais"):
 // [comuns, especiais]: todas as especiais juntas num bloco só (pedido do Marco), na ordem edição → tamanho → cor
@@ -490,10 +506,11 @@ function chipsLoja(p, l, vars) {
     // peça especial (edição: pintura, bordado...) pode ter preço próprio; mostra só quando difere do preço da peça
     const preco = v.preco_venda != null && Number(v.preco_venda) !== Number(p.preco_venda) ? `<small>${brl(v.preco_venda)}</small>` : "";
     const corpo = `<b title="${esc(v.cor)}">${esc(v.cor || "—")}</b><small>${esc([v.tamanho, v.edicao].filter(Boolean).join(" · "))}</small>${preco}<strong>${n(q)} un.</strong>`;
-    const esp = v.edicao ? " esp" : "", tit = v.edicao ? `Peça especial: ${esc(v.edicao)}` : "";
+    const bfT = bfTexto(v.id, l.id);
+    const esp = (v.edicao ? " esp" : "") + (bfT ? " bf" : ""), tit = [v.edicao ? `Peça especial: ${esc(v.edicao)}` : "", esc(bfT)].filter(Boolean).join(" · ");
     return sep + (controla() || (vende() && q > 0)
       ? `<button type="button" class="chip ${q > 0 ? "" : "zero"}${esp}" data-p="${p.id}" data-v="${v.id}" data-l="${l.id}" title="${tit ? tit + " · " : ""}${controla() ? "Movimentar" : "Transferir para outra loja"}">${corpo}</button>`
-      : `<div class="chip ${q > 0 ? "" : "zero"}${esp}"${tit ? ` title="${tit}"` : ""}>${corpo}</div>`);
+      : `<div class="chip ${q > 0 ? "" : "zero"}${esp}" data-v="${v.id}" data-l="${l.id}"${tit ? ` title="${tit}"` : ""}${bfT ? ` data-bfinfo="${esc(bfT)}" tabindex="0" role="button"` : ""}>${corpo}</div>`);
   }).join("");
 }
 
