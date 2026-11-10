@@ -2522,6 +2522,58 @@ set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
 select pg_temp.ok((select count(*) = 0 from lin_beneficiamentos), 'linum 2.38: login sem papel não vê o beneficiamento');
 reset role;
 
+-- linum 2.44: brinde / presente / divulgação (sai do estoque sem ser venda; custo só o Dono vê)
+reset role;
+insert into lin_estoque (variante_id, loja_id, quantidade) values ('20000000-0000-0000-0000-000000000001', (select v from lin_ids where k = 'gav'), 5)
+  on conflict (variante_id, loja_id) do update set quantidade = excluded.quantidade;
+create temp table lin_br (k text primary key, v bigint); grant all on lin_br to authenticated;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora
+select pg_temp.erro2($$select lin_brinde_registrar('{}')$$, 'Somente o Dono ou o Estoque', 'linum 2.44: vendedora não registra brinde');
+select pg_temp.erro2($$select lin_brindes_ler(null, null)$$, 'Somente o Dono ou o Estoque', 'linum 2.44: vendedora não vê os brindes');
+select pg_temp.erro2($$select * from lin_brindes$$, 'permission denied', 'linum 2.44: a tabela não é lida direto pela tela');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';   -- Estoque
+select pg_temp.erro2($$select lin_brinde_registrar(jsonb_build_object('loja', (select v from lin_ids where k = 'gav'), 'motivo', 'presente', 'destinatario', 'Ana',
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 6))))$$, 'Estoque insuficiente', 'linum 2.44: não dá mais que o estoque');
+select pg_temp.erro2($$select lin_brinde_registrar(jsonb_build_object('loja', (select v from lin_ids where k = 'gav'), 'motivo', 'presente', 'destinatario', '',
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 1))))$$, 'para quem foi', 'linum 2.44: para quem é obrigatório');
+select pg_temp.erro2($$select lin_brinde_registrar(jsonb_build_object('loja', (select v from lin_ids where k = 'gav'), 'motivo', 'outro', 'destinatario', 'Ana',
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 1))))$$, 'escreva na observação', 'linum 2.44: "Outro" exige observação');
+select pg_temp.erro2($$select lin_brinde_registrar(jsonb_build_object('loja', (select v from lin_ids where k = 'gav'), 'motivo', 'presente', 'destinatario', 'Ana', 'data', '2099-01-01',
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 1))))$$, 'depois de hoje', 'linum 2.44: data futura recusada');
+insert into lin_br values ('b1', lin_brinde_registrar(jsonb_build_object('loja', (select v from lin_ids where k = 'gav'), 'motivo', 'presente',
+  'cliente_id', (select v from lin_vd where k = 'cli'), 'observacao', 'aniversário',
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 2)))));
+select pg_temp.ok((select jsonb_array_length(lin_brindes_ler(null, null)) = 1)
+  and (select (lin_brindes_ler(null, null) -> 0 ->> 'destinatario') = 'Eglacy Rocha')
+  and not ((lin_brindes_ler(null, null) -> 0 -> 'itens' -> 0) ? 'custo_unitario')
+  and (select (lin_brindes_ler(null, null) -> 0 -> 'itens' -> 0 ->> 'quantidade')::int = 2),
+  'linum 2.44: Estoque registra e vê o brinde, sem o custo; sem nome, vale o da cliente');
+select pg_temp.erro2(format($$select lin_brinde_cancelar(%s, 'registro errado')$$, (select v from lin_br where k = 'b1')), 'Só o Dono', 'linum 2.44: Estoque não cancela');
+reset role;
+select pg_temp.ok((select quantidade = 3 from lin_estoque where variante_id = '20000000-0000-0000-0000-000000000001' and loja_id = (select v from lin_ids where k = 'gav'))
+  and exists (select 1 from lin_movimentos where tipo = 'brinde' and quantidade = 2 and brinde_id = (select v from lin_br where k = 'b1') and observacao like 'Presente nº % para Eglacy Rocha · aniversário')
+  and (select custo_unitario is not null and preco_venda is not null from lin_brinde_itens where brinde_id = (select v from lin_br where k = 'b1'))
+  and exists (select 1 from lin_contatos where cliente_id = (select v from lin_vd where k = 'cli')::uuid and texto like 'Ganhou um presente (nº %): 2× Vestido Mar%')
+  and not exists (select 1 from lin_vendas where criado_em > now() - interval '1 minute' and observacao like '%presente%')
+  and exists (select 1 from auditoria where acao = 'linum_brinde_registrado' and (detalhes ->> 'pecas')::int = 2 and detalhes ->> 'motivo' = 'Presente'
+                and not (detalhes -> 'itens' -> 0 ? 'custo_unitario')),
+  'linum 2.44: peças saem da loja (movimento brinde), custo copiado, histórico da cliente e auditoria (sem custo para o Estoque)');
+select pg_temp.erro2(format($$update lin_brinde_itens set quantidade = 1 where brinde_id = %s$$, (select v from lin_br where k = 'b1')), 'não podem ser alteradas', 'linum 2.44: peças do brinde não mudam');
+select pg_temp.erro2(format($$delete from lin_brindes where id = %s$$, (select v from lin_br where k = 'b1')), 'não podem ser apagados', 'linum 2.44: brinde não se apaga');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';   -- Dono
+select pg_temp.ok((select (lin_brindes_ler(null, null) -> 0 -> 'itens' -> 0) ? 'custo_unitario'), 'linum 2.44: o Dono vê o custo');
+select pg_temp.erro2(format($$select lin_brinde_cancelar(%s, 'x')$$, (select v from lin_br where k = 'b1')), 'motivo do cancelamento', 'linum 2.44: cancelar exige motivo');
+select lin_brinde_cancelar((select v from lin_br where k = 'b1'), 'registrado na loja errada');
+select pg_temp.erro2(format($$select lin_brinde_cancelar(%s, 'de novo, outra vez')$$, (select v from lin_br where k = 'b1')), 'já foi cancelado', 'linum 2.44: não cancela duas vezes');
+reset role;
+select pg_temp.ok((select quantidade = 5 from lin_estoque where variante_id = '20000000-0000-0000-0000-000000000001' and loja_id = (select v from lin_ids where k = 'gav'))
+  and exists (select 1 from lin_movimentos where tipo = 'brinde_cancelado' and quantidade = 2 and brinde_id = (select v from lin_br where k = 'b1'))
+  and (select cancelamento_motivo = 'registrado na loja errada' from lin_brindes where id = (select v from lin_br where k = 'b1'))
+  and exists (select 1 from auditoria where acao = 'linum_brinde_cancelado' and detalhes ->> 'motivo_cancelamento' = 'registrado na loja errada'),
+  'linum 2.44: cancelar devolve as peças à loja, com movimento e auditoria');
+
 -- ================================================================ Atendimentos de TI (atd_)
 reset role; reset request.headers;
 select pg_temp.ok((select situacao = 'oculto' and manual_url like '/apps/atendimentos/ajuda/%' from apps where id = 'atendimentos'),
