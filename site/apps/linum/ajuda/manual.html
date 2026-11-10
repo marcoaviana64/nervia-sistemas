@@ -23,6 +23,7 @@
     <li><a href="#movimentar">2. Registrar entrada, saída ou ajuste (Dono ou Estoque)</a></li>
     <li><a href="#transferir">2a. Transferir peças entre lojas, com aceite da outra loja (toda a equipe)</a></li>
     <li><a href="#beneficiamento">2b. Enviar peças para beneficiamento e registrar a volta (Dono ou Estoque)</a></li>
+    <li><a href="#brindes">2c. Registrar brinde, presente ou divulgação (Dono ou Estoque)</a></li>
     <li><a href="#historico">3. Ver o histórico de uma variação (Dono ou Estoque)</a></li>
     <li><a href="#equipe">4. Definir os papéis: Dono, Estoque e Vendedora (equipe Nervia)</a></li>
     <li><a href="#vender">5. Registrar uma venda (a boleta)</a></li>
@@ -124,6 +125,16 @@
   </ol>
   <p><b>Valor pago</b> (Dono e "Valores da produção"): o botão <b>Valor pago</b> informa ou corrige o valor por peça a qualquer hora. Esse valor é só um registro do que foi pago: ele <b>não muda</b> o custo nem o preço da peça. O preço e o custo da peça especial são acertados depois, em <b>Produtos</b>. A vendedora e o Estoque não veem valores.</p>
   <p>Envio e volta aparecem nas movimentações da peça e na aba <b>Movimentações</b> (tipos "Saiu para beneficiamento" e "Voltou do beneficiamento"; a peça transformada mostra de qual peça ela veio) e ficam na auditoria. O relatório diário lista o que ainda está no beneficiamento e o que está atrasado.</p>
+
+  <h2 id="brindes">2c. Registrar brinde, presente ou divulgação (Dono ou Estoque)</h2>
+  <p>Quando uma peça sai da loja <b>sem venda</b> — presente da dona, peça para influenciadora ou parceria, brinde para cliente —, registre como <b>brinde</b>, e não como venda com desconto: assim ela não entra nas vendas, na comissão, no ranking nem no lucro das vendas, e fica separada para ver quanto vai em presentes e divulgação. Só o Dono e o Estoque registram e veem a aba <b>Brindes</b>.</p>
+  <ol>
+    <li>Na aba <b>Estoque</b>, clique no quadrado da peça e escolha <b>Brinde / presente</b>, ou abra a aba <b>Brindes</b> e clique em <b>+ Novo brinde / presente</b>.</li>
+    <li>Escolha o <b>motivo</b>: Presente, Divulgação, Brinde para cliente ou Outro (com Outro, escreva na observação o que foi).</li>
+    <li>Em <b>Para quem</b>, escreva o nome (ex.: o @ da influenciadora) ou procure a <b>cliente do cadastro</b>: aí o presente vai para o histórico dela (sem valor), para a equipe saber.</li>
+    <li>Escolha a loja de onde as peças saem, acrescente as peças e as quantidades, confira a data e clique em <b>Registrar e tirar do estoque</b>.</li>
+  </ol>
+  <p>Na aba Brindes aparecem os totais do período (registros, peças, quanto valeriam a preço de venda e, só para o Dono, o <b>custo</b> das peças na data do registro), o quadro por motivo e a lista; <b>Baixar CSV</b> traz uma linha por peça. Registro errado: o <b>Dono</b> clica em <b>Cancelar (registro errado)</b>, escreve o motivo e as peças voltam para a loja. Os brindes aparecem na aba <b>Movimentações</b> (tipos "Brinde / presente" e "Brinde cancelado (voltou)"), na auditoria e no relatório diário.</p>
 
   <h2 id="historico">3. Ver o histórico de uma variação (Dono ou Estoque)</h2>
   <ol>
@@ -435,6 +446,9 @@
     <tr><td>Escolha lojas de origem e destino diferentes</td><td>Na transferência, a loja de destino precisa ser outra.</td></tr>
     <tr><td>Informe quem vai fazer o beneficiamento / Informe o serviço</td><td>No envio para beneficiamento, preencha Quem faz e o Serviço.</td></tr>
     <tr><td>… só N peça(s) ainda estão no beneficiamento</td><td>No retorno, a soma de igual + outra + perdida passou do que ainda está fora daquela peça.</td></tr>
+    <tr><td>Informe para quem foi a peça</td><td>No brinde, escreva o nome de quem recebeu ou escolha a cliente do cadastro.</td></tr>
+    <tr><td>Com o motivo "Outro", escreva na observação o que foi</td><td>Explique o brinde na observação, ou escolha outro motivo.</td></tr>
+    <tr><td>Só o Dono cancela um brinde</td><td>Peça para o Dono cancelar o registro errado.</td></tr>
     <tr><td>Escolha em que peça … se transformou</td><td>Em "Virou outra", escolha a variação ou crie a peça especial.</td></tr>
     <tr><td>A peça que voltou tem de ser uma variação da mesma peça</td><td>Peça especial ou outra cor tem de ser da mesma referência. Se virou outro produto, registre o retorno como igual e faça uma saída e uma entrada.</td></tr>
     <tr><td>Escreva o motivo da perda / o que aconteceu com a peça perdida</td><td>Peça perdida no beneficiamento exige o motivo.</td></tr>

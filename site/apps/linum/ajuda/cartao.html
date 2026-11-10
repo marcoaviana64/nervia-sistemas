@@ -52,6 +52,7 @@
     <tr><td>Saída</td><td>Uso interno, perda: tira. Não deixa ficar negativo.</td></tr>
     <tr><td>Transferência</td><td>Abre o envio para a outra loja (com aceite; veja Transferências).</td></tr>
     <tr><td>Beneficiamento</td><td>Abre o envio para bordado, tingimento, estampa… (veja Beneficiamento).</td></tr>
+    <tr><td>Brinde / presente</td><td>Peça que sai sem venda: presente, divulgação, brinde para cliente (veja Brindes).</td></tr>
     <tr><td>Ajuste</td><td>Troca a quantidade pela contada (ex.: inventário). Guarda o antes e o depois.</td></tr>
     <tr><td>Loja (N) · Loja de destino</td><td>Onde a movimentação acontece; entre parênteses, quanto a loja tem hoje.</td></tr>
     <tr><td>Quantidade · Nova quantidade</td><td>Peças movimentadas (1 ou mais) ou, no ajuste, a quantidade certa (0 ou mais).</td></tr>
@@ -92,10 +93,22 @@
     <tr><td>No beneficiamento · Atrasados · Concluídos · Todos</td><td>Filtros da lista (até 180 dias).</td></tr>
   </table>
 
+  <h2>Brindes <span class="eq">DONO · ESTOQUE</span></h2>
+  <table>
+    <tr><td>+ Novo brinde / presente · "Brinde / presente" ao movimentar</td><td>Registra peças que saem <b>sem venda</b> (não entram em vendas, comissão, ranking nem lucro).</td></tr>
+    <tr><td>Motivo</td><td>Presente · Divulgação (influenciadora, parceria, fotos) · Brinde para cliente · Outro (escreva o que foi na observação).</td></tr>
+    <tr><td>Para quem</td><td>Nome de quem recebeu, ou a cliente do cadastro (vai para o histórico dela, sem valor).</td></tr>
+    <tr><td>Sai de · Peças · Data · Observação</td><td>Loja, peças e quantidades (até o estoque), data (até 60 dias atrás).</td></tr>
+    <tr><td>Registrar e tirar do estoque</td><td>As peças saem da loja na hora.</td></tr>
+    <tr><td>De · até · Loja · Motivo</td><td>Filtros. Totais: registros, peças, a preço de venda e, só para o Dono, o custo.</td></tr>
+    <tr><td>Cancelar (registro errado) <span class="eq">DONO</span></td><td>Com motivo; as peças voltam para a loja.</td></tr>
+    <tr><td>Baixar CSV</td><td>Uma linha por peça do período.</td></tr>
+  </table>
+
   <h2>Movimentações <span class="eq">DONO · ESTOQUE</span></h2>
   <table>
     <tr><td>De · até</td><td>Período, pela data do movimento (abre com os últimos 7 dias).</td></tr>
-    <tr><td>Loja · Tipo · Busca</td><td>Uma loja ou todas; entrada, saída, transferência enviada/recebida/cancelada, saiu/voltou do beneficiamento, ajuste, venda, devolução, produção; peça, descrição ou quem fez (sem acento).</td></tr>
+    <tr><td>Loja · Tipo · Busca</td><td>Uma loja ou todas; entrada, saída, transferência enviada/recebida/cancelada, saiu/voltou do beneficiamento, brinde / presente, ajuste, venda, devolução, produção; peça, descrição ou quem fez (sem acento).</td></tr>
     <tr><td>Quadros</td><td>Movimentações, peças que entraram, que saíram e o resultado no estoque.</td></tr>
     <tr><td>Por descrição</td><td>Junta as movimentações com a mesma descrição (ex.: um levantamento). Clique para ver só elas; "Ver todas" volta.</td></tr>
     <tr><td>Lista</td><td>Data, peça, tipo, loja, quantidade (+ entrou, − saiu), antes → depois do ajuste, descrição, quem e quando registrou.</td></tr>
