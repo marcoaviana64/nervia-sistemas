@@ -4,15 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<title>Contratos | Nervia</title>
+<title>Contratos | Ecossistema Nervia</title>
 <script src="/config.js"></script>
 <script src="/versoes.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="arquivos.js"></script>
+<script src="dashboard.js"></script>
 <link rel="stylesheet" href="/fichario.css">
 <style>
-/* Contratos (app "contratos", tabelas ctr_): contratos de prestação de serviço da Nervia, do Word ao recebimento.
-   Só a equipe Nervia (admin). A tela só lê as tabelas; toda gravação é por função (ctr_*) e vai para a auditoria.
+/* Contratos (app "contratos", tabelas ctr_): contratos de prestação de serviço de cada empresa, do Word ao recebimento.
+   Versão 2.0: várias empresas (ctr_empresas); o login vê as empresas em que é membro (gestor ou consulta); a equipe Nervia vê
+   todas e cadastra empresas e papéis na aba Empresas. A tela só lê as tabelas; toda gravação é por função (ctr_*) e vai
+   para a auditoria.
    O Word é preenchido no navegador (arquivos.js) a partir do modelo de mala direta guardado no bucket ctr-arquivos. */
 [hidden]{display:none!important}
 :root{--bg:#f4f7f9;--surface:#fff;--surface-2:#eaf1f4;--border:#dde6ec;--line:#dde6ec;--ink:#0f1b2d;--ink-soft:#4f5f73;--muted:#6b7a8c;
@@ -78,26 +81,37 @@ dialog::backdrop{background:#0008}
 .escolha label{display:grid;grid-template-columns:22px 70px minmax(0,1fr) 110px 90px;gap:8px;padding:6px 8px;border-bottom:1px solid var(--border);align-items:center;cursor:pointer}
 .escolha label:hover{background:var(--surface-2)}
 .sug{font-size:12.5px}
+/* dashboard */
+.dash{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}.dash .painel{margin:0}.dash .largo{grid-column:1/-1}
+.graf{min-height:60px;width:100%;overflow:hidden}.grafico{display:block;max-width:100%}
+.grafico .eixo{font-size:11px;fill:#6b7a8c}.grafico .rot{font-size:12px;fill:#4f5f73}.grafico .val{font-size:11.5px;fill:#0f1b2d;font-family:var(--mono)}
+.legenda{display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:var(--ink-soft);margin:0 0 6px}.legenda i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.vertab{margin-top:6px;font-size:12.5px}.vertab summary{cursor:pointer;color:var(--accent);font-weight:600}.vertab .tab{margin-top:6px}
+.dica{position:fixed;z-index:120;background:var(--ink);color:#fff;font-size:12.5px;padding:6px 9px;border-radius:8px;pointer-events:none;max-width:320px;box-shadow:0 4px 16px #0003}
+.empsel{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-soft);font-weight:600}.empsel select{min-height:32px;padding:4px 8px;width:auto;max-width:260px}
+.papel{font-size:12px;color:var(--muted)}
 #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:9px 16px;border-radius:10px;font-weight:600;z-index:100;box-shadow:0 6px 24px #0004}
-@media (max-width:860px){.grade2{grid-template-columns:1fr}.form{grid-template-columns:1fr}.form .dois{grid-column:auto}.escolha label{grid-template-columns:22px 60px minmax(0,1fr) 90px}.escolha label .opc{display:none}}
+@media (max-width:860px){.dash{grid-template-columns:1fr}.grade2{grid-template-columns:1fr}.form{grid-template-columns:1fr}.form .dois{grid-column:auto}.escolha label{grid-template-columns:22px 60px minmax(0,1fr) 90px}.escolha label .opc{display:none}}
 @media print{.barra,.filtros,.acoes,button{display:none!important}body{background:#fff}.painel{border:0;padding:0}}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="topo"><div class="marca">CT</div><div><b>Contratos</b><br><span>Contratos de prestação de serviço da Nervia: do Word ao recebimento</span><br><span data-versao="contratos"></span></div></div>
+  <div class="topo"><div class="marca">CT</div><div><b>Contratos</b><br><span>Contratos de prestação de serviço: do Word ao recebimento</span><br><span data-versao="contratos"></span></div></div>
   <div id="aviso" class="painel">Carregando…</div>
   <div id="app" hidden>
     <div class="barra fichario">
       <div class="orelhas">
-        <button class="aba on" data-v="painel" title="Painel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg><span>Painel</span></button>
+        <button class="aba on" data-v="dashboard" title="Dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg><span>Dashboard</span></button>
+        <button class="aba" data-v="painel" title="Resumo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg><span>Resumo</span></button>
         <button class="aba" data-v="cobrancas" title="Cobranças"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg><span>Cobranças</span></button>
         <button class="aba" data-v="contratos" title="Contratos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M8 13h8M8 17h5"/></svg><span>Contratos</span></button>
         <button class="aba" data-v="clientes" title="Clientes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M4 21V5l8-2v18M12 7l8 3v11M3 21h18"/></svg><span>Clientes</span></button>
         <button class="aba" data-v="extrato" title="Extrato"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h7"/><path d="m15 17 2 2 4-4"/></svg><span>Extrato</span></button>
         <button class="aba" data-v="config" title="Configuração"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Configuração</span></button>
+        <button class="aba" data-v="empresas" title="Empresas (equipe Nervia)" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 4.5a3 3 0 0 1 0 6M18 14c2 .7 3 2.9 3 6"/></svg><span>Empresas</span></button>
       </div>
-      <div class="ficha"></div>
+      <div class="ficha"><div class="empsel" id="empsel"></div></div>
     </div>
     <div id="conteudo"></div>
   </div>
@@ -161,23 +175,38 @@ const SIT_K = { rascunho: ["Rascunho", ""], gerado: ["Gerado", "info"], enviado:
 const pill = (m, k) => { const [t, c] = m[k] || [k, ""]; return el("span", { class: "pill " + c }, t); };
 
 const S = { cfg: {}, impostos: [], clientes: new Map(), contratos: new Map(), modelos: [], eventos: [], cob: [], extrato: [], imps: [],
-  view: "painel", sel: new Set(), selK: new Set(),
+  empresas: [], membros: [], papeis: new Map(), emp: null, admin: false, uid: null, fd: { meses: 12 },
+  view: "dashboard", sel: new Set(), selK: new Set(),
   fp: { ano: hoje().slice(0, 4) },
   fc: { ano: hoje().slice(0, 4), mes: "", cli: "", sit: "", nf: "", q: "" },
   fk: { sit: "andamento", cli: "" }, fe: { sit: "pendentes" } };
 
+// empresas que o login enxerga (RLS: membro ou equipe Nervia) e o papel em cada uma
+async function carregarEmpresas() {
+  S.empresas = await todos(() => sb.from("ctr_empresas").select("*").order("nome"));
+  S.membros = await todos(() => sb.from("ctr_membros").select("*").order("empresa_id"));
+  S.papeis = new Map(S.membros.filter(m => m.user_id === S.uid).map(m => [m.empresa_id, m.papel]));
+  if (!S.empresas.some(e => e.id === S.emp)) {
+    const guardada = Number(localStorage.getItem("ctr-empresa"));
+    S.emp = (S.empresas.find(e => e.id === guardada) || S.empresas.find(e => e.ativo) || S.empresas[0] || {}).id ?? null;
+  }
+}
+const papel = () => S.admin ? "admin" : S.papeis.get(S.emp) || null;
+const gestor = () => ["admin", "gestor"].includes(papel());
+const G = x => gestor() ? x : null;   // só aparece para quem altera (gestor ou equipe Nervia)
 async function carregar() {
-  const [cfg, imp, cli, mod, kon, ev, cob, ext, imps] = await Promise.all([
-    sb.from("ctr_config").select("*").maybeSingle().then(checar),
-    todos(() => sb.from("ctr_impostos").select("*").order("vale_desde")),
-    todos(() => sb.from("ctr_clientes").select("*").order("apelido")),
-    todos(() => sb.from("ctr_modelos").select("*").order("id")),
-    todos(() => sb.from("ctr_contratos").select("*").order("id")),
-    todos(() => sb.from("ctr_eventos").select("*").order("id")),
-    todos(() => sb.from("ctr_cobrancas_v").select("*").order("id")),
-    todos(() => sb.from("ctr_extrato").select("*").order("data", { ascending: false })),
-    todos(() => sb.from("ctr_importacoes").select("*").order("id", { ascending: false }))]);
-  S.cfg = cfg || {}; S.impostos = imp; S.modelos = mod; S.eventos = ev; S.cob = cob; S.extrato = ext; S.imps = imps;
+  await carregarEmpresas();
+  const E = S.emp, deEmp = t => sb.from(t).select("*").eq("empresa_id", E == null ? -1 : E);
+  const [imp, cli, mod, kon, ev, cob, ext, imps] = await Promise.all([
+    todos(() => deEmp("ctr_impostos").order("vale_desde")),
+    todos(() => deEmp("ctr_clientes").order("apelido")),
+    todos(() => deEmp("ctr_modelos").order("id")),
+    todos(() => deEmp("ctr_contratos").order("id")),
+    todos(() => deEmp("ctr_eventos").order("id")),
+    todos(() => deEmp("ctr_cobrancas_v").order("id")),
+    todos(() => deEmp("ctr_extrato").order("data", { ascending: false })),
+    todos(() => deEmp("ctr_importacoes").order("id", { ascending: false }))]);
+  S.cfg = S.empresas.find(e => e.id === E) || {}; S.impostos = imp; S.modelos = mod; S.eventos = ev; S.cob = cob; S.extrato = ext; S.imps = imps;
   S.clientes = new Map(cli.map(c => [c.id, c])); S.contratos = new Map(kon.map(k => [k.id, k]));
   for (const id of [...S.sel]) if (!S.cob.some(c => c.id === id)) S.sel.delete(id);
 }
@@ -187,10 +216,30 @@ const aliquota = d => { let p = 0; for (const i of S.impostos) if (i.vale_desde 
 
 // ---------------------------------------------------------------- navegação
 document.querySelector(".orelhas").addEventListener("click", e => { const b = e.target.closest(".aba"); if (b) ir(b.dataset.v); });
-function ir(v) { S.view = v; for (const b of document.querySelectorAll(".orelhas .aba")) b.classList.toggle("on", b.dataset.v === v); render(); }
+function ir(v) { S.view = v; render(); }
+// seletor de empresa (na ficha do fichário) e abas que dependem do papel
+function topo() {
+  const abas = document.querySelectorAll(".orelhas .aba");
+  for (const b of abas) b.hidden = b.dataset.v === "empresas" ? !S.admin : b.dataset.v === "config" ? !gestor() : S.emp == null;
+  if (document.querySelector(`.orelhas .aba[data-v="${S.view}"]`).hidden) S.view = S.emp == null ? "empresas" : "dashboard";
+  for (const b of abas) b.classList.toggle("on", b.dataset.v === S.view);
+  const box = $("#empsel"), e = S.empresas.find(x => x.id === S.emp);
+  const rotPapel = { admin: "equipe Nervia", gestor: "gestor", consulta: "só consulta" }[papel()] || "";
+  box.replaceChildren(el("span", {}, "Empresa"),
+    S.empresas.length > 1 ? sel(S.empresas.map(x => [x.id, x.nome + (x.ativo ? "" : " (inativa)")]), S.emp, { id: "empresa", "aria-label": "Empresa", onchange: async ev => {
+      S.emp = Number(ev.target.value); localStorage.setItem("ctr-empresa", S.emp); S.sel.clear(); S.selK.clear();
+      try { await carregar(); } catch (er) { toast(erroTxt(er)); } render(); } })
+      : el("b", {}, e ? e.nome : "—"),
+    rotPapel ? el("span", { class: "papel" }, "· " + rotPapel) : null);
+}
 function render() {
+  topo();
   const c = $("#conteudo"); c.replaceChildren();
-  ({ painel: vPainel, cobrancas: vCobrancas, contratos: vContratos, clientes: vClientes, extrato: vExtrato, config: vConfig })[S.view](c);
+  ({ dashboard: vDashboard, painel: vPainel, cobrancas: vCobrancas, contratos: vContratos, clientes: vClientes, extrato: vExtrato, config: vConfig, empresas: vEmpresas })[S.view](c);
+}
+function vDashboard(c) {
+  window.CTR_DASH(c, { S, el, R, N, br, hoje, cliNome, abrirContrato, render,
+    irCobrancas: () => { Object.assign(S.fc, { ano: "", mes: "", cli: "", sit: "atrasada", nf: "", q: "" }); ir("cobrancas"); } });
 }
 let toastT;
 function toast(txt) { const t = $("#toast"); t.textContent = txt; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 5000); }
@@ -299,8 +348,8 @@ function vCobrancas(c) {
   function desenhar() {
     const l = filtrarCob(), soma = (f) => l.reduce((s, x) => s + Number(f(x) || 0), 0);
     barra.replaceChildren(
-      el("button", { class: "btn", disabled: !S.sel.size, onclick: () => dlgNf([...S.sel]) }, "Marcar NF emitida" + (S.sel.size ? " (" + S.sel.size + ")" : "")),
-      el("button", { class: "btn sec", onclick: () => dlgAvulsa() }, "+ Cobrança avulsa"),
+      G(el("button", { class: "btn", disabled: !S.sel.size, onclick: () => dlgNf([...S.sel]) }, "Marcar NF emitida" + (S.sel.size ? " (" + S.sel.size + ")" : ""))),
+      G(el("button", { class: "btn sec", onclick: () => dlgAvulsa() }, "+ Cobrança avulsa")),
       el("button", { class: "btn sec", onclick: () => csv("cobrancas.csv", ["Competência", "Cliente", "Descrição", "Vencimento", "Valor", "NF", "Nº NF", "Data NF", "Pago em", "Valor pago", "Situação", "Imposto", "Líquido", "Obs"],
         l.map(x => [x.competencia, x.cliente, x.descricao, br(x.vencimento), N(x.valor), x.nf_emitida ? "sim" : "não", x.nf_numero, br(x.nf_data), br(x.pago_em), x.pago_em ? N(x.valor_pago) : "", (SIT_COB[x.situacao] || [x.situacao])[0], N(x.imposto), N(x.liquido), x.obs])) }, "CSV"),
       el("span", { class: "mut" }, l.length + " cobranças · cobrado " + R(soma(x => x.valor)) + " · recebido " + R(soma(x => x.valor_pago)) + " · em aberto " + R(l.filter(x => !x.pago_em).reduce((s, x) => s + Number(x.valor), 0))));
@@ -352,7 +401,8 @@ function dlgCobranca(id) {
     const multa = x.valor * 0.02, juros = x.valor * 0.01 * x.dias_atraso / 30;
     corpo.append(el("p", { class: "aviso" }, "Em atraso há " + x.dias_atraso + " dias. Pela cláusula 3.4: multa de 2% (" + R(multa) + ") + juros de 1% ao mês (" + R(juros) + ") = " + R(x.valor + multa + juros) + (x.dias_atraso > 30 ? ", além de correção monetária." : ".")));
   }
-  if (!x.pago_em) {
+  if (!gestor()) { /* consulta: só lê */ }
+  else if (!x.pago_em) {
     const pd = el("input", { type: "date", value: hoje(), max: hoje() }), pv = el("input", { type: "number", step: "0.01", value: x.valor }), po = el("input", { type: "text", placeholder: "obrigatória se o valor for diferente" });
     corpo.append(el("h3", {}, "Dar baixa (sem o extrato)"), el("div", { class: "form" }, campo("Recebido em", pd), campo("Valor recebido", pv), campo("Observação", po)),
       el("div", { class: "acoes", style: "margin-top:8px" }, el("button", { class: "btn", onclick: async () => { await salvar(() => rpc("ctr_baixa", { p: { id, pago_em: pd.value, valor_pago: pv.value, obs: po.value } }), m, "Baixa registrada."); dlgCobranca(id); } }, "Registrar recebimento")));
@@ -388,8 +438,8 @@ function vContratos(c) {
     campo("Cliente", sel([["", "Todos"], ...[...S.clientes.values()].map(x => [x.id, x.apelido])], f.cli, { onchange: muda("cli") }))));
   const l = filtrarK(), m = el("span", { class: "msg" });
   c.append(el("div", { class: "acoes", style: "margin-bottom:10px" },
-    el("button", { class: "btn", onclick: () => abrirContrato(null) }, "+ Novo contrato"),
-    el("button", { class: "btn sec", disabled: !S.selK.size, onclick: () => gerarWord([...S.selK], m) }, "Gerar Word" + (S.selK.size ? " (" + S.selK.size + ")" : "")),
+    G(el("button", { class: "btn", onclick: () => abrirContrato(null) }, "+ Novo contrato")),
+    G(el("button", { class: "btn sec", disabled: !S.selK.size, onclick: () => gerarWord([...S.selK], m) }, "Gerar Word" + (S.selK.size ? " (" + S.selK.size + ")" : ""))),
     el("span", { class: "mut" }, l.length + " contrato(s) · " + R(l.filter(k => k.situacao !== "rascunho").reduce((s, k) => s + Number(k.valor_mensal), 0)) + " por mês"), m));
   const todosMarc = l.length && l.every(k => S.selK.has(k.id));
   c.append(el("div", { class: "painel rolar", style: "padding:0" }, el("table", { class: "tab" },
@@ -426,7 +476,7 @@ async function gerarWord(ids, m) {
   try {
     const ks = ids.map(i => S.contratos.get(i)).filter(Boolean);
     if (ks.some(k => ["encerrado", "rescindido"].includes(k.situacao))) throw new Error("Contrato encerrado não se gera de novo.");
-    if (!S.cfg.contratada_nome) throw new Error("Preencha os dados da Nervia (contratada) em Configuração antes de gerar.");
+    if (!S.cfg.contratada_nome) throw new Error("Preencha os dados da empresa (contratada) em Configuração antes de gerar.");
     m.className = "msg"; m.textContent = "Gerando…";
     const arqs = [], usados = new Set();
     for (const k of ks) {
@@ -469,16 +519,18 @@ function abrirContrato(id) {
     };
     const pdf = el("input", { type: "file", accept: "application/pdf,.pdf", hidden: true, onchange: async e => {
       const f = e.target.files[0]; if (!f) return;
-      const caminho = "contratos/" + k.id + "/" + Date.now() + ".pdf";
+      const caminho = k.empresa_id + "/contratos/" + k.id + "/" + Date.now() + ".pdf";
       await salvar(async () => { checar(await sb.storage.from("ctr-arquivos").upload(caminho, new Blob([f], { type: "application/pdf" }), { contentType: "application/pdf" })); return rpc("ctr_contrato_documento", { p_id: k.id, p_caminho: caminho, p_nome: f.name }); }, m, "PDF guardado.");
       abrirContrato(k.id); } });
     const fim = ["encerrado", "rescindido"].includes(k.situacao);
-    corpo.append(el("div", { class: "acoes", style: "margin-bottom:12px" },
+    const abrirPdf = k.documento ? el("button", { class: "btn sec", onclick: async () => { try { const u = checar(await sb.storage.from("ctr-arquivos").createSignedUrl(k.documento, 300)); window.open(u.signedUrl, "_blank"); } catch (e) { m.className = "msg erro"; m.textContent = erroTxt(e); } } }, "Abrir PDF") : null;
+    if (!gestor()) corpo.append(el("div", { class: "acoes", style: "margin-bottom:12px" }, abrirPdf, m));
+    else corpo.append(el("div", { class: "acoes", style: "margin-bottom:12px" },
       !fim ? el("button", { class: "btn", onclick: async () => { if (await gerarWord([k.id], m)) abrirContrato(k.id); } }, "Gerar Word") : null,
       ["rascunho", "gerado"].includes(k.situacao) ? el("button", { class: "btn sec", onclick: () => etapa("enviado", "Enviado para assinatura") }, "Marcar enviado") : null,
       ["rascunho", "gerado", "enviado"].includes(k.situacao) ? el("button", { class: "btn sec", onclick: () => etapa("assinado", "Data da assinatura") }, "Marcar assinado") : null,
       pdf, el("button", { class: "btn sec", onclick: () => pdf.click() }, k.documento ? "Trocar PDF assinado" : "Guardar PDF assinado"),
-      k.documento ? el("button", { class: "btn sec", onclick: async () => { try { const u = checar(await sb.storage.from("ctr-arquivos").createSignedUrl(k.documento, 300)); window.open(u.signedUrl, "_blank"); } catch (e) { m.className = "msg erro"; m.textContent = erroTxt(e); } } }, "Abrir PDF") : null,
+      abrirPdf,
       k.situacao !== "rascunho" ? el("button", { class: "btn sec", onclick: async () => { await salvar(() => rpc("ctr_cobrancas_gerar", { p_contrato: k.id, p_ate: null }), null, n => n ? n + " cobrança(s) criada(s)." : "Nenhuma cobrança nova (o contrato já tem todas)."); abrirContrato(k.id); } }, "Criar cobranças") : null,
       el("button", { class: "btn sec", onclick: () => dlgRenovar(k) }, "Renovar"),
       k.situacao === "assinado" ? el("button", { class: "btn sec", onclick: () => etapa("encerrado", "Encerrar o contrato", "Observação (opcional)") }, "Encerrar") : null,
@@ -492,7 +544,7 @@ function abrirContrato(id) {
     campo("Quem assina pelo cliente (e-mails)", ent.assinantes, "dois"), campo("Data no contrato (vazio = início)", ent.data_assinatura),
     campo("Testemunha 1", ent.testemunha1), campo("Documento", ent.testemunha1_doc), el("div"), campo("Testemunha 2", ent.testemunha2), campo("Documento", ent.testemunha2_doc), el("div"),
     campo("Observação interna", ent.obs, "tudo")));
-  corpo.append(el("div", { class: "acoes", style: "margin-top:12px" }, el("button", { class: "btn", onclick: async () => {
+  if (gestor()) corpo.append(el("div", { class: "acoes", style: "margin-top:12px" }, el("button", { class: "btn", onclick: async () => {
     const p = Object.fromEntries(Object.entries(ent).map(([kk, e]) => [kk, e.value]));
     if (!novo) { p.id = k.id;
       if (["assinado", "encerrado", "rescindido"].includes(k.situacao) && (Number(p.valor_mensal) !== Number(k.valor_mensal) || p.inicio !== k.inicio || (p.fim || null) !== (k.fim || null) || Number(p.dia_vencimento) !== k.dia_vencimento || p.parcela_extra !== String(k.parcela_extra))) {
@@ -528,7 +580,7 @@ function dlgRenovar(k) {
 
 // ---------------------------------------------------------------- Clientes
 function vClientes(c) {
-  c.append(el("div", { class: "acoes", style: "margin-bottom:10px" }, el("button", { class: "btn", onclick: () => dlgCliente(null) }, "+ Novo cliente")));
+  if (gestor()) c.append(el("div", { class: "acoes", style: "margin-bottom:10px" }, el("button", { class: "btn", onclick: () => dlgCliente(null) }, "+ Novo cliente")));
   const l = [...S.clientes.values()].sort((a, b) => (b.ativo - a.ativo) || a.apelido.localeCompare(b.apelido, "pt"));
   c.append(el("div", { class: "painel rolar", style: "padding:0" }, el("table", { class: "tab" },
     el("thead", {}, el("tr", {}, ["Cliente", "Razão social", "CNPJ", "E-mail de cobrança", "Foro", "Contrato atual", "Em aberto"].map((t, i) => el("th", { class: i === 6 ? "n" : "" }, t)))),
@@ -544,7 +596,7 @@ function dlgCliente(id) {
   const x = id ? S.clientes.get(id) : { apelido: "", sigla: "", razao_social: "", cnpj: "", endereco: "", email_cobranca: "", resp_financeiro: "", extrato_textos: [], ativo: true, obs: "" };
   const e = { apelido: el("input", { type: "text", value: x.apelido }), sigla: el("input", { type: "text", value: x.sigla }), razao_social: el("input", { type: "text", value: x.razao_social }),
     cnpj: el("input", { type: "text", value: fmtDoc(x.cnpj) }), endereco: el("input", { type: "text", value: x.endereco }), email_cobranca: el("input", { type: "text", value: x.email_cobranca }),
-    resp_financeiro: el("input", { type: "text", value: x.resp_financeiro, placeholder: "Ex.: Shopping Park Lagos" }), extrato_textos: el("input", { type: "text", value: (x.extrato_textos || []).join(", "), placeholder: "nome como aparece no extrato, separado por vírgula" }),
+    resp_financeiro: el("input", { type: "text", value: x.resp_financeiro, placeholder: "Ex.: Condomínio Edifício Central" }), extrato_textos: el("input", { type: "text", value: (x.extrato_textos || []).join(", "), placeholder: "nome como aparece no extrato, separado por vírgula" }),
     ativo: sel([["true", "Ativo"], ["false", "Inativo"]], String(x.ativo)), obs: el("input", { type: "text", value: x.obs }),
     foro: el("input", { type: "text", value: x.foro || "", placeholder: "vazio = " + (S.cfg.foro_padrao || "") }),
     foro_local: el("input", { type: "text", value: x.foro_local || "", placeholder: "vazio = " + (S.cfg.foro_local_padrao || "") }) };
@@ -556,30 +608,30 @@ function dlgCliente(id) {
     m.className = "msg"; m.textContent = "Confira o texto (ex.: \"do\"/\"da\" no nome da cidade) e salve."; } }, "Montar");
   dialogo(id ? "Cliente " + x.apelido : "Novo cliente", el("div", {}, el("div", { class: "form" },
     campo("Nome curto", e.apelido), campo("Sigla", e.sigla), campo("Situação", e.ativo), campo("Razão social (vai no contrato)", e.razao_social, "dois"), campo("CNPJ", e.cnpj),
-    campo("Endereço (vai no contrato)", e.endereco, "tudo"), campo("E-mail do contas a pagar", e.email_cobranca), campo("Responsável financeiro (\"… do Shopping X\")", e.resp_financeiro, "dois"),
+    campo("Endereço (vai no contrato)", e.endereco, "tudo"), campo("E-mail do contas a pagar", e.email_cobranca), campo("Responsável financeiro (campo RESPFINAN do contrato)", e.resp_financeiro, "dois"),
     campo("Como aparece no extrato (ajuda a conferência)", e.extrato_textos, "tudo"),
     el("div", { class: "tudo" }, el("h3", { style: "margin:4px 0 0" }, "Foro do contrato"), el("p", { class: "mut", style: "margin:2px 0 0" }, "Cláusula 10.6 (foro eleito) e 10.1.6 (sede da arbitragem). Vazio = o padrão da Configuração.")),
     campo("Montar pela cidade", el("div", { class: "acoes" }, fc, fu, montar), "tudo"),
     campo("Foro eleito (\"elegem o … como competente\")", e.foro, "tudo"), campo("Sede da arbitragem (\"será a …\")", e.foro_local, "tudo"),
     campo("Observação", e.obs, "tudo")),
-    el("div", { class: "acoes", style: "margin-top:12px" }, el("button", { class: "btn", onclick: async () => {
-      const p = Object.fromEntries(Object.entries(e).map(([k, i]) => [k, i.value])); p.extrato_textos = p.extrato_textos.split(",").map(s => s.trim()).filter(Boolean); if (id) p.id = id;
+    G(el("div", { class: "acoes", style: "margin-top:12px" }, el("button", { class: "btn", onclick: async () => {
+      const p = Object.fromEntries(Object.entries(e).map(([k, i]) => [k, i.value])); p.extrato_textos = p.extrato_textos.split(",").map(s => s.trim()).filter(Boolean); if (id) p.id = id; else p.empresa_id = S.emp;
       await salvar(() => rpc("ctr_cliente_salvar", { p }), m); $("#dlg").close(); } }, "Salvar"),
-      id ? el("button", { class: "btn sec", onclick: () => dlgAvulsa(id) }, "+ Cobrança avulsa") : null, m)));
+      id ? el("button", { class: "btn sec", onclick: () => dlgAvulsa(id) }, "+ Cobrança avulsa") : null, m))));
 }
 
-// ---------------------------------------------------------------- Extrato (OFX do Nubank) e conferência
+// ---------------------------------------------------------------- Extrato do banco (OFX) e conferência
 async function lerTexto(f) { const buf = await f.arrayBuffer(); try { return new TextDecoder("utf-8", { fatal: true }).decode(buf); } catch { return new TextDecoder("windows-1252").decode(buf); } }
 const tag = (b, t) => { const m = b.match(new RegExp("<" + t + ">([^<\\r\\n]*)", "i")); return m ? m[1].trim() : ""; };
 const num = t => { t = String(t || "").trim(); if (/,\d{1,2}$/.test(t)) t = t.replace(/\./g, "").replace(",", "."); return Number(t); };
 const data8 = t => /^\d{8}/.test(t) ? t.slice(0, 4) + "-" + t.slice(4, 6) + "-" + t.slice(6, 8) : "";
-function lerOfx(txt) {
+function lerOfx(txt, conta) {
   const linhas = [], cont = {};
   for (const b of txt.match(/<STMTTRN>[\s\S]*?(<\/STMTTRN>|(?=<STMTTRN>)|(?=<\/BANKTRANLIST>))/gi) || []) {
     const v = num(tag(b, "TRNAMT")), data = data8(tag(b, "DTPOSTED")), memo = tag(b, "MEMO"), nome = tag(b, "NAME");
     const desc = (memo && nome && !memo.includes(nome) && !nome.includes(memo) ? nome + " - " + memo : memo || nome).replace(/\s+/g, " ").trim();
     if (!data || !isFinite(v) || v <= 0) continue;   // só créditos
-    const base = ["nubank", data, v.toFixed(2), semAc(desc)].join("|"); cont[base] = (cont[base] || 0) + 1;
+    const base = [conta, data, v.toFixed(2), semAc(desc)].join("|"); cont[base] = (cont[base] || 0) + 1;
     linhas.push({ data, valor: v, descricao: desc, fitid: tag(b, "FITID"), chave: base + "|" + cont[base] });
   }
   const bal = (txt.match(/<LEDGERBAL>[\s\S]*?(<\/LEDGERBAL>|$)/i) || [""])[0];
@@ -600,16 +652,20 @@ function pontuar(e, x) {
 }
 function vExtrato(c) {
   const arq = el("input", { type: "file", accept: ".ofx,.OFX" }), m = el("span", { class: "msg" });
-  c.append(el("div", { class: "painel" }, el("h2", {}, "Importar extrato do Nubank (OFX)"),
-    el("div", { class: "acoes" }, arq, el("button", { class: "btn", onclick: async () => {
+  // nome da conta: separa extratos de bancos diferentes; começa com o da última importação (a Nervia usava "nubank")
+  const contas = [...new Set(S.imps.map(i => i.conta))], conta = el("input", { type: "text", value: (S.imps[0] || {}).conta || "banco", list: "ctr-contas", style: "max-width:160px", "aria-label": "Conta" });
+  if (gestor()) c.append(el("div", { class: "painel" }, el("h2", {}, "Importar extrato do banco em OFX"),
+    el("datalist", { id: "ctr-contas" }, contas.map(x => el("option", { value: x }))),
+    el("div", { class: "acoes" }, campo("Conta", conta), arq, el("button", { class: "btn", onclick: async () => {
       const f = arq.files[0]; if (!f) { m.className = "msg erro"; m.textContent = "Escolha o arquivo .ofx."; return; }
+      const ct = semAc(conta.value).trim() || "banco";
       try {
-        const r = lerOfx(await lerTexto(f));
-        if (!r.linhas.length) throw new Error("Nenhum crédito encontrado no arquivo (é o extrato OFX da conta Nubank?).");
-        await salvar(() => rpc("ctr_extrato_importar", { p: { arquivo: f.name, conta: "nubank", saldo_final: r.saldo_final, saldo_data: r.saldo_data, linhas: r.linhas } }), m,
+        const r = lerOfx(await lerTexto(f), ct);
+        if (!r.linhas.length) throw new Error("Nenhum crédito encontrado no arquivo (é um extrato no formato OFX?).");
+        await salvar(() => rpc("ctr_extrato_importar", { p: { empresa_id: S.emp, arquivo: f.name, conta: ct, saldo_final: r.saldo_final, saldo_data: r.saldo_data, linhas: r.linhas } }), m,
           res => res.novos + " crédito(s) novo(s)" + (res.repetidos ? ", " + res.repetidos + " já importado(s)" : "") + ".");
       } catch (e) { m.className = "msg erro"; m.textContent = erroTxt(e); } } }, "Importar"), m),
-    el("p", { class: "mut", style: "margin:8px 0 0" }, "Nubank PJ → Extrato → Exportar → OFX. O arquivo é lido no seu computador; só os créditos (entradas) vão para o sistema. Importar o mesmo período de novo não duplica."),
+    el("p", { class: "mut", style: "margin:8px 0 0" }, "No site ou app do banco: Extrato → Exportar → OFX (Money/Quicken). O arquivo é lido no seu computador; só os créditos (entradas) vão para o sistema. Importar o mesmo período de novo não duplica. Com mais de uma conta, dê um nome a cada uma (ex.: itau, inter)."),
     S.imps.length ? el("p", { class: "mut", style: "margin:4px 0 0" }, "Última importação: " + S.imps[0].arquivo + " (" + br(S.imps[0].de) + " a " + br(S.imps[0].ate) + ", " + S.imps[0].novos + " novos)") : null));
   const pago = new Map(); for (const x of S.cob) if (x.extrato_id) (pago.get(x.extrato_id) || pago.set(x.extrato_id, []).get(x.extrato_id)).push(x);
   const f = S.fe.sit, l = S.extrato.filter(e => f === "todos" ? true : f === "ligados" ? pago.has(e.id) : f === "ignorados" ? !!e.ignorado_motivo : !e.ignorado_motivo && !pago.has(e.id));
@@ -621,6 +677,7 @@ function vExtrato(c) {
       let col;
       if (pago.has(e.id)) col = el("td", {}, pago.get(e.id).map(x => el("div", {}, pill(SIT_COB, x.situacao), " " + x.cliente + " " + compLabel(x.competencia) + " · " + N(x.valor_pago))));
       else if (e.ignorado_motivo) col = el("td", { class: "mut" }, "Não é de contrato: " + e.ignorado_motivo);
+      else if (!gestor()) col = el("td", { class: "mut" }, "a conferir");
       else {
         const melhor = abertas.map(x => [pontuar(e, x), x]).filter(([p]) => p >= 5).sort((a, b) => b[0] - a[0]);
         const s = melhor.length && (melhor.length === 1 || melhor[0][0] > melhor[1][0]) ? melhor[0][1] : null;
@@ -661,24 +718,24 @@ function dlgEscolher(e) {
 // ---------------------------------------------------------------- Configuração
 function vConfig(c) {
   const cf = S.cfg, m = el("span", { class: "msg" });
-  const e = { contratada_nome: el("input", { type: "text", value: cf.contratada_nome }), contratada_cnpj: el("input", { type: "text", value: cf.contratada_cnpj }),
+  const e = { nome: el("input", { type: "text", value: cf.nome }), contratada_nome: el("input", { type: "text", value: cf.contratada_nome }), contratada_cnpj: el("input", { type: "text", value: cf.contratada_cnpj }),
     contratada_endereco: el("input", { type: "text", value: cf.contratada_endereco }), contratada_junta: el("input", { type: "text", value: cf.contratada_junta, placeholder: "Rio de Janeiro sob o número …" }),
     contratada_email: el("input", { type: "text", value: cf.contratada_email }), servicos_esp: el("input", { type: "text", value: cf.servicos_esp }),
     dia_nf: el("input", { type: "number", min: "1", max: "28", value: cf.dia_nf }), tolerancia: el("input", { type: "number", step: "0.01", min: "0", value: cf.tolerancia }),
     foro_padrao: el("input", { type: "text", value: cf.foro_padrao || "" }), foro_local_padrao: el("input", { type: "text", value: cf.foro_local_padrao || "" }) };
-  c.append(el("div", { class: "painel" }, el("h2", {}, "Nervia (contratada) e regras"), el("div", { class: "form" },
-    campo("Razão social", e.contratada_nome, "dois"), campo("CNPJ", e.contratada_cnpj), campo("Endereço", e.contratada_endereco, "tudo"), campo("Junta Comercial (texto do contrato)", e.contratada_junta, "dois"),
-    campo("E-mail de quem assina pela Nervia", e.contratada_email), campo("Serviços da contratada (\"… especializada em prestação de serviços …\")", e.servicos_esp, "dois"),
+  c.append(el("div", { class: "painel" }, el("h2", {}, "Dados da empresa (contratada) e regras"), el("div", { class: "form" },
+    campo("Nome curto (seletor do topo)", e.nome), campo("Razão social (vai no contrato)", e.contratada_nome, "dois"), campo("CNPJ", e.contratada_cnpj), campo("Endereço", e.contratada_endereco, "tudo"), campo("Junta Comercial (texto do contrato)", e.contratada_junta, "dois"),
+    campo("E-mail de quem assina pela empresa", e.contratada_email), campo("Serviços da contratada (\"… especializada em prestação de serviços …\")", e.servicos_esp, "dois"),
     campo("NF até o dia", e.dia_nf), campo("Tolerância de diferença (R$)", e.tolerancia),
     campo("Foro padrão (cliente sem foro próprio)", e.foro_padrao, "dois"), campo("Sede da arbitragem padrão", e.foro_local_padrao)),
-    el("div", { class: "acoes", style: "margin-top:12px" }, el("button", { class: "btn", onclick: () => salvar(() => rpc("ctr_config_salvar", { p: Object.fromEntries(Object.entries(e).map(([k, i]) => [k, i.value])) }), m) }, "Salvar"), m)));
+    el("div", { class: "acoes", style: "margin-top:12px" }, el("button", { class: "btn", onclick: () => salvar(() => rpc("ctr_empresa_salvar", { p: { id: S.emp, ...Object.fromEntries(Object.entries(e).map(([k, i]) => [k, i.value])) } }), m) }, "Salvar"), m)));
   // impostos
   const di = el("input", { type: "date", value: hoje().slice(0, 8) + "01" }), pi = el("input", { type: "number", step: "0.01", min: "0", value: "16" }), mi = el("span", { class: "msg" });
   c.append(el("div", { class: "painel" }, el("h2", {}, "Imposto sobre o recebido"), el("p", { class: "mut" }, "Vale a alíquota mais recente até a data do recebimento (ou do vencimento, se ainda não recebido). Serve para o líquido do painel."),
     el("table", { class: "tab", style: "max-width:420px" }, el("thead", {}, el("tr", {}, el("th", {}, "Vale desde"), el("th", { class: "n" }, "Alíquota"), el("th", {}))),
       el("tbody", {}, S.impostos.map(i => el("tr", {}, el("td", { class: "mono" }, br(i.vale_desde)), el("td", { class: "n" }, N(i.pct) + "%"),
-        el("td", {}, el("button", { class: "btn lnk", onclick: () => confirm("Excluir a alíquota de " + br(i.vale_desde) + "?") && salvar(() => rpc("ctr_imposto_excluir", { p_desde: i.vale_desde }), mi) }, "excluir")))))),
-    el("div", { class: "acoes", style: "margin-top:10px" }, campo("Vale desde", di), campo("Alíquota (%)", pi), el("button", { class: "btn sec", style: "align-self:flex-end", onclick: () => salvar(() => rpc("ctr_imposto_salvar", { p_desde: di.value, p_pct: pi.value }), mi) }, "Gravar alíquota"), mi)));
+        el("td", {}, el("button", { class: "btn lnk", onclick: () => confirm("Excluir a alíquota de " + br(i.vale_desde) + "?") && salvar(() => rpc("ctr_imposto_excluir", { p_empresa: S.emp, p_desde: i.vale_desde }), mi) }, "excluir")))))),
+    el("div", { class: "acoes", style: "margin-top:10px" }, campo("Vale desde", di), campo("Alíquota (%)", pi), el("button", { class: "btn sec", style: "align-self:flex-end", onclick: () => salvar(() => rpc("ctr_imposto_salvar", { p_empresa: S.emp, p_desde: di.value, p_pct: pi.value }), mi) }, "Gravar alíquota"), mi)));
   // modelo do Word
   const mod = S.modelos.find(x => x.padrao), arq = el("input", { type: "file", accept: ".docx" }), mm = el("span", { class: "msg" });
   c.append(el("div", { class: "painel" }, el("h2", {}, "Modelo do contrato (Word)"),
@@ -692,13 +749,71 @@ function vConfig(c) {
         const desc = campos.filter(x => !conhecidos.has(x));
         if (desc.length) throw new Error("O modelo tem campos que o app não conhece: " + desc.join(", ") + ".");
         if (!campos.length) throw new Error("O documento não tem campos de mala direta.");
-        const caminho = "modelos/" + Date.now() + ".docx";
+        const caminho = S.emp + "/modelos/" + Date.now() + ".docx";
         await salvar(async () => { const tipo = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
           checar(await sb.storage.from("ctr-arquivos").upload(caminho, new Blob([f], { type: tipo }), { contentType: tipo }));
-          return rpc("ctr_modelo_salvar", { p: { nome: f.name, caminho, campos } }); }, mm, "Modelo guardado (" + campos.length + " campos).");
+          return rpc("ctr_modelo_salvar", { p: { empresa_id: S.emp, nome: f.name, caminho, campos } }); }, mm, "Modelo guardado (" + campos.length + " campos).");
       } catch (e) { mm.className = "msg erro"; mm.textContent = erroTxt(e); } } }, "Enviar modelo"), mm)));
-  // carga da planilha
+  // carga da planilha (por empresa, só com ela vazia)
   if (!S.clientes.size && !S.cob.length) c.append(painelCarga());
+}
+
+// ---------------------------------------------------------------- Empresas (só a equipe Nervia): cadastro e quem usa
+function vEmpresas(c) {
+  c.append(el("p", { class: "sub" }, "Cada empresa que contrata o app tem os próprios clientes, contratos, cobranças, extrato, impostos e modelo do Word. Aqui a equipe Nervia cadastra a empresa e define quem usa: gestor (faz tudo) ou consulta (só lê). Quem recebe papel ganha o app na Área do Cliente."),
+    el("div", { class: "acoes", style: "margin-bottom:10px" }, el("button", { class: "btn", onclick: () => dlgEmpresa(null) }, "+ Nova empresa")));
+  c.append(el("div", { class: "painel rolar", style: "padding:0" }, el("table", { class: "tab" },
+    el("thead", {}, el("tr", {}, ["Empresa", "Razão social", "CNPJ", "Gestores", "Consulta", "Situação"].map((t, i) => el("th", { class: [3, 4].includes(i) ? "n" : "" }, t)))),
+    el("tbody", {}, S.empresas.map(e => el("tr", { class: "clica", onclick: () => dlgEmpresa(e.id) },
+      el("td", {}, el("b", {}, e.nome), e.id === S.emp ? el("span", { class: "mut" }, " · aberta") : null), el("td", {}, e.contratada_nome),
+      el("td", { class: "mono" }, fmtDoc(String(e.contratada_cnpj || "").replace(/\D/g, "")) || e.contratada_cnpj),
+      el("td", { class: "n" }, S.membros.filter(m => m.empresa_id === e.id && m.papel === "gestor").length),
+      el("td", { class: "n" }, S.membros.filter(m => m.empresa_id === e.id && m.papel === "consulta").length),
+      el("td", {}, e.ativo ? el("span", { class: "pill ok" }, "ativa") : el("span", { class: "pill" }, "inativa"))))))));
+}
+async function dlgEmpresa(id) {
+  const x = id ? S.empresas.find(e => e.id === id) : { nome: "", contratada_nome: "", contratada_cnpj: "", contratada_endereco: "", contratada_junta: "", contratada_email: "", servicos_esp: "",
+    dia_nf: 5, tolerancia: 0.05, foro_padrao: "", foro_local_padrao: "", ativo: true };
+  const t = v => el("input", { type: "text", value: v ?? "" });
+  const e = { nome: t(x.nome), contratada_nome: t(x.contratada_nome), contratada_cnpj: t(x.contratada_cnpj), contratada_endereco: t(x.contratada_endereco),
+    contratada_junta: el("input", { type: "text", value: x.contratada_junta, placeholder: "Ex.: Rio de Janeiro sob o número …" }), contratada_email: t(x.contratada_email),
+    servicos_esp: el("input", { type: "text", value: x.servicos_esp, placeholder: "Ex.: de Tecnologia da Informação" }),
+    dia_nf: el("input", { type: "number", min: "1", max: "28", value: x.dia_nf }), tolerancia: el("input", { type: "number", step: "0.01", min: "0", value: x.tolerancia }),
+    foro_padrao: el("input", { type: "text", value: x.foro_padrao, placeholder: "Ex.: Foro da Comarca de São Paulo" }),
+    foro_local_padrao: el("input", { type: "text", value: x.foro_local_padrao, placeholder: "Ex.: cidade de São Paulo, Estado de São Paulo" }),
+    ativo: sel([["true", "Ativa"], ["false", "Inativa (ninguém da empresa entra)"]], String(x.ativo)) };
+  const m = el("span", { class: "msg" }), corpo = el("div", {});
+  corpo.append(el("div", { class: "form" }, campo("Nome curto", e.nome), campo("Razão social (vai no contrato)", e.contratada_nome, "dois"), campo("CNPJ", e.contratada_cnpj),
+    campo("Endereço", e.contratada_endereco, "dois"), campo("Junta Comercial (texto do contrato)", e.contratada_junta, "tudo"), campo("E-mail de quem assina pela empresa", e.contratada_email),
+    campo("Serviços (\"… especializada em prestação de serviços …\")", e.servicos_esp, "dois"), campo("NF até o dia", e.dia_nf), campo("Tolerância de diferença (R$)", e.tolerancia), campo("Situação", e.ativo),
+    campo("Foro padrão", e.foro_padrao, "dois"), campo("Sede da arbitragem padrão", e.foro_local_padrao)),
+    el("div", { class: "acoes", style: "margin-top:12px" }, el("button", { class: "btn", onclick: async () => {
+      const p = Object.fromEntries(Object.entries(e).map(([k, i]) => [k, i.value])); p.ativo = p.ativo === "true";
+      if (id) p.id = id; else delete p.ativo;
+      const nid = await salvar(() => rpc("ctr_empresa_salvar", { p }), m, id ? "Gravado." : "Empresa criada.");
+      if (!id) dlgEmpresa(nid); } }, id ? "Salvar" : "Criar empresa"),
+      id && id !== S.emp ? el("button", { class: "btn sec", onclick: async () => { S.emp = id; localStorage.setItem("ctr-empresa", id); $("#dlg").close(); await carregar(); ir("dashboard"); } }, "Abrir esta empresa") : null, m));
+  if (id) {
+    const q = el("input", { type: "search", placeholder: "buscar login por nome ou e-mail" }), lista = el("div", { class: "rolar", style: "max-height:42vh" }), me = el("span", { class: "msg" });
+    corpo.append(el("h3", {}, "Quem usa esta empresa"), el("p", { class: "mut", style: "margin:0 0 8px" }, "Gestor: contratos, cobranças, NF, baixas, extrato, configuração e modelo. Consulta: só lê. Os logins são criados na Área do Cliente (Administração → Logins)."),
+      el("div", { class: "acoes", style: "margin-bottom:8px" }, q, me), lista);
+    let eq = [];
+    const desenhar = () => {
+      const f = semAc(q.value);
+      const l = eq.filter(u => !f || semAc((u.nome || "") + " " + u.email).includes(f));
+      lista.replaceChildren(el("table", { class: "tab" }, el("thead", {}, el("tr", {}, ["Login", "Papel nesta empresa", "Outras empresas"].map(h => el("th", {}, h)))),
+        el("tbody", {}, l.map(u => el("tr", {}, el("td", {}, u.nome || u.email, u.nome ? el("div", { class: "mut" }, u.email) : null, u.admin ? el("div", { class: "mut" }, "equipe Nervia (já vê todas)") : null),
+          el("td", {}, sel([["", "—"], ["gestor", "Gestor"], ["consulta", "Consulta"]], u.papel || "", { "aria-label": "Papel de " + u.email, onchange: async ev => {
+            try { await salvar(() => rpc("ctr_membro_salvar", { p_empresa: id, p_user: u.user_id, p_papel: ev.target.value }), me, ev.target.value ? "Papel gravado (o app foi liberado para o login)." : "Papel retirado.");
+              u.papel = ev.target.value || null; } catch { ev.target.value = u.papel || ""; } } })),
+          el("td", { class: "mut" }, (u.outras || []).join(", ")))))));
+    };
+    q.addEventListener("input", desenhar);
+    dialogo("Empresa " + x.nome, corpo);
+    try { eq = await rpc("ctr_equipe", { p_empresa: id }); desenhar(); } catch (er) { me.className = "msg erro"; me.textContent = erroTxt(er); }
+    return;
+  }
+  dialogo("Nova empresa", corpo);
 }
 
 // ---------------------------------------------------------------- carga da planilha ContratoDados.xlsx
@@ -772,13 +887,13 @@ function montarCarga(abas, nomeArq) {
     return { comp, n: l.length, c, p, rc: r ? r.c : null, rp: r ? r.p : null, ok: !r || (Math.abs(r.c - c) <= 0.05 * l.length && Math.abs(r.p - p) <= 0.05) };
   });
   const tot = { cobrancas: cobrancas.length, cobrado: r2(cobrancas.reduce((s, x) => s + x.valor, 0)), pago: r2(cobrancas.reduce((s, x) => s + (x.valor_pago || 0), 0)) };
-  return { payload: { arquivo: nomeArq, config, impostos: [{ desde: (cobrancas.map(x => x.vencimento).sort()[0] || "2024-01-01").slice(0, 4) + "-01-01", pct }],
+  return { payload: { empresa_id: S.emp, arquivo: nomeArq, config, impostos: [{ desde: (cobrancas.map(x => x.vencimento).sort()[0] || "2024-01-01").slice(0, 4) + "-01-01", pct }],
     clientes: [...clientes.values()], contratos, cobrancas: cobrancas.map(({ linha, ...x }) => x), conferir: tot }, meses, tot };
 }
 function painelCarga() {
   const arq = el("input", { type: "file", accept: ".xlsx" }), m = el("span", { class: "msg" }), prev = el("div");
   return el("div", { class: "painel" }, el("h2", {}, "Carga da planilha ContratoDados.xlsx (uma vez)"),
-    el("p", { class: "mut" }, "Traz os clientes, os contratos da aba Dados e todas as cobranças da aba RecebimentosControle, conferindo os totais de cada mês com a aba Resumo. A planilha é lida no seu computador. Só aparece com o app vazio."),
+    el("p", { class: "mut" }, "Traz para a empresa escolhida os clientes, os contratos da aba Dados e todas as cobranças da aba RecebimentosControle, conferindo os totais de cada mês com a aba Resumo. A planilha é lida no seu computador. Só aparece com a empresa vazia."),
     el("div", { class: "acoes" }, arq, el("button", { class: "btn sec", onclick: async () => {
       const f = arq.files[0]; if (!f) { m.className = "msg erro"; m.textContent = "Escolha a planilha."; return; }
       try {
@@ -804,12 +919,14 @@ function painelCarga() {
   const { data: { session } } = await sb.auth.getSession();
   if (!session) { av.innerHTML = 'Entre na <a href="/cliente/" target="_top">Área do Cliente</a> para usar o app.'; return; }
   try {
-    const p = checar(await sb.from("perfis").select("admin").eq("user_id", session.user.id).maybeSingle());
-    if (!p || !p.admin) { av.textContent = "O app Contratos é de uso interno da equipe Nervia."; return; }
+    S.uid = session.user.id;
+    const p = checar(await sb.from("perfis").select("admin").eq("user_id", S.uid).maybeSingle());
+    S.admin = !!(p && p.admin);
     await carregar();
+    if (!S.admin && !S.empresas.length) { av.textContent = "Seu login ainda não tem acesso a nenhuma empresa no app Contratos. Peça a liberação à Nervia (atendimento@nervia.com.br)."; return; }
   } catch (e) { av.textContent = "Não foi possível carregar: " + erroTxt(e); return; }
   av.hidden = true; $("#app").hidden = false;
-  if (!S.clientes.size) S.view = "config";
+  if (!S.clientes.size && gestor()) S.view = "config";
   ir(S.view);
 })();
 })();

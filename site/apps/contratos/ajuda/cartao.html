@@ -14,14 +14,31 @@
     <div class="acoes"><a href="manual.html">Manual completo</a><button onclick="print()">Imprimir</button></div>
   </div>
 
-  <p class="lead">Os contratos de prestação de serviço da Nervia, do Word ao recebimento: gerar o contrato pelo modelo de mala direta, registrar envio e assinatura, guardar o PDF assinado, cobranças de cada mês, NF e conferência com o extrato do banco. Uso interno da equipe Nervia.</p>
+  <p class="lead">Os contratos de prestação de serviço da sua empresa, do Word ao recebimento: gerar o contrato pelo modelo de mala direta, registrar envio e assinatura, guardar o PDF assinado, cobranças de cada mês, NF e conferência com o extrato do banco.</p>
 
-  <h2>Painel</h2>
+  <h2>Topo</h2>
+  <table>
+    <tr><td>Empresa</td><td>A empresa aberta. Quem usa mais de uma escolhe aqui; cada empresa tem os próprios clientes, contratos, cobranças, extrato, impostos e modelo.</td></tr>
+    <tr><td>gestor · só consulta</td><td>Seu papel na empresa: o gestor faz tudo; a consulta só vê (sem botões de alterar e sem a aba Configuração).</td></tr>
+  </table>
+
+  <h2>Dashboard</h2>
+  <table>
+    <tr><td>Período</td><td>Últimos 12, 24 ou 36 meses.</td></tr>
+    <tr><td>Recebido · Imposto estimado · Em atraso hoje · A receber (6 meses) · Prazo médio · Receita mensal contratada</td><td>Números do período; o prazo médio é quantos dias depois do vencimento o dinheiro entrou (negativo = antes); a receita contratada soma os contratos assinados em vigor.</td></tr>
+    <tr><td>Cobrado × recebido por mês</td><td>Cobrado pelo mês de competência (a parcela extra entra em dezembro); recebido pelo dia em que o dinheiro entrou.</td></tr>
+    <tr><td>Previsão · Em atraso no fim de cada mês</td><td>O que vence nos próximos 6 meses e como o atraso evoluiu.</td></tr>
+    <tr><td>Concentração da receita · Prazo por cliente</td><td>Quanto cada cliente pesa no recebido e quem paga antes ou depois do vencimento.</td></tr>
+    <tr><td>Passar o mouse · Ver tabela</td><td>Mostra o valor de cada barra ou ponto; a tabela traz os números do gráfico.</td></tr>
+    <tr><td>Contratos que terminam</td><td>Os que acabam nos próximos 6 meses e se a renovação já foi criada. Clique para abrir.</td></tr>
+  </table>
+
+  <h2>Resumo</h2>
   <table>
     <tr><td>Ano</td><td>Escolhe o ano dos números (pelo mês de referência da cobrança).</td></tr>
     <tr><td>Cobrado · Recebido · Imposto (estimado) · A vencer</td><td>Totais do ano; o imposto é a alíquota da Configuração sobre o recebido, e o líquido vem logo abaixo.</td></tr>
     <tr><td>Em atraso</td><td>Cobranças vencidas e não recebidas, de qualquer ano.</td></tr>
-    <tr><td>Pendências</td><td>NF a emitir até o mês atual (prazo: dia 5), cobranças em atraso, contratos sem assinatura registrada, contratos que terminam em 60 dias e créditos do extrato a conferir. "ver" abre a lista filtrada.</td></tr>
+    <tr><td>Pendências</td><td>NF a emitir até o mês atual (prazo: o dia da Configuração), cobranças em atraso, contratos sem assinatura registrada, contratos que terminam em 60 dias e créditos do extrato a conferir. "ver" abre a lista filtrada.</td></tr>
     <tr><td>Resumo por mês</td><td>Cobrado, recebido, saldo, imposto e líquido de cada mês (como a aba Resumo da planilha). "Extra (13ª)" é a parcela extra de dezembro. Clique no mês para ver as cobranças.</td></tr>
     <tr><td>Por cliente</td><td>Cobrado, recebido e em aberto de cada cliente no ano. Clique para ver as cobranças dele.</td></tr>
   </table>
@@ -30,7 +47,7 @@
   <table>
     <tr><td>Ano · Mês · Cliente · Situação · NF · Buscar</td><td>Filtros da lista. "Extra (13ª)" = parcela extra de dezembro.</td></tr>
     <tr><td>A vencer · Atrasada · Paga · Paga com atraso · Diferença</td><td>Situação calculada: diferença = valor recebido diferente do cobrado (mais de R$ 0,05).</td></tr>
-    <tr><td>NF a emitir · NF atrasada · NF emitida</td><td>NF atrasada = passou do dia 5 do mês sem marcar a emissão.</td></tr>
+    <tr><td>NF a emitir · NF atrasada · NF emitida</td><td>NF atrasada = passou do dia limite do mês (Configuração) sem marcar a emissão.</td></tr>
     <tr><td>Caixa de seleção · Marcar NF emitida</td><td>Marca a NF de várias cobranças de uma vez, com a data; o número é opcional (só com uma cobrança).</td></tr>
     <tr><td>+ Cobrança avulsa</td><td>Cliente, vencimento, valor e descrição (projeto, visita extra…), fora da mensalidade.</td></tr>
     <tr><td>CSV</td><td>Baixa a lista filtrada para o Excel.</td></tr>
@@ -55,14 +72,14 @@
   <h2>Clientes</h2>
   <table>
     <tr><td>Nome curto · Sigla · Razão social · CNPJ · Endereço</td><td>A razão social, o CNPJ e o endereço vão para o contrato.</td></tr>
-    <tr><td>E-mail do contas a pagar · Responsável financeiro</td><td>O responsável financeiro é o texto "… do Shopping X" do contrato.</td></tr>
+    <tr><td>E-mail do contas a pagar · Responsável financeiro</td><td>O responsável financeiro é o texto do campo RESPFINAN do contrato.</td></tr>
     <tr><td>Foro do contrato · Montar pela cidade</td><td>Foro eleito (cláusula 10.6) e sede da arbitragem (10.1.6) do cliente. "Montar" preenche pela cidade e UF; confira o "do/da" do nome da cidade. Vazio = o padrão da Configuração.</td></tr>
     <tr><td>Como aparece no extrato</td><td>Nomes que o banco mostra no Pix desse cliente; ajudam a sugestão na conferência.</td></tr>
   </table>
 
   <h2>Extrato</h2>
   <table>
-    <tr><td>Importar extrato do Nubank (OFX)</td><td>Só os créditos (entradas) entram; importar de novo não duplica.</td></tr>
+    <tr><td>Conta · Importar extrato do banco em OFX</td><td>O OFX de qualquer banco. Só os créditos (entradas) entram; importar de novo não duplica. Com mais de uma conta, dê um nome a cada uma.</td></tr>
     <tr><td>sugestão · ligar</td><td>Cobrança em aberto achada pelo CNPJ ou nome no texto do Pix, valor e data; "ligar" dá a baixa na data do crédito.</td></tr>
     <tr><td>escolher…</td><td>Escolhe à mão uma ou mais cobranças (um Pix pode pagar duas; a soma precisa bater).</td></tr>
     <tr><td>não é de contrato</td><td>Tira da conferência um crédito que não é de cliente (rendimento, outra receita), com o motivo.</td></tr>
@@ -70,18 +87,25 @@
 
   <h2>Configuração</h2>
   <table>
-    <tr><td>Nervia (contratada) e regras</td><td>Dados da Nervia no contrato, dia limite da NF (5), tolerância de diferença (R$ 0,05) e o foro e a sede da arbitragem padrão (cliente sem foro próprio).</td></tr>
+    <tr><td>Dados da empresa (contratada) e regras</td><td>Nome curto, dados da empresa no contrato, dia limite da NF, tolerância de diferença (R$ 0,05) e o foro e a sede da arbitragem padrão (cliente sem foro próprio).</td></tr>
     <tr><td>Imposto sobre o recebido</td><td>Alíquota por período (vale a mais recente até a data); serve para o líquido.</td></tr>
     <tr><td>Modelo do contrato (Word)</td><td>O .docx de mala direta. O app confere os campos antes de guardar.</td></tr>
-    <tr><td>Carga da planilha</td><td>Só com o app vazio: traz o ContratoDados.xlsx inteiro, conferindo cada mês com a aba Resumo.</td></tr>
+    <tr><td>Carga da planilha</td><td>Só com a empresa vazia: traz a planilha de contratos inteira, conferindo cada mês com a aba Resumo.</td></tr>
+  </table>
+
+  <h2>Empresas (equipe Nervia)</h2>
+  <table>
+    <tr><td>+ Nova empresa</td><td>Cadastra a empresa que contratou o app (nome curto, razão social, CNPJ, regras).</td></tr>
+    <tr><td>Quem usa esta empresa · Papel</td><td>Gestor ou Consulta para cada login; quem recebe papel ganha o app na Área do Cliente. "—" retira.</td></tr>
+    <tr><td>Situação · Abrir esta empresa</td><td>Empresa inativa: ninguém dela entra. "Abrir" troca a empresa do topo.</td></tr>
   </table>
 
   <h2>Bom saber</h2>
   <table>
-    <tr><td>Quem usa</td><td>Só a equipe Nervia. Tudo vai para o registro de auditoria.</td></tr>
+    <tr><td>Quem usa</td><td>Os logins liberados em cada empresa (gestor ou consulta) e a equipe Nervia. Tudo vai para o registro de auditoria.</td></tr>
     <tr><td>Arquivos</td><td>A planilha, o Word e o OFX são lidos no seu computador; o modelo e os PDFs assinados ficam em área privada.</td></tr>
   </table>
-  <div class="rodape">Nervia Tecnologia · Cartão de referência do app Contratos · atualizado em 09/11/2026</div>
+  <div class="rodape">Nervia Tecnologia · Cartão de referência do app Contratos · atualizado em 10/11/2026</div>
 </div>
 <script src="/marca-dagua.js" data-tipo="doc"></script>
 </body>
