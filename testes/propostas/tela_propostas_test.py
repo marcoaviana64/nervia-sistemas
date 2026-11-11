@@ -57,6 +57,15 @@ with sync_playwright() as p:
     codigo = re.search(r"Código de acesso: (\d{6})", mensagem).group(1)
     confere(mensagem.startswith("Olá, Dra. Deborah Gleichman!"), "mensagem pronta com link e código: " + mensagem.splitlines()[0])
     confere("Rascunho" in pg.inner_text("#propDetalhe"), "começa como rascunho")
+    confere("NÃO abre para o cliente" in pg.inner_text("#propDetalhe"), "rascunho avisa que o link ainda não abre para o cliente")
+    previa = pg.get_attribute("a:has-text('Ver como o cliente')", "href")
+    confere(previa.endswith("/proposta/?previa#" + link), "Ver como o cliente aponta para a prévia")
+    pr, erros_pr = pagina(ctx)
+    pr.goto(previa); pr.wait_for_selector("#pagina:not(.oculto)")
+    confere("Prévia da equipe Nervia" in pr.inner_text("#situacao") and "RASCUNHO" in pr.inner_text("#situacao")
+            and pr.locator("#resposta").is_hidden() and "Harmonia do Corpo" in pr.inner_text("#prospect"), "prévia abre o rascunho sem código e sem resposta")
+    confere(not pr.evaluate("JSON.parse(localStorage.getItem('prop_teste')).prop_eventos.some(e => e.tipo === 'visualizada')"), "prévia não conta visita")
+    pr.close()
     # prospect antes de enviar: não abre
     pp, erros_p = pagina(ctx, 390)
     pp.goto(f"{URL}/proposta/#{link}"); pp.wait_for_selector("#codigo")
@@ -109,7 +118,7 @@ with sync_playwright() as p:
     confere(pv.locator(".card").count() == 3 and "Disponível" in grade and "Em desenvolvimento" in grade and "Ver demonstração" in grade,
             "vitrine pública lista os produtos com a situação")
     confere(pv.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), "vitrine no celular sem rolagem lateral")
-    todos = erros + erros_p + erros_m + erros_v
+    todos = erros + erros_pr + erros_p + erros_m + erros_v
     confere(not todos, "nenhum erro de JavaScript: " + "; ".join(todos))
     b.close()
 print(f"TODOS OS TESTES DE TELA DAS PROPOSTAS OK ({ok})")

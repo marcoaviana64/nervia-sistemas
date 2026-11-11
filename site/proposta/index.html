@@ -147,6 +147,9 @@ const ZAP = (CFG.CONTATO && CFG.CONTATO.whatsapp) || "5521966869374";
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const dataBR = v => v ? new Date(String(v).length === 10 ? v + "T12:00:00" : v).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "";
 let CODIGO = "", P = null, AJUSTE = false;
+// ?previa = prévia da equipe Nervia: usa a sessão da Área do Cliente (mesmo site), vê a proposta em qualquer situação,
+// sem código, sem contar visita e sem responder (função prop_previa, só admin)
+const PREVIA = new URLSearchParams(location.search).has("previa");
 const CHAVE = "nervia-proposta-" + LINK;   // código guardado só nesta aba (sessionStorage)
 
 document.querySelectorAll(".js-zap").forEach(a => { a.href = "https://wa.me/" + ZAP + "?text=" + encodeURIComponent("Olá! Recebi uma proposta da Nervia e tenho uma dúvida."); a.target = "_blank"; a.rel = "noopener"; });
@@ -194,6 +197,15 @@ function mostrar(p) {
 function situacao() {
   const p = P, el = $("situacao");
   let tipo = "", txt = "";
+  if (PREVIA) {
+    const est = { rascunho: "RASCUNHO: o cliente ainda NÃO consegue abrir. Use Enviar no WhatsApp ou Marcar como enviada na Administração.",
+      enviada: "ENVIADA: o cliente abre com o código.", ajuste: "AJUSTE PEDIDO: o cliente abre com o código e vê o pedido dele.",
+      aprovada: "APROVADA.", cliente: "APROVADA (já virou cliente).", cancelada: "CANCELADA: o cliente não consegue abrir." }[P.situacao_real] || "";
+    el.innerHTML = '<div class="aviso"></div>';
+    aviso(el.firstChild, "warn", "Prévia da equipe Nervia (não conta como visita e não dá para responder daqui). " + est);
+    $("resposta").classList.add("oculto"); $("bResponder").classList.add("oculto");
+    return;
+  }
   if (p.situacao === "aprovada") { tipo = "ok"; txt = `Proposta aprovada por ${p.resposta_nome} em ${dataBR(p.respondida_em)}. Obrigado! A Nervia vai falar com você pelo WhatsApp.`; }
   else if (p.vencida) { tipo = "warn"; txt = `Esta proposta venceu em ${dataBR(p.valida_ate)}. Fale com a Nervia para renovar.`; }
   else if (p.situacao === "ajuste") { tipo = "info"; txt = `Você pediu um ajuste em ${dataBR(p.respondida_em)}: "${p.resposta_texto}"\nA Nervia vai mandar uma nova versão neste mesmo link. Se preferir, já pode aprovar assim mesmo.`; }
@@ -248,6 +260,18 @@ $("resposta").addEventListener("submit", e => e.preventDefault());
   if (!/^[a-f0-9]{12}$/.test(LINK)) {
     $("entrada").classList.remove("oculto"); $("bEntrar").disabled = true;
     return aviso($("erroEntrada"), "crit", "Link incompleto. Abra o endereço completo que você recebeu pelo WhatsApp.");
+  }
+  if (PREVIA) {
+    try {
+      const sbEquipe = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
+      const { data, error } = await sbEquipe.rpc("prop_previa", { p_link: LINK });
+      if (error) throw new Error(error.message);
+      if (!data.ok) throw new Error(data.erro);
+      return mostrar({ ...data.proposta, situacao_real: data.situacao_real });
+    } catch (e) {
+      $("entrada").classList.remove("oculto"); $("bEntrar").disabled = true;
+      return aviso($("erroEntrada"), "crit", "Prévia indisponível: " + e.message);
+    }
   }
   let salvo = ""; try { salvo = sessionStorage.getItem(CHAVE) || ""; } catch {}
   if (salvo) {
