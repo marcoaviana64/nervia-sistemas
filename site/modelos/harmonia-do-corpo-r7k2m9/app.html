@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<!-- Modelo do APLICATIVO Nervia Studio para a Harmonia do Corpo (aba "Aplicativo" da apresentação index.html; pedido do Marco em 11/11/2026).
+     Protótipo navegável, dados FICTÍCIOS só na memória da página; nada é gravado. -->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Nervia Studio — Harmonia do Corpo (modelo para aprovação)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{--teal:#0B6F78;--teal-esc:#084E55;--fundo:#F3F6F7;--borda:#DDE5E8;--texto:#12232B;--suave:#56696F}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--texto);background:var(--fundo)}
+h1,h2{font-family:'Space Grotesk',sans-serif;margin:0}
+button{font-family:inherit}
+.aviso{background:#FFF7E0;color:#6B4A00;text-align:center;font-size:14px;padding:8px 16px}
+.topo{background:#fff;border-bottom:1px solid var(--borda);padding:12px 20px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.marca{display:flex;align-items:center;gap:12px;font-family:'Space Grotesk',sans-serif;font-weight:700;letter-spacing:.04em}
+.marca img{height:30px}
+.marca span{font-family:Inter;font-weight:700;letter-spacing:0;font-size:15px;padding-left:12px;border-left:1px solid var(--borda)}
+.quem{display:flex;align-items:center;gap:10px;font-size:14px}
+.quem i{width:36px;height:36px;border-radius:999px;background:#DFF1F2;color:#0B5F66;font-weight:700;font-style:normal;display:flex;align-items:center;justify-content:center}
+.corpo{display:flex;flex-wrap:wrap;align-items:flex-start}
+nav{flex:1 1 210px;max-width:250px;padding:18px 12px;display:flex;flex-direction:column;gap:4px}
+nav button{min-height:46px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 14px;border:0;border-radius:10px;background:transparent;color:#2C3F46;font-size:15px;text-align:left;cursor:pointer}
+nav button[aria-current="page"]{background:#DFF1F2;color:var(--teal-esc);font-weight:700}
+nav b{min-width:22px;height:22px;border-radius:999px;background:#C2410C;color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center;padding:0 6px}
+main{flex:999 1 560px;min-width:0;padding:22px 24px 40px;display:flex;flex-direction:column;gap:18px}
+.cab{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+.cab p{margin:6px 0 0;color:var(--suave);font-size:15px}
+.cab h1{font-size:28px}
+.bt{height:44px;padding:0 18px;border:0;border-radius:10px;background:var(--teal);color:#fff;font-size:15px;font-weight:700;cursor:pointer}
+.bt2{height:44px;padding:0 16px;border:1px solid #C8D5DA;border-radius:10px;background:#fff;color:var(--texto);font-size:14px;font-weight:600;cursor:pointer}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.kpi{background:#fff;border:1px solid var(--borda);border-radius:16px;padding:14px 16px}
+.kpi span{font-size:13px;color:var(--suave);font-weight:600}
+.kpi div{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700}
+.caixa{background:#fff;border:1px solid var(--borda);border-radius:16px;overflow:hidden}
+.linha{display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:13px 16px;border-bottom:1px solid #EDF2F4}
+.linha:last-child{border-bottom:0}
+.hora{width:56px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:17px}
+.quemaula{flex:1 1 200px;min-width:0}
+.quemaula div{font-size:13px;color:var(--suave)}
+.tag{display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+.ok{background:#DCFCE7;color:#166534}.esp{background:#FEF3C7;color:#92400E}.ruim{background:#FEE2E2;color:#B42318}.neu{background:#E6EEF1;color:#3B4F56}
+.tab{overflow-x:auto}
+table{width:100%;min-width:620px;border-collapse:collapse;font-size:14px}
+th{background:#F7FAFB;text-align:left;color:#44575E;padding:11px 14px}
+td{padding:10px 14px;border-top:1px solid #EDF2F4}
+.form{display:flex;flex-wrap:wrap;gap:16px}
+.form>div{flex:1 1 320px;min-width:0;background:#fff;border:1px solid var(--borda);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:12px}
+label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:#44575E}
+input,textarea{border:1px solid #C8D5DA;border-radius:10px;padding:10px 12px;font-family:inherit;font-size:15px;color:var(--texto)}
+.lin{flex-direction:row;align-items:center;justify-content:space-between}
+.lin input{width:130px;text-align:right}
+.chk{flex-direction:row;align-items:center;gap:10px;font-weight:500;color:var(--texto);font-size:14px}
+.chk input{width:20px;height:20px;accent-color:var(--teal)}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#12232B;color:#fff;padding:12px 18px;border-radius:12px;font-size:14px;display:none;z-index:9;max-width:90vw}
+.oculto{display:none}
+@media (max-width:640px){nav{max-width:none;flex-direction:row;overflow-x:auto;padding:10px}nav button{white-space:nowrap}main{padding:16px}.cab h1{font-size:24px}}
+</style>
+</head>
+<body>
+<div class="aviso">Modelo do aplicativo para aprovação: navegue pelas abas. Nomes e valores são fictícios.</div>
+<div class="topo">
+  <div class="marca"><img src="/img/nervia-logo.png" alt="Nervia Tecnologia"><span>Nervia Studio</span></div>
+  <div class="quem"><i>HC</i><div><b>Harmonia do Corpo</b><div style="color:var(--suave);font-size:13px">Dra. Deborah</div></div></div>
+</div>
+<div class="corpo">
+  <nav aria-label="Menu do aplicativo" id="menu"></nav>
+  <main id="tela"></main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  function toast(t) { var e = $("toast"); e.textContent = t; e.style.display = "block"; clearTimeout(toast.t); toast.t = setTimeout(function () { e.style.display = "none"; }, 2600); }
+  var ABAS = [["agenda", "Agenda", 0], ["pedidos", "Pedidos do site", 2], ["alunos", "Alunos", 0], ["mensal", "Mensalidades", 3], ["site", "Meu site", 0]];
+  var ATUAL = "agenda";
+  var AGENDA = [["07:00", "Ana Souza", "Pilates em aparelhos", "Confirmado", "ok"], ["08:00", "Turma Solo (4 alunos)", "Pilates solo", "Confirmado", "ok"],
+    ["09:00", "Roberto Lima", "Fisioterapia — sessão 5 de 10", "Aguardando", "esp"], ["10:00", "Fátima Rocha", "Drenagem linfática manual", "Confirmado", "ok"],
+    ["16:00", "Juliana Prado", "Miofibrolise", "Confirmado", "ok"], ["17:00", "Marcos Teixeira", "Pilates em aparelhos", "Mensalidade atrasada", "ruim"],
+    ["18:00", "Helena Duarte", "Avaliação inicial (veio pelo site)", "Novo aluno", "neu"]];
+  var PEDIDOS = [["Carla Menezes", "Pilates · qua, 11/11 às 09:00", "(21) 9 0000-1111", "hoje 14:32"], ["Paulo Henrique", "Fisioterapia · qui, 12/11 às 17:00", "(21) 9 0000-2222", "ontem 21:10"]];
+  var ALUNOS = [["Ana Souza", "Pilates 2x/semana", "qui, 12/11 07:00", "mar/2025", "Em dia", "ok"], ["Roberto Lima", "Fisioterapia (10 sessões)", "hoje 09:00", "out/2026", "Em dia", "ok"],
+    ["Fátima Rocha", "Drenagem (pacote 8)", "hoje 10:00", "ago/2026", "Pendente", "esp"], ["Juliana Prado", "Pilates 3x/semana", "hoje 16:00", "jan/2026", "Em dia", "ok"],
+    ["Marcos Teixeira", "Pilates 1x/semana", "hoje 17:00", "mai/2026", "Atrasado", "ruim"], ["Helena Duarte", "Avaliação", "hoje 18:00", "nov/2026", "Novo", "neu"]];
+  var MENSAL = [["Ana Souza", "Pilates 2x", "05/11", "R$ 280,00", "Pago", "ok"], ["Juliana Prado", "Pilates 3x", "05/11", "R$ 360,00", "Pago", "ok"],
+    ["Marcos Teixeira", "Pilates 1x", "01/11", "R$ 180,00", "Atrasado", "ruim"], ["Fátima Rocha", "Drenagem", "10/11", "R$ 320,00", "Vence hoje", "esp"],
+    ["Lúcia Batista", "Pilates 2x", "03/11", "R$ 280,00", "Atrasado", "ruim"], ["Sérgio Alves", "Pilates 2x", "15/11", "R$ 280,00", "A vencer", "neu"]];
+  var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
+  var tag = function (t, c) { return '<span class="tag ' + c + '">' + esc(t) + "</span>"; };
+
+  function menu() {
+    $("menu").innerHTML = ABAS.map(function (a) {
+      return '<button type="button" data-aba="' + a[0] + '"' + (a[0] === ATUAL ? ' aria-current="page"' : "") + "><span>" + a[1] + "</span>" + (a[2] ? "<b>" + a[2] + "</b>" : "") + "</button>";
+    }).join("");
+  }
+  var TELAS = {
+    agenda: function () {
+      return '<div class="cab"><div><p style="margin:0">Quarta-feira, 11 de novembro</p><h1>Agenda de hoje</h1></div><button class="bt" data-acao="Novo horário">+ Novo horário</button></div>' +
+        '<div class="kpis"><div class="kpi"><span>Atendimentos hoje</span><div>9</div></div><div class="kpi"><span>Pedidos novos do site</span><div>2</div></div>' +
+        '<div class="kpi"><span>Alunos ativos</span><div>34</div></div><div class="kpi"><span>Mensalidades em atraso</span><div>3</div></div></div>' +
+        '<div class="caixa">' + AGENDA.map(function (a) { return '<div class="linha"><span class="hora">' + a[0] + '</span><div class="quemaula"><b>' + esc(a[1]) + "</b><div>" + esc(a[2]) + "</div></div>" + tag(a[3], a[4]) + "</div>"; }).join("") + "</div>";
+    },
+    pedidos: function () {
+      return '<div class="cab"><div><h1>Pedidos do site</h1><p>Agendamentos feitos pelos visitantes do site. Ao confirmar, o horário entra na agenda e abre a mensagem pronta no WhatsApp.</p></div></div>' +
+        PEDIDOS.map(function (p) { return '<div class="caixa"><div class="linha"><div class="quemaula"><b>' + esc(p[0]) + "</b><div>" + esc(p[1]) + "</div><div>" + esc(p[2]) + " · pedido " + esc(p[3]) + '</div></div><button class="bt2" data-acao="Sugerir outro horário">Sugerir outro horário</button><button class="bt" data-acao="Confirmar o horário">Confirmar</button></div></div>'; }).join("");
+    },
+    alunos: function () {
+      return '<div class="cab"><h1>Alunos e pacientes</h1><button class="bt" data-acao="Novo aluno">+ Novo aluno</button></div><div class="caixa tab"><table><tr><th>Nome</th><th>Serviço / plano</th><th>Próxima aula</th><th>Desde</th><th>Situação</th></tr>' +
+        ALUNOS.map(function (a) { return "<tr><td><b>" + esc(a[0]) + "</b></td><td>" + esc(a[1]) + "</td><td>" + esc(a[2]) + '</td><td style="color:var(--suave)">' + esc(a[3]) + "</td><td>" + tag(a[4], a[5]) + "</td></tr>"; }).join("") + "</table></div>";
+    },
+    mensal: function () {
+      return '<div class="cab"><div><h1>Mensalidades · novembro</h1><p>"Cobrar" abre o WhatsApp com a mensagem e a chave Pix prontas.</p></div></div>' +
+        '<div class="kpis"><div class="kpi"><span>Recebido</span><div style="color:#166534">R$ 3.360,00</div></div><div class="kpi"><span>A receber</span><div>R$ 1.120,00</div></div><div class="kpi"><span>Em atraso</span><div style="color:#B42318">R$ 840,00</div></div></div>' +
+        '<div class="caixa tab"><table><tr><th>Aluno</th><th>Plano</th><th>Vencimento</th><th>Valor</th><th>Situação</th><th></th></tr>' +
+        MENSAL.map(function (m) { return "<tr><td><b>" + esc(m[0]) + "</b></td><td>" + esc(m[1]) + "</td><td>" + esc(m[2]) + "</td><td>" + esc(m[3]) + "</td><td>" + tag(m[4], m[5]) + '</td><td style="text-align:right">' + (m[5] === "ruim" || m[5] === "esp" ? '<button class="bt2" data-acao="Cobrar pelo WhatsApp">Cobrar</button>' : "") + "</td></tr>"; }).join("") + "</table></div>";
+    },
+    site: function () {
+      return '<div class="cab"><div><h1>Meu site</h1><p>Altere textos, preços e horários do site sem precisar chamar a Nervia.</p></div><div style="display:flex;gap:8px;flex-wrap:wrap"><a class="bt2" href="site.html" style="display:flex;align-items:center;text-decoration:none">Ver site</a><button class="bt" data-acao="Publicar alterações">Publicar alterações</button></div></div>' +
+        '<div class="form"><div><b>Informações do studio</b><label>Horário de funcionamento<input value="Seg a sex, 7h às 20h · Sáb, 8h às 12h"></label><label>Endereço<input value="Rua Exemplo, 100 — Pedra de Guaratiba"></label><label>Texto "Quem cuida de você"<textarea rows="4">Fisioterapeuta formada em…</textarea></label></div>' +
+        '<div><b>Planos e preços</b><label class="lin">Pilates 1x por semana<input value="R$ 180,00"></label><label class="lin">Pilates 2x por semana<input value="R$ 280,00"></label><label class="lin">Pilates 3x por semana<input value="R$ 360,00"></label>' +
+        '<b style="margin-top:8px">Serviços exibidos no site</b>' + ["Pilates Solo e Equipamentos", "Fisioterapia", "Drenagem linfática manual", "Miofibrolise (liberação miofascial)", "Programa de redução de medidas"].map(function (s) { return '<label class="chk"><input type="checkbox" checked>' + s + "</label>"; }).join("") + "</div></div>";
+    }
+  };
+  function abrir(id) { ATUAL = id; menu(); $("tela").innerHTML = TELAS[id](); }
+  $("menu").addEventListener("click", function (e) { var b = e.target.closest("button[data-aba]"); if (b) abrir(b.getAttribute("data-aba")); });
+  $("tela").addEventListener("click", function (e) { var b = e.target.closest("[data-acao]"); if (b) toast(b.getAttribute("data-acao") + ": no aplicativo de verdade isso grava. Aqui é só o modelo."); });
+  abrir("agenda");
+})();
+</script>
+<script src="/marca-dagua.js" data-tipo="modelo"></script>
+</body>
+</html>
