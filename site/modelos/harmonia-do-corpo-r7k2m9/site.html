@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<!-- Modelo do SITE da Harmonia do Corpo (aba "Site" da apresentação index.html) (proposta 2026, pedido do Marco em 10/11/2026). Endereço com sufixo aleatório,
+     fora dos buscadores; aberto pela página da proposta (/proposta/#…). Trechos destacados = informação que a cliente vai passar. -->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Harmonia do Corpo — Studio de Pilates e Fisioterapia (modelo para aprovação)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Nunito+Sans:wght@400;600;700&family=Dancing+Script:wght@600&display=swap" rel="stylesheet">
+<style>
+:root{--verde:#2F6B1E;--verde-esc:#1F4A13;--claro:#F3F8EC;--borda:#DDEBD0;--texto:#1E2A1A;--suave:#4A5844}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Nunito Sans',system-ui,sans-serif;color:var(--texto);background:#fff}
+a{color:var(--verde)}
+h1,h2,h3{font-family:Poppins,sans-serif;margin:0}
+.wrap{max-width:1160px;margin:0 auto;padding:0 24px}
+.aviso{background:#FFF7E0;color:#6B4A00;text-align:center;font-size:14px;padding:8px 16px}
+header{background:#fff;border-bottom:1px solid #E3EDD9;position:sticky;top:0;z-index:5}
+header .wrap{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding-top:10px;padding-bottom:10px}
+header img{height:52px;display:block}
+nav{display:flex;flex-wrap:wrap;align-items:center;gap:20px;font-weight:600;font-size:15px}
+nav a{text-decoration:none;color:#2B3A26}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;font-weight:700;border-radius:999px;padding:14px 24px;min-height:48px;border:2px solid var(--verde);cursor:pointer;font-family:inherit;font-size:16px}
+.btn-cheio{background:var(--verde);color:#fff}
+.btn-cheio:hover{background:var(--verde-esc);border-color:var(--verde-esc);color:#fff}
+.btn-vazio{background:#fff;color:var(--verde-esc)}
+nav .btn{padding:10px 18px;min-height:44px;color:#fff}
+section{padding:72px 0}
+.claro{background:var(--claro)}
+.sobretitulo{margin:0;font-weight:700;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--verde)}
+.hero{display:flex;flex-wrap:wrap;align-items:center;gap:48px}
+.hero>div{flex:1 1 400px;min-width:0;display:flex;flex-direction:column;gap:18px}
+.hero h1{font-size:clamp(32px,5vw,48px);line-height:1.1}
+.script{font-family:'Dancing Script',cursive;font-size:34px;color:var(--verde);margin:0}
+.lead{font-size:18px;line-height:1.6;color:var(--suave);margin:0;max-width:520px}
+.hero img{width:100%;height:380px;object-fit:cover;border-radius:28px;display:block}
+.acoes{display:flex;flex-wrap:wrap;gap:12px}
+.centro{text-align:center;display:flex;flex-direction:column;gap:10px;align-items:center;margin-bottom:36px}
+.centro h2,.sec-h2{font-size:clamp(26px,4vw,34px)}
+.centro p{margin:0;font-size:17px;color:var(--suave);max-width:620px}
+.cards{display:flex;flex-wrap:wrap;gap:20px}
+.card{flex:1 1 200px;min-width:0;background:#F7FAF3;border:1px solid var(--borda);border-radius:20px;padding:24px;display:flex;flex-direction:column;gap:12px}
+.card h3{font-size:18px}
+.card p{margin:0;font-size:15px;line-height:1.55;color:var(--suave)}
+.icone{width:48px;height:48px;border-radius:14px;background:#DDEFCB;color:var(--verde);display:flex;align-items:center;justify-content:center}
+.sobre{display:flex;flex-wrap:wrap;align-items:center;gap:48px}
+.sobre img{width:100%;max-width:320px;aspect-ratio:4/5;object-fit:cover;border-radius:28px;border:6px solid #fff;display:block}
+.sobre>div:last-child{flex:1 1 400px;min-width:0;display:flex;flex-direction:column;gap:14px}
+.sobre p{margin:0;font-size:17px;line-height:1.65;color:var(--suave)}
+.passos{display:flex;flex-wrap:wrap;gap:24px}
+.passo{flex:1 1 260px;display:flex;gap:16px;align-items:flex-start}
+.passo b{flex:0 0 44px;height:44px;border-radius:999px;background:var(--verde);color:#fff;font-family:Poppins;font-size:18px;display:flex;align-items:center;justify-content:center}
+.passo h3{font-size:18px;margin-bottom:6px}
+.passo p{margin:0;font-size:15px;line-height:1.55;color:var(--suave)}
+.plano{flex:1 1 260px;background:#fff;border:1px solid var(--borda);border-radius:20px;padding:28px;display:flex;flex-direction:column;gap:10px}
+.plano h3{font-size:20px}
+.plano p{margin:0;color:var(--suave)}
+.preco{font-family:Poppins;font-weight:700;font-size:26px;color:var(--verde)!important;margin-top:6px!important}
+.preco span{font-size:15px;font-weight:500;color:var(--suave)}
+.ph{background:#FFF3C4;border-radius:6px;padding:0 4px}
+/* agendamento */
+.agenda{max-width:640px;margin:0 auto;background:#fff;border:1px solid var(--borda);border-radius:24px;padding:28px;display:flex;flex-direction:column;gap:22px}
+.agenda h3{font-size:16px;font-family:'Nunito Sans';font-weight:700;color:#3F4E39;margin-bottom:10px}
+.opcoes{display:flex;flex-wrap:wrap;gap:8px}
+.opt{min-height:44px;padding:0 16px;border-radius:999px;border:2px solid #C9DBB8;background:#fff;color:#2B3A26;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer}
+.opt[aria-pressed="true"]{background:var(--verde);border-color:var(--verde);color:#fff}
+.opt:disabled{background:#EEF1EB;border-color:#EEF1EB;color:#7A8474;text-decoration:line-through;cursor:not-allowed}
+.dia{min-width:64px;min-height:60px;border-radius:14px;padding:6px 10px}
+.dia small{display:block;font-size:12px;font-weight:600}
+.campos{display:flex;flex-wrap:wrap;gap:12px}
+.campos label{flex:1 1 220px;display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:700;color:#3F4E39}
+.campos input{height:48px;border:1px solid #C9DBB8;border-radius:12px;padding:0 14px;font-size:16px;font-family:inherit}
+.ok{display:none;text-align:center;flex-direction:column;align-items:center;gap:10px}
+.ok.vis{display:flex}
+.contato{display:flex;flex-wrap:wrap;gap:40px}
+.contato>div{flex:1 1 360px;min-width:0;display:flex;flex-direction:column;gap:16px}
+.linha{display:flex;align-items:center;gap:14px;text-decoration:none;color:var(--texto);font-size:16px}
+.linha span{flex:0 0 44px;height:44px;border-radius:12px;background:#DDEFCB;color:var(--verde);display:flex;align-items:center;justify-content:center}
+.mapa{flex:1 1 420px;min-height:300px;border-radius:24px;background:#EAF2E1;border:2px dashed #A9C98F;display:flex;align-items:center;justify-content:center;text-align:center;color:#3F5A33;font-weight:700;padding:24px}
+footer{background:var(--verde-esc);color:#E6F1DC;font-size:14px}
+footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;padding-top:26px;padding-bottom:26px}
+footer a{color:#fff;font-weight:700}
+.zap-flutuante{position:fixed;right:20px;bottom:20px;width:60px;height:60px;border-radius:999px;background:#1E8A3E;color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,.2);z-index:6}
+@media (max-width:720px){nav a:not(.btn){display:none} section{padding:52px 0} .hero img{height:260px}}
+</style>
+</head>
+<body>
+<div class="aviso">Modelo para aprovação — os trechos <span class="ph">destacados</span> serão preenchidos com as informações do studio.</div>
+
+<header><div class="wrap">
+<a href="#inicio"><img src="img/logo.jpg" alt="Harmonia do Corpo — Pedra de Guaratiba"></a>
+<nav aria-label="Menu principal">
+<a href="#servicos">Serviços</a><a href="#sobre">Sobre</a><a href="#planos">Planos</a><a href="#contato">Contato</a>
+<a class="btn btn-cheio" href="#agendar">Agendar aula</a>
+</nav>
+</div></header>
+
+<section id="inicio" class="claro"><div class="wrap hero">
+<div>
+<p class="sobretitulo">Studio de Pilates e Fisioterapia · Pedra de Guaratiba</p>
+<h1>Cuide do seu corpo, invista na sua saúde.</h1>
+<p class="script">Equilíbrio que transforma.</p>
+<p class="lead">Pilates solo e em aparelhos, fisioterapia e tratamentos manuais com atendimento individualizado da Dra. Deborah Gleichman.</p>
+<div class="acoes">
+<a class="btn btn-cheio" href="#agendar">Agendar aula experimental</a>
+<a class="btn btn-vazio" href="https://wa.me/5521982353913"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.3 7.4L3 21l2.1-5.6A8.4 8.4 0 1 1 21 11.5z"/></svg>Falar no WhatsApp</a>
+</div>
+</div>
+<div><img src="img/hero.jpg" alt="Fisioterapeuta realizando terapia manual nas costas de uma paciente"></div>
+</div></section>
+
+<section id="servicos"><div class="wrap">
+<div class="centro"><h2>Nossos serviços</h2><p>Cada atendimento começa com uma avaliação para montar o plano certo para você.</p></div>
+<div class="cards">
+<article class="card"><div class="icone"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4.5" r="1.8"/><path d="M5 20l4-8 3 2 3-4 4 10"/></svg></div><h3>Pilates Solo e Equipamentos</h3><p>Aulas no solo e nos aparelhos para força, postura e flexibilidade, em turmas pequenas ou individuais.</p></article>
+<article class="card"><div class="icone"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h4l2-6 4 12 2-6h4"/></svg></div><h3>Fisioterapia</h3><p>Avaliação e tratamento de dores, lesões e reabilitação, com plano de sessões sob medida.</p></article>
+<article class="card"><div class="icone"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c3 4 6 7 6 11a6 6 0 0 1-12 0c0-4 3-7 6-11z"/></svg></div><h3>Drenagem linfática manual</h3><p>Técnica manual suave que ajuda a reduzir o inchaço e trazer sensação de leveza.</p></article>
+<article class="card"><div class="icone"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8c4-4 12 4 16 0M4 16c4-4 12 4 16 0"/></svg></div><h3>Miofibrolise</h3><p>Liberação miofascial para aliviar tensões e pontos de dor na musculatura.</p></article>
+<article class="card"><div class="icone"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/></svg></div><h3>Redução de medidas</h3><p>Programa de redução de medidas corporais combinando técnicas manuais e exercícios.</p></article>
+</div>
+</div></section>
+
+<section id="sobre" class="claro"><div class="wrap sobre">
+<div style="flex:0 1 320px"><img src="img/deborah.jpg" alt="Dra. Deborah Gleichman"></div>
+<div>
+<p class="sobretitulo">Quem cuida de você</p>
+<h2 class="sec-h2">Dra. Deborah Gleichman</h2>
+<p><strong>Fisioterapeuta · CREFITO <span class="ph">[número]</span></strong></p>
+<p><span class="ph">[Formação, especializações e anos de experiência. Ex.: onde se formou, cursos de Pilates, área de atuação.]</span></p>
+<p>No Harmonia do Corpo, cada aluno é acompanhado de perto, com exercícios ajustados ao seu momento e aos seus objetivos.</p>
+</div>
+</div></section>
+
+<section><div class="wrap">
+<div class="centro"><h2>Como começar</h2></div>
+<div class="passos">
+<div class="passo"><b>1</b><div><h3>Agende pelo site ou WhatsApp</h3><p>Escolha o serviço e o melhor horário. A confirmação chega no seu WhatsApp.</p></div></div>
+<div class="passo"><b>2</b><div><h3>Faça sua avaliação</h3><p>Na primeira visita a Dra. Deborah conhece seu histórico e seus objetivos.</p></div></div>
+<div class="passo"><b>3</b><div><h3>Siga seu plano</h3><p>Aulas e sessões no seu ritmo, com acompanhamento da evolução.</p></div></div>
+</div>
+</div></section>
+
+<section id="planos" class="claro"><div class="wrap">
+<div class="centro"><h2>Horários e planos</h2><p>Funcionamento: <span class="ph">[dias e horários — ex.: seg a sex, 7h às 20h · sáb, 8h às 12h]</span></p></div>
+<div class="cards">
+<div class="plano"><h3>Pilates 1x por semana</h3><p>4 aulas por mês</p><p class="preco"><span class="ph" style="font-size:inherit;color:inherit">[valor]</span><span> /mês</span></p><a class="btn btn-cheio" href="#agendar" style="margin-top:8px">Quero este plano</a></div>
+<div class="plano"><h3>Pilates 2x por semana</h3><p>8 aulas por mês</p><p class="preco"><span class="ph" style="font-size:inherit;color:inherit">[valor]</span><span> /mês</span></p><a class="btn btn-cheio" href="#agendar" style="margin-top:8px">Quero este plano</a></div>
+<div class="plano"><h3>Pilates 3x por semana</h3><p>12 aulas por mês</p><p class="preco"><span class="ph" style="font-size:inherit;color:inherit">[valor]</span><span> /mês</span></p><a class="btn btn-cheio" href="#agendar" style="margin-top:8px">Quero este plano</a></div>
+</div>
+</div></section>
+
+<section id="agendar"><div class="wrap">
+<div class="centro"><h2>Agende sua aula</h2><p>Escolha o serviço, o dia e o horário. A Dra. Deborah confirma pelo WhatsApp.</p></div>
+<form class="agenda" id="form-agenda">
+<div id="passos-form" style="display:flex;flex-direction:column;gap:22px">
+<div><h3>1. Serviço</h3><div class="opcoes" data-grupo="servico">
+<button type="button" class="opt" aria-pressed="true">Pilates</button><button type="button" class="opt" aria-pressed="false">Fisioterapia</button><button type="button" class="opt" aria-pressed="false">Drenagem</button><button type="button" class="opt" aria-pressed="false">Miofibrolise</button><button type="button" class="opt" aria-pressed="false">Redução de medidas</button>
+</div></div>
+<div><h3>2. Dia</h3><div class="opcoes" data-grupo="dia" id="dias"></div></div>
+<div><h3>3. Horário disponível</h3><div class="opcoes" data-grupo="hora">
+<button type="button" class="opt" aria-pressed="false">07:00</button><button type="button" class="opt" disabled>08:00</button><button type="button" class="opt" aria-pressed="true">09:00</button><button type="button" class="opt" aria-pressed="false">10:00</button><button type="button" class="opt" disabled>16:00</button><button type="button" class="opt" aria-pressed="false">17:00</button><button type="button" class="opt" aria-pressed="false">18:00</button><button type="button" class="opt" aria-pressed="false">19:00</button>
+</div></div>
+<div><h3>4. Seus dados</h3><div class="campos">
+<label>Nome<input type="text" placeholder="Seu nome completo"></label>
+<label>WhatsApp<input type="tel" placeholder="(21) 9 0000-0000"></label>
+</div></div>
+<button type="submit" class="btn btn-cheio">Pedir agendamento</button>
+<p style="margin:0;font-size:13px;color:#55624F;text-align:center">No modelo os horários são ilustrativos; no site final eles virão da agenda do studio.</p>
+</div>
+<div class="ok" id="ok">
+<div class="icone" style="width:72px;height:72px;border-radius:999px"><svg aria-hidden="true" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+<h3 style="font-family:Poppins;font-size:22px;color:var(--texto);margin:0">Pedido enviado!</h3>
+<p style="margin:0;color:var(--suave)" id="resumo"></p>
+<button type="button" class="btn btn-vazio" id="novo">Fazer outro agendamento</button>
+</div>
+</form>
+</div></section>
+
+<section id="contato" class="claro"><div class="wrap contato">
+<div>
+<h2 class="sec-h2">Fale com a gente</h2>
+<a class="linha" href="https://wa.me/5521982353913"><span><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.3 7.4L3 21l2.1-5.6A8.4 8.4 0 1 1 21 11.5z"/></svg></span><strong style="font-size:18px">(21) 98235-3913</strong></a>
+<a class="linha" href="mailto:deborahgleichmansantos@gmail.com"><span><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></span>deborahgleichmansantos@gmail.com</a>
+<a class="linha" href="https://instagram.com/harmoniadocorpo.pilates"><span><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="0.6"/></svg></span>@harmoniadocorpo.pilates</a>
+<div class="linha"><span><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></span><span class="ph" style="flex:initial;width:auto;height:auto;background:#FFF3C4;color:inherit;display:inline">[endereço]</span>&nbsp;— Pedra de Guaratiba, Rio de Janeiro - RJ</div>
+</div>
+<div class="mapa">Mapa do Google<br>(entra quando tivermos o endereço)</div>
+</div></section>
+
+<footer><div class="wrap">
+<span>© 2026 Harmonia do Corpo · Studio de Pilates e Fisioterapia</span>
+<span>Site desenvolvido por <a href="https://nervia.com.br">Nervia Tecnologia</a></span>
+</div></footer>
+
+<a class="zap-flutuante" href="https://wa.me/5521982353913" aria-label="Falar no WhatsApp"><svg aria-hidden="true" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.3 7.4L3 21l2.1-5.6A8.4 8.4 0 1 1 21 11.5z"/></svg></a>
+
+<script>
+(function(){
+  var sem=['dom','seg','ter','qua','qui','sex','sáb'], dias=document.getElementById('dias'), d=new Date(), n=0;
+  while(n<5){ d.setDate(d.getDate()+1); if(d.getDay()===0) continue;
+    var b=document.createElement('button'); b.type='button'; b.className='opt dia'; b.setAttribute('aria-pressed', n===0?'true':'false');
+    b.dataset.txt=sem[d.getDay()]+', '+String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');
+    b.innerHTML='<small>'+sem[d.getDay()]+'</small>'+d.getDate(); dias.appendChild(b); n++; }
+  document.querySelectorAll('[data-grupo]').forEach(function(g){
+    g.addEventListener('click',function(e){ var b=e.target.closest('.opt'); if(!b||b.disabled) return;
+      g.querySelectorAll('.opt').forEach(function(x){ if(!x.disabled) x.setAttribute('aria-pressed','false'); });
+      b.setAttribute('aria-pressed','true'); });
+  });
+  function sel(g){ var b=document.querySelector('[data-grupo="'+g+'"] [aria-pressed="true"]'); return b?(b.dataset.txt||b.textContent):''; }
+  var f=document.getElementById('form-agenda'), p=document.getElementById('passos-form'), ok=document.getElementById('ok');
+  f.addEventListener('submit',function(e){ e.preventDefault();
+    document.getElementById('resumo').textContent=sel('servico')+' · '+sel('dia')+' às '+sel('hora');
+    p.style.display='none'; ok.classList.add('vis'); });
+  document.getElementById('novo').addEventListener('click',function(){ ok.classList.remove('vis'); p.style.display='flex'; });
+})();
+</script>
+<script src="/marca-dagua.js" data-tipo="modelo"></script>
+</body>
+</html>
