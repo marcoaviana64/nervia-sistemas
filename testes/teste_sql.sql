@@ -2574,6 +2574,92 @@ select pg_temp.ok((select quantidade = 5 from lin_estoque where variante_id = '2
   and exists (select 1 from auditoria where acao = 'linum_brinde_cancelado' and detalhes ->> 'motivo_cancelamento' = 'registrado na loja errada'),
   'linum 2.44: cancelar devolve as peças à loja, com movimento e auditoria');
 
+-- linum 2.46: malinha (condicional) e reserva — peças com a cliente; volta: devolveu (estoque) ou comprou (venda)
+reset role;
+insert into lin_estoque (variante_id, loja_id, quantidade) values ('20000000-0000-0000-0000-000000000001', (select v from lin_ids where k = 'gav'), 6)
+  on conflict (variante_id, loja_id) do update set quantidade = excluded.quantidade;
+insert into lin_estoque (variante_id, loja_id, quantidade) values ('20000000-0000-0000-0000-000000000002', (select v from lin_ids where k = 'gav'), 3)
+  on conflict (variante_id, loja_id) do update set quantidade = excluded.quantidade;
+create temp table lin_cd (k text primary key, v bigint); grant all on lin_cd to authenticated;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';   -- sem papel
+select pg_temp.erro2($$select lin_condicional_criar('{}')$$, 'não tem acesso', 'linum 2.46: login sem papel não monta malinha');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora
+select pg_temp.erro2($$select lin_condicional_criar(jsonb_build_object('tipo', 'malinha', 'loja', (select v from lin_ids where k = 'gav'),
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 1))))$$, 'cadastrada', 'linum 2.46: malinha exige a cliente cadastrada');
+select pg_temp.erro2($$select lin_condicional_criar(jsonb_build_object('tipo', 'malinha', 'loja', (select v from lin_ids where k = 'gav'), 'cliente_id', (select v from lin_vd where k = 'cli'),
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 7))))$$, 'Estoque insuficiente', 'linum 2.46: não leva mais que o estoque');
+select pg_temp.erro2($$select lin_condicional_criar(jsonb_build_object('tipo', 'reserva', 'loja', (select v from lin_ids where k = 'gav'), 'cliente_id', (select v from lin_vd where k = 'cli'), 'prazo', '2020-01-01',
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 1))))$$, 'antes de hoje', 'linum 2.46: prazo no passado recusado');
+insert into lin_cd values ('m1', lin_condicional_criar(jsonb_build_object('tipo', 'malinha', 'loja', (select v from lin_ids where k = 'gav'), 'cliente_id', (select v from lin_vd where k = 'cli'),
+  'observacao', 'evento sábado', 'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 3)))));
+select pg_temp.ok((select (x -> 0 ->> 'pecas')::int = 3 and x -> 0 -> 'itens' -> 0 ->> 'cliente' = 'Eglacy' and x -> 0 -> 'itens' -> 0 ->> 'tipo' = 'malinha'
+    from (select lin_cond_no_estoque() x) y),
+  'linum 2.46: a equipe vê no Estoque as peças com a cliente (primeiro nome, tipo, prazo)');
+reset role;
+select pg_temp.ok((select quantidade = 3 from lin_estoque where variante_id = '20000000-0000-0000-0000-000000000001' and loja_id = (select v from lin_ids where k = 'gav'))
+  and (select prazo = (now() at time zone 'America/Sao_Paulo')::date + 3 and responsavel_id = '00000000-0000-0000-0000-00000000000c' from lin_condicionais where id = (select v from lin_cd where k = 'm1'))
+  and exists (select 1 from lin_movimentos where tipo = 'cond_saida' and quantidade = 3 and condicional_id = (select v from lin_cd where k = 'm1') and observacao like 'Malinha nº % para Eglacy Rocha (até %)')
+  and exists (select 1 from lin_contatos where cliente_id = (select v from lin_vd where k = 'cli')::uuid and texto like 'Levou malinha nº %: 3× Vestido Mar Azul P (devolver até %) · evento sábado')
+  and exists (select 1 from auditoria where acao = 'linum_malinha_enviada' and (detalhes ->> 'pecas')::int = 3),
+  'linum 2.46: malinha tira da loja na hora, prazo padrão de 3 dias, histórico da cliente e auditoria');
+set role authenticated;
+-- outra pessoa (Estoque) registra a volta: 1 devolvida, 2 compradas → venda em nome de quem montou
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+select pg_temp.ok(lin_condicional_devolver((select v from lin_cd where k = 'm1'),
+  (select jsonb_agg(jsonb_build_object('item_id', id, 'quantidade', 1)) from lin_cond_itens where condicional_id = (select v from lin_cd where k = 'm1')), 'manchada não') = 'aberta',
+  'linum 2.46: devolução parcial continua aberta');
+select pg_temp.erro2(format($$select lin_condicional_devolver(%s, (select jsonb_agg(jsonb_build_object('item_id', id, 'quantidade', 3)) from lin_cond_itens where condicional_id = %s))$$,
+  (select v from lin_cd where k = 'm1'), (select v from lin_cd where k = 'm1')), 'só 2 peça', 'linum 2.46: não devolve mais do que está com a cliente');
+select pg_temp.erro2(format($$select lin_condicional_venda(%s, (select jsonb_agg(jsonb_build_object('item_id', id, 'quantidade', 2)) from lin_cond_itens where condicional_id = %s),
+  jsonb_build_object('itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 1, 'valor_unitario', 100)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 100))))$$, (select v from lin_cd where k = 'm1'), (select v from lin_cd where k = 'm1')),
+  'precisa ter as peças', 'linum 2.46: a venda tem de levar as peças compradas da malinha');
+reset role;
+select pg_temp.ok((select quantidade = 4 from lin_estoque where variante_id = '20000000-0000-0000-0000-000000000001' and loja_id = (select v from lin_ids where k = 'gav'))
+  and (select quantidade = 3 from lin_estoque where variante_id = '20000000-0000-0000-0000-000000000002' and loja_id = (select v from lin_ids where k = 'gav'))
+  and (select compradas = 0 and devolvidas = 1 from lin_cond_itens where condicional_id = (select v from lin_cd where k = 'm1')),
+  'linum 2.46: venda recusada não muda nada (estoque e malinha como estavam)');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+select pg_temp.erro2($$select lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'vendedora_id', '00000000-0000-0000-0000-00000000000c',
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 1, 'valor_unitario', 100)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 100))))$$, 'próprias vendas', 'linum 2.46: fora da malinha, continua só a própria venda');
+insert into lin_cd values ('v1', lin_condicional_venda((select v from lin_cd where k = 'm1'),
+  (select jsonb_agg(jsonb_build_object('item_id', id, 'quantidade', 2)) from lin_cond_itens where condicional_id = (select v from lin_cd where k = 'm1')),
+  jsonb_build_object('data', (now() at time zone 'America/Sao_Paulo')::date, 'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 2, 'valor_unitario', 400)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 800)))));
+reset role;
+select pg_temp.ok((select vendedora_id = '00000000-0000-0000-0000-00000000000c' and cliente_id = (select v from lin_vd where k = 'cli')::uuid and loja_id = (select v from lin_ids where k = 'gav')
+       and valor_total = 800 and observacao like 'Malinha nº %' from lin_vendas where id = (select v from lin_cd where k = 'v1'))
+  and (select situacao = 'concluida' from lin_condicionais where id = (select v from lin_cd where k = 'm1'))
+  and (select compradas = 2 and devolvidas = 1 from lin_cond_itens where condicional_id = (select v from lin_cd where k = 'm1'))
+  and (select quantidade = 4 from lin_estoque where variante_id = '20000000-0000-0000-0000-000000000001' and loja_id = (select v from lin_ids where k = 'gav'))
+  and (select count(*) = 2 from lin_cond_baixas where condicional_id = (select v from lin_cd where k = 'm1'))
+  and exists (select 1 from lin_cond_baixas where resultado = 'comprou' and venda_id = (select v from lin_cd where k = 'v1'))
+  and exists (select 1 from lin_contatos where texto like 'Malinha nº % concluída: comprou 2 e devolveu 1 peça(s)')
+  and exists (select 1 from auditoria where acao = 'linum_condicional_comprada' and (detalhes ->> 'venda')::bigint = (select v from lin_cd where k = 'v1'))
+  and exists (select 1 from auditoria where acao = 'linum_condicional_devolvida' and detalhes ->> 'observacao' = 'manchada não'),
+  'linum 2.46: comprou vira venda em nome de quem montou a malinha, da cliente e da loja; a malinha fica concluída');
+select pg_temp.erro2(format($$update lin_cond_baixas set quantidade = 9 where condicional_id = %s$$, (select v from lin_cd where k = 'm1')), 'não pode ser alterada', 'linum 2.46: a volta não muda');
+select pg_temp.erro2(format($$delete from lin_condicionais where id = %s$$, (select v from lin_cd where k = 'm1')), 'não podem ser apagadas', 'linum 2.46: malinha não se apaga');
+set role authenticated;
+-- reserva: prazo padrão 7 dias, mudar o prazo, desistiu de tudo
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.erro2(format($$select lin_condicional_devolver(%s)$$, (select v from lin_cd where k = 'm1')), 'já foi concluída', 'linum 2.46: concluída não recebe volta');
+insert into lin_cd values ('r1', lin_condicional_criar(jsonb_build_object('tipo', 'reserva', 'loja', (select v from lin_ids where k = 'gav'), 'cliente_id', (select v from lin_vd where k = 'cli'),
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 1)))));
+select pg_temp.erro2(format($$select lin_condicional_prazo(%s, '2020-01-01')$$, (select v from lin_cd where k = 'r1')), 'antes de hoje', 'linum 2.46: novo prazo no passado recusado');
+select lin_condicional_prazo((select v from lin_cd where k = 'r1'), (now() at time zone 'America/Sao_Paulo')::date + 10);
+select pg_temp.ok(lin_condicional_devolver((select v from lin_cd where k = 'r1')) = 'concluida', 'linum 2.46: "desistiu de tudo" (sem lista) devolve tudo e conclui');
+reset role;
+select pg_temp.ok((select quantidade = 3 from lin_estoque where variante_id = '20000000-0000-0000-0000-000000000002' and loja_id = (select v from lin_ids where k = 'gav'))
+  and exists (select 1 from lin_contatos where texto like 'Reservou peças nº %(retirar até %)')
+  and exists (select 1 from auditoria where acao = 'linum_reserva_criada')
+  and exists (select 1 from auditoria where acao = 'linum_condicional_prazo' and (detalhes -> 'antes' ->> 'prazo')::date = (now() at time zone 'America/Sao_Paulo')::date + 7
+                and (detalhes -> 'depois' ->> 'prazo')::date = (now() at time zone 'America/Sao_Paulo')::date + 10),
+  'linum 2.46: reserva com prazo de 7 dias, prazo mudado com auditoria e peças de volta ao estoque');
+
 -- ================================================================ Atendimentos de TI (atd_)
 reset role; reset request.headers;
 select pg_temp.ok((select situacao = 'oculto' and manual_url like '/apps/atendimentos/ajuda/%' from apps where id = 'atendimentos'),

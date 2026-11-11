@@ -70,6 +70,10 @@ select jsonb_build_object(
        'pecas', (select sum(quantidade - voltaram - perdidas) from lin_benef_itens where beneficiamento_id = b.id),
        'desde', to_char(b.enviado_em at time zone 'America/Sao_Paulo', 'DD/MM'), 'previsto', to_char(b.previsto, 'DD/MM'),
        'atrasado', b.previsto < (select d from dia)) order by b.id), '[]') from lin_beneficiamentos b where b.situacao = 'no_beneficiamento'),
+  -- malinhas e reservas (2.46) com a cliente: peças fora do estoque, com o prazo
+  'condicionais', (select coalesce(jsonb_agg(jsonb_build_object('n', c.id, 'tipo', c.tipo, 'loja', (select nome from lin_lojas where id = c.loja_id),
+       'cliente', (select nome from lin_clientes where id = c.cliente_id), 'pecas', (select sum(quantidade - compradas - devolvidas) from lin_cond_itens where condicional_id = c.id),
+       'prazo', to_char(c.prazo, 'DD/MM'), 'atrasada', c.prazo < (select d from dia)) order by c.prazo, c.id), '[]') from lin_condicionais c where c.situacao = 'aberta'),
   -- brindes / presentes / divulgação (2.44) registrados no dia: peças que saíram sem venda
   'brindes', (select coalesce(jsonb_agg(jsonb_build_object('n', b.id, 'loja', (select nome from lin_lojas where id = b.loja_id),
        'motivo', public._lin_brinde_motivo(b.motivo), 'para', b.destinatario, 'pecas', (select sum(quantidade) from lin_brinde_itens where brinde_id = b.id),

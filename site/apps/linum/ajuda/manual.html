@@ -28,6 +28,7 @@
     <li><a href="#equipe">4. Definir os papéis: Dono, Estoque e Vendedora (equipe Nervia)</a></li>
     <li><a href="#vender">5. Registrar uma venda (a boleta)</a></li>
     <li><a href="#cancelar">6. Cancelar uma venda (Dono)</a></li>
+    <li><a href="#malinha">5a. Malinha (cliente experimenta em casa) e reserva</a></li>
     <li><a href="#visita">6b. Registrar uma visita sem contato</a></li>
     <li><a href="#clientes">7. Clientes e acompanhamento</a></li>
     <li><a href="#creditos">6c. Créditos das clientes (Dono)</a></li>
@@ -213,6 +214,16 @@
     <li>Na aba <b>Clientes</b>, quem tem saldo aparece com a etiqueta <b>crédito R$ …</b>; na ficha, <b>Crédito na conta</b> mostra o saldo e o <b>extrato</b> (devoluções, uso em vendas, cancelamentos, ajustes). O <b>Dono</b> pode <b>Ajustar crédito</b> com motivo, por exemplo para lançar um vale-troca de papel.</li>
     <li>Só o <b>Dono</b> cancela: <b>cancelar a devolução</b> tira o crédito da conta e a peça sai de novo do estoque (não dá se a cliente já usou o crédito: cancele antes a venda que usou); <b>cancelar a venda</b> que usou crédito devolve o crédito para a conta.</li>
   </ol>
+
+  <h2 id="malinha">5a. Malinha (cliente experimenta em casa) e reserva</h2>
+  <p><b>Malinha</b> é quando a loja separa algumas peças e manda para a casa da cliente experimentar; ela compra o que quiser e devolve o resto (ou compra tudo, ou devolve tudo). <b>Reserva</b> é quando a cliente pede para separar peças para buscar depois. Nos dois casos as peças <b>saem do estoque na hora</b>, para ninguém vender para outra pessoa, e no Estoque o quadrado mostra "+N com cliente". Toda a equipe registra.</p>
+  <ol>
+    <li>Na aba <b>Malinhas e reservas</b> (grupo Vendas), clique em <b>+ Malinha</b> ou <b>+ Reserva</b>. O Dono e o Estoque também podem começar pelo quadrado da peça no Estoque → <b>Malinha / reserva</b>.</li>
+    <li>Escolha a <b>cliente</b> (se não tiver cadastro, <b>+ Cadastrar cliente</b>: nome e telefone bastam), a loja, as peças e o prazo (malinha: 3 dias; reserva: 7 dias; pode mudar).</li>
+    <li>Clique em <b>Registrar</b>. A ficha abre: clique em <b>Imprimir / PDF</b> para mandar junto com a sacola (tem espaço para a cliente assinar).</li>
+    <li>Quando a cliente devolver a malinha (ou vier buscar a reserva), clique em <b>Registrar volta</b> e diga, peça por peça, quantas ela <b>comprou</b> e quantas <b>voltaram</b>. As que voltaram entram no estoque na hora. Se ela comprou alguma, abre a <b>venda já preenchida</b>: confira, dê o desconto se houver, informe o pagamento e clique em <b>Registrar venda</b>. A comissão é de quem montou a malinha.</li>
+  </ol>
+  <p>Também há os atalhos <b>Comprou tudo</b> e <b>Devolveu tudo</b> (na reserva, <b>Desistiu de tudo</b>). Pode registrar a volta em partes: o que não for informado continua com a cliente. Na ficha, <b>Mudar prazo</b> e <b>WhatsApp da cliente</b> (mensagem pronta lembrando a devolução ou a retirada). O histórico da cliente (Clientes) recebe a anotação da malinha e do que ela comprou. Malinhas atrasadas aparecem em vermelho e no relatório diário.</p>
 
   <h2 id="visita">6b. Registrar uma visita sem contato</h2>
   <p>Quando alguém entra na loja, olha as peças e sai sem comprar e sem deixar contato. Se a pessoa disser o nome ou o telefone, prefira cadastrar como <b>possível cliente</b> (seção 7).</p>
@@ -446,6 +457,9 @@
     <tr><td>Escolha lojas de origem e destino diferentes</td><td>Na transferência, a loja de destino precisa ser outra.</td></tr>
     <tr><td>Informe quem vai fazer o beneficiamento / Informe o serviço</td><td>No envio para beneficiamento, preencha Quem faz e o Serviço.</td></tr>
     <tr><td>… só N peça(s) ainda estão no beneficiamento</td><td>No retorno, a soma de igual + outra + perdida passou do que ainda está fora daquela peça.</td></tr>
+    <tr><td>Escolha a cliente (ela precisa estar cadastrada)</td><td>Na malinha/reserva, procure a cliente ou cadastre com nome e telefone.</td></tr>
+    <tr><td>… só N peça(s) ainda estão com a cliente</td><td>Na volta, comprou + voltou passou do que ainda está com ela.</td></tr>
+    <tr><td>A venda precisa ter as peças que a cliente comprou da malinha/reserva</td><td>Na venda da malinha, não tire nem diminua as peças que ela comprou; se ela devolveu alguma, cancele a venda e registre a volta de novo.</td></tr>
     <tr><td>Informe para quem foi a peça</td><td>No brinde, escreva o nome de quem recebeu ou escolha a cliente do cadastro.</td></tr>
     <tr><td>Com o motivo "Outro", escreva na observação o que foi</td><td>Explique o brinde na observação, ou escolha outro motivo.</td></tr>
     <tr><td>Só o Dono cancela um brinde</td><td>Peça para o Dono cancelar o registro errado.</td></tr>
