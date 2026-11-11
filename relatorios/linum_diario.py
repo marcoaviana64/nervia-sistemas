@@ -80,6 +80,10 @@ def montar(r):
             f"nº {b['n']} {b['servico']} com {b['quem']}, {b['pecas']} peça(s) de {b['loja']}, desde {b['desde']}"
             + (f", volta prevista {b['previsto']}" + (" (ATRASADO)" if b.get("atrasado") else "") if b.get("previsto") else "")
             for b in r["no_beneficiamento"])) + "</li>")
+    if r.get("condicionais"):
+        aten.append("<li><b>Malinhas e reservas com clientes (peças fora do estoque):</b> " + html.escape("; ".join(
+            f"{'malinha' if c['tipo'] == 'malinha' else 'reserva'} nº {c['n']} {c['cliente']}, {c['pecas']} peça(s) de {c['loja']}, até {c['prazo']}"
+            + (" (ATRASADA)" if c.get("atrasada") else "") for c in r["condicionais"])) + "</li>")
     if r.get("brindes"):
         aten.append("<li><b>Brindes / presentes / divulgação no dia (saíram sem venda):</b> " + html.escape("; ".join(
             f"nº {b['n']} {b['motivo']} para {b['para']}, {b['pecas']} peça(s) de {b['loja']}" + (" (CANCELADO)" if b.get("cancelado") else "")
