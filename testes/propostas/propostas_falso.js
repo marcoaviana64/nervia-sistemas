@@ -70,6 +70,12 @@
       gravar();
       return { data: { id: r.id, numero: r.numero, link: r.link, codigo: r.codigo, situacao: r.situacao }, error: null };
     },
+    prop_previa: ({ p_link }) => {
+      if (papel !== "admin") return erro("Só a equipe Nervia vê a prévia da proposta. Entre na Área do Cliente como admin e tente de novo.");
+      const p = db.prop_propostas.find(x => x.link === String(p_link || "").toLowerCase());
+      if (!p) return { data: { ok: false, erro: "Proposta não encontrada. Confira o link." }, error: null };
+      return { data: { ok: true, situacao_real: p.situacao, proposta: publica(p) }, error: null };
+    },
     prop_ler: ({ p_link, p_codigo }) => {
       const c = conferir(p_link, p_codigo); if (c.erro) return { data: { ok: false, erro: c.erro }, error: null };
       const p = c.p;

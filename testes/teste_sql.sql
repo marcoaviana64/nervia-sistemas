@@ -3179,6 +3179,20 @@ reset role;
 select pg_temp.ok((prop_ler((select link from prop_propostas), (select codigo from prop_propostas)) ->> 'erro') like '%não está disponível%', 'propostas: rascunho não abre pelo link');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
 set role authenticated;
+-- prévia da equipe Nervia: abre o rascunho, sem contar visita nem gravar histórico
+select pg_temp.ok((select (prop_previa(link) ->> 'ok')::boolean and prop_previa(link) ->> 'situacao_real' = 'rascunho'
+  and prop_previa(link) #>> '{proposta,prospect}' = 'Harmonia do Corpo' and prop_previa(upper(link)) ->> 'ok' = 'true' from prop_propostas), 'propostas: prévia da equipe abre o rascunho');
+select pg_temp.ok((select visualizacoes = 0 and ultima_visita is null from prop_propostas)
+  and not exists (select 1 from prop_eventos where tipo = 'visualizada'), 'propostas: prévia não conta visita nem grava histórico');
+select pg_temp.ok(prop_previa('000000000000') ->> 'erro' like '%não encontrada%', 'propostas: prévia de link inexistente avisa');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.erro2($$select prop_previa('000000000000')$$, 'equipe Nervia', 'propostas: cliente não usa a prévia');
+reset request.jwt.claim.sub;
+set role anon;
+select pg_temp.erro2($$select prop_previa('000000000000')$$, 'permission', 'propostas: anônimo não usa a prévia');
+reset role;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+set role authenticated;
 select prop_acao((select id from prop_propostas), 'enviada');
 reset role;
 create temp table prop_cred as select link, codigo from prop_propostas;

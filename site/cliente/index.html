@@ -556,6 +556,7 @@ async function verProposta(id) {
     ${p.situacao === "ajuste" ? `<div class="msg" style="display:block;background:#fff4d6;color:#8a5a00;margin-top:10px">Ajuste pedido por ${esc(p.resposta_nome)} em ${A.dataHora(p.respondida_em)}: “${esc(p.resposta_texto)}”. Edite a proposta: ela vira a versão ${p.versao + 1} no mesmo link e código.</div>` : ""}
     ${p.situacao === "aprovada" ? `<div class="msg ok" style="display:block;margin-top:10px">Aprovada por ${esc(p.resposta_nome)} em ${A.dataHora(p.respondida_em)}${p.resposta_texto ? ": " + esc(p.resposta_texto) : ""}. Combine os próximos passos e, quando for o caso, crie o login.</div>` : ""}
     ${p.situacao === "cancelada" ? `<div class="msg err" style="display:block;margin-top:10px">Cancelada: ${esc(p.cancelada_motivo)}</div>` : ""}
+    ${p.situacao === "rascunho" ? `<div class="msg" style="display:block;background:#fff4d6;color:#8a5a00;margin-top:10px"><b>Rascunho:</b> o link ainda NÃO abre para o cliente (ele vê "Esta proposta não está disponível"). Confira em <b>Ver como o cliente</b> e libere com <b>Enviar no WhatsApp</b> ou <b>Marcar como enviada</b>.</div>` : ""}
     ${ativa ? `<div style="background:#f0f8f8;border:1px solid #bfe0e2;border-radius:12px;padding:12px 14px;margin-top:12px">
       <div><span class="small">Link:</span> <b id="propLinkTxt">${esc(propLink(p))}</b></div>
       <div><span class="small">Código:</span> <b style="font-size:1.2rem;letter-spacing:.15em">${esc(p.codigo)}</b></div>
@@ -563,7 +564,7 @@ async function verProposta(id) {
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
         ${zapNum ? `<button onclick="enviarProposta(${p.id}, '${zapNum}')">Enviar no WhatsApp</button>` : '<span class="small">Sem WhatsApp cadastrado: copie a mensagem.</span>'}
         <button class="sec" onclick="copiarProposta(${p.id})">Copiar mensagem</button>
-        <a class="lnk" href="${esc(propLink(p))}" target="_blank" rel="noopener" style="align-self:center">Ver como o prospect</a>
+        <a class="lnk" href="${esc(location.origin + "/proposta/?previa#" + p.link)}" target="_blank" rel="noopener" style="align-self:center">Ver como o cliente</a>
       </div></div>` : ""}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
       ${["rascunho", "enviada", "ajuste"].includes(p.situacao) ? `<button class="sec" onclick="editarProposta(${p.id})">Editar</button>` : ""}
