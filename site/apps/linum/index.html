@@ -999,7 +999,9 @@ function periodoPadrao() {
 async function telaVendas() {
   periodoPadrao();
   $("tela").innerHTML = '<div class="card">Carregando…</div>';
-  try { await Promise.all([carregarVendas(), carregarTrocas(), carregarVisitas(), carregarClientes(), carregarVendedoras()]); }
+  let semCli = [];
+  try { await Promise.all([carregarVendas(), carregarTrocas(), carregarVisitas(), carregarClientes(), carregarVendedoras(),
+    sb.rpc("lin_vendas_sem_cliente", { p_dias: 60 }).then(r => { semCli = r.error ? [] : r.data || []; })]); }
   catch (e) { $("tela").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; return; }
   const ok = VENDAS.filter(v => !v.cancelada_em);
   const pecas = ITENS.filter(i => ok.some(v => v.id === i.venda_id)).reduce((s, i) => s + i.quantidade, 0);
@@ -1026,6 +1028,9 @@ async function telaVendas() {
     ${dono() && ok.length ? `<div class="grade2" style="margin-bottom:12px">
       <div class="card"><h2>Por loja</h2>${grupo(v => v.loja_id, v => loja(v.loja_id).nome).map(g => `<div class="vlin"><span>${esc(g.nome)} · ${n(g.n)} venda(s)</span><b>${brl(g.t)}</b></div>`).join("")}</div>
       <div class="card"><h2>Por vendedora</h2>${grupo(v => v.vendedora_id, v => v.vendedora_nome).map(g => `<div class="vlin"><span>${esc(g.nome)} · ${n(g.n)} venda(s)${g.c ? ` · comissão ${brl(g.c)}` : ""}</span><b>${brl(g.t)}</b></div>`).join("")}</div></div>` : ""}
+    ${semCli.length ? `<div class="card" id="vsemcli"><h2>Vendas sem cliente <span class="mut">(últimos 60 dias${controla() ? "" : ", suas"})</span></h2>
+      <div class="mut" style="margin-bottom:6px">Esqueceu de colocar a cliente? Coloque aqui: a venda entra no histórico dela.</div>
+      ${semCli.map(x => `<div class="vlin"><span>Nº ${x.id} · ${dataBR(x.data)} · ${esc(loja(x.loja_id).nome)} · ${esc(x.vendedora_nome)} · <span class="mut">${esc(x.pecas)}</span></span><button type="button" class="lnk" data-semcli="${x.id}">Colocar cliente</button></div>`).join("")}</div>` : ""}
     <div class="card"><div class="tw"><table><thead><tr><th>Nº</th><th>Data</th><th>Loja</th><th>Vendedora</th><th>Cliente</th><th>Peças</th><th>Pagamento</th><th class="num">Total</th></tr></thead><tbody>
       ${VENDAS.length ? VENDAS.map(v => { const its = ITENS.filter(i => i.venda_id === v.id), c = cliente(v.cliente_id);
         return `<tr class="vrow ${v.cancelada_em ? "cancelada" : ""}" data-v="${v.id}" style="cursor:pointer"><td>${v.id}</td><td>${dataBR(v.data)}</td><td>${esc(loja(v.loja_id).nome)}</td>
@@ -1043,6 +1048,7 @@ async function telaVendas() {
   $("fvate").onchange = e => { FV.ate = e.target.value || FV.ate; telaVendas(); };
   if ($("fvloja")) { $("fvloja").onchange = e => { FV.loja = e.target.value; telaVendas(); }; $("fvvend").onchange = e => { FV.vend = e.target.value; telaVendas(); }; }
   document.querySelectorAll(".vrow").forEach(r => r.onclick = () => verVenda(Number(r.dataset.v)));
+  document.querySelectorAll("[data-semcli]").forEach(b => b.onclick = () => clienteDaVenda(semCli.find(x => x.id === +b.dataset.semcli)));
 }
 
 function verVenda(id) {
@@ -1076,7 +1082,7 @@ function verVenda(id) {
       <div><label for="vdmot">Motivo</label><input id="vdmot" maxlength="300" placeholder="ex.: a venda foi no dia 22, lançada depois"></div></div>
       <div class="mut">Só a data muda: peças, valores, comissão e o histórico da cliente ficam como estão. Fica registrado na auditoria.</div>
       <div class="acoes"><button type="button" class="bt pri" id="vdsalvar">Salvar a data</button></div></div>
-    <div class="acoes">${dono() && !v.cancelada_em ? '<button type="button" class="bt" id="vdata">Corrigir data</button><button type="button" class="bt" id="vcanc" style="color:var(--crit);border-color:var(--crit)">Cancelar venda</button>' : ""}<button type="button" class="bt" id="vimp">Imprimir ficha</button><button type="button" class="bt pri" id="vfechar">Fechar</button></div>`;
+    <div class="acoes">${!v.cancelada_em && (controla() || v.vendedora_id === EU) ? `<button type="button" class="bt" id="vcli">${c ? "Trocar cliente" : "Colocar cliente"}</button>` : ""}${dono() && !v.cancelada_em ? '<button type="button" class="bt" id="vdata">Corrigir data</button><button type="button" class="bt" id="vcanc" style="color:var(--crit);border-color:var(--crit)">Cancelar venda</button>' : ""}<button type="button" class="bt" id="vimp">Imprimir ficha</button><button type="button" class="bt pri" id="vfechar">Fechar</button></div>`;
   $("vfechar").onclick = () => $("dlg").close();
   $("vimp").onclick = () => imprimirVenda(v, its, c);
   f.querySelectorAll("[data-ajuste]").forEach(b => b.onclick = () => novoAjuste(v, its.find(i => i.id === +b.dataset.ajuste), () => verVenda(id)));
@@ -1085,6 +1091,8 @@ function verVenda(id) {
     $("vajustes").innerHTML = `<div class="campo"><b>Ajustes</b>${data.map(a => `<div class="vlin"><span>${esc(a.peca)} · ${esc(a.servico)} · ${esc(a.costureira)}</span><span>${AJ_SIT[a.situacao]}${a.situacao === "na_costureira" ? ` · volta ${dataBR(a.prazo)}` : ""} <button type="button" class="lnk" data-vfa="${a.id}">Ficha / status</button></span></div>`).join("")}</div>`;
     $("vajustes").querySelectorAll("[data-vfa]").forEach(b => b.onclick = () => fichaAjuste(data.find(a => a.id === +b.dataset.vfa), () => { if ($("dlg").open) verVenda(id); }));
   });
+  if ($("vcli")) $("vcli").onclick = () => clienteDaVenda({ id: v.id, data: v.data, loja_id: v.loja_id, vendedora_nome: v.vendedora_nome, cliente_id: v.cliente_id,
+    pecas: its.map(i => `${i.quantidade > 1 ? i.quantidade + "× " : ""}${i.referencia} ${i.descricao} ${[i.cor, i.tamanho, i.edicao].filter(Boolean).join(" ")}`).join("; ") });
   if ($("vdata")) $("vdata").onclick = () => { $("vdatabox").hidden = false; $("vdnova").focus(); };
   if ($("vdsalvar")) $("vdsalvar").onclick = async () => {
     const d = $("vdnova").value;
@@ -1100,6 +1108,53 @@ function verVenda(id) {
     catch (e) { $("verr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
   };
   $("dlg").showModal();
+}
+
+// 2.50 (pedido do Marco em 12/11/2026): colocar a cliente que a vendedora esqueceu na venda (ou trocar a cliente errada).
+// Dono/admin, Estoque ou quem fez a venda (lin_venda_cliente). O Estoque acha as vendas sem cliente pela lin_vendas_sem_cliente
+// (sem valores), porque não lê as vendas das outras. Lista de clientes só aparece com 2 letras digitadas.
+function clienteDaVenda(info, depois) {
+  const d = $("dlg"), f = $("dlgf"), atual = info.cliente_id ? cliente(info.cliente_id) : null;
+  const S = { q: "", escolhida: null, motivo: "" };
+  const voltar = () => { if (depois) depois(); else d.close(); };
+  const desenharRes = () => {
+    if (!$("vcres")) return;
+    const t = S.q.trim(), l = t.length < 2 ? [] : buscarClientes(t, 6).filter(x => x.id !== info.cliente_id);
+    $("vcres").innerHTML = l.map(x => `<div class="vlin"><span><b>${esc(x.nome)}</b>${x.telefone ? " · " + esc(fone(x.telefone)) : ""}</span><button type="button" class="lnk" data-vcc="${x.id}">Escolher</button></div>`).join("")
+      + (t.length >= 2 ? `<div class="vlin"><span class="mut">${l.length ? "Não é nenhuma dessas?" : "Cliente não encontrada."}</span><button type="button" class="lnk" id="vcnovo">+ Cadastrar cliente</button></div>` : "");
+    $("vcres").querySelectorAll("[data-vcc]").forEach(b => b.onclick = () => { guardar(); S.escolhida = cliente(b.dataset.vcc); S.q = ""; desenhar(); });
+    if ($("vcnovo")) $("vcnovo").onclick = () => { guardar(); editarCliente(clienteDigitado(t), novo => {
+      if (novo && !CLIENTES.some(x => x.id === novo.id)) CLIENTES.push(novo);
+      if (novo) S.escolhida = novo; S.q = ""; desenhar(); if (!d.open) d.showModal(); }); };
+  };
+  const guardar = () => { if ($("vcmot")) S.motivo = $("vcmot").value; };
+  const desenhar = erro => {
+    f.innerHTML = `<h3>${atual ? "Trocar a cliente" : "Colocar a cliente"} da venda nº ${info.id}</h3>
+      <div class="mut">${dataBR(info.data)} · ${esc(loja(info.loja_id).nome)} · vendedora ${esc(info.vendedora_nome)}</div>
+      ${info.pecas ? `<div class="campo"><b>Peças:</b> ${esc(info.pecas)}</div>` : ""}
+      ${atual ? `<div class="campo"><b>Cliente de agora:</b> ${esc(atual.nome)}${atual.telefone ? " · " + esc(fone(atual.telefone)) : ""}</div>` : ""}
+      <div class="campo"><label for="vcq">${atual ? "Cliente certa" : "Cliente"}</label>
+        ${S.escolhida ? `<div class="vlin"><span><b>${esc(S.escolhida.nome)}</b>${S.escolhida.telefone ? " · " + esc(fone(S.escolhida.telefone)) : ""}</span><button type="button" class="lnk" id="vcx">trocar</button></div>`
+          : `<input id="vcq" type="search" autocomplete="off" value="${esc(S.q)}" placeholder="Nome e/ou telefone da cliente"><div id="vcres"></div>`}</div>
+      ${atual ? `<div class="campo"><label for="vcmot">Motivo da troca</label><input id="vcmot" maxlength="300" value="${esc(S.motivo)}" placeholder="ex.: era a irmã dela"></div>` : ""}
+      <div class="mut">Só a cliente muda: peças, valores e comissão ficam como estão. A venda entra no histórico da cliente e fica registrado na auditoria.</div>
+      ${erro ? `<div class="msg err">${esc(erro)}</div>` : ""}
+      <div class="acoes"><button type="button" class="bt" id="vcvoltar">Voltar</button><button type="button" class="bt pri" id="vcsalvar" ${S.escolhida ? "" : "disabled"}>Salvar a cliente</button></div>`;
+    $("vcvoltar").onclick = voltar;
+    if ($("vcx")) $("vcx").onclick = () => { guardar(); S.escolhida = null; desenhar(); $("vcq").focus(); };
+    if ($("vcq")) $("vcq").oninput = () => { S.q = $("vcq").value; desenharRes(); };
+    $("vcsalvar").onclick = async () => {
+      guardar();
+      try {
+        checar(await sb.rpc("lin_venda_cliente", { p_venda: info.id, p_cliente: S.escolhida.id, p_motivo: S.motivo }));
+        d.close(); await carregarClientes().catch(() => {});
+        if ($("vnova")) await telaVendas();
+        msg("ok", `Venda nº ${info.id}: cliente ${S.escolhida.nome}.`);
+      } catch (e) { desenhar(e.message); }
+    };
+    desenharRes();
+  };
+  (CLIENTES.length ? Promise.resolve() : carregarClientes()).catch(() => {}).then(() => { desenhar(); d.classList.add("largo"); if (!d.open) d.showModal(); if ($("vcq")) $("vcq").focus(); });
 }
 
 // ---------------------------------------------------------------- visita sem contato (entrou, olhou, não levou e não deixou contato)
