@@ -2679,6 +2679,48 @@ select pg_temp.ok((select pasta_id = 'AbCdEfGhIjKlMnOp' and chave = '0-XyZ' from
 select pg_temp.erro2($$select * from _lin_video_pasta('00000000-0000-0000-0000-00000000000e', '10000000-0000-0000-0000-000000000001')$$, 'não tem acesso', 'linum 2.49: login sem papel não lista os vídeos');
 reset request.jwt.claim.sub;
 
+-- linum 2.50: colocar ou trocar a cliente de uma venda já registrada
+reset role;
+insert into lin_clientes (nome) values ('Cliente Esquecida 250'), ('Cliente Certa 250');
+insert into lin_vd select 'cl1', id::text from lin_clientes where nome = 'Cliente Esquecida 250';
+insert into lin_vd select 'cl2', id::text from lin_clientes where nome = 'Cliente Certa 250';
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora vende sem cliente
+insert into lin_vd values ('vsc', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'),
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 1, 'valor_unitario', 10)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 10))))::text);
+select pg_temp.ok(exists (select 1 from lin_vendas_sem_cliente() where id = (select v from lin_vd where k = 'vsc')::bigint and pecas like '%VES01%'),
+  'linum 2.50: vendedora vê a própria venda sem cliente');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';   -- Estoque vê todas as vendas sem cliente (sem ler a tabela)
+select pg_temp.ok(exists (select 1 from lin_vendas_sem_cliente() where id = (select v from lin_vd where k = 'vsc')::bigint)
+  and not exists (select 1 from lin_vendas where id = (select v from lin_vd where k = 'vsc')::bigint),
+  'linum 2.50: Estoque vê a venda sem cliente da vendedora pela lista, sem ler a venda');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
+select pg_temp.erro2($$select lin_venda_cliente((select v from lin_vd where k = 'vsc')::bigint, (select v from lin_vd where k = 'cl1')::uuid, '')$$, 'Somente o Dono, o Estoque ou quem fez a venda', 'linum 2.50: login sem papel não coloca a cliente');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select lin_venda_cliente((select v from lin_vd where k = 'vsc')::bigint, (select v from lin_vd where k = 'cl1')::uuid, '');
+select pg_temp.erro2($$select lin_venda_cliente((select v from lin_vd where k = 'vsc')::bigint, (select v from lin_vd where k = 'cl1')::uuid, '')$$, 'já está com essa cliente', 'linum 2.50: mesma cliente recusada');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+select pg_temp.erro2($$select lin_venda_cliente((select v from lin_vd where k = 'vsc')::bigint, (select v from lin_vd where k = 'cl2')::uuid, '')$$, 'escreva o motivo', 'linum 2.50: trocar a cliente exige motivo');
+select lin_venda_cliente((select v from lin_vd where k = 'vsc')::bigint, (select v from lin_vd where k = 'cl2')::uuid, 'Era a irmã dela');
+reset role;
+select pg_temp.ok((select cliente_id = (select v from lin_vd where k = 'cl2')::uuid and valor_total = 10 from lin_vendas where id = (select v from lin_vd where k = 'vsc')::bigint)
+  and (select situacao = 'cliente' from lin_clientes where id = (select v from lin_vd where k = 'cl2')::uuid)
+  and exists (select 1 from lin_contatos where cliente_id = (select v from lin_vd where k = 'cl1')::uuid and resultado = 'comprou' and venda_id = (select v from lin_vd where k = 'vsc')::bigint)
+  and exists (select 1 from lin_contatos where cliente_id = (select v from lin_vd where k = 'cl2')::uuid and resultado = 'comprou' and texto like '%colocada na venda depois%')
+  and exists (select 1 from lin_contatos where cliente_id = (select v from lin_vd where k = 'cl1')::uuid and resultado = 'outro' and texto like '%não era desta cliente%Era a irmã dela')
+  and not exists (select 1 from lin_vendas_sem_cliente() where id = (select v from lin_vd where k = 'vsc')::bigint)
+  and (select count(*) = 2 from auditoria where acao = 'linum_venda_cliente_corrigida' and detalhes ->> 'venda_id' = (select v from lin_vd where k = 'vsc'))
+  and exists (select 1 from auditoria where acao = 'linum_venda_cliente_corrigida' and detalhes -> 'antes' ->> 'cliente' = 'Cliente Esquecida 250' and detalhes ->> 'motivo' = 'Era a irmã dela'),
+  'linum 2.50: cliente colocada e trocada; venda sem outra mudança; CRM das duas clientes e auditoria');
+select pg_temp.erro2($$update lin_vendas set cliente_id = null where id = (select v from lin_vd where k = 'vsc')::bigint$$, 'Não pode ser alterada', 'linum 2.50: fora da função a cliente continua imutável');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select lin_venda_cancelar((select v from lin_vd where k = 'vsc')::bigint, 'teste da cliente');
+select pg_temp.erro2($$select lin_venda_cliente((select v from lin_vd where k = 'vsc')::bigint, (select v from lin_vd where k = 'cl1')::uuid, 'voltar a cliente')$$, 'cancelada', 'linum 2.50: venda cancelada não muda a cliente');
+reset role;
+reset request.jwt.claim.sub;
+
 -- ================================================================ Atendimentos de TI (atd_)
 reset role; reset request.headers;
 select pg_temp.ok((select situacao = 'oculto' and manual_url like '/apps/atendimentos/ajuda/%' from apps where id = 'atendimentos'),
