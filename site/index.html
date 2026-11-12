@@ -324,7 +324,7 @@ footer{border-top:1px solid var(--border);padding:36px 0;color:var(--muted);font
     <div class="section-head">
       <span class="eyebrow">Ecossistema Nervia App</span>
       <h2>Aplicativos que trabalham pela sua empresa</h2>
-      <p class="lead">Um conjunto de aplicativos na Área do Cliente, com um login só: notas fiscais que chegam sozinhas, compras em gráficos, orçamentos de compras com aprovação, controle de vendas, crediário e estoque, e auditoria das linhas móveis. Funcionam no navegador, no computador ou no celular, sem instalar nada, e a Nervia adapta ao seu negócio.</p>
+      <p class="lead">Um conjunto de aplicativos na Área do Cliente, com um login só: notas fiscais que chegam sozinhas, compras em gráficos, orçamentos de compras com aprovação, controle de vendas, crediário e estoque, auditoria das linhas móveis e mídia nas TVs da empresa. Funcionam no navegador, no computador ou no celular, sem instalar nada, e a Nervia adapta ao seu negócio.</p>
     </div>
     <div class="apps-grid">
       <div class="app-list">
@@ -374,6 +374,15 @@ footer{border-top:1px solid var(--border);padding:36px 0;color:var(--muted);font
           </ul>
           <div class="app-links"><a href="/demo/telefonia/" target="_blank" rel="noopener">Ver demonstração →</a><a class="js-wa-telefonia" href="#" target="_blank" rel="noopener">Quero a auditoria</a></div>
         </div>
+        <div class="app-card">
+          <div class="app-top"><span class="app-ic">MI</span><div><h3>Mídia Indoor</h3><small>Promoções, avisos e vídeos nas TVs da sua empresa</small></div></div>
+          <ul>
+            <li><b>Atualiza sozinha</b>: você coloca os vídeos e as imagens numa pasta na nuvem e as TVs passam a mostrar.</li>
+            <li><b>Uma playlist para cada pasta</b>, na ordem que você quiser, com a TV deitada ou em pé.</li>
+            <li><b>Painel com as TVs</b>: veja quais estão no ar. Funciona em Google TV, Android TV e Fire TV Stick.</li>
+          </ul>
+          <div class="app-links"><a class="js-wa-midia" href="#" target="_blank" rel="noopener">Quero nas minhas TVs</a></div>
+        </div>
       </div>
       <div>
         <div class="tela"><div class="barra"><i></i><i></i><i></i><span>nervia.com.br · Painel de Notas</span></div>
@@ -393,7 +402,7 @@ footer{border-top:1px solid var(--border);padding:36px 0;color:var(--muted);font
       <a class="btn btn-ghost" href="/demo/telefonia/" target="_blank" rel="noopener">Demonstração: Auditoria de Telefonia Móvel</a>
       <a class="btn btn-ghost" href="/produtos/">Todos os produtos</a>
       <a class="btn btn-wa js-wa-apps" href="#" target="_blank" rel="noopener">Quero assinar</a>
-      <small>Cada aplicativo tem sua demonstração com dados fictícios: entre e teste à vontade, sem cadastro.</small>
+      <small>As demonstrações usam dados fictícios: entre e teste à vontade, sem cadastro.</small>
     </div>
   </div>
 </section>
@@ -541,6 +550,7 @@ document.querySelectorAll(".js-wa-apps").forEach(a => a.href = waBase + "?text="
 document.querySelectorAll(".js-wa-produtos").forEach(a => a.href = waBase + "?text=" + encodeURIComponent("Olá! Vi o app Nervia Controle de Produtos no site da Nervia e quero saber mais."));
 document.querySelectorAll(".js-wa-compras").forEach(a => a.href = waBase + "?text=" + encodeURIComponent("Olá! Vi o Orçamentos de Compras no site da Nervia e quero para a minha empresa."));
 document.querySelectorAll(".js-wa-telefonia").forEach(a => a.href = waBase + "?text=" + encodeURIComponent("Olá! Vi a Auditoria de Telefonia Móvel no site da Nervia e quero a auditoria das linhas da minha empresa."));
+document.querySelectorAll(".js-wa-midia").forEach(a => a.href = waBase + "?text=" + encodeURIComponent("Olá! Vi a Mídia Indoor no site da Nervia e quero levar para as TVs da minha empresa."));
 document.querySelectorAll(".js-wa-label").forEach(el => el.textContent = CONFIG.whatsappLabel);
 document.querySelectorAll(".js-mail").forEach(a => a.href = "mailto:" + CONFIG.email);
 document.querySelectorAll(".js-mail-label").forEach(el => el.textContent = CONFIG.email);
