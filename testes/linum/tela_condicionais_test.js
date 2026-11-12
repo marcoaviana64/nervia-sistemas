@@ -51,6 +51,7 @@ const FALSO = `(() => {
     lin_benef_no_estoque: () => ok([]),
     lin_vendedoras: () => ok([{ user_id: 'u-vendedora', nome: 'Vera Vendedora' }, { user_id: 'u-estoque', nome: 'Edu Estoque' }]),
     lin_cliente_credito: () => ok({ saldo: 0, extrato: [] }),
+    lin_cliente_salvar: ({ p }) => { const id = 'c' + (S.cli.length + 1); S.cli.push({ id, nome: p.nome, telefone: String(p.telefone || '').replace(/\D/g, '') }); return ok(id); },
     lin_cond_no_estoque: () => { const m = new Map();
       for (const i of S.it) { const c = S.cd.find(x => x.id === i.condicional_id), pend = i.quantidade - i.compradas - i.devolvidas;
         if (!c || c.situacao !== 'aberta' || pend <= 0) continue;
@@ -129,6 +130,16 @@ const hojeBR = (d = 0) => { const x = new Date(new Date().toLocaleDateString('en
     await aba(pg, '#abaCond'); await pg.waitForSelector('#cdmal');
     await pg.click('#cdmal'); await pg.waitForSelector('#dlg[open] #cdok');
     ok(await pg.inputValue('#cdprazo') === hojeBR(3), 'malinha: prazo padrão de 3 dias');
+    const lista0 = await pg.locator('#cdcres').innerText();
+    ok(lista0.includes('Maria Souza') && lista0.includes('Joana Lima') && lista0.includes('+ Cadastrar cliente'), 'com o campo vazio já aparecem as clientes e o "+ Cadastrar cliente"');
+    await pg.fill('#cdqc', 'j'); await pg.waitForTimeout(100);
+    ok((await pg.locator('#cdcres').innerText()).includes('Joana Lima') && !(await pg.locator('#cdcres').innerText()).includes('Maria'), 'uma letra já filtra pelo começo do nome');
+    await pg.fill('#cdqc', 'Bia Nova 21977776666'); await pg.waitForTimeout(100);
+    await pg.click('#cdcnovo'); await pg.waitForSelector('#dlg2[open] #clok');
+    ok(await pg.inputValue('#cl_nome') === 'Bia Nova', '"+ Cadastrar cliente" abre o cadastro com o nome digitado');
+    await pg.click('#clok'); await pg.waitForTimeout(400);
+    ok((await pg.locator('#dlgf').innerText()).includes('Bia Nova') && await pg.locator('#cdclix').count() === 1, 'cliente nova cadastrada já fica escolhida na malinha');
+    await pg.click('#cdclix'); await pg.waitForTimeout(100);
     await pg.click('#dlgf [data-cdg="tipo"][data-x="reserva"]');
     ok(await pg.inputValue('#cdprazo') === hojeBR(7), 'reserva: prazo padrão de 7 dias');
     await pg.click('#dlgf [data-cdg="tipo"][data-x="malinha"]');

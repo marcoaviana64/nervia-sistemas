@@ -96,7 +96,9 @@ async function novaCondicional(tipo, ini) {
   const vmap = new Map();
   PRODUTOS.forEach(p => (p.variantes || []).forEach(v => vmap.set(v.id, { p, v })));
   if (ini && ini.variante && vmap.has(ini.variante)) C.itens.push({ variante: ini.variante, quantidade: 1 });
-  try { if (!CLIENTES.length) await carregarClientes(); await carregarVendedoras(); } catch (e) { /* segue: a busca avisa */ }
+  let cliErro = "";
+  try { if (!CLIENTES.length) await carregarClientes(); } catch (e) { cliErro = e.message || String(e); }
+  try { await carregarVendedoras(); } catch (e) { /* só serve para o cadastro rápido */ }
   const rot = id => { const x = vmap.get(id); return x ? `${esc(x.p.descricao)} <span class="mut">(${esc(x.p.referencia || "")})</span> — ${esc(nomeVar(x.v))}` : "?"; };
   const preco = id => { const x = vmap.get(id); return x ? Number(x.v.preco_venda != null ? x.v.preco_venda : x.p.preco_venda) || 0 : 0; };
   const resultados = () => {
@@ -124,13 +126,21 @@ async function novaCondicional(tipo, ini) {
       : `<div class="mut" style="font-size:12px">Nenhuma peça com estoque em ${esc(loja(C.loja).nome)} com esse texto.</div>`;
     $("cdpres").querySelectorAll("[data-cdadd]").forEach(b => b.onclick = () => { guardar(); C.itens.push({ variante: b.dataset.cdadd, quantidade: 1 }); C.q = ""; desenhar(); $("cdq").focus(); });
   };
+  // 2.47: a lista aparece já com o campo vazio (as clientes em ordem de nome) e o "+ Cadastrar cliente" fica sempre à mão;
+  // antes só apareciam depois de 2 letras e parecia que a busca não funcionava (Marco, 12/11/2026)
   const desenharCli = () => {
     if (!$("cdcres")) return;
-    const t = C.qc.trim(), l = t.length < 2 ? [] : buscarClientes(t, 6);
-    $("cdcres").innerHTML = l.map(x => `<div class="vlin"><span><b>${esc(x.nome)}</b>${x.telefone ? " · " + esc(fone(x.telefone)) : ""}</span><button type="button" class="lnk" data-cdcli="${x.id}">Escolher</button></div>`).join("")
-      + (t.length >= 2 ? `<div class="vlin"><span class="mut">${l.length ? "Não é nenhuma dessas?" : "Cliente não encontrada."}</span><button type="button" class="lnk" id="cdcnovo">+ Cadastrar cliente</button></div>` : "");
+    const t = C.qc.trim(), tt = semAc(t);
+    const l = !t ? CLIENTES.slice().sort((a, b) => String(a.nome).localeCompare(String(b.nome), "pt-BR")).slice(0, 8)
+      : t.length < 2 ? CLIENTES.filter(x => semAc(x.nome).split(" ").some(w => w.startsWith(tt))).slice(0, 8) : buscarClientes(t, 8);
+    $("cdcres").innerHTML = (cliErro ? `<div class="msg err">Não consegui carregar as clientes: ${esc(cliErro)}</div>` : "")
+      + (!t && CLIENTES.length ? `<div class="mut" style="font-size:12px">${CLIENTES.length > l.length ? `Digite o nome ou o telefone para achar entre as ${n(CLIENTES.length)} clientes:` : "Clientes cadastradas:"}</div>` : "")
+      + l.map(x => `<div class="vlin"><span><b>${esc(x.nome)}</b>${x.telefone ? " · " + esc(fone(x.telefone)) : ""}</span><button type="button" class="lnk" data-cdcli="${x.id}">Escolher</button></div>`).join("")
+      + `<div class="vlin"><span class="mut">${!t ? (CLIENTES.length ? "É uma cliente nova?" : "Nenhuma cliente cadastrada ainda.") : l.length ? "Não é nenhuma dessas?" : "Cliente não encontrada."}</span><button type="button" class="lnk" id="cdcnovo">+ Cadastrar cliente</button></div>`;
     $("cdcres").querySelectorAll("[data-cdcli]").forEach(b => b.onclick = () => { guardar(); C.cliente = cliente(b.dataset.cdcli); C.qc = ""; desenhar(); });
-    if ($("cdcnovo")) $("cdcnovo").onclick = () => { guardar(); editarCliente(clienteDigitado(t), novo => { C.cliente = novo; C.qc = ""; desenhar(); if (!$("dlg").open) $("dlg").showModal(); }); };
+    $("cdcnovo").onclick = () => { guardar(); editarCliente(clienteDigitado(t), novo => {
+      if (novo && !CLIENTES.some(x => x.id === novo.id)) CLIENTES.push(novo);
+      C.cliente = novo; C.qc = ""; desenhar(); if (!$("dlg").open) $("dlg").showModal(); }); };
   };
   const desenhar = erro => {
     const bot = (g, val, r, on) => `<button type="button" class="pilula ${on ? "on" : ""}" data-cdg="${g}" data-x="${esc(val)}">${esc(r)}</button>`;
