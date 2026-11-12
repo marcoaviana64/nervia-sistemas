@@ -28,6 +28,7 @@
     <li><a href="#equipe">4. Definir os papéis: Dono, Estoque e Vendedora (equipe Nervia)</a></li>
     <li><a href="#vender">5. Registrar uma venda (a boleta)</a></li>
     <li><a href="#cancelar">6. Cancelar uma venda (Dono)</a></li>
+    <li><a href="#videos">4a. Mostrar os vídeos do produto à cliente</a></li>
     <li><a href="#malinha">5a. Malinha (cliente experimenta em casa) e reserva</a></li>
     <li><a href="#visita">6b. Registrar uma visita sem contato</a></li>
     <li><a href="#clientes">7. Clientes e acompanhamento</a></li>
@@ -214,6 +215,16 @@
     <li>Na aba <b>Clientes</b>, quem tem saldo aparece com a etiqueta <b>crédito R$ …</b>; na ficha, <b>Crédito na conta</b> mostra o saldo e o <b>extrato</b> (devoluções, uso em vendas, cancelamentos, ajustes). O <b>Dono</b> pode <b>Ajustar crédito</b> com motivo, por exemplo para lançar um vale-troca de papel.</li>
     <li>Só o <b>Dono</b> cancela: <b>cancelar a devolução</b> tira o crédito da conta e a peça sai de novo do estoque (não dá se a cliente já usou o crédito: cancele antes a venda que usou); <b>cancelar a venda</b> que usou crédito devolve o crédito para a conta.</li>
   </ol>
+
+  <h2 id="videos">4a. Mostrar os vídeos do produto à cliente</h2>
+  <p>Para a cliente ver a peça vestida pela modelo (no celular, no computador da loja ou num tablet), cada produto pode ter uma <b>pasta no Google Drive</b> com vídeos e fotos.</p>
+  <ol>
+    <li>No Google Drive, crie uma pasta para o produto e coloque os vídeos e as fotos. Dê nomes na ordem em que quer mostrar (01, 02…). Se o vídeo é de uma cor, ponha a cor no nome (ex.: "azul 01").</li>
+    <li>Compartilhe a pasta: botão direito → Compartilhar → Acesso geral: <b>Qualquer pessoa com o link</b> (Leitor) → Copiar link.</li>
+    <li>No app (Dono ou Estoque), aba <b>Produtos</b> → Editar a peça → cole o link em <b>Pasta de vídeos e fotos</b> → Salvar produto.</li>
+    <li>No <b>Estoque</b>, o produto passa a ter o botão <b>▶ Mostrar à cliente</b>. Ele abre a ficha: o vídeo grande, a lista dos vídeos e fotos, o preço, o tecido, as cores e os tamanhos que têm peça na loja. Não aparecem quantidades, custo nem nada interno.</li>
+  </ol>
+  <p>Toque numa cor para ver primeiro os vídeos dela. <b>Tela cheia</b> mostra maior. Vídeo colocado na pasta aparece na próxima vez que a ficha abrir (o Google leva alguns minutos para preparar um vídeo novo). O vídeo vem da internet: com Wi-Fi fraco, demora para começar. Prefira vídeos em MP4.</p>
 
   <h2 id="malinha">5a. Malinha (cliente experimenta em casa) e reserva</h2>
   <p><b>Malinha</b> é quando a loja separa algumas peças e manda para a casa da cliente experimentar; ela compra o que quiser e devolve o resto (ou compra tudo, ou devolve tudo). <b>Reserva</b> é quando a cliente pede para separar peças para buscar depois. Nos dois casos as peças <b>saem do estoque na hora</b>, para ninguém vender para outra pessoa, e no Estoque o quadrado mostra "+N com cliente". Toda a equipe registra.</p>
@@ -457,6 +468,8 @@
     <tr><td>Escolha lojas de origem e destino diferentes</td><td>Na transferência, a loja de destino precisa ser outra.</td></tr>
     <tr><td>Informe quem vai fazer o beneficiamento / Informe o serviço</td><td>No envio para beneficiamento, preencha Quem faz e o Serviço.</td></tr>
     <tr><td>… só N peça(s) ainda estão no beneficiamento</td><td>No retorno, a soma de igual + outra + perdida passou do que ainda está fora daquela peça.</td></tr>
+    <tr><td>Link de pasta do Google Drive não reconhecido</td><td>Copie o link da PASTA (botão direito na pasta → Compartilhar → Copiar link), não de um arquivo.</td></tr>
+    <tr><td>O Google Drive recusou o acesso / Pasta não encontrada</td><td>Na ficha de vídeos: compartilhe a pasta com "qualquer pessoa com o link" e confira o link no Editar peça.</td></tr>
     <tr><td>Escolha a cliente (ela precisa estar cadastrada)</td><td>Na malinha/reserva, procure a cliente ou cadastre com nome e telefone.</td></tr>
     <tr><td>… só N peça(s) ainda estão com a cliente</td><td>Na volta, comprou + voltou passou do que ainda está com ela.</td></tr>
     <tr><td>A venda precisa ter as peças que a cliente comprou da malinha/reserva</td><td>Na venda da malinha, não tire nem diminua as peças que ela comprou; se ela devolveu alguma, cancele a venda e registre a volta de novo.</td></tr>

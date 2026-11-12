@@ -35,3 +35,7 @@ verify_jwt = false
 # Mídia Indoor: app da TV (sem login; a TV se identifica pelo token do vínculo)
 [functions.midia-tv]
 verify_jwt = false
+
+# Sistema Linum: vídeos do produto (lista a pasta do Google Drive; confere o papel do login no banco)
+[functions.linum-videos]
+verify_jwt = false

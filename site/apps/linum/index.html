@@ -15,6 +15,7 @@
 <script src="beneficiamento.js"></script>
 <script src="brindes.js"></script>
 <script src="condicionais.js"></script>
+<script src="videos.js"></script>
 <script src="gerencial.js"></script>
 <script src="gerencial-vendas.js"></script>
 <style>
@@ -122,6 +123,19 @@ dialog h3{margin:0 0 4px;font-size:17px}
 /* 2.42: peça no beneficiamento — setas azuis depois do nome da cor; o texto aparece ao apontar o mouse (title) */
 .chip.bf b::after{content:"⟳";color:#2a6fb0;font-weight:700;margin-left:3px}.chip.bf{border-style:dashed}
 .chip.zero.bf{background:var(--info-bg);color:var(--info);border-color:var(--info)}.chip.zero.bf *{color:var(--info)}
+.info .vidbt{margin-left:auto;padding:4px 10px;font-size:13px}
+dialog.vitrine{width:min(1100px,96vw);max-width:96vw}dialog.vitrine:fullscreen{width:100vw;height:100vh;max-height:none;border-radius:0}
+.vtopo{display:flex;justify-content:space-between;align-items:center;gap:10px}.vtopo h3{margin:0;font-size:22px}
+.vcorpo{display:flex;gap:12px;margin-top:10px}.vplayer{flex:1;min-width:0;aspect-ratio:16/9;max-height:62vh;background:#111;border-radius:10px;overflow:hidden;display:flex}
+dialog.vitrine:fullscreen .vplayer{max-height:none;flex:1;aspect-ratio:auto;height:calc(100vh - 220px)}
+.vplayer iframe{width:100%;height:100%;border:0}.vvazio{margin:auto;color:#ddd;padding:20px;text-align:center}
+.vlista{width:210px;display:flex;flex-direction:column;gap:6px;overflow:auto;max-height:62vh}
+.vlista button{text-align:left;border:1px solid var(--border);background:var(--surface);color:var(--ink);border-radius:8px;padding:9px 10px;font:inherit;cursor:pointer}
+.vlista button.on{border-color:var(--accent);background:var(--accent);color:#fff}
+.vinfo{margin-top:12px}.vpreco{font-size:24px;font-weight:700}.vpreco span{font-size:16px;font-weight:400;color:var(--ink-soft)}
+.vlin2{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}.vlin2 b{min-width:80px}
+.vtam{border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-weight:600}
+@media (max-width:700px){.vcorpo{flex-direction:column}.vplayer{aspect-ratio:9/12;max-height:58vh}.vlista{width:auto;flex-direction:row;flex-wrap:wrap;max-height:none}.vtopo h3{font-size:18px}}
 .chip.cd{border-style:dashed;border-color:#8a4fb3}.chip .cdx{color:#8a4fb3;font-weight:600}.chip.zero.cd{background:#f4ecf9;color:#6d3a92}.chip.zero.cd *{color:#6d3a92}
 h2.temesp::after{content:"★";color:#c9a227;font-size:.7em;margin-left:5px;vertical-align:.15em}
 .vtag{display:inline-block;font-size:12px;padding:2px 8px;border:1px solid var(--border);border-radius:7px;margin:2px 4px 2px 0}
@@ -393,6 +407,7 @@ async function carregar() {
   const cd = await sb.rpc("lin_cond_no_estoque");
   COND_EST = new Map((cd.error ? [] : cd.data || []).map(x => [chave(x.variante_id, x.loja_id), x]));
   if (typeof carregarCond === "function") await carregarCond().catch(() => {});
+  if (typeof carregarVideos === "function") await carregarVideos().catch(() => {});
 }
 function irPara(v) { if (VISTA === "custos" && v !== "custos" && !cuPodeSair()) return; CU_SUJO = false; VISTA = v; limparMsg(); render(); }
 document.querySelectorAll(".barra .aba").forEach(b => b.onclick = () => irPara(b.dataset.v));
@@ -497,6 +512,7 @@ function lista() {
     : novaTransferencia({ variante: b.dataset.v, loja: b.dataset.l }));
   // no celular não há "apontar o mouse": tocar no quadrado sem peça mostra o aviso do beneficiamento
   document.querySelectorAll("#lista div.chip[data-bfinfo]").forEach(d => d.onclick = () => msg("info", d.dataset.bfinfo));
+  document.querySelectorAll("#lista [data-vid]").forEach(b => b.onclick = () => mostrarCliente(b.dataset.vid));
 }
 // peças especiais separadas das comuns (pedido do Marco: "estava confundindo com as normais"):
 // [comuns, especiais]: todas as especiais juntas num bloco só (pedido do Marco), na ordem edição → tamanho → cor
@@ -510,7 +526,7 @@ function cartao(p, grupos) {
   const temEsp = grupos.some(([, vs]) => vs.some(v => v.edicao));
   return `<div class="prod">
     <div class="cab"><h2 class="${temEsp ? "temesp" : ""}" title="${esc(p.descricao)}${temEsp ? " · tem peça especial" : ""}">${esc(p.descricao)}</h2><span class="preco">${p.preco_venda != null ? brl(p.preco_venda) : "Preço não cadastrado"}</span></div>
-    <div class="info"><span>Ref: ${esc(p.referencia || "—")}${refProvisoria(p) ? '<span class="tag">provisória</span>' : ""}</span><span>·</span><span>Peça: ${esc(p.categoria || "—")}</span></div>
+    <div class="info"><span>Ref: ${esc(p.referencia || "—")}${refProvisoria(p) ? '<span class="tag">provisória</span>' : ""}</span><span>·</span><span>Peça: ${esc(p.categoria || "—")}</span>${typeof VIDEOS !== "undefined" && VIDEOS[p.id] ? `<button type="button" class="bt vidbt" data-vid="${p.id}" title="Ficha com os vídeos para mostrar à cliente">▶ Mostrar à cliente</button>` : ""}</div>
     ${grupos.map(([l, vs]) => { const [comuns, esp] = separarEsp(vs);
       return `<div class="loja" data-loja="${l.id}"><span class="selo">${esc(l.nome)}</span>${comuns.length ? `<div class="chips">${chipsLoja(p, l, comuns)}</div>` : ""}
         ${esp.length ? `<div class="esplinha"><div class="esptit">★ Peças especiais</div><div class="chips">${chipsLoja(p, l, esp)}</div></div>` : ""}</div>`; }).join("")}</div>`;
@@ -792,8 +808,8 @@ function editarProduto(pid) {
   let p = pid ? PRODS.find(x => x.id === pid) : null;
   let F2 = p ? { referencia: p.referencia, descricao: p.descricao, categoria: p.categoria || "", colecao: p.colecao || "", fornecedor: p.fornecedor || "",
                  tecido: p.tecido || "", preco_custo: moeda(p.preco_custo), preco_venda: p.preco_venda ? moeda(p.preco_venda) : "", consumo_metros: decBR(p.consumo_metros), ativo: p.ativo,
-                 classificacao_id: p.classificacao_id || "" }
-             : { referencia: "", descricao: "", categoria: "", colecao: "", fornecedor: "", tecido: "", preco_custo: "", preco_venda: "", consumo_metros: "", ativo: true, classificacao_id: "" };
+                 classificacao_id: p.classificacao_id || "", video_pasta: (typeof VIDEOS !== "undefined" && VIDEOS[p.id]) || "" }
+             : { referencia: "", descricao: "", categoria: "", colecao: "", fornecedor: "", tecido: "", preco_custo: "", preco_venda: "", consumo_metros: "", ativo: true, classificacao_id: "", video_pasta: "" };
   // lista da classificação tributária: só as ativas (mais a que a peça já tem), agrupadas, filtradas pela busca
   const opcoesClassif = (busca, sel) => {
     const l = (CLASSIF || []).filter(c => c.ativo || c.id === sel);
@@ -824,6 +840,8 @@ function editarProduto(pid) {
       <div class="campo">${campo("descricao", "Descrição (nome da peça)")}</div>
       <div class="campo grade2">${campo("colecao", "Coleção")}${campo("fornecedor", "Fornecedor")}</div>
       <div class="campo">${campo("tecido", "Tecido")}</div>
+      <div class="campo">${campo("video_pasta", "Pasta de vídeos e fotos para mostrar à cliente (link do Google Drive)", 'placeholder="https://drive.google.com/drive/folders/… (compartilhada com qualquer pessoa com o link)"')}
+        <div class="mut" style="font-size:12px">Uma pasta por produto. Os vídeos aparecem em ordem de nome (01, 02…); com a cor no nome do arquivo (ex.: "azul 01"), ele vem primeiro quando se escolhe a cor.</div></div>
       ${CLASSIF ? `<div class="campo"><label for="pf_classificacao_id">Classificação tributária</label>
         <select id="pf_classificacao_id" data-k="classificacao_id">${opcoesClassif("", F2.classificacao_id)}</select>
         <input id="pf_cbusca" type="search" placeholder="Ou digite para achar: tipo de peça, material ou NCM (ex.: vestido linho, 6204)" style="margin-top:4px" autocomplete="off">
@@ -914,6 +932,11 @@ function editarProduto(pid) {
       const id = checar(await sb.rpc("lin_produto_salvar", { p: { id: p ? p.id : null, referencia: F2.referencia, descricao: F2.descricao, categoria: F2.categoria,
         colecao: F2.colecao, fornecedor: F2.fornecedor, tecido: F2.tecido, preco_custo: numBR(F2.preco_custo), preco_venda: numBR(F2.preco_venda),
         consumo_metros: numBR(F2.consumo_metros), ativo: !!F2.ativo, ...(CLASSIF ? { classificacao_id: F2.classificacao_id || "" } : {}) } }));
+      // 2.49: pasta de vídeos (função própria, com auditoria); só quando mudou
+      if ((F2.video_pasta || "").trim() !== ((typeof VIDEOS !== "undefined" && VIDEOS[id]) || "")) {
+        checar(await sb.rpc("lin_produto_video_salvar", { p_produto: id, p_url: (F2.video_pasta || "").trim() }));
+        await carregarVideos();
+      }
       let criadas = 0;
       if (cores.length) criadas = checar(await sb.rpc("lin_variantes_criar", { p_produto: id, p_cores: cores, p_tamanhos: tams }));
       novas = { cores: "", tamanhos: TAMANHOS_PADRAO };
