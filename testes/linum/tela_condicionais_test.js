@@ -130,10 +130,9 @@ const hojeBR = (d = 0) => { const x = new Date(new Date().toLocaleDateString('en
     await aba(pg, '#abaCond'); await pg.waitForSelector('#cdmal');
     await pg.click('#cdmal'); await pg.waitForSelector('#dlg[open] #cdok');
     ok(await pg.inputValue('#cdprazo') === hojeBR(3), 'malinha: prazo padrão de 3 dias');
-    const lista0 = await pg.locator('#cdcres').innerText();
-    ok(lista0.includes('Maria Souza') && lista0.includes('Joana Lima') && lista0.includes('+ Cadastrar cliente'), 'com o campo vazio já aparecem as clientes e o "+ Cadastrar cliente"');
-    await pg.fill('#cdqc', 'j'); await pg.waitForTimeout(100);
-    ok((await pg.locator('#cdcres').innerText()).includes('Joana Lima') && !(await pg.locator('#cdcres').innerText()).includes('Maria'), 'uma letra já filtra pelo começo do nome');
+    ok((await pg.locator('#cdcres').innerText()).trim() === '', 'com o campo vazio a lista não aparece (como antes)');
+    await pg.fill('#cdqc', 'jo'); await pg.waitForTimeout(100);
+    ok((await pg.locator('#cdcres').innerText()).includes('Joana Lima') && (await pg.locator('#cdcres').innerText()).includes('+ Cadastrar cliente'), 'digitando, aparece a cliente e o "+ Cadastrar cliente"');
     await pg.fill('#cdqc', 'Bia Nova 21977776666'); await pg.waitForTimeout(100);
     await pg.click('#cdcnovo'); await pg.waitForSelector('#dlg2[open] #clok');
     ok(await pg.inputValue('#cl_nome') === 'Bia Nova', '"+ Cadastrar cliente" abre o cadastro com o nome digitado');

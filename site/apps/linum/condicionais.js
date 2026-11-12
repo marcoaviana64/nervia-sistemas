@@ -126,19 +126,16 @@ async function novaCondicional(tipo, ini) {
       : `<div class="mut" style="font-size:12px">Nenhuma peça com estoque em ${esc(loja(C.loja).nome)} com esse texto.</div>`;
     $("cdpres").querySelectorAll("[data-cdadd]").forEach(b => b.onclick = () => { guardar(); C.itens.push({ variante: b.dataset.cdadd, quantidade: 1 }); C.q = ""; desenhar(); $("cdq").focus(); });
   };
-  // 2.47: a lista aparece já com o campo vazio (as clientes em ordem de nome) e o "+ Cadastrar cliente" fica sempre à mão;
-  // antes só apareciam depois de 2 letras e parecia que a busca não funcionava (Marco, 12/11/2026)
+  // 2.48 (pedido do Marco em 12/11/2026, "encheu a página de clientes"): de volta ao jeito antigo — a lista e o
+  // "+ Cadastrar cliente" só aparecem quando se digita (2 letras); erro ao carregar as clientes continua aparecendo
   const desenharCli = () => {
     if (!$("cdcres")) return;
-    const t = C.qc.trim(), tt = semAc(t);
-    const l = !t ? CLIENTES.slice().sort((a, b) => String(a.nome).localeCompare(String(b.nome), "pt-BR")).slice(0, 8)
-      : t.length < 2 ? CLIENTES.filter(x => semAc(x.nome).split(" ").some(w => w.startsWith(tt))).slice(0, 8) : buscarClientes(t, 8);
+    const t = C.qc.trim(), l = t.length < 2 ? [] : buscarClientes(t, 6);
     $("cdcres").innerHTML = (cliErro ? `<div class="msg err">Não consegui carregar as clientes: ${esc(cliErro)}</div>` : "")
-      + (!t && CLIENTES.length ? `<div class="mut" style="font-size:12px">${CLIENTES.length > l.length ? `Digite o nome ou o telefone para achar entre as ${n(CLIENTES.length)} clientes:` : "Clientes cadastradas:"}</div>` : "")
       + l.map(x => `<div class="vlin"><span><b>${esc(x.nome)}</b>${x.telefone ? " · " + esc(fone(x.telefone)) : ""}</span><button type="button" class="lnk" data-cdcli="${x.id}">Escolher</button></div>`).join("")
-      + `<div class="vlin"><span class="mut">${!t ? (CLIENTES.length ? "É uma cliente nova?" : "Nenhuma cliente cadastrada ainda.") : l.length ? "Não é nenhuma dessas?" : "Cliente não encontrada."}</span><button type="button" class="lnk" id="cdcnovo">+ Cadastrar cliente</button></div>`;
+      + (t.length >= 2 ? `<div class="vlin"><span class="mut">${l.length ? "Não é nenhuma dessas?" : "Cliente não encontrada."}</span><button type="button" class="lnk" id="cdcnovo">+ Cadastrar cliente</button></div>` : "");
     $("cdcres").querySelectorAll("[data-cdcli]").forEach(b => b.onclick = () => { guardar(); C.cliente = cliente(b.dataset.cdcli); C.qc = ""; desenhar(); });
-    $("cdcnovo").onclick = () => { guardar(); editarCliente(clienteDigitado(t), novo => {
+    if ($("cdcnovo")) $("cdcnovo").onclick = () => { guardar(); editarCliente(clienteDigitado(t), novo => {
       if (novo && !CLIENTES.some(x => x.id === novo.id)) CLIENTES.push(novo);
       C.cliente = novo; C.qc = ""; desenhar(); if (!$("dlg").open) $("dlg").showModal(); }); };
   };

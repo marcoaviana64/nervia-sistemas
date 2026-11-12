@@ -71,6 +71,7 @@ window.NERVIA_VERSOES = {
     ["1.0", "Lançamento na Plataforma: os chamados de suporte de TI da Nervia por empreendimento, com o histórico de andamentos, a ficha do atendimento em PDF e os equipamentos com código e histórico de usuários."],
   ],
   "linum": [
+    ["2.48", "Malinhas e reservas: a busca de cliente voltou a ser como antes — a lista e o “+ Cadastrar cliente” aparecem quando você digita o nome ou o telefone."],
     ["2.47", "Malinhas e reservas: ao abrir, a lista de clientes já aparece e o botão “+ Cadastrar cliente” fica sempre à mão (antes só apareciam depois de digitar 2 letras); uma letra já filtra; a cliente cadastrada ali já fica escolhida."],
     ["2.46", "Malinhas e reservas: nova aba no grupo Vendas, para toda a equipe. Malinha = peças que vão para a casa da cliente experimentar; reserva = peças separadas para ela retirar depois. As peças saem do estoque na hora e o quadrado do Estoque mostra “+N com cliente” (apontando o mouse, a cliente e o prazo). Ficha para imprimir com assinatura, prazo (3 dias na malinha, 7 na reserva, dá para mudar) e WhatsApp da cliente. Na volta, peça por peça: o que voltou entra no estoque e o que ela comprou abre a venda já preenchida, com a comissão de quem montou. Atalhos Comprou tudo e Devolveu tudo; anotação no histórico da cliente; atrasadas no relatório diário."],
     ["2.45", "Brindes: o botão Baixar CSV fica só para a Dona (e a equipe Nervia), com o custo de cada peça; o Estoque continua vendo e registrando os brindes."],
