@@ -2660,6 +2660,25 @@ select pg_temp.ok((select quantidade = 3 from lin_estoque where variante_id = '2
                 and (detalhes -> 'depois' ->> 'prazo')::date = (now() at time zone 'America/Sao_Paulo')::date + 10),
   'linum 2.46: reserva com prazo de 7 dias, prazo mudado com auditoria e peças de volta ao estoque');
 
+-- linum 2.49: vídeos do produto (pasta do Google Drive) para mostrar à cliente
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora
+select pg_temp.erro2($$select lin_produto_video_salvar('10000000-0000-0000-0000-000000000001', 'https://drive.google.com/drive/folders/AbCdEfGhIjKlMnOp')$$,
+  'Somente o Dono ou o Estoque', 'linum 2.49: vendedora não cadastra a pasta de vídeos');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';   -- Estoque
+select pg_temp.erro2($$select lin_produto_video_salvar('10000000-0000-0000-0000-000000000001', 'https://exemplo.com/pasta')$$, 'não reconhecido', 'linum 2.49: link que não é de pasta do Drive recusado');
+select lin_produto_video_salvar('10000000-0000-0000-0000-000000000001', 'https://drive.google.com/drive/folders/AbCdEfGhIjKlMnOp?resourcekey=0-XyZ');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.ok((lin_videos_produtos() ->> '10000000-0000-0000-0000-000000000001') like 'https://drive.google.com/drive/folders/AbCdEfGhIjKlMnOp%',
+  'linum 2.49: a equipe vê quais produtos têm vídeos');
+select pg_temp.erro2($$select * from _lin_video_pasta('00000000-0000-0000-0000-00000000000c', '10000000-0000-0000-0000-000000000001')$$, 'permission denied', 'linum 2.49: a tela não chama a função interna da pasta');
+reset role;
+select pg_temp.ok((select pasta_id = 'AbCdEfGhIjKlMnOp' and chave = '0-XyZ' from _lin_video_pasta('00000000-0000-0000-0000-00000000000c', '10000000-0000-0000-0000-000000000001'))
+  and exists (select 1 from auditoria where acao = 'linum_produto_video' and detalhes -> 'depois' ->> 'video_pasta' like '%AbCdEfGhIjKlMnOp%'),
+  'linum 2.49: a função dos vídeos acha a pasta para quem tem papel; auditoria da pasta');
+select pg_temp.erro2($$select * from _lin_video_pasta('00000000-0000-0000-0000-00000000000e', '10000000-0000-0000-0000-000000000001')$$, 'não tem acesso', 'linum 2.49: login sem papel não lista os vídeos');
+reset request.jwt.claim.sub;
+
 -- ================================================================ Atendimentos de TI (atd_)
 reset role; reset request.headers;
 select pg_temp.ok((select situacao = 'oculto' and manual_url like '/apps/atendimentos/ajuda/%' from apps where id = 'atendimentos'),
