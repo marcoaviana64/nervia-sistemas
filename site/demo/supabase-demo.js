@@ -185,6 +185,7 @@
     { id: "telefonia", nome: "Auditoria de Telefonia Móvel", descricao: "Consumo, franquias e economia de cada linha móvel da empresa.", icone: "TM", situacao: "disponivel", demo_url: "/demo/telefonia/", ordem: 30 },
     { id: "compras", nome: "Orçamentos de Compras", descricao: "Requisição, cotações, mapa comparativo, aprovação por alçada e avaliação do fornecedor.", icone: "OC", situacao: "disponivel", demo_url: "/demo/compras/", ordem: 40 },
     { id: "produtos", nome: "Controle de Produtos", descricao: "Vendas, estoque, entregas, contas a receber e caixa de uma revenda ou loja.", icone: "CP", situacao: "em_breve", demo_url: "/demo/produtos/", ordem: 60 },
+    { id: "midia", nome: "Mídia Indoor", descricao: "Promoções, avisos e vídeos nas TVs da empresa: você coloca os arquivos numa pasta na nuvem e as TVs atualizam sozinhas.", icone: "MI", situacao: "disponivel", demo_url: "", ordem: 80 },
   ].map((a) => ({ ...a, reacao: null, comentario: "" }));
   const rpc = async (nome, p = {}) => {
     if (nome === "apps_vitrine") return { data: vitrine.map((a) => ({ ...a })), error: null };
