@@ -197,7 +197,7 @@ Backend: Supabase (projeto `nervia-sistemas`, org Nervia, plano Pro, região Sã
 - 2026-11-12: Sistema Linum 2.47 — malinha/reserva: lista de clientes e "+ Cadastrar cliente" à vista desde o início. Só tela. Testes: tela das malinhas (29).
 - 2026-11-12: Sistema Linum 2.48 — busca de cliente da malinha de volta ao jeito antigo (pedido do Marco). Só tela. Testes: tela das malinhas (29).
 - 2026-11-12: Sistema Linum 2.50 — **cliente colocada (ou trocada) depois na venda** pela vendedora que vendeu, Dona ou Estoque. Testes: SQL (1048, 8 novos) e tela (19).
-- 2026-11-14: Sistema Linum 2.52 — **Giro do estoque** (tempo no estoque, giro, cobertura e retorno; só a Dona). Só tela. Testes: tela do giro (22).
+- 2026-11-14: Sistema Linum 2.52 — **Giro do estoque** (tempo no estoque, giro, cobertura e retorno; só a Dona). Só tela. Testes: tela do giro (22). NO AR (PR marcoaviana64/nervia-sistemas#103, merge às 13h40 com as lojas abertas, por decisão do Marco: só tela, sem migração).
 - 2026-11-12: Sistema Linum 2.49 — **Mostrar à cliente** (ficha com os vídeos e fotos da modelo de uma pasta do Google Drive por produto; função `linum-videos`). Testes: SQL (1040, 6 novos) e tela (19).
 - 2026-11-10: **Propostas para prospects** (link + código, Administração → Propostas, `/proposta/`), **vitrine pública** `/produtos/` e o 1º modelo (`/modelos/harmonia-do-corpo-r7k2m9/`). Testes: SQL (suíte inteira OK) e tela das propostas (21).
 - 2026-11-11: Propostas — prévia da equipe ("Ver como o cliente", abre também o rascunho) e aviso de rascunho. Testes: SQL (5 novos) e tela das propostas (25).
