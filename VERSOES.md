@@ -70,6 +70,7 @@ Ao publicar mudança num app: linha nova no topo do app aqui (com a data) e em `
 
 | Versão | Data | O que mudou |
 |---|---|---|
+| 2.51 | 14/11/2026 | Mais rápido: as abas Produtos, Estoque, Vendas, Clientes e Movimentações abrem bem mais depressa (a conferência de quem pode ver cada informação passou a ser feita uma vez por consulta, e não peça por peça). Nada muda no que cada pessoa vê. |
 | 2.50 | 12/11/2026 | Cliente esquecida na venda: se a venda foi registrada sem a cliente (ou com a cliente errada), quem fez a venda, a Dona ou o Estoque coloca a cliente depois. A aba Vendas mostra as vendas sem cliente dos últimos 60 dias com o botão “Colocar cliente”, e a boleta da venda tem “Colocar cliente” / “Trocar cliente” (trocar pede o motivo). Só a cliente muda: peças, valores e comissão ficam iguais, e a venda entra no histórico da cliente. |
 | 2.49 | 12/11/2026 | Mostrar à cliente: no Estoque, o produto com vídeos ganha o botão “▶ Mostrar à cliente”, que abre uma ficha com os vídeos e fotos da modelo, o preço, o tecido, as cores e os tamanhos com peça na loja (sem quantidades nem custo). Tocar numa cor traz os vídeos dela primeiro; tela cheia para mostrar melhor. Funciona no celular, no computador da loja e no tablet. Os vídeos ficam numa pasta do Google Drive por produto, cujo link a Dona ou o Estoque cola em Editar peça. |
 | 2.48 | 12/11/2026 | Malinhas e reservas: a busca de cliente voltou a ser como antes — a lista e o “+ Cadastrar cliente” aparecem quando você digita o nome ou o telefone. |
