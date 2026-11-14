@@ -14,12 +14,13 @@ let GV_IMP = null;   // CSV da Rede em conferência
 
 async function gvCarregar(forcar) {
   if (GERV && !forcar && Date.now() - GERV.lido < 120000) return;
-  const [rede, outras, terminais, imps] = await Promise.all([
+  const [rede, outras, terminais, imps, vendas] = await Promise.all([
     todas(() => sb.from("lin_ger_rede").select("*").order("data").order("hora").order("id")),
     todas(() => sb.from("lin_ger_outras_vendas").select("*").order("data").order("id")),
     todas(() => sb.from("lin_ger_terminais").select("*").order("terminal")),
-    todas(() => sb.from("lin_ger_importacoes").select("*").eq("conta", "rede").order("id", { ascending: false }))]);
-  GERV = { rede, outras, terminais, imps, lido: Date.now() };
+    todas(() => sb.from("lin_ger_importacoes").select("*").eq("conta", "rede").order("id", { ascending: false })),
+    todas(() => sb.from("lin_vendas").select("id, data, loja_id, vendedora_nome, valor_total, pagamentos").is("cancelada_em", null).order("id"))]);
+  GERV = { rede, outras, terminais, imps, vendas, lido: Date.now() };
   if (FGV.ano === null) { const anos = new Set(rede.map(r => r.data.slice(0, 4))); FGV.ano = anos.has(hoje().slice(0, 4)) ? hoje().slice(0, 4) : ""; }
 }
 const gvLojas = () => [...new Set(GERV.rede.map(r => r.loja).concat(GERV.outras.map(o => o.loja), GERV.terminais.map(t => t.loja)))].sort((a, b) => a.localeCompare(b, "pt-BR"));
@@ -60,8 +61,51 @@ function gvTabela(ls, chave, titulo, ordem) {
     </tbody></table></div></div>`;
 }
 
+// 2.54: liga cada venda da Rede a um pagamento no cartão das vendas do sistema. Pelo CV do comprovante (= NSU/CV da Rede)
+// quando os dois têm; sem ele, sugere ("provável") a do mesmo dia, mesmo valor e mesma loja. Vale a partir da 1ª venda do sistema.
+function gvConciliar() {
+  const cart = [];
+  GERV.vendas.forEach(v => (v.pagamentos || []).forEach((p, i) => { if (p.forma === "credito" || p.forma === "debito")
+    cart.push({ v, i, cv: p.cv || "", forma: p.forma, valor: Number(p.valor), data: v.data, loja: semAc(loja(v.loja_id).nome || "") }); }));
+  const inicio = GERV.vendas.reduce((m, v) => !m || v.data < m ? v.data : m, "");
+  const ultRede = GERV.rede.reduce((m, r) => r.data > m ? r.data : m, "");
+  const porCv = new Map(cart.filter(c => c.cv).map(c => [c.cv, c]));
+  const lig = new Map(), usados = new Set();
+  const rede = GERV.rede.filter(r => r.modalidade !== "Pix" && !String(r.chave || "").startsWith("pix|"));
+  rede.forEach(r => { const c = r.nsu && porCv.get(String(r.nsu)); if (c) { lig.set(r.id, { c, tipo: "cv" }); usados.add(c); } });
+  rede.forEach(r => {
+    if (lig.has(r.id) || !inicio || r.data < inicio) return;
+    const c = cart.find(c => !usados.has(c) && !(c.cv && r.nsu) && c.data === r.data && Math.abs(c.valor - Number(r.bruto)) < 0.01
+      && (r.loja === "Não identificada" || semAc(r.loja) === c.loja));
+    if (c) { lig.set(r.id, { c, tipo: "provavel" }); usados.add(c); }
+  });
+  return { lig, inicio, ultRede, redeSem: inicio ? rede.filter(r => r.data >= inicio && !lig.has(r.id)) : [], semRede: cart.filter(c => !usados.has(c) && ultRede && c.data <= ultRede) };
+}
+const gvVendaTxt = x => x ? `nº ${x.c.v.id}${x.tipo === "cv" ? ' <span class="gpos" title="Ligada pelo CV do comprovante">✓</span>' : ' <span class="mut" title="Provável: mesmo dia, valor e loja (sem o CV para confirmar)">?</span>'}` : '<span class="mut">—</span>';
+function gvConferenciaHtml(cj) {
+  if (!GERV.vendas.length) return "";
+  const noFiltro = d => (!FGV.ano || d.startsWith(FGV.ano)) && (!FGV.mes || d.slice(5, 7) === FGV.mes);
+  const ligs = [...cj.lig.entries()].map(([id, x]) => ({ r: GERV.rede.find(r => r.id === id), x })).filter(o => gvFiltro(o.r));
+  const redeSem = cj.redeSem.filter(gvFiltro), semRede = cj.semRede.filter(c => noFiltro(c.data) && (!FGV.loja || semAc(FGV.loja) === c.loja));
+  const nCv = ligs.filter(o => o.x.tipo === "cv").length, nProv = ligs.length - nCv;
+  const lista = (t, id, l, f) => `<div class="card" id="${id}"><h2>${t} <span class="mut">(${n(l.length)})</span></h2>${l.length ? l.slice(0, 40).map(f).join("") + (l.length > 40 ? `<div class="mut">… e mais ${n(l.length - 40)}</div>` : "") : '<div class="mut">Nenhuma.</div>'}</div>`;
+  return `<div class="card" id="gvconf"><h2>Conferência com as vendas do sistema</h2>
+    <div class="mut" style="margin-bottom:8px">Desde ${dataBR(cj.inicio)} (1ª venda registrada no app). A venda é ligada pelo <b>CV do comprovante</b>, que a vendedora informa na venda e a Rede traz na coluna NSU/CV; sem ele, aparece como <b>provável</b> (mesmo dia, valor e loja).</div>
+    <div class="kpis">
+      <div class="kpi"><small>Ligadas pelo CV</small><b>${n(nCv)}</b><span>conferidas</span></div>
+      <div class="kpi"><small>Prováveis</small><b>${n(nProv)}</b><span>sem o CV para confirmar</span></div>
+      <div class="kpi"><small>Rede sem venda no sistema</small><b class="${redeSem.length ? "gneg" : ""}">${n(redeSem.length)}</b><span>${brl(redeSem.reduce((a, r) => a + Number(r.bruto), 0))}</span></div>
+      <div class="kpi"><small>Venda no cartão sem a Rede</small><b class="${semRede.length ? "gneg" : ""}">${n(semRede.length)}</b><span>${cj.ultRede ? "até " + dataBR(cj.ultRede) + " (última importação)" : "importe a Rede"}</span></div>
+    </div>
+    <div class="ggraf" style="grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr))">
+      ${lista("Rede sem venda no sistema", "gvredesem", redeSem, r => `<div class="vlin"><span>${dataBR(r.data)} ${r.hora ? r.hora.slice(0, 5) : ""} · ${esc(r.loja)} · ${esc(r.modalidade)}${r.nsu ? " · CV " + esc(r.nsu) : ""}</span><b>${brl(r.bruto)}</b></div>`)}
+      ${lista("Venda no cartão sem registro na Rede", "gvsemrede", semRede, c => `<div class="vlin"><span>Venda nº ${c.v.id} · ${dataBR(c.data)} · ${esc(loja(c.v.loja_id).nome)} · ${esc(c.v.vendedora_nome)} · ${c.forma === "credito" ? "crédito" : "débito"}${c.cv ? " · CV " + esc(c.cv) : ' · <span class="tag fora">sem CV</span>'}</span><b>${brl(c.valor)}</b></div>`)}
+    </div></div>`;
+}
+
 // ---------------------------------------------------------------- Vendas Rede
 function gerRede() {
+  const cj = gvConciliar();
   const ls = GERV.rede.filter(gvFiltro);
   const b = ls.reduce((a, r) => a + Number(r.bruto), 0), t = ls.reduce((a, r) => a + Number(r.tx_val), 0), l = ls.reduce((a, r) => a + Number(r.liquido), 0);
   const semLoja = ls.filter(r => r.loja === "Não identificada" && r.modalidade !== "Pix").length;
@@ -86,6 +130,7 @@ function gerRede() {
       <div class="kpi"><small>Líquido recebido</small><b class="gpos">${brl(l)}</b><span>bruto − taxas</span></div>
       <div class="kpi"><small>Ticket médio</small><b>${brl(ls.length ? b / ls.length : 0)}</b><span>por venda</span></div>
     </div>
+    ${gvConferenciaHtml(cj)}
     ${window.Chart ? `<div class="ggraf">
       <div class="card"><h2>Comparativo mês a mês por ano</h2><canvas id="gv1"></canvas><label class="chk noprint" style="margin-top:6px;text-transform:none;letter-spacing:0"><input type="checkbox" id="gvacum" ${FGV.acum ? "checked" : ""}> Acumulado no ano</label></div>
       <div class="card"><h2>Por loja — ${anoLoja}</h2><canvas id="gv2"></canvas></div>
@@ -103,10 +148,10 @@ function gerRede() {
       ${gvTabela(ls, r => GV_DIAS[gvDia(r.data)], "Por dia da semana", (a, b) => GV_DIAS.indexOf(a) - GV_DIAS.indexOf(b))}
     </div>
     <div class="card"><div class="cabtela"><h2>Detalhamento</h2><input type="search" id="gvq" placeholder="Bandeira, modalidade, loja, NSU" value="${esc(FGV.q)}" style="max-width:260px"></div>
-      <div class="tw" style="max-height:60vh"><table><thead><tr><th>Data</th><th>Hora</th><th>Loja</th><th>Modalidade</th><th>Bandeira</th><th class="num">Parc.</th><th class="num">Bruto</th><th class="num">Taxa</th><th class="num">Líquido</th><th class="noprint"></th></tr></thead><tbody>
+      <div class="tw" style="max-height:60vh"><table><thead><tr><th>Data</th><th>Hora</th><th>Loja</th><th>Modalidade</th><th>Bandeira</th><th class="num">Parc.</th><th class="num">Bruto</th><th class="num">Taxa</th><th class="num">Líquido</th><th>Venda</th><th class="noprint"></th></tr></thead><tbody>
       ${det.slice(0, 1500).map(r => `<tr><td>${dataBR(r.data)}</td><td>${r.hora ? r.hora.slice(0, 5) : "—"}</td><td>${esc(r.loja)}</td><td>${esc(r.modalidade)}${r.tipo ? ` <span class="mut">${esc(r.tipo)}</span>` : ""}</td><td>${esc(r.bandeira)}</td>
-        <td class="num">${r.parcelas}</td><td class="num">${brl(r.bruto)}</td><td class="num">${brl(r.tx_val)} <span class="mut">${decBR(Number(r.tx_pct).toFixed(2))}%</span></td><td class="num">${brl(r.liquido)}</td>
-        <td class="noprint"><button type="button" class="bt gvdel" data-id="${r.id}" title="Excluir venda importada por engano">✕</button></td></tr>`).join("") || '<tr><td colspan="10" class="mut">Sem vendas.</td></tr>'}
+        <td class="num">${r.parcelas}</td><td class="num">${brl(r.bruto)}</td><td class="num">${brl(r.tx_val)} <span class="mut">${decBR(Number(r.tx_pct).toFixed(2))}%</span></td><td class="num">${brl(r.liquido)}</td><td>${gvVendaTxt(cj.lig.get(r.id))}</td>
+        <td class="noprint"><button type="button" class="bt gvdel" data-id="${r.id}" title="Excluir venda importada por engano">✕</button></td></tr>`).join("") || '<tr><td colspan="11" class="mut">Sem vendas.</td></tr>'}
       </tbody></table></div></div>
     ${gvCadastrosHtml()}`;
   gvFiltrosLigar(gerRede);
@@ -120,8 +165,8 @@ function gerRede() {
   });
   $("gvcsv").onclick = () => {
     const c = x => `"${String(x ?? "").replace(/"/g, '""')}"`, num = x => Number(x).toFixed(2).replace(".", ",");
-    const lin = [["Data", "Hora", "Loja", "Terminal", "Modalidade", "Tipo", "Parcelas", "Bandeira", "Bruto", "Taxa %", "Taxa R$", "Líquido", "NSU"].map(c).join(";"),
-      ...det.map(r => [dataBR(r.data), r.hora || "", r.loja, r.terminal, r.modalidade, r.tipo, r.parcelas, r.bandeira, num(r.bruto), num(r.tx_pct), num(r.tx_val), num(r.liquido), r.nsu || ""].map(c).join(";"))];
+    const lin = [["Data", "Hora", "Loja", "Terminal", "Modalidade", "Tipo", "Parcelas", "Bandeira", "Bruto", "Taxa %", "Taxa R$", "Líquido", "NSU", "Venda no sistema", "Ligação"].map(c).join(";"),
+      ...det.map(r => [dataBR(r.data), r.hora || "", r.loja, r.terminal, r.modalidade, r.tipo, r.parcelas, r.bandeira, num(r.bruto), num(r.tx_pct), num(r.tx_val), num(r.liquido), r.nsu || "", (cj.lig.get(r.id) || { c: { v: {} } }).c.v.id || "", (cj.lig.get(r.id) || {}).tipo === "cv" ? "CV" : cj.lig.get(r.id) ? "provável" : ""].map(c).join(";"))];
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob(["﻿" + lin.join("\r\n")], { type: "text/csv;charset=utf-8" }));
     a.download = `linum-vendas-rede-${FGV.ano || "todos"}${FGV.mes ? "-" + FGV.mes : ""}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);

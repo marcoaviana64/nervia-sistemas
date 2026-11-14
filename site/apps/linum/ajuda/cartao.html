@@ -156,6 +156,8 @@
     <tr><td>Qtd · Desc. % · Valor</td><td>Desconto por peça em %; o valor se ajusta (ou digite o valor e o % aparece).</td></tr>
     <tr><td>Desconto geral (R$)</td><td>Desconto em reais sobre o total das peças.</td></tr>
     <tr><td>Forma · parcelas · valor</td><td>Crédito (até 12x), débito, Pix, dinheiro, cheque ou outro. + outra forma divide o pagamento; a soma tem de fechar com o total.</td></tr>
+    <tr><td>CV do comprovante</td><td>No crédito e no débito: o número depois de “CV:” no comprovante da maquininha. Obrigatório (só a boleta antiga da Dona pode ficar sem); não se repete em outra venda.</td></tr>
+    <tr><td>Informar / Corrigir comprovante</td><td>Na venda (ou no quadro “Vendas no cartão sem comprovante” da aba Vendas): quem vendeu, Estoque ou Dona; corrigir pede motivo.</td></tr>
     <tr><td>Observações</td><td>Ex.: aniversário, troca combinada, ajuste.</td></tr>
     <tr><td>Registrar venda</td><td>Grava e dá baixa no estoque da loja.</td></tr>
     <tr><td>Imprimir ficha</td><td>Ficha da venda (espelho, não é documento fiscal): cliente, peças, totais e pagamento, para imprimir ou salvar em PDF.</td></tr>
@@ -318,7 +320,7 @@
     <tr><td>Categorias</td><td>Classes do maior saldo ao maior gasto; clique abre as classificações; clique na classificação = lançamentos.</td></tr>
     <tr><td>Lançamentos</td><td>Busca, classe, crédito/débito, "Só a classificar". Marque e <b>Classificar marcados</b> (com "Criar regra" para os próximos extratos). Clique na linha: ver, classificar ou excluir (com motivo).</td></tr>
     <tr><td>+ Fora do banco</td><td>O que não aparece no extrato (ex.: a sócia pagou uma conta da Linum = Aportes). Valor negativo = saiu.</td></tr>
-    <tr><td>Vendas Rede</td><td>Vendas da maquininha (data e hora reais): bruto, taxas, líquido, ticket; mês a mês por ano e por loja; por loja, bandeira, modalidade, parcelas, horário e dia da semana; detalhamento (✕ = excluir com motivo), CSV.</td></tr>
+    <tr><td>Vendas Rede</td><td>Vendas da maquininha (data e hora reais): bruto, taxas, líquido, ticket; mês a mês por ano e por loja; por loja, bandeira, modalidade, parcelas, horário e dia da semana; detalhamento (✕ = excluir com motivo; coluna Venda: ✓ ligada pelo CV, ? provável), conferência com as vendas do sistema (Rede sem venda, venda no cartão sem Rede), CSV.</td></tr>
     <tr><td>Importar CSV da Rede</td><td>Portal da Rede → Vendas → Exportar (CSV). Confira (nova, já importada, sem loja) e importe. Canceladas não entram; a hora 1–9 vira 13–21 h.</td></tr>
     <tr><td>+ Pix da maquininha · + Outras vendas</td><td>Total do mês, lançado no último dia do mês. Outras vendas = caderno (dinheiro, Pix direto), por loja; valor negativo desconta.</td></tr>
     <tr><td>Terminais</td><td>Maquininha → loja (o nome do estabelecimento vem igual nas duas). Também lista e exclui as outras vendas.</td></tr>
