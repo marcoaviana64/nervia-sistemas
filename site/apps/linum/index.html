@@ -1347,7 +1347,7 @@ async function novaVenda(pre = {}) {
       <select data-pg="${i}" data-k="forma" style="width:auto">${FORMAS_PAG.map(([k, r]) => `<option value="${k}" ${k === p.forma ? "selected" : ""}>${r}</option>`).join("")}</select>
       ${p.forma === "credito" ? `<select data-pg="${i}" data-k="parcelas" style="width:auto">${Array.from({ length: 12 }, (_, x) => x + 1).map(x => `<option value="${x}" ${String(x) === String(p.parcelas) ? "selected" : ""}>${x}x</option>`).join("")}</select>` : "<span></span>"}
       <input data-pg="${i}" data-k="valor" inputmode="decimal" value="${esc(p.valor)}" placeholder="0,00" style="width:110px">
-      ${eCartao(p) ? `<input data-pg="${i}" data-k="cv" class="nvcv" inputmode="numeric" maxlength="14" value="${esc(p.cv || "")}" placeholder="CV do comprovante" title="O número depois de “CV:” no comprovante da maquininha" aria-label="CV do comprovante" style="width:150px">` : ""}
+      ${eCartao(p) ? `<input data-pg="${i}" data-k="cv" class="nvcv" inputmode="numeric" maxlength="14" value="${esc(p.cv || "")}" placeholder="CV do comprovante (opcional)" title="O número depois de “CV:” no comprovante da maquininha" aria-label="CV do comprovante" style="width:150px">` : ""}
       ${NV.pags.length > 1 ? `<button type="button" class="lnk perigo" data-pgrm="${i}">×</button>` : ""}</div>`).join("")
       + (NV.pags.some(eCartao) ? '<div class="mut" id="nvcvdica">CV = o número depois de “CV:” no comprovante da maquininha (ex.: 189435334). Liga a venda à exportação da Rede.</div>' : "");
     $("nvpags").querySelectorAll("[data-pg]").forEach(el => el[el.tagName === "SELECT" ? "onchange" : "oninput"] = () => {
@@ -1371,8 +1371,6 @@ async function novaVenda(pre = {}) {
     if (!NV.itens.length) return erro("Acrescente ao menos uma peça.");
     for (const it of NV.itens) { if (!(Number(it.q) >= 1)) return erro(`Quantidade inválida em ${it.ref}.`); if (Number(it.q) > disp(it.vid)) return erro(`${it.ref} ${it.var}: a loja tem só ${disp(it.vid)}.`); }
     const cu = credUsado();
-    if (NV.pags.some(p => numV(p.valor) > 0 && eCartao(p) && !soDig(p.cv)) && !(dono() && NV.data < hoje()))
-      return erro("Informe o CV do comprovante do cartão (o número depois de “CV:” no comprovante da maquininha).");
     const pags = NV.pags.filter(p => numV(p.valor) > 0).map(p => ({ forma: p.forma, valor: numBR(p.valor), parcelas: Number(p.parcelas) || 1, ...(eCartao(p) ? { cv: soDig(p.cv) } : {}) }))
       .concat(cu > 0 ? [{ forma: "credito_loja", valor: cu, parcelas: 1 }] : []);
     $("nvok").disabled = true; $("nvok").textContent = "Registrando…";

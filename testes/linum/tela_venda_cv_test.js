@@ -109,8 +109,6 @@ async function nova(pg) {
     // nova venda: o padrão é crédito → campo CV aparece; Pix tira o campo
     await nova(pg);
     ok(await pg.locator('.nvcv').count() === 1 && (await pg.locator('#nvcvdica').innerText()).includes('CV:'), 'pagamento no crédito mostra o campo CV e a dica');
-    await pg.click('#nvok'); await pg.waitForTimeout(300);
-    ok((await pg.locator('#nverr').innerText()).includes('CV do comprovante') && !(await ultimaRpc(pg, 'lin_venda_registrar')), 'sem o CV a venda não vai');
     await pg.fill('.nvcv', '18943-5334'); await print(pg, 'cv_nova');
     await pg.click('#nvok'); await pg.waitForTimeout(500);
     const r1 = await ultimaRpc(pg, 'lin_venda_registrar');
@@ -143,6 +141,9 @@ async function nova(pg) {
     await d.pg.click('#nvok'); await d.pg.waitForTimeout(500);
     const r3 = await ultimaRpc(d.pg, 'lin_venda_registrar');
     ok(r3 && r3.p.data === ontem && r3.p.pagamentos[0].cv === '', 'Dono lança boleta antiga sem CV');
+    await nova(d.pg); await d.pg.click('#nvok'); await d.pg.waitForTimeout(500);
+    const r4 = await ultimaRpc(d.pg, 'lin_venda_registrar');
+    ok(r4 && r4.p.data === hoje && r4.p.pagamentos[0].cv === '' && !(await d.pg.locator('#dlg').evaluate(x => x.open)), 'CV opcional: venda de hoje no cartão sem CV registra');
     ok(d.erros.length === 0, 'sem erro de JavaScript (Dono) ' + d.erros.join(' | '));
 
     const cel = await b.newContext({ viewport: { width: 390, height: 844 } });

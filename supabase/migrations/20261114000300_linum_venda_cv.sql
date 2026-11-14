@@ -3,7 +3,7 @@
 -- O comprovante da maquininha da Rede traz "CV: 189435334"; na exportação da Rede o mesmo número vem na coluna
 -- NSU/CV (lin_ger_rede.nsu, sem zeros à esquerda). Cada pagamento em crédito ou débito guarda o seu "cv" dentro de
 -- lin_vendas.pagamentos (jsonb); nada muda nas vendas antigas (ficam sem cv até alguém informar).
---   * obrigatório ao registrar a venda no cartão, salvo a boleta antiga lançada pelo Dono (data antes de hoje);
+--   * OPCIONAL por enquanto (decisão do Marco em 14/11/2026: "por enquanto não deve ser obrigatório colocar o código");
 --   * o mesmo CV não pode estar em duas vendas não canceladas (nem duas vezes na mesma venda);
 --   * lin_venda_comprovante: informar/corrigir depois (quem vendeu, Estoque ou Dono); corrigir um CV já informado exige
 --     motivo; é a única mudança em pagamentos permitida (formas, valores e parcelas não mudam); auditoria.
@@ -35,17 +35,11 @@ end $$;
 -- 2) conferência do CV em toda gravação dos pagamentos
 create or replace function public.lin_vendas_cv() returns trigger
 language plpgsql security definer set search_path = public as $$
-declare v_hoje date := (now() at time zone 'America/Sao_Paulo')::date; v_novo jsonb := '[]'; e jsonb; v_cv text;
-        v_vistos text[] := '{}'; v_registro boolean; v_outra bigint;
+declare v_novo jsonb := '[]'; e jsonb; v_cv text; v_vistos text[] := '{}'; v_outra bigint;
 begin
-  -- registro = a própria lin_venda_registrar gravando os pagamentos (mesma transação do insert)
-  v_registro := tg_op = 'INSERT' or old.criado_em = now();
   for e in select x from jsonb_array_elements(coalesce(new.pagamentos, '[]')) x loop
     if e ->> 'forma' in ('credito', 'debito') then
-      v_cv := public._lin_cv(e ->> 'cv');
-      if v_cv = '' and v_registro and not (new.data < v_hoje and public.lin_eh_dono()) then
-        raise exception 'Informe o CV do comprovante do cartão (o número depois de "CV:" no comprovante da maquininha)';
-      end if;
+      v_cv := public._lin_cv(e ->> 'cv');   -- opcional (vazio = sem comprovante informado)
       if v_cv <> '' then
         if length(v_cv) < 3 or length(v_cv) > 12 then raise exception 'CV do comprovante inválido: %', v_cv; end if;
         if v_cv = any(v_vistos) then raise exception 'O CV % está repetido nesta venda', v_cv; end if;
