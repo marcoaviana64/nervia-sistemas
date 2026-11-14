@@ -990,7 +990,7 @@ select pg_temp.ok((select not ativo and demo_url = '/demo/produtos/' from apps w
 update apps set situacao = 'em_desenvolvimento', demo_url = '/segredo/' where id = 'velho';
 set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
-select pg_temp.ok((select string_agg(id, ',' order by id) from apps_vitrine()) = 'compras,contratos,painel-nf,produtos,site-negocios,studio,telefonia,velho',
+select pg_temp.ok((select string_agg(id, ',' order by id) from apps_vitrine()) = 'compras,contratos,midia,painel-nf,produtos,site-negocios,studio,telefonia,velho',
   'vitrine: apps fora da grade do login, sem oculto');
 select pg_temp.ok((select demo_url = '' from apps_vitrine() where id = 'velho') and (select demo_url = '/demo/compras/' from apps_vitrine() where id = 'compras'),
   'em desenvolvimento não mostra link de demonstração');
@@ -1757,7 +1757,7 @@ select pg_temp.ok((select count(*) = 1 from auditoria where acao = 'linum_contat
 -- visita sem contato
 set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora
-select pg_temp.erro2($$select lin_visita_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'ipa'), 'motivos', jsonb_build_array()))$$, 'por que não levou', 'linum visita: motivo obrigatório');
+select pg_temp.erro2($$select lin_visita_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'ipa'), 'motivos', jsonb_build_array()))$$, 'Escreva o que aconteceu', 'linum visita (2.53): visita vazia recusada');
 select pg_temp.erro2($$select lin_visita_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'ipa'), 'motivos', jsonb_build_array('sei_la')))$$, 'por que não levou', 'linum visita: motivo desconhecido recusado');
 select pg_temp.erro2($$select lin_visita_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'ipa'), 'motivos', jsonb_build_array('preco', 'outro')))$$, 'outro motivo', 'linum visita: Outro exige o motivo escrito');
 select pg_temp.erro2($$select lin_visita_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'ipa'), 'motivos', jsonb_build_array('preco'), 'pessoas', 30))$$, 'de 1 a 20', 'linum visita: pessoas de 1 a 20');
@@ -1777,6 +1777,37 @@ select pg_temp.erro2($$select lin_visita_registrar(jsonb_build_object('loja_id',
 reset role;
 select pg_temp.erro2($$delete from lin_visitas$$, 'não pode ser alterada', 'linum visita: somente inclusão');
 select pg_temp.ok((select count(*) = 1 from auditoria where acao = 'linum_visita_registrada' and detalhes->'motivos' ? 'tamanho' and detalhes->>'motivo_outro' <> ''), 'linum visita: na auditoria');
+-- linum 2.53: fluxo da loja (anotação livre, como chegou, gostou, vai voltar, contato opcional)
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora
+select pg_temp.erro2($$select lin_visita_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'ipa'), 'como_chegou', 'telepatia'))$$, 'Como chegou', 'linum 2.53: como chegou desconhecido recusado');
+select pg_temp.erro2($$select lin_visita_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'ipa'), 'como_chegou', 'outro'))$$, 'como a pessoa chegou', 'linum 2.53: como chegou "outro" exige o texto');
+select pg_temp.erro2($$select lin_visita_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'ipa'), 'volta', 'quem_sabe'))$$, 'Vai voltar', 'linum 2.53: vai voltar desconhecido recusado');
+select pg_temp.erro2($$select lin_visita_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'ipa'), 'gostou', 'adorou'))$$, 'Gostou', 'linum 2.53: gostou desconhecido recusado');
+select pg_temp.erro2($$select lin_visita_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'ipa'), 'observacao', 'Passou', 'proximo_contato', ((now() at time zone 'America/Sao_Paulo')::date + 3)::text))$$, 'com o contato', 'linum 2.53: retorno sem contato recusado');
+insert into lin_vd values ('fx1', lin_visita_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'ipa'), 'pessoas', 3,
+  'observacao', 'Amigas do panfleto, gostaram muito', 'como_chegou', 'panfleto', 'gostou', 'muito', 'volta', 'talvez', 'volta_quando', 'semana que vem'))::text);
+select pg_temp.ok((select motivos = '{}' and como_chegou = 'panfleto' and gostou = 'muito' and volta = 'talvez' and volta_quando = 'semana que vem' and cliente_id is null and pessoas = 3
+  from lin_visitas where id = (select v from lin_vd where k = 'fx1')::bigint), 'linum 2.53: visita só com anotação e marcações, sem motivo');
+insert into lin_vd values ('fx2', lin_visita_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'ipa'), 'observacao', 'Só passou', 'volta', 'nao', 'volta_quando', 'nunca'))::text);
+select pg_temp.ok((select volta_quando = '' from lin_visitas where id = (select v from lin_vd where k = 'fx2')::bigint), 'linum 2.53: "quando volta" só vale com sim/talvez');
+-- com contato: a tela cadastra a possível cliente e manda o id
+insert into lin_vd values ('fxc', lin_cliente_salvar(jsonb_build_object('nome', 'Visitante Fluxo 253', 'telefone', '21999990253', 'situacao', 'possivel', 'origem', 'Fluxo da loja – Vitrine'))::text);
+select pg_temp.erro2($$select lin_visita_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'ipa'), 'observacao', 'x', 'cliente_id', (select v from lin_vd where k = 'fxc'), 'proximo_contato', '2020-01-01'))$$, 'hoje ou depois', 'linum 2.53: retorno no passado recusado');
+insert into lin_vd values ('fx3', lin_visita_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'ipa'), 'observacao', 'Gostou da camisa, ficou grande',
+  'como_chegou', 'vitrine', 'volta', 'sim', 'volta_quando', 'depois da viagem', 'pecas', jsonb_build_array('20000000-0000-0000-0000-000000000003'),
+  'cliente_id', (select v from lin_vd where k = 'fxc'), 'aceite', true, 'proximo_contato', ((now() at time zone 'America/Sao_Paulo')::date + 3)::text))::text);
+select pg_temp.ok((select cliente_id = (select v from lin_vd where k = 'fxc')::uuid from lin_visitas where id = (select v from lin_vd where k = 'fx3')::bigint)
+  and (select proximo_contato = (now() at time zone 'America/Sao_Paulo')::date + 3 and novidades_aceite_em is not null and novidades_origem like 'Fluxo da loja%' and ultimo_contato is not null
+       from lin_clientes where id = (select v from lin_vd where k = 'fxc')::uuid)
+  and exists (select 1 from lin_contatos where cliente_id = (select v from lin_vd where k = 'fxc')::uuid and canal = 'loja' and resultado = 'veio_a_loja'
+              and texto like '%fluxo nº ' || (select v from lin_vd where k = 'fx3') || '%' and texto like '%depois da viagem%'),
+  'linum 2.53: com contato, visita ligada à cliente, anotação no histórico, retorno e autorização no CRM');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';   -- Dono vê o fluxo inteiro
+select pg_temp.ok((select count(*) = 4 from lin_visitas), 'linum 2.53: o Dono vê todo o fluxo');
+reset role;
+select pg_temp.ok((select count(*) = 1 from auditoria where acao = 'linum_visita_registrada' and detalhes->>'como_chegou' = 'vitrine' and detalhes->>'cliente' = 'Visitante Fluxo 253'), 'linum 2.53: fluxo na auditoria');
+select pg_temp.ok((select count(*) = 1 from lin_visitas where como_chegou = '' and volta = '' and gostou = '' and id = (select v from lin_vd where k = 'vis1')::bigint), 'linum 2.53: visita antiga continua igual');
 -- ranking das vendedoras
 set role authenticated;
 create temp table if not exists lin_mes as select date_trunc('month', now() at time zone 'America/Sao_Paulo')::date as de;
@@ -2823,7 +2854,7 @@ reset role;
 reset role;
 create temp table mit (k text primary key, v text);
 grant all on mit to anon, authenticated, service_role;
-select pg_temp.ok((select count(*) = 1 from apps where id = 'midia' and situacao = 'oculto' and manual_url = '/apps/midia/ajuda/manual.html'), 'midia: app cadastrado, oculto, com cartão e manual');
+select pg_temp.ok((select count(*) = 1 from apps where id = 'midia' and situacao = 'disponivel' and manual_url = '/apps/midia/ajuda/manual.html'), 'midia: app cadastrado, na vitrine (12/11), com cartão e manual');
 select pg_temp.ok((select pasta_id = '1AbC_def-GHIjkl' and chave = '0-xYz' from mi_pasta_do_link('https://drive.google.com/drive/u/0/folders/1AbC_def-GHIjkl?resourcekey=0-xYz&usp=sharing'))
   and (select pasta_id = '1AbC_def-GHIjkl' from mi_pasta_do_link('https://drive.google.com/open?id=1AbC_def-GHIjkl'))
   and (select pasta_id = '' from mi_pasta_do_link('https://exemplo.com/x')), 'midia: link da pasta do Drive reconhecido');

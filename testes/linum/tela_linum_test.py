@@ -163,12 +163,12 @@ try:
         # ---------------------------------------------------------------- dono: consulta
         pg, erros = entrar(b, "dono"); abrir(pg)
         ok(not pode(pg, "#abaEquipe") and pg.text_content("#quem") == "Dono", "dono não vê a aba Equipe")
-        ok(pg.eval_on_selector_all(".barra .grupo:not(.oculto)", "gs => gs.map(g => g.textContent.trim())") == ["Estoque", "Vendas", "Produção", "Gestão"]
-           and pg.eval_on_selector_all(".barra .aba:not(.fg)", "bs => bs.map(b => b.textContent.trim())") == ["Produtos", "Estoque", "Movimentações", "Transferências", "Etiquetas"],
-           "menu 2.34: Dona vê 4 grupos; embaixo, só as abas do grupo aberto")
+        ok(pg.eval_on_selector_all(".barra .grupo:not(.oculto)", "gs => gs.map(g => g.textContent.trim())") == ["Estoque", "Vendas", "Produção", "Gestão", "Gerencial"]
+           and pg.eval_on_selector_all(".barra .aba:not(.fg)", "bs => bs.map(b => b.textContent.trim())") == ["Produtos", "Estoque", "Movimentações", "Transferências", "Beneficiamento", "Brindes", "Etiquetas"],
+           "menu 2.34 (+ Gerencial 2.36, Beneficiamento 2.38, Brindes 2.44): Dona vê 5 grupos; embaixo, só as abas do grupo aberto")
         pg.click('.barra .grupo[data-g="gestao"]'); pg.wait_for_timeout(400)
         ok(pg.locator(".barra .aba.on").text_content() == "Comissões" and pg.locator(".barra .grupo.on").text_content() == "Gestão"
-           and pg.eval_on_selector_all(".barra .aba:not(.fg):not(.oculto)", "bs => bs.map(b => b.textContent.trim())") == ["Comissões", "Lucro", "Créditos", "Horários"],
+           and pg.eval_on_selector_all(".barra .aba:not(.fg):not(.oculto)", "bs => bs.map(b => b.textContent.trim())") == ["Comissões", "Lucro", "Giro do estoque", "Créditos", "Horários"],
            "menu 2.34: clicar no grupo abre a primeira aba dele")
         pg.screenshot(path=os.path.join(SAIDA, "linum_menu.png"))
         pg.click('.barra .grupo[data-g="estoque"]'); pg.wait_for_selector("#lista")
@@ -711,9 +711,9 @@ try:
         ok("Dona Rosa" in pg.text_content("#ajtab") and "1" in pg.text_content(".kpis"), "aba Ajustes lista o que está com a costureira")
         with pg.expect_popup() as pop: pg.select_option("#ajimpc", "Dona Rosa")
         ok("Ficha de ajuste" in pop.value.text_content("body"), "imprimir / PDF de todas as peças com uma costureira"); pop.value.close()
-        pg.click('[data-aj="pronto"]'); pg.wait_for_timeout(900)
+        pg.click('[data-aj="pronto"]'); pg.wait_for_selector("#dlg2[open] #ajandok"); pg.click("#ajandok"); pg.wait_for_timeout(900)   # 2.39: formulário com observação opcional
         ok("Pronto na loja" in pg.text_content("#ajtab") and pg.is_visible("[data-zapcli]"), "voltou da costureira: pronto na loja, avisar a cliente")
-        pg.click('[data-aj="entregue"]'); pg.wait_for_timeout(900)
+        pg.click('[data-aj="entregue"]'); pg.wait_for_selector("#dlg2[open] #ajandok"); pg.click("#ajandok"); pg.wait_for_timeout(900)   # 2.39: formulário com observação opcional
         ok(psql("select situacao from lin_ajustes", saida=True) == "entregue" and psql("select count(*) from auditoria where acao like 'linum_ajuste_%'", saida=True) == "3",
            "entregue à cliente; envio, volta e entrega na auditoria")
         ok(not erros, "sem erros de JavaScript (ajustes)")
@@ -786,7 +786,7 @@ try:
         aba(pg, "#abaVendas"); pg.wait_for_selector("#vvisita"); pg.click("#vvisita"); pg.wait_for_selector("#dlg[open] #visok")
         ok(pg.eval_on_selector("#visloja", "s => s.options[s.selectedIndex].text") == "Ipanema", "visita começa na loja principal")
         pg.click("#visok"); pg.wait_for_timeout(400)
-        ok("por que não levou" in pg.text_content("#viserr"), "visita sem motivo não registra")
+        ok("Escreva o que aconteceu" in pg.text_content("#viserr"), "visita vazia não registra (2.53: o motivo deixou de ser obrigatório)")
         pg.fill("#vispes", "2"); pg.click('[data-mot="tamanho"]'); pg.click('[data-mot="preco"]'); pg.click('[data-mot="preco"]'); pg.fill("#visfalt", "m")
         ok(not pg.is_visible("#visoutro"), "campo do outro motivo escondido até marcar Outro")
         pg.click('[data-mot="outro"]'); pg.click("#visok"); pg.wait_for_timeout(400)

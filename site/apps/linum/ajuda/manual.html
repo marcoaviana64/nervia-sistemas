@@ -30,7 +30,7 @@
     <li><a href="#cancelar">6. Cancelar uma venda (Dono)</a></li>
     <li><a href="#videos">4a. Mostrar os vídeos do produto à cliente</a></li>
     <li><a href="#malinha">5a. Malinha (cliente experimenta em casa) e reserva</a></li>
-    <li><a href="#visita">6b. Registrar uma visita sem contato</a></li>
+    <li><a href="#visita">6b. Fluxo da loja: registrar uma visita</a></li>
     <li><a href="#clientes">7. Clientes e acompanhamento</a></li>
     <li><a href="#creditos">6c. Créditos das clientes (Dono)</a></li>
     <li><a href="#custos">6d. Custos das peças (Dono)</a></li>
@@ -239,17 +239,24 @@
   </ol>
   <p>Também há os atalhos <b>Comprou tudo</b> e <b>Devolveu tudo</b> (na reserva, <b>Desistiu de tudo</b>). Pode registrar a volta em partes: o que não for informado continua com a cliente. Na ficha, <b>Mudar prazo</b> e <b>WhatsApp da cliente</b> (mensagem pronta lembrando a devolução ou a retirada). O histórico da cliente (Clientes) recebe a anotação da malinha e do que ela comprou. Malinhas atrasadas aparecem em vermelho e no relatório diário.</p>
 
-  <h2 id="visita">6b. Registrar uma visita sem contato</h2>
-  <p>Quando alguém entra na loja, olha as peças e sai sem comprar e sem deixar contato. Se a pessoa disser o nome ou o telefone, prefira cadastrar como <b>possível cliente</b> (seção 7).</p>
+  <h2 id="visita">6b. Fluxo da loja: registrar uma visita</h2>
+  <p>Quando alguém entra na loja, olha as peças e sai sem comprar. Substitui o papel do fluxo: escreva como escreveria no papel e marque o que souber.</p>
   <ol>
-    <li>Aba <b>Vendas</b> → <b>+ Visita sem contato</b>.</li>
-    <li>Confira a <b>loja</b> (vem a sua loja principal) e quantas pessoas vieram juntas.</li>
-    <li>Marque <b>por que não levou</b>: faltou tamanho, faltou cor, preço, só olhando, vai voltar ou outro. Pode marcar <b>mais de um</b>; clicar de novo desmarca. Em <b>Outro</b>, escreva qual foi o motivo no campo que aparece.</li>
-    <li>Se faltou tamanho ou cor, escreva qual em <b>O que faltou</b> (ex.: <i>M</i>, <i>azul marinho</i>).</li>
-    <li>Se quiser, procure as <b>peças que ela olhou ou provou</b> (referência, nome ou código de barras) e escreva uma observação. <b>Não anote nome nem dados da pessoa.</b></li>
-    <li>Clique em <b>Registrar visita</b>. A visita não se altera nem se apaga depois.</li>
-    <li>No período, o quadro <b>Visitas sem compra</b> mostra quantas pessoas saíram sem comprar e a <b>conversão</b> (vendas ÷ vendas + visitas sem compra). Embaixo: por que não levaram, as peças mais olhadas sem venda e o que mais faltou. Cada um vê as próprias visitas; o Dono vê todas e filtra por loja e vendedora.</li>
-    <li>O número só vale se a equipe registrar todas as visitas: visita não registrada faz a conversão parecer maior do que é.</li>
+    <li>Aba <b>Fluxo da loja</b> → <b>+ Registrar visita</b> (ou, na aba <b>Vendas</b>, <b>+ Fluxo / visita</b>).</li>
+    <li>Em <b>O que aconteceu</b>, escreva a anotação (ex.: <i>gostou da Camisa Catela, ficou grande; viaja amanhã e volta outro dia</i>).</li>
+    <li>Confira a <b>loja</b> (vem a sua loja principal) e <b>quantas pessoas</b> vieram juntas (ex.: 3 amigas = 3).</li>
+    <li>Se souber, marque <b>Como chegou</b> (vitrine, panfleto, estava por perto, Instagram, indicação, já é cliente, passando na rua ou outro — em Outro, escreva qual) e se <b>Gostou</b>. Clicar de novo desmarca.</li>
+    <li>Opcional: procure as <b>peças que olhou ou provou</b> (referência, nome ou código de barras), marque <b>por que não levou</b> (mais de um) e escreva <b>o que faltou</b> (ex.: <i>M</i>, <i>azul marinho</i>).</li>
+    <li>Em <b>Vai voltar?</b>, marque sim, talvez ou não; com sim ou talvez, escreva <b>quando</b> (ex.: <i>depois da viagem</i>).</li>
+    <li><b>Se a pessoa deixar nome e WhatsApp:</b> marque <b>Deixou nome e WhatsApp</b>, preencha, confira o <b>Retornar em</b> (vem daqui a 3 dias) e marque que <b>a pessoa autorizou</b> o contato — sem a autorização o app não guarda o telefone. Ela entra em <b>Clientes</b> como <b>possível cliente</b> (com como chegou e as peças de interesse), a visita fica no histórico dela e ela aparece em “Para contatar” no dia do retorno. Se o telefone já for de uma cliente, a visita entra na ficha dela, sem cadastro novo.</li>
+    <li>Clique em <b>Registrar visita</b>. A visita não se altera nem se apaga depois. Se nada foi escrito nem marcado, aparece “Escreva o que aconteceu ou marque alguma informação da visita”.</li>
+  </ol>
+  <h3>O painel do fluxo</h3>
+  <ol>
+    <li>Na aba <b>Fluxo da loja</b>, escolha o período e a loja. No alto: <b>visitas sem compra</b> (pessoas), <b>vendas</b> com a <b>conversão</b> (vendas ÷ vendas + visitas sem compra), quantas <b>disseram que voltam</b>, quantas <b>gostaram</b> e quantas <b>deixaram contato</b>.</li>
+    <li>Quadros: <b>como chegaram</b> (mostra se a vitrine ou o panfleto estão trazendo gente), por que não levaram, peças que olharam sem levar, <b>por dia</b>, <b>por horário</b> e o que faltou.</li>
+    <li><b>Para retornar</b> mostra só quem disse que volta; o nome da cliente abre a ficha dela para registrar o contato. O Dono baixa o <b>CSV</b>.</li>
+    <li>Cada um vê as visitas que registrou; o Dono vê as de toda a equipe. O número só vale se a equipe registrar todas as visitas: visita não registrada faz a conversão parecer maior do que é.</li>
   </ol>
 
   <h2 id="clientes">7. Clientes e acompanhamento</h2>
@@ -459,7 +466,8 @@
     <tr><td>O rolo … não tem metragem suficiente</td><td>Use outro rolo para o restante ou ajuste o saldo do rolo se ele foi medido.</td></tr>
     <tr><td>Só há N peça(s) … disponíveis para …</td><td>A etapa anterior ainda não devolveu essas peças: receba a remessa antes.</td></tr>
     <tr><td>Escreva o motivo das peças perdidas ou com defeito</td><td>Na conferência, escreva o motivo na linha da peça perdida.</td></tr>
-    <tr><td>Escolha por que não levou (pode marcar mais de um)</td><td>Na visita sem contato, marque pelo menos um motivo.</td></tr>
+    <tr><td>Escreva o que aconteceu ou marque alguma informação da visita</td><td>No Fluxo da loja, escreva a anotação ou marque pelo menos uma informação (como chegou, gostou, peça, motivo, vai voltar).</td></tr>
+    <tr><td>Marque que a pessoa autorizou o contato</td><td>No Fluxo da loja, com nome e WhatsApp: só guarde o telefone se a pessoa autorizou; senão, desmarque “Deixou nome e WhatsApp”.</td></tr>
     <tr><td>Escreva qual foi o outro motivo</td><td>Com Outro marcado, escreva o motivo no campo embaixo dos botões (ou desmarque Outro).</td></tr>
     <tr><td>O próximo contato precisa ser hoje ou depois</td><td>Escolha uma data a partir de hoje, ou Sem próximo.</td></tr>
     <tr><td>O histórico de contatos não pode ser alterado nem apagado</td><td>Registre um contato novo com a correção.</td></tr>
