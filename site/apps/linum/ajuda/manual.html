@@ -36,6 +36,7 @@
     <li><a href="#custos">6d. Custos das peças (Dono)</a></li>
     <li><a href="#comissoes">7a. Comissões do mês (Dono)</a></li>
     <li><a href="#lucro">7a1. Lucro das vendas (Dono)</a></li>
+    <li><a href="#giro">7a1a. Giro do estoque (Dono)</a></li>
     <li><a href="#gerencial">7a1b. Gerencial: extratos, resultado e considerações (Dono)</a></li>
     <li><a href="#horarios">7a2. Horário de trabalho (Dono)</a></li>
     <li><a href="#ranking">7b. Ranking das vendedoras</a></li>
@@ -318,6 +319,17 @@
     <li><b>Lucro direto</b> = vendido − custo, sem os outros custos da loja (aluguel, salários, cartão…); <b>margem</b> = lucro ÷ vendido e <b>markup</b> = vendido ÷ custo.</li>
   </ul>
   <p>Escolha o período, a loja, quem vendeu e como agrupar (por peça, venda, quem vendeu, loja ou mês). Peças vendidas sem preço de custo aparecem num aviso e ficam fora do custo, do lucro e da margem: cadastre o custo em Produtos ou pela ficha de custo. Trocas e devoluções não mudam a venda neste relatório. <b>Baixar CSV</b> traz uma linha por peça vendida.</p>
+
+  <h2 id="giro">7a1a. Giro do estoque (Dono)</h2>
+  <p>Só a Dona e os administradores veem a aba <b>Giro do estoque</b> (grupo Gestão). Ela mostra quanto tempo as peças ficam paradas e quais vendem mais rápido e dão mais retorno.</p>
+  <ul>
+    <li><b>Giro</b> = peças vendidas no período ÷ estoque médio do período (o estoque de cada dia, em média). Giro 2 = o estoque médio foi vendido duas vezes.</li>
+    <li><b>Cobertura</b> = em quantos dias o estoque de hoje acaba se as vendas continuarem no ritmo do período. A <b>situação</b> sai daí: até 30 dias = <b>gira rápido</b>, até 90 = <b>normal</b>, mais = <b>lento</b>; com estoque e nenhuma venda = <b>sem venda</b>; sem estoque e com venda = <b>esgotou</b>.</li>
+    <li><b>Tempo no estoque</b> = há quantos dias, em média, as peças que estão na loja hoje entraram. <b>Tempo até vender</b> = da entrada da peça até a venda. Vale a regra “a primeira que entra é a primeira que sai”. Transferência entre lojas, malinha/reserva, beneficiamento e brinde cancelado não zeram o tempo: a peça continua com a data em que entrou. Peça devolvida por cliente entra de novo com a data da devolução.</li>
+    <li><b>Contagem inicial</b>: as peças lançadas na contagem do estoque (de 26/10 a 13/11/2026) contam como no estoque desde 27/10/2026, quando o sistema começou. Muitas já estavam na loja antes, por isso o tempo delas aparece com “≥” (pelo menos). As entradas marcadas como “peça nova” ou “chegaram” contam da data real.</li>
+    <li><b>Lucro</b> = vendido − custo (o mesmo da aba Lucro). <b>Retorno</b> = lucro do período ÷ custo do estoque médio: quanto cada R$ 1 que ficou em estoque devolveu de lucro. Peças sem preço de custo ficam fora do valor a custo e do retorno (há um aviso).</li>
+  </ul>
+  <p>Escolha o período, a loja e como comparar (por peça, cor, tamanho, loja, tipo de peça ou tecido) e a ordem. Por peça, clique no nome para ver cada cor e tamanho em cada loja. Com poucos meses de vendas os números mudam muito de uma semana para outra; ficam mais confiáveis depois de 2 a 3 meses. <b>Baixar CSV</b> traz a tabela da tela.</p>
 
   <h2 id="gerencial">7a1b. Gerencial: extratos, resultado e considerações (Dono)</h2>
   <p>O grupo <b>Gerencial</b> (só a Dona e a equipe Nervia) é o painel gerencial da Linum dentro do app. Ele usa os extratos do <b>Itaú</b> e do <b>Nubank</b>: cada lançamento tem uma <b>classe</b> (ex.: Insumos, Salários, Receitas) e uma <b>classificação</b> (ex.: Costureira, Aluguel Gávea).</p>
