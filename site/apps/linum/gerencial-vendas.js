@@ -299,11 +299,14 @@ function gvData(t) {
   m = t.match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[1]}-${m[2]}-${m[3]}` : "";
 }
 // colunas pelo nome (sem acento, minúsculas); a primeira que casar vale
-const GV_COLS = { data: ["data da venda", "data"], hora: ["hora da venda", "hora"], nsu: ["nsu/cv", "nsu", "cv"], terminal: ["numero do terminal", "terminal", "maquininha"],
+const GV_COLS = { data: ["data da venda", "data"], hora: ["hora da venda", "hora"], nsu: ["nsu/cv", "nsu", "cv"], terminal: ["codigo da maquininha", "numero do terminal", "terminal"],
   modalidade: ["modalidade"], tipo: ["tipo"], parcelas: ["numero de parcelas", "quantidade de parcelas", "parcelas"], bandeira: ["bandeira"],
   bruto: ["valor da venda original", "valor da venda", "valor bruto", "valor original"], mdr_pct: ["taxa mdr"], mdr_val: ["valor mdr", "valor da taxa mdr"],
-  ant_pct: ["taxa de antecipacao", "taxa antecipacao"], ant_val: ["valor da antecipacao", "valor antecipacao", "valor da taxa de antecipacao"],
-  tx_pct: ["taxa total", "taxas cobradas (%)"], tx_val: ["valor total das taxas", "taxas cobradas", "valor das taxas"], liquido: ["valor liquido"], prazo: ["prazo"], status: ["status"] };
+  ant_pct: ["taxa de antecipacao", "taxa antecipacao", "taxa de recebimento automatico"],
+  ant_val: ["valor da antecipacao", "valor antecipacao", "valor da taxa de antecipacao", "valor taxa de recebimento automatico"],
+  tx_pct: ["taxa total", "taxas cobradas (%)", "taxas descontadas"], tx_val: ["valor total das taxas", "taxas cobradas", "valor das taxas"], liquido: ["valor liquido"], prazo: ["prazo"],
+  status: ["status"], cancelada: ["cancelada pelo estabelecimento"] };
+// formato de 11/2026 (conferido com o arquivo real de 01–14/11): terminal = "código da maquininha"; antecipação = "recebimento automático"
 function gvLerRede(txt) {
   const rs = gCsvLinhas(txt.replace(/^﻿/, ""));
   const iCab = rs.findIndex(r => r.some(c => semAc(c).startsWith("data")) && r.some(c => semAc(c).includes("valor")));
@@ -319,7 +322,7 @@ function gvLerRede(txt) {
     const g = k => col[k] == null ? "" : (r[col[k]] || "").trim();
     const data = gvData(g("data")), bruto = gvN(g("bruto"));
     if (!data || !bruto) return;
-    if (/cancel|chargeback|negad|desfeit|estorn/i.test(semAc(g("status")))) { fora++; return; }
+    if (/cancel|chargeback|negad|desfeit|estorn/i.test(semAc(g("status"))) || semAc(g("cancelada")) === "sim") { fora++; return; }
     const l = { data, hora: gvHora(g("hora")), nsu: g("nsu").replace(/^0+(?=\d)/, ""), terminal: g("terminal"), modalidade: g("modalidade"), tipo: g("tipo"),
       parcelas: parseInt(g("parcelas")) || 1, bandeira: g("bandeira"), bruto, mdr_pct: gvN(g("mdr_pct")), mdr_val: gvN(g("mdr_val")), ant_pct: gvN(g("ant_pct")),
       ant_val: gvN(g("ant_val")), tx_pct: gvN(g("tx_pct")), tx_val: gvN(g("tx_val")), liquido: gvN(g("liquido")), prazo: g("prazo") };
