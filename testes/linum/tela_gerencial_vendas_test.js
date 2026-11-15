@@ -30,7 +30,7 @@ const VENDAS = [
   { id: 8, data: '2026-10-02', loja_id: 'l-gav', vendedora_nome: 'Bia', valor_total: 1200, pagamentos: [pg_('credito', 1200, '')] },
   { id: 9, data: '2026-10-02', loja_id: 'l-ipa', vendedora_nome: 'Vera', valor_total: 50, pagamentos: [pg_('debito', 50, '999888')] },
 ];
-const TERM = [{ terminal: 'T1', loja: 'Ipanema', observacao: '' }, { terminal: 'T2', loja: 'Gávea', observacao: '' }];
+const TERM = [{ terminal: 'T1', loja: 'Ipanema', observacao: '' }, { terminal: 'T2', loja: 'Gávea', observacao: '' }, { terminal: 'SD172674', loja: 'Ipanema', observacao: '' }];
 
 const FALSO = `(() => {
   const D = ${JSON.stringify(DADOS)};
@@ -66,10 +66,17 @@ const FALSO = `(() => {
 const CHART = 'window.__graficos = 0; window.Chart = class { constructor(el, cfg) { window.__graficos++; this.cfg = cfg; } destroy() {} };';
 // CSV fictício no formato do portal: ";" e vírgula decimal; hora 12 h sem AM/PM; uma cancelada; NSU 3 já importado; terminal novo T9
 const CSV = ['Relatório de vendas', 'data da venda;hora da venda;status da venda;valor da venda original;modalidade;tipo;número de parcelas;bandeira;taxa MDR;valor MDR;taxa de antecipação;valor da antecipação;valor líquido;NSU/CV;número do terminal',
-  '03/11/2026;03:15:00;aprovada;1.250,00;crédito;parcelado sem juros;5;Visa;2,60%;32,50;2,00%;25,00;1.192,50;000777;T1',
+  '03/11/2026;03:15:00;aprovada;1.250,00;crédito;parcelado sem juros;5;Visa;2,60%;32,50;2,00%;25,00;1.192,50;000777;0172674',
   '03/11/2026;10:40:00;aprovada;180,00;débito;à vista;1;Elo;1,10%;1,98;0,00%;0,00;178,02;000778;T9',
   '04/11/2026;05:00:00;cancelada;99,00;crédito;à vista;1;Visa;3,00%;2,97;0,00%;0,00;96,03;000779;T2',
   '01/10/2026;11:20:00;aprovada;300,00;crédito;à vista;1;Visa;3,00%;9,00;0,00%;0,00;291,00;000003;T1'].join('\r\n');
+
+// formato de 11/2026 (cabeçalho igual ao do portal; linhas fictícias): terminal em "código da maquininha", antecipação = "recebimento automático"
+const CAB2 = 'data da venda;hora da venda;status da venda;valor da venda original;valor da venda atualizado;modalidade;tipo;pré-autorizado;número de parcelas;bandeira;taxa MDR;valor MDR;taxa de recebimento automático;valor taxa de recebimento automático;taxas descontadas (MDR+recebimento automático);valor total das taxas descontadas (MDR+recebimento automático);valor líquido;NSU/CV;Prazo de recebimento;resumo de vendas/número do lote;número da autorização (Auto);número do estabelecimento;nome do estabelecimento;CNPJ;número do cartão;id carteira digital;meio de pagamento;tipo de maquininha;código da maquininha;TID;número do pedido;taxa de embarque;cancelada pelo estabelecimento;data do cancelamento;valor cancelado;em disputa de chargeback;data que entrou em disputa de chargeback;resolução do chargeback;data da resolução do chargeback;nacionalidade do cartão;moeda estrangeira (DCC);cartão pré-pago;ID Transação';
+const CSV2 = [CAB2,
+  '14/11/2026;05:32:54;aprovada;1.000,00;1.000,00;crédito;parcelado sem juros;-;8;Visa;2,62%;26,20;5,39%;53,90;8,01%;80,10;919,90;11111111;No dia Seguinte;1;X;1;LOJA TESTE;0;4900******0000;;maquininha;POO;SD172674;;;0,00;não;;;não;;;;nacional;não;não;',
+  '13/11/2026;11:30:05;aprovada;200,00;200,00;débito;à vista;-;1;Elo;1,04%;2,08;-;0,00;1,04%;2,08;197,92;22222222;1  dia útil;1;X;1;LOJA TESTE;0;4900******0001;;maquininha;POO;T2;;;0,00;não;;;não;;;;nacional;não;não;',
+  '13/11/2026;10:00:00;aprovada;300,00;300,00;crédito;à vista;-;1;Visa;1,64%;4,92;1,26%;3,78;2,90%;8,70;291,30;33333333;No dia Seguinte;1;X;1;LOJA TESTE;0;4900******0002;;maquininha;POO;T2;;;0,00;sim;13/11/2026;300,00;não;;;;nacional;não;não;'].join('\r\n');
 
 function servidor() {
   return http.createServer((req, res) => {
@@ -140,12 +147,32 @@ const brl = t => t.replace(/\s/g, ' ');
     const conf = await pg.locator('.card', { hasText: 'Confira' }).innerText();
     ok(conf.includes('1 cancelada(s)/negada(s) fora') && conf.includes('15:15') && conf.includes('10:40'), 'CSV: cancelada fora; hora 03 vira 15h, 10 fica');
     ok(conf.includes('sem loja') && conf.includes('já importada'), 'terminal sem cadastro e NSU já importado');
+    ok(conf.includes('SD172674') && (await pg.locator('#gvtsl').innerText()).includes('T9') && !(await pg.locator('#gvtsl').innerText()).includes('172674'),
+      'terminal "0172674" do arquivo reconhecido como SD172674; só o T9 pede cadastro');
+    await pg.selectOption('#gvtsl0', 'Gávea'); await pg.click('[data-gvtsl="0"]');
+    await pg.waitForFunction(() => !document.querySelector('#gvtsl'));
+    ok((await rpc(pg, 'lin_ger_terminal_salvar'))[0].p_terminal === 'T9', 'terminal cadastrado na própria conferência');
     await pg.click('#gvok');
     await pg.waitForFunction(() => !document.querySelector('#gvok'));
     const im = (await rpc(pg, 'lin_ger_rede_importar'))[0].p.vendas.sort((x, y) => y.bruto - x.bruto);
     ok(im.length === 2 && im[0].bruto === 1250 && im[0].tx_val === 57.5 && im[0].liquido === 1192.5 && im[0].nsu === '777' && im[0].hora === '15:15:00' && im[0].loja === 'Ipanema'
-      && im[0].chave === '2026-11-03|15:15:00|T1|1250.00|1' && im[1].loja === null, 'vendas enviadas com taxas, NSU sem zeros, chave e loja pelo terminal ' + JSON.stringify(im[0]));
-    ok((await pg.locator('.msg.ok').innerText()).includes('1 sem loja'), 'aviso de venda sem loja');
+      && im[0].terminal === 'SD172674' && im[0].chave === '2026-11-03|15:15:00|SD172674|1250.00|1' && im[1].loja === 'Gávea', 'vendas enviadas com taxas, NSU sem zeros, chave e loja pelo terminal ' + JSON.stringify(im[0]));
+    ok(!(await pg.locator('.msg.ok').innerText()).includes('sem loja'), 'sem aviso de venda sem loja depois do cadastro');
+    // formato novo do portal (11/2026)
+    const r2 = await pg.evaluate(t => gvLerRede(t), CSV2);
+    const a2 = r2.linhas.find(l => l.nsu === '11111111'), b2 = r2.linhas.find(l => l.nsu === '22222222');
+    ok(r2.linhas.length === 2 && r2.fora === 1 && !r2.semColTerminal, 'formato 11/2026: cancelada pelo estabelecimento fica fora ' + JSON.stringify(r2.fora));
+    ok(a2.terminal === 'SD172674' && a2.loja === 'Ipanema' && b2.loja === 'Gávea' && a2.hora === '17:32:54' && a2.parcelas === 8,
+      'formato 11/2026: loja pelo "código da maquininha" ' + JSON.stringify(a2));
+    ok(a2.mdr_pct === 2.62 && a2.ant_pct === 5.39 && a2.ant_val === 53.9 && a2.tx_pct === 8.01 && a2.tx_val === 80.1 && a2.liquido === 919.9,
+      'formato 11/2026: MDR, recebimento automático e total de taxas');
+    if (process.env.REDE_CSV) { // conferência local com um arquivo real (não vai para o GitHub)
+      const rr = await pg.evaluate(t => gvLerRede(t), fs.readFileSync(process.env.REDE_CSV, 'utf8'));
+      const pl = {}; rr.linhas.forEach(l => { pl[l.loja || 'SEM LOJA'] = (pl[l.loja || 'SEM LOJA'] || 0) + l.bruto; });
+      console.log('REDE_CSV:', rr.linhas.length, 'vendas, fora', rr.fora, 'sem coluna terminal', rr.semColTerminal, JSON.stringify(pl),
+        'taxas', rr.linhas.reduce((a, l) => a + l.tx_val, 0).toFixed(2), 'líquido', rr.linhas.reduce((a, l) => a + l.liquido, 0).toFixed(2), 'erros de soma',
+        rr.linhas.filter(l => Math.abs(l.bruto - l.tx_val - l.liquido) > 0.011).length);
+    }
     // Pix do mês e outras vendas
     await pg.click('#gvpix');
     await pg.fill('#gvfm', '2026-10'); await pg.fill('#gvfv', '5.167,00'); await pg.click('#gvfok');
