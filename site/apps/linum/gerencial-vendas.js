@@ -270,6 +270,10 @@ function gvCadastrosHtml() {
         <div class="kpi"><small>Novas</small><b>${n(I.linhas.filter(l => !l.existe).length)}</b><span>${brl(I.linhas.filter(l => !l.existe).reduce((a, l) => a + l.bruto, 0))}</span></div>
         <div class="kpi"><small>Já importadas</small><b>${n(I.linhas.filter(l => l.existe).length)}</b><span>puladas</span></div>
         <div class="kpi"><small>Sem loja</small><b>${n(I.linhas.filter(l => !l.existe && !l.loja).length)}</b><span>terminal sem cadastro</span></div></div>
+      ${I.semColTerminal ? `<div class="msg err">O arquivo não tem a coluna do terminal, por isso nenhuma venda tem loja. Colunas encontradas: ${esc(I.colunas.join(" · "))}. Mande este arquivo para a Nervia conferir.</div>` : ""}
+      ${gvTermSemLoja(I).length ? `<div class="msg info" id="gvtsl">Terminal sem cadastro no arquivo: escolha a loja de cada um (vale para esta e para as próximas importações).
+        ${gvTermSemLoja(I).map((t, i) => `<div class="filtros" style="margin:6px 0 0"><b style="min-width:110px">${esc(t || "(vazio)")}</b>${t ? `<select id="gvtsl${i}">${["Ipanema", "Gávea", ...gvLojas().filter(l => !["Ipanema", "Gávea", "Não identificada"].includes(l))].map(l => `<option>${esc(l)}</option>`).join("")}</select>
+          <button type="button" class="bt" data-gvtsl="${i}">Salvar terminal</button>` : '<span class="mut">o arquivo não informa o terminal nessas vendas</span>'}</div>`).join("")}</div>` : ""}
       <div class="tw" style="max-height:45vh"><table><thead><tr><th>Data</th><th>Hora</th><th>Terminal</th><th>Loja</th><th>Modalidade</th><th>Bandeira</th><th class="num">Parc.</th><th class="num">Bruto</th><th class="num">Taxas</th><th class="num">Líquido</th><th></th></tr></thead><tbody>
       ${I.linhas.map(l => `<tr class="${l.existe ? "grep" : ""}"><td>${dataBR(l.data)}</td><td>${l.hora ? l.hora.slice(0, 5) : "—"}</td><td>${esc(l.terminal)}</td><td>${l.loja ? esc(l.loja) : '<span class="tag fora">sem loja</span>'}</td>
         <td>${esc(l.modalidade)} <span class="mut">${esc(l.tipo)}</span></td><td>${esc(l.bandeira)}</td><td class="num">${l.parcelas}</td><td class="num">${brl(l.bruto)}</td><td class="num">${brl(l.tx_val)}</td><td class="num">${brl(l.liquido)}</td>
@@ -280,6 +284,7 @@ function gvCadastrosHtml() {
       ${GERV.imps.slice(0, 12).map(x => `<tr><td>${quando(x.criado_em)}</td><td>${esc(x.arquivo)}</td><td>${x.de ? dataBR(x.de) + " a " + dataBR(x.ate) : "—"}</td><td class="num">${n(x.novos)}</td><td class="num">${n(x.repetidos)}</td><td>${esc(x.criado_nome)}</td></tr>`).join("") || '<tr><td colspan="6" class="mut">Nenhuma ainda.</td></tr>'}
     </tbody></table></div></div>`;
 }
+const gvTermSemLoja = I => [...new Set(I.linhas.filter(l => !l.existe && !l.loja).map(l => l.terminal))];
 const gvN = t => { t = String(t ?? "").replace(/R\$|%|\s/g, ""); if (!t) return 0; if (t.includes(",")) t = t.replace(/\./g, "").replace(",", "."); const v = Number(t); return isFinite(v) ? v : 0; };
 // hora do relatório em 12 h sem AM/PM (regra do painel antigo, conferida com o horário das lojas): 1–9 → +12; 10, 11, 12 ficam
 function gvHora(t) {
@@ -307,7 +312,7 @@ function gvLerRede(txt) {
   const col = {};
   Object.entries(GV_COLS).forEach(([k, nomes]) => { for (const nm of nomes) { const i = cab.findIndex((c, j) => !Object.values(col).includes(j) && (c === nm || c.startsWith(nm))); if (i >= 0) { col[k] = i; break; } } });
   if (col.data == null || col.bruto == null) throw new Error("O relatório não tem as colunas de data e valor da venda. Colunas encontradas: " + rs[iCab].join(" · "));
-  const term = Object.fromEntries(GERV.terminais.map(t => [t.terminal, t.loja]));
+  const achar = gvAcharTerminal();
   const cont = {}; let fora = 0;
   const linhas = [];
   rs.slice(iCab + 1).forEach(r => {
@@ -321,7 +326,8 @@ function gvLerRede(txt) {
     if (!l.tx_val) l.tx_val = Math.round((l.mdr_val + l.ant_val) * 100) / 100;
     if (!l.tx_pct) l.tx_pct = Math.round((l.mdr_pct + l.ant_pct) * 100) / 100;
     if (!l.liquido) l.liquido = Math.round((l.bruto - l.tx_val) * 100) / 100;
-    l.loja = term[l.terminal] || "";
+    const t = achar(l.terminal);
+    if (t) { l.terminal = t.terminal; l.loja = t.loja; } else l.loja = "";
     const base = [l.data, l.hora, l.terminal, l.bruto.toFixed(2)].join("|"); cont[base] = (cont[base] || 0) + 1; l.chave = base + "|" + cont[base];
     linhas.push(l);
   });
@@ -329,7 +335,27 @@ function gvLerRede(txt) {
   const chaves = new Set(GERV.rede.map(r => r.chave)), nsus = new Set(GERV.rede.map(r => r.nsu).filter(Boolean));
   linhas.forEach(l => { l.existe = chaves.has(l.chave) || (l.nsu && nsus.has(l.nsu)); });
   linhas.sort((a, b) => (a.data + a.hora).localeCompare(b.data + b.hora));
-  return { linhas, fora };
+  return { linhas, fora, semColTerminal: col.terminal == null, colunas: rs[iCab].filter(Boolean) };
+}
+// terminal do arquivo → cadastro: igual (sem espaço/aspas, maiúsculas) ou pelos dígitos sem zeros à esquerda
+// ("SD172674", "172674", "0172674", "=\"SD172674\"" são o mesmo), só quando um cadastro só casa
+const gvTermDig = t => String(t || "").replace(/\D/g, "").replace(/^0+/, "");
+const gvTermTxt = t => String(t || "").toUpperCase().replace(/[^0-9A-Z-]/g, "");
+function gvAcharTerminal() {
+  const cad = GERV.terminais.filter(t => t.terminal !== "PIX-QR");
+  return bruto => {
+    const tx = gvTermTxt(bruto); if (!tx) return null;
+    const ig = cad.find(t => gvTermTxt(t.terminal) === tx); if (ig) return ig;
+    const d = gvTermDig(bruto); if (d.length < 4) return null;
+    const ds = cad.filter(t => gvTermDig(t.terminal) === d);
+    return ds.length === 1 ? ds[0] : null;
+  };
+}
+// depois de cadastrar um terminal na própria conferência, refaz a loja das linhas
+function gvReaplicarTerminais() {
+  if (!GV_IMP) return;
+  const achar = gvAcharTerminal();
+  GV_IMP.linhas.forEach(l => { const t = achar(l.terminal); if (t) { l.terminal = t.terminal; l.loja = t.loja; } });
 }
 function gvCadastrosLigar() {
   $("gvarq").onchange = async e => {
@@ -338,6 +364,14 @@ function gvCadastrosLigar() {
     catch (er) { $("gverr").innerHTML = `<div class="msg err">${esc(er.message)}</div>`; }
   };
   if (GV_IMP) {
+    document.querySelectorAll("[data-gvtsl]").forEach(b => b.onclick = async () => {
+      const i = Number(b.dataset.gvtsl), t = gvTermSemLoja(GV_IMP)[i];
+      try {
+        b.disabled = true;
+        checar(await sb.rpc("lin_ger_terminal_salvar", { p_terminal: t, p_loja: $("gvtsl" + i).value, p_observacao: "cadastrado na importação" }));
+        await gvCarregar(true); gvReaplicarTerminais(); gerRede();
+      } catch (e) { b.disabled = false; $("gverr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+    });
     $("gvic").onclick = () => { GV_IMP = null; gerRede(); };
     $("gvok").onclick = async () => {
       try {
