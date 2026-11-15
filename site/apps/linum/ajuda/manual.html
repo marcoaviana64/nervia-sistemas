@@ -171,6 +171,7 @@
     <li>Em cada peça, ajuste a <b>quantidade</b>. O <b>valor</b> vem do preço de tabela (ou do preço da peça especial). Para desconto por peça, digite o <b>Desc. %</b> (ex.: 10) e o valor se ajusta; ou digite o valor combinado e o % aparece.</li>
     <li>Se houver desconto sobre a compra toda, preencha <b>Desconto geral (R$)</b>.</li>
     <li><b>Pagamento</b>: escolha a forma (no crédito, as parcelas). O valor já vem com o total. Para dividir (ex.: parte em dinheiro, parte no Pix), use <b>+ outra forma de pagamento</b>; o aviso "Falta" ou "Passou" mostra a diferença.</li>
+    <li><b>Cartão (crédito ou débito): informe o CV do comprovante</b> — o número que vem depois de <b>“CV:”</b> no comprovante da maquininha (ex.: <i>CV: 189435334</i>; não é o “AUTO”). Por enquanto é opcional, mas ajuda muito: sem ele a venda não fica conferida com a Rede. Com dois cartões, um CV em cada. É ele que liga a venda à exportação da Rede no Gerencial.</li>
     <li>Escreva as <b>Observações</b> se houver (ex.: aniversário, ajuste na barra) e clique em <b>Registrar venda</b>. O estoque da loja baixa na hora e a venda aparece na lista com o número.</li>
   </ol>
   <p>A venda não pode ser editada depois de registrada. Se algo saiu errado, o Dono cancela e a venda é registrada de novo.</p>
@@ -188,6 +189,8 @@
   </ol>
   <h3>Colocar ou trocar a cliente da venda</h3>
   <p>Quem fez a venda, a Dona ou o Estoque coloca a cliente depois. Na aba <b>Vendas</b>, o quadro <b>Vendas sem cliente</b> mostra as vendas dos últimos 60 dias sem cliente (a vendedora vê as dela; a Dona e o Estoque veem todas) com o botão <b>Colocar cliente</b>; também dá para abrir a venda e clicar em <b>Colocar cliente</b>. Digite 2 letras do nome ou o telefone, escolha a cliente (ou <b>+ Cadastrar cliente</b>) e clique em <b>Salvar a cliente</b>. Se a venda já tem cliente e ela está errada, o botão é <b>Trocar cliente</b> e é preciso escrever o motivo. Só a cliente muda: peças, valores e comissão ficam iguais; a venda entra no histórico da cliente (com o pós-venda) e fica na auditoria. Não dá para trocar a cliente de venda cancelada nem de venda que usou o crédito da cliente.</p>
+  <h3>Informar o comprovante (CV) depois</h3>
+  <p>Na aba <b>Vendas</b>, o quadro <b>Vendas no cartão sem comprovante</b> lista as vendas do período pagas no cartão que ainda não têm o CV (a vendedora vê as dela; a Dona, todas). Clique em <b>Informar comprovante</b> (ou abra a venda e clique no botão), digite o número depois de “CV:” de cada cartão e clique em <b>Salvar comprovante</b>. Quem fez a venda, o Estoque ou a Dona pode informar. Para <b>corrigir</b> um CV já informado, o botão é <b>Corrigir comprovante</b> e é preciso escrever o motivo. Só o CV muda; fica na auditoria. O mesmo comprovante não pode estar em duas vendas: aparece “Esse comprovante já está na venda nº …”.</p>
   <h3>Corrigir a data da venda (Dono)</h3>
   <p>A vendedora só consegue lançar venda até 7 dias atrás. Se a venda ficou com a data errada, o Dono abre a venda na aba <b>Vendas</b>, clica em <b>Corrigir data</b>, escolhe a data correta, escreve o motivo e clica em <b>Salvar a data</b>. Só a data muda: peças, valores, comissão e o histórico da cliente ficam como estão, e a correção fica na auditoria (com a data antes e depois). A data não pode ser depois do dia em que a venda foi lançada.</p>
 
@@ -362,6 +365,7 @@
     <li><b>+ Outras vendas</b>: o total do caderno do mês, por loja. Valor negativo desconta (ex.: venda-teste da maquininha).</li>
     <li><b>Terminais</b>: cadastre um terminal novo e a loja dele; vale para as próximas importações.</li>
     <li>Venda importada por engano (ex.: a sócia passou o próprio cartão para levantar caixa): ✕ no Detalhamento, com o motivo.</li>
+    <li><b>Conferência com as vendas do sistema</b> (desde a 1ª venda registrada no app): cada venda da maquininha é ligada à venda do sistema pelo <b>CV do comprovante</b> (✓ na coluna <b>Venda</b> do Detalhamento); sem o CV, aparece como <b>provável</b> (?) quando há venda do mesmo dia, valor e loja. Os quadros <b>Rede sem venda no sistema</b> (venda passada na maquininha e não registrada no app) e <b>Venda no cartão sem registro na Rede</b> (registrada no app e ainda não importada da Rede, ou com o CV errado) mostram o que conferir.</li>
   </ol>
   <h3>Classificar e criar regras</h3>
   <p>Em <b>Lançamentos</b>, marque um ou vários e clique em <b>Classificar marcados</b>. Marque <b>Criar regra</b> para que os próximos extratos com o mesmo trecho (o CPF/CNPJ é o mais seguro) já venham classificados. As regras ficam em Importar extratos → Regras de classificação (editar, desativar, excluir). Um Pix do Itaú para a sócia é <b>Transferência Interna</b> só quando o mesmo valor chega no Nubank; sem retorno, é <b>Retirada</b>.</p>

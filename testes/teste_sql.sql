@@ -1285,7 +1285,7 @@ select pg_temp.erro2($$select lin_cliente_salvar('{"nome":"Outra","telefone":"99
 -- venda da vendedora: 2 peças com 10% e desconto geral de 20 centavos, crédito em 6x
 insert into lin_vd values ('v1', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'cliente_id', (select v from lin_vd where k = 'cli'),
   'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 2, 'valor_unitario', 440.10, 'desconto_pct', 10)),
-  'desconto', 0.2, 'observacao', 'Niver 21/07', 'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'credito', 'valor', 880, 'parcelas', 6))))::text);
+  'desconto', 0.2, 'observacao', 'Niver 21/07', 'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'credito', 'valor', 880, 'parcelas', 6, 'cv', '000111222'))))::text);
 reset role;
 select pg_temp.ok((select valor_bruto = 978 and valor_itens = 880.20 and desconto = 0.20 and valor_total = 880 and pagamentos -> 0 ->> 'parcelas' = '6'
     and vendedora_id = '00000000-0000-0000-0000-00000000000c' and data = current_date from lin_vendas where id = (select v from lin_vd where k = 'v1')::bigint)
@@ -1376,7 +1376,7 @@ set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';   -- Estoque também vende, com 0% de comissão
 insert into lin_vd values ('v5', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'ipa'), 'cliente_id', (select v from lin_vd where k = 'cli'),
   'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000003', 'quantidade', 1, 'valor_unitario', 359)),
-  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'debito', 'valor', 359))))::text);
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'debito', 'valor', 359, 'cv', '111333444'))))::text);
 select pg_temp.ok((select count(*) = 1 from lin_vendas) and (select comissao_pct = 0 and comissao_valor = 0 from lin_vendas where id = (select v from lin_vd where k = 'v5')::bigint),
   'linum comissão: Estoque vende sem comissão (0%) e vê só a venda dele');
 select pg_temp.ok((select count(*) = 0 from lin_produtos), 'linum comissão: quem é do Estoque continua sem ler o custo');
@@ -1411,7 +1411,7 @@ select pg_temp.erro2($$select lin_troca_registrar(jsonb_build_object('loja_id', 
 insert into lin_tr values ('t1', lin_troca_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'venda_id', (select v from lin_vd where k = 'v4'),
   'devolvidas', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000003', 'quantidade', 1, 'valor_unitario', 1)),
   'novas', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 1, 'valor_unitario', 489)),
-  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'credito', 'valor', 130, 'parcelas', 2))))::text);
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'credito', 'valor', 130, 'parcelas', 2, 'cv', '111555666'))))::text);
 reset role;
 select pg_temp.ok((select valor_devolvido = 359 and valor_novas = 489 and diferenca = 130 and devolucao_forma is null and venda_id = (select v from lin_vd where k = 'v4')::bigint
     from lin_trocas where id = (select v from lin_tr where k = 't1')::bigint)
@@ -2749,6 +2749,55 @@ set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
 select lin_venda_cancelar((select v from lin_vd where k = 'vsc')::bigint, 'teste da cliente');
 select pg_temp.erro2($$select lin_venda_cliente((select v from lin_vd where k = 'vsc')::bigint, (select v from lin_vd where k = 'cl1')::uuid, 'voltar a cliente')$$, 'cancelada', 'linum 2.50: venda cancelada não muda a cliente');
+reset role;
+reset request.jwt.claim.sub;
+
+-- linum 2.54: CV do comprovante do cartão na venda
+reset role;
+insert into lin_estoque (variante_id, loja_id, quantidade) values ('20000000-0000-0000-0000-000000000002', (select v from lin_ids where k = 'gav'), 10)
+  on conflict (variante_id, loja_id) do update set quantidade = lin_estoque.quantidade + 10;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora
+insert into lin_vd values ('cv0', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 1, 'valor_unitario', 10)), 'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'credito', 'valor', 10, 'parcelas', 1))))::text);
+select pg_temp.ok((select pagamentos -> 0 ->> 'cv' = '' from lin_vendas where id = (select v from lin_vd where k = 'cv0')::bigint), 'linum 2.54: CV opcional (por enquanto): venda no cartão sem CV registra');
+select pg_temp.erro2($$select lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 1, 'valor_unitario', 10)), 'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'credito', 'valor', 10, 'parcelas', 1, 'cv', '12'))))$$, 'CV do comprovante inválido', 'linum 2.54: CV curto demais recusado');
+insert into lin_vd values ('cv1', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 1, 'valor_unitario', 10)), 'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'credito', 'valor', 10, 'parcelas', 1, 'cv', '0189435334'))))::text);
+select pg_temp.ok((select pagamentos -> 0 ->> 'cv' = '189435334' and pagamentos -> 0 ->> 'forma' = 'credito' and valor_total = 10 from lin_vendas where id = (select v from lin_vd where k = 'cv1')::bigint),
+  'linum 2.54: CV gravado no pagamento, sem os zeros à esquerda');
+select pg_temp.erro2($$select lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 1, 'valor_unitario', 10)), 'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'credito', 'valor', 10, 'parcelas', 1, 'cv', '189435334'))))$$, 'já está na venda nº', 'linum 2.54: mesmo CV em outra venda recusado');
+select pg_temp.erro2($$select lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 1, 'valor_unitario', 10)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'debito', 'valor', 5, 'cv', '555666777'), jsonb_build_object('forma', 'credito', 'valor', 5, 'cv', '555666777'))))$$, 'repetido nesta venda', 'linum 2.54: mesmo CV duas vezes na venda recusado');
+insert into lin_vd values ('cv2', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 1, 'valor_unitario', 10)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 4, 'cv', '999'), jsonb_build_object('forma', 'debito', 'valor', 6, 'cv', '777888999'))))::text);
+select pg_temp.ok((select not (pagamentos -> 0 ? 'cv') and pagamentos -> 1 ->> 'cv' = '777888999' from lin_vendas where id = (select v from lin_vd where k = 'cv2')::bigint),
+  'linum 2.54: Pix sem CV; débito com o seu');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';   -- Dono lança boleta antiga sem CV
+insert into lin_vd values ('cv3', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'data', ((now() at time zone 'America/Sao_Paulo')::date - 3)::text, 'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 1, 'valor_unitario', 10)), 'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'credito', 'valor', 10, 'parcelas', 1))))::text);
+select pg_temp.ok((select pagamentos -> 0 ->> 'cv' = '' from lin_vendas where id = (select v from lin_vd where k = 'cv3')::bigint), 'linum 2.54: boleta antiga do Dono pode ficar sem CV');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora não informa na venda do Dono
+select pg_temp.erro2($$select lin_venda_comprovante((select v from lin_vd where k = 'cv3')::bigint, '["222333444"]')$$, 'Somente o Dono, o Estoque ou quem fez a venda', 'linum 2.54: vendedora não informa CV de venda de outra pessoa');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';   -- Estoque informa
+select pg_temp.erro2($$select lin_venda_comprovante((select v from lin_vd where k = 'cv3')::bigint, '["189435334"]')$$, 'já está na venda nº', 'linum 2.54: informar depois também confere repetição');
+select lin_venda_comprovante((select v from lin_vd where k = 'cv3')::bigint, '["222333444"]');
+select pg_temp.erro2($$select lin_venda_comprovante((select v from lin_vd where k = 'cv3')::bigint, '["222333445"]')$$, 'escreva o motivo', 'linum 2.54: corrigir CV já informado exige motivo');
+select pg_temp.erro2($$select lin_venda_comprovante((select v from lin_vd where k = 'cv3')::bigint, '[""]')$$, 'Nenhum comprovante novo', 'linum 2.54: nada novo = recusado');
+select lin_venda_comprovante((select v from lin_vd where k = 'cv3')::bigint, '["222333445"]', 'digitei um número errado');
+reset role;
+select pg_temp.ok((select pagamentos -> 0 ->> 'cv' = '222333445' and valor_total = 10 and (pagamentos -> 0 ->> 'valor')::numeric = 10 from lin_vendas where id = (select v from lin_vd where k = 'cv3')::bigint)
+  and (select count(*) = 2 from auditoria where acao = 'linum_venda_comprovante' and detalhes ->> 'venda_id' = (select v from lin_vd where k = 'cv3'))
+  and exists (select 1 from auditoria where acao = 'linum_venda_comprovante' and detalhes -> 'antes' ->> 'cv' = '["222333444"]' and detalhes ->> 'motivo' = 'digitei um número errado'),
+  'linum 2.54: CV informado e corrigido; valores iguais; auditoria com antes/depois e motivo');
+select pg_temp.erro2($$update lin_vendas set pagamentos = jsonb_build_array(jsonb_build_object('forma', 'credito', 'valor', 10, 'parcelas', 1, 'cv', '999999999')) where id = (select v from lin_vd where k = 'cv3')::bigint$$, 'Não pode ser alterada', 'linum 2.54: fora da função o CV continua imutável');
+select pg_temp.erro2($$select set_config('lin.corrigir_cv', 'sim', false); update lin_vendas set pagamentos = jsonb_build_array(jsonb_build_object('forma', 'credito', 'valor', 9, 'parcelas', 1, 'cv', '222333445')) where id = (select v from lin_vd where k = 'cv3')::bigint$$, 'Não pode ser alterada', 'linum 2.54: nem com a liberação do CV o valor muda');
+select set_config('lin.corrigir_cv', '', false);
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select lin_venda_cancelar((select v from lin_vd where k = 'cv1')::bigint, 'teste do CV');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+insert into lin_vd values ('cv4', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 1, 'valor_unitario', 10)), 'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'credito', 'valor', 10, 'parcelas', 1, 'cv', '189435334'))))::text);
+select pg_temp.ok((select v from lin_vd where k = 'cv4') is not null, 'linum 2.54: CV de venda cancelada pode ser usado de novo');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select lin_venda_cancelar((select v from lin_vd where k = x)::bigint, 'teste do CV') from unnest(array['cv0', 'cv2', 'cv3', 'cv4']) x;
 reset role;
 reset request.jwt.claim.sub;
 

@@ -21,15 +21,24 @@ const REDE = [
   V('2026-09-30', null, 'PIX-QR', 'Não identificada', 'Pix', 'à vista', 1, 'Pix', 400, 0, null),
 ];
 const OUTRAS = [{ id: 1, data: '2026-10-31', loja: 'Ipanema', valor: 1000, descricao: 'Venda no caderno', criado_em: '2026-11-06T03:00:00Z', criado_nome: 'Carga' }];
+// 2.54: vendas do sistema para a conferência com a Rede (nº 7 pelo CV '3'; nº 8 provável com a de NSU 4; nº 9 sem Rede;
+// nº 6 só Pix, de 10/05, faz a conferência começar ali → as duas da Rede de 10/05 ficam "sem venda no sistema")
+const pg_ = (forma, valor, cv) => ({ forma, valor, parcelas: 1, ...(cv !== undefined ? { cv } : {}) });
+const VENDAS = [
+  { id: 6, data: '2026-05-10', loja_id: 'l-ipa', vendedora_nome: 'Vera', valor_total: 90, pagamentos: [pg_('pix', 90)] },
+  { id: 7, data: '2026-10-01', loja_id: 'l-ipa', vendedora_nome: 'Vera', valor_total: 300, pagamentos: [pg_('credito', 300, '3')] },
+  { id: 8, data: '2026-10-02', loja_id: 'l-gav', vendedora_nome: 'Bia', valor_total: 1200, pagamentos: [pg_('credito', 1200, '')] },
+  { id: 9, data: '2026-10-02', loja_id: 'l-ipa', vendedora_nome: 'Vera', valor_total: 50, pagamentos: [pg_('debito', 50, '999888')] },
+];
 const TERM = [{ terminal: 'T1', loja: 'Ipanema', observacao: '' }, { terminal: 'T2', loja: 'Gávea', observacao: '' }];
 
 const FALSO = `(() => {
   const D = ${JSON.stringify(DADOS)};
   const db = window.__db = { lin_ger_rede: ${JSON.stringify(REDE)}, lin_ger_outras_vendas: ${JSON.stringify(OUTRAS)}, lin_ger_terminais: ${JSON.stringify(TERM)},
-    lin_ger_importacoes: [], lin_ger_lancamentos: [], lin_ger_regras: [], lin_ger_consideracoes: [] };
+    lin_ger_importacoes: [], lin_ger_lancamentos: [], lin_ger_regras: [], lin_ger_consideracoes: [], lin_vendas: ${JSON.stringify(VENDAS)} };
   window.__rpc = [];
   const ok = data => Promise.resolve({ data, error: null });
-  const consulta = tab => { const q = { select: () => q, eq: () => q, neq: () => q, in: () => q, or: () => q, gte: () => q, lte: () => q, order: () => q, limit: () => q,
+  const consulta = tab => { const q = { select: () => q, eq: () => q, neq: () => q, in: () => q, or: () => q, gte: () => q, lte: () => q, order: () => q, limit: () => q, is: () => q,
     range: (a, b) => ok(JSON.parse(JSON.stringify((db[tab] || []).slice(a, b + 1)))),
     maybeSingle: () => ok({ admin: false }), then: (r, j) => ok(JSON.parse(JSON.stringify(db[tab] || []))).then(r, j) }; return q; };
   let seq = 100;
@@ -107,6 +116,11 @@ const brl = t => t.replace(/\s/g, ' ');
     ok(await pg.locator('#tela canvas').count() === 4, '4 gráficos em Vendas Rede');
     await pg.selectOption('#gvano', '');
     let k = (await kpis(pg)).map(brl);
+    const cf = (await pg.locator('#gvconf .kpi b').allInnerTexts());
+    ok(cf.join('|') === '1|1|2|1', 'conferência: 1 pelo CV, 1 provável, 2 da Rede sem venda, 1 venda sem Rede ' + cf.join('|'));
+    ok((await pg.locator('#gvsemrede').innerText()).includes('Venda nº 9') && (await pg.locator('#gvredesem').innerText()).includes('10/05/2026'), 'listas da conferência');
+    const det = await pg.locator('.card:has(> .cabtela h2:text-is("Detalhamento"))').innerText();
+    ok(det.includes('nº 7 ✓') && det.includes('nº 8 ?'), 'detalhamento mostra a venda ligada (✓ pelo CV, ? provável)');
     // bruto 1000+500+300+1200+400 = 3400; taxas 40+5+9+72 = 126; líquido 3274; ticket 680
     ok(k[0] === 'R$ 3.400,00' && k[1] === 'R$ 126,00' && k[2] === 'R$ 3.274,00' && k[3] === 'R$ 680,00', 'KPIs: bruto, taxas, líquido e ticket ' + k.join(' | '));
     const lojas = await pg.locator('.card:has(> h2:text-is("Por loja"))').innerText();

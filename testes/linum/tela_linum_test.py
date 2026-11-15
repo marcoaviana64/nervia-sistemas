@@ -426,9 +426,10 @@ try:
         ok("898,00" in pg.text_content("#nvtotal").replace("\xa0", " ") and pg.input_value('#nvpags [data-k="valor"]') == "898,00", "desconto geral e pagamento preenchido com o total")
         pg.select_option('#nvpags [data-k="parcelas"]', "6"); pg.fill("#nvobs", "Niver 21/07")
         pg.screenshot(path=os.path.join(SAIDA, "linum_nova_venda.png"), full_page=True)
+        pg.fill(".nvcv", "0189435334")   # 2.54: CV do comprovante do cartão
         pg.click("#nvok"); pg.wait_for_timeout(1000)
         ok("registrada" in pg.text_content("#msg") and not pg.is_visible("#dlg"), "venda registrada")
-        ok(psql("select valor_bruto || ' ' || valor_total || ' ' || (pagamentos->0->>'parcelas') || ' ' || observacao from lin_vendas", saida=True) == "998.00 898.00 6 Niver 21/07"
+        ok(psql("select valor_bruto || ' ' || valor_total || ' ' || (pagamentos->0->>'parcelas') || ' ' || observacao || ' ' || (pagamentos->0->>'cv') from lin_vendas", saida=True) == "998.00 898.00 6 Niver 21/07 189435334"
            and qtd_banco(V_AZUL_P, "Ipanema") == 1, "venda gravada com tabela, total, parcelas e baixa no estoque da Ipanema")
         ok(psql("select comissao_pct || ' ' || comissao_valor from lin_vendas", saida=True) == "3.50 31.43" and "31,43" in pg.text_content(".kpis").replace("\xa0", " "),
            "comissão da vendedora: 3,5% do valor pago, no KPI dela")

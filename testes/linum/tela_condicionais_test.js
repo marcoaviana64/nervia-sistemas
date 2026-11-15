@@ -176,8 +176,9 @@ const hojeBR = (d = 0) => { const x = new Date(new Date().toLocaleDateString('en
     ok(fv.includes('Venda da malinha nº 1') && fv.includes('Maria Souza') && await pg.locator('#nvloja').isDisabled() && await pg.inputValue('#nvitens input[data-k="q"]') === '1',
       'abre a venda preenchida: cliente, peça comprada, loja travada');
     await print(pg, 'cond_venda');
-    await pg.click('#nvok'); await pg.waitForTimeout(500);
+    await pg.fill('.nvcv', '0189435334'); await pg.click('#nvok'); await pg.waitForTimeout(500);
     const vd = await ultimaRpc(pg, 'lin_condicional_venda');
+    ok(vd && vd.p.pagamentos[0].cv === '0189435334', '2.54: o CV vai junto com o pagamento');
     ok(vd && vd.p_id === 1 && vd.p_itens[0].quantidade === 1 && vd.p.itens[0].variante_id === 'v1' && vd.p.itens[0].quantidade === 1 && vd.p.pagamentos.length === 1,
       'a venda vai pela lin_condicional_venda com a peça comprada e o pagamento');
     ok(await pg.evaluate(() => !window.__S.rpc.some(x => x[0] === 'lin_venda_registrar')), 'não usa a venda comum');
@@ -201,7 +202,7 @@ const hojeBR = (d = 0) => { const x = new Date(new Date().toLocaleDateString('en
     await pg.evaluate(async () => { await carregarVendedoras(); await carregarClientes(); novaVenda({}); }); await pg.waitForSelector('#dlg[open] #nvok');
     ok(await pg.locator('#dlgf h3').innerText() === 'Nova venda' && !(await pg.locator('#nvloja').isDisabled()), 'venda comum: título e loja livres');
     await pg.fill('#nvpq', 'vestido'); await pg.waitForTimeout(200); await pg.locator('#nvres button, #nvres [data-add], #nvres .vlin button').first().click(); await pg.waitForTimeout(150);
-    await pg.click('#nvok'); await pg.waitForTimeout(400);
+    await pg.click('#nvok'); await pg.waitForTimeout(400);   // CV opcional
     const vc = await ultimaRpc(pg, 'lin_venda_registrar');
     ok(vc && vc.p.loja_id === 'l-gav' && vc.p.itens.length === 1 && vc.p.itens[0].quantidade === 1, 'venda comum continua indo pela lin_venda_registrar');
     ok(erros.length === 0, 'sem erro de JavaScript (vendedora) ' + erros.join(' | '));

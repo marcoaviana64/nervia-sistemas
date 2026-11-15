@@ -979,6 +979,9 @@ const niver = c => c.aniversario_dia ? `${String(c.aniversario_dia).padStart(2, 
 const numV = t => { const x = numBR(t); return x === "" ? 0 : Number(x); };
 const r2 = x => Math.round(x * 100) / 100;
 const cliente = id => CLIENTES.find(c => c.id === id);
+const eCartao = p => p.forma === "credito" || p.forma === "debito";
+// 2.54: vendas no cartão sem o CV do comprovante (para ligar à exportação da Rede)
+const semCv = v => !v.cancelada_em && (v.pagamentos || []).some(p => eCartao(p) && !p.cv);
 const pagTxt = v => (v.pagamentos || []).map(p => FORMAS[p.forma] + (p.forma === "credito" && p.parcelas > 1 ? ` ${p.parcelas}x` : "")).join(" + ") || "—";
 
 async function carregarClientes() {
@@ -1034,6 +1037,9 @@ async function telaVendas() {
     ${dono() && ok.length ? `<div class="grade2" style="margin-bottom:12px">
       <div class="card"><h2>Por loja</h2>${grupo(v => v.loja_id, v => loja(v.loja_id).nome).map(g => `<div class="vlin"><span>${esc(g.nome)} · ${n(g.n)} venda(s)</span><b>${brl(g.t)}</b></div>`).join("")}</div>
       <div class="card"><h2>Por vendedora</h2>${grupo(v => v.vendedora_id, v => v.vendedora_nome).map(g => `<div class="vlin"><span>${esc(g.nome)} · ${n(g.n)} venda(s)${g.c ? ` · comissão ${brl(g.c)}` : ""}</span><b>${brl(g.t)}</b></div>`).join("")}</div></div>` : ""}
+    ${VENDAS.some(semCv) ? `<div class="card" id="vsemcv"><h2>Vendas no cartão sem comprovante <span class="mut">(no período${dono() ? "" : ", suas"})</span></h2>
+      <div class="mut" style="margin-bottom:6px">Informe o CV do comprovante da maquininha: é o que liga a venda à exportação da Rede.</div>
+      ${VENDAS.filter(semCv).map(v => `<div class="vlin"><span>Nº ${v.id} · ${dataBR(v.data)} · ${esc(loja(v.loja_id).nome)} · ${esc(v.vendedora_nome)} · ${brl(v.valor_total)}</span><button type="button" class="lnk" data-semcv="${v.id}">Informar comprovante</button></div>`).join("")}</div>` : ""}
     ${semCli.length ? `<div class="card" id="vsemcli"><h2>Vendas sem cliente <span class="mut">(últimos 60 dias${controla() ? "" : ", suas"})</span></h2>
       <div class="mut" style="margin-bottom:6px">Esqueceu de colocar a cliente? Coloque aqui: a venda entra no histórico dela.</div>
       ${semCli.map(x => `<div class="vlin"><span>Nº ${x.id} · ${dataBR(x.data)} · ${esc(loja(x.loja_id).nome)} · ${esc(x.vendedora_nome)} · <span class="mut">${esc(x.pecas)}</span></span><button type="button" class="lnk" data-semcli="${x.id}">Colocar cliente</button></div>`).join("")}</div>` : ""}
@@ -1056,12 +1062,14 @@ async function telaVendas() {
   if ($("fvloja")) { $("fvloja").onchange = e => { FV.loja = e.target.value; telaVendas(); }; $("fvvend").onchange = e => { FV.vend = e.target.value; telaVendas(); }; }
   document.querySelectorAll(".vrow").forEach(r => r.onclick = () => verVenda(Number(r.dataset.v)));
   document.querySelectorAll("[data-semcli]").forEach(b => b.onclick = () => clienteDaVenda(semCli.find(x => x.id === +b.dataset.semcli)));
+  document.querySelectorAll("[data-semcv]").forEach(b => b.onclick = () => verVenda(+b.dataset.semcv, true));
 }
 
-function verVenda(id) {
+function verVenda(id, abrirCv) {
   $("dlg").classList.add("largo");
   const v = VENDAS.find(x => x.id === id), its = ITENS.filter(i => i.venda_id === id), c = cliente(v.cliente_id), f = $("dlgf");
   const podeAjuste = !v.cancelada_em && (dono() || v.vendedora_id === EU);
+  const podeCv = !v.cancelada_em && (controla() || v.vendedora_id === EU) && (v.pagamentos || []).some(eCartao);
   f.innerHTML = `<h3>Venda nº ${v.id}${v.cancelada_em ? ' <span class="tag">cancelada</span>' : ""}</h3>
     <div class="mut">${dataBR(v.data)} · ${esc(loja(v.loja_id).nome)} · vendedora ${esc(v.vendedora_nome)}</div>
     <div class="campo"><b>Cliente:</b> ${c ? `${esc(c.nome)}${c.telefone ? " · " + esc(fone(c.telefone)) : ""}` : '<span class="mut">não informado</span>'}</div>
@@ -1075,7 +1083,7 @@ function verVenda(id) {
       <div class="vlin"><span>Peças com desconto</span><span>${brl(v.valor_itens)}</span></div>
       ${Number(v.desconto) ? `<div class="vlin"><span>Desconto geral</span><span>− ${brl(v.desconto)}</span></div>` : ""}
       <div class="vlin"><b>Valor pago</b><b>${brl(v.valor_total)}</b></div>
-      ${(v.pagamentos || []).map(p => `<div class="vlin"><span>${esc(FORMAS[p.forma])}${p.forma === "credito" ? ` em ${p.parcelas}x` : ""}</span><span>${brl(p.valor)}</span></div>`).join("")}
+      ${(v.pagamentos || []).map(p => `<div class="vlin"><span>${esc(FORMAS[p.forma])}${p.forma === "credito" ? ` em ${p.parcelas}x` : ""}${eCartao(p) ? (p.cv ? ` <span class="mut">· CV ${esc(p.cv)}</span>` : ' <span class="tag fora">sem CV</span>') : ""}</span><span>${brl(p.valor)}</span></div>`).join("")}
       ${Number(v.credito_usado) ? `<div class="vlin"><span>Valor da nota fiscal <span class="mut">(sem o crédito de ${brl(v.credito_usado)}, que veio de compra com nota)</span></span><b>${brl(v.valor_nf)}</b></div>` : ""}
       <div class="vlin"><span>Comissão de ${esc(v.vendedora_nome)}</span><span>${Number(v.comissao_pct) ? `${decBR(Number(v.comissao_pct))}% = ${brl(v.comissao_valor)}` : "sem comissão"}</span></div>
     </div>
@@ -1089,7 +1097,12 @@ function verVenda(id) {
       <div><label for="vdmot">Motivo</label><input id="vdmot" maxlength="300" placeholder="ex.: a venda foi no dia 22, lançada depois"></div></div>
       <div class="mut">Só a data muda: peças, valores, comissão e o histórico da cliente ficam como estão. Fica registrado na auditoria.</div>
       <div class="acoes"><button type="button" class="bt pri" id="vdsalvar">Salvar a data</button></div></div>
-    <div class="acoes">${!v.cancelada_em && (controla() || v.vendedora_id === EU) ? `<button type="button" class="bt" id="vcli">${c ? "Trocar cliente" : "Colocar cliente"}</button>` : ""}${dono() && !v.cancelada_em ? '<button type="button" class="bt" id="vdata">Corrigir data</button><button type="button" class="bt" id="vcanc" style="color:var(--crit);border-color:var(--crit)">Cancelar venda</button>' : ""}<button type="button" class="bt" id="vimp">Imprimir ficha</button><button type="button" class="bt pri" id="vfechar">Fechar</button></div>`;
+    ${podeCv ? `<div id="vcvbox" class="campo" hidden><b>Comprovante do cartão (CV)</b>
+      ${(v.pagamentos || []).map((p, i) => eCartao(p) ? `<div class="duas"><div><label for="vcv${i}">${esc(FORMAS[p.forma])} · ${brl(p.valor)}</label><input id="vcv${i}" data-cvi="${i}" inputmode="numeric" maxlength="14" value="${esc(p.cv || "")}" placeholder="número depois de “CV:”"></div><div></div></div>` : "").join("")}
+      ${(v.pagamentos || []).some(p => eCartao(p) && p.cv) ? '<div><label for="vcvmot">Motivo (só para corrigir um CV já informado)</label><input id="vcvmot" maxlength="300" placeholder="ex.: digitei um número errado"></div>' : ""}
+      <div class="mut">Só o CV muda: formas, valores e comissão ficam como estão. Fica registrado na auditoria.</div>
+      <div class="acoes"><button type="button" class="bt pri" id="vcvsalvar">Salvar comprovante</button></div></div>` : ""}
+    <div class="acoes">${podeCv ? `<button type="button" class="bt" id="vcv">${semCv(v) ? "Informar comprovante" : "Corrigir comprovante"}</button>` : ""}${!v.cancelada_em && (controla() || v.vendedora_id === EU) ? `<button type="button" class="bt" id="vcli">${c ? "Trocar cliente" : "Colocar cliente"}</button>` : ""}${dono() && !v.cancelada_em ? '<button type="button" class="bt" id="vdata">Corrigir data</button><button type="button" class="bt" id="vcanc" style="color:var(--crit);border-color:var(--crit)">Cancelar venda</button>' : ""}<button type="button" class="bt" id="vimp">Imprimir ficha</button><button type="button" class="bt pri" id="vfechar">Fechar</button></div>`;
   $("vfechar").onclick = () => $("dlg").close();
   $("vimp").onclick = () => imprimirVenda(v, its, c);
   f.querySelectorAll("[data-ajuste]").forEach(b => b.onclick = () => novoAjuste(v, its.find(i => i.id === +b.dataset.ajuste), () => verVenda(id)));
@@ -1101,6 +1114,15 @@ function verVenda(id) {
   if ($("vcli")) $("vcli").onclick = () => clienteDaVenda({ id: v.id, data: v.data, loja_id: v.loja_id, vendedora_nome: v.vendedora_nome, cliente_id: v.cliente_id,
     pecas: its.map(i => `${i.quantidade > 1 ? i.quantidade + "× " : ""}${i.referencia} ${i.descricao} ${[i.cor, i.tamanho, i.edicao].filter(Boolean).join(" ")}`).join("; ") });
   if ($("vdata")) $("vdata").onclick = () => { $("vdatabox").hidden = false; $("vdnova").focus(); };
+  if ($("vcv")) $("vcv").onclick = () => { $("vcvbox").hidden = false; const i = f.querySelector("[data-cvi]"); if (i) i.focus(); };
+  if ($("vcvsalvar")) $("vcvsalvar").onclick = async () => {
+    const cvs = (v.pagamentos || []).map((p, i) => $("vcv" + i) ? soDig($("vcv" + i).value) : "");
+    try {
+      checar(await sb.rpc("lin_venda_comprovante", { p_venda: v.id, p_cvs: cvs, p_motivo: $("vcvmot") ? $("vcvmot").value : "" }));
+      $("dlg").close(); await carregar(); await telaVendas(); msg("ok", `Venda nº ${v.id}: comprovante salvo.`);
+    } catch (e) { $("verr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+  };
+  if (abrirCv && $("vcv")) $("vcv").click();
   if ($("vdsalvar")) $("vdsalvar").onclick = async () => {
     const d = $("vdnova").value;
     try {
@@ -1325,9 +1347,12 @@ async function novaVenda(pre = {}) {
       <select data-pg="${i}" data-k="forma" style="width:auto">${FORMAS_PAG.map(([k, r]) => `<option value="${k}" ${k === p.forma ? "selected" : ""}>${r}</option>`).join("")}</select>
       ${p.forma === "credito" ? `<select data-pg="${i}" data-k="parcelas" style="width:auto">${Array.from({ length: 12 }, (_, x) => x + 1).map(x => `<option value="${x}" ${String(x) === String(p.parcelas) ? "selected" : ""}>${x}x</option>`).join("")}</select>` : "<span></span>"}
       <input data-pg="${i}" data-k="valor" inputmode="decimal" value="${esc(p.valor)}" placeholder="0,00" style="width:110px">
-      ${NV.pags.length > 1 ? `<button type="button" class="lnk perigo" data-pgrm="${i}">×</button>` : ""}</div>`).join("");
+      ${eCartao(p) ? `<input data-pg="${i}" data-k="cv" class="nvcv" inputmode="numeric" maxlength="14" value="${esc(p.cv || "")}" placeholder="CV do comprovante (opcional)" title="O número depois de “CV:” no comprovante da maquininha" aria-label="CV do comprovante" style="width:150px">` : ""}
+      ${NV.pags.length > 1 ? `<button type="button" class="lnk perigo" data-pgrm="${i}">×</button>` : ""}</div>`).join("")
+      + (NV.pags.some(eCartao) ? '<div class="mut" id="nvcvdica">CV = o número depois de “CV:” no comprovante da maquininha (ex.: 189435334). Liga a venda à exportação da Rede.</div>' : "");
     $("nvpags").querySelectorAll("[data-pg]").forEach(el => el[el.tagName === "SELECT" ? "onchange" : "oninput"] = () => {
       const p = NV.pags[el.dataset.pg]; p[el.dataset.k] = el.value; if (el.dataset.k === "valor") p.auto = false;
+      if (el.dataset.k === "cv") return;
       if (el.dataset.k === "forma") desenharPags(); else totais();
     });
     $("nvpags").querySelectorAll("[data-pgrm]").forEach(b => b.onclick = () => { NV.pags.splice(Number(b.dataset.pgrm), 1); desenharPags(); });
@@ -1346,7 +1371,7 @@ async function novaVenda(pre = {}) {
     if (!NV.itens.length) return erro("Acrescente ao menos uma peça.");
     for (const it of NV.itens) { if (!(Number(it.q) >= 1)) return erro(`Quantidade inválida em ${it.ref}.`); if (Number(it.q) > disp(it.vid)) return erro(`${it.ref} ${it.var}: a loja tem só ${disp(it.vid)}.`); }
     const cu = credUsado();
-    const pags = NV.pags.filter(p => numV(p.valor) > 0).map(p => ({ forma: p.forma, valor: numBR(p.valor), parcelas: Number(p.parcelas) || 1 }))
+    const pags = NV.pags.filter(p => numV(p.valor) > 0).map(p => ({ forma: p.forma, valor: numBR(p.valor), parcelas: Number(p.parcelas) || 1, ...(eCartao(p) ? { cv: soDig(p.cv) } : {}) }))
       .concat(cu > 0 ? [{ forma: "credito_loja", valor: cu, parcelas: 1 }] : []);
     $("nvok").disabled = true; $("nvok").textContent = "Registrando…";
     try {
@@ -1492,7 +1517,7 @@ function imprimirVenda(v, its, c) {
     <div class="lin">${cx("Valor de tabela", brl(v.valor_bruto))}${cx("Desconto nas peças", brl(descPecas))}${cx("Desconto geral", brl(v.desconto))}${cx("Valor pago", `<b>${brl(v.valor_total)}</b>`)}
       ${Number(v.credito_usado) ? cx("Crédito da cliente usado", brl(v.credito_usado)) + cx("Valor da nota fiscal", `<b>${brl(v.valor_nf)}</b>`) : ""}</div>
     <div class="tit">Pagamento</div>
-    <div class="lin">${(v.pagamentos || []).length ? v.pagamentos.map(p => cx(esc(FORMAS[p.forma] || p.forma) + (p.forma === "credito" ? ` em ${p.parcelas}x` : ""), brl(p.valor))).join("") : cx("Forma", "—")}</div>
+    <div class="lin">${(v.pagamentos || []).length ? v.pagamentos.map(p => cx(esc(FORMAS[p.forma] || p.forma) + (p.forma === "credito" ? ` em ${p.parcelas}x` : "") + (eCartao(p) && p.cv ? ` · CV ${esc(p.cv)}` : ""), brl(p.valor))).join("") : cx("Forma", "—")}</div>
     ${v.observacao ? `<div class="tit">Observações</div><div class="cx obs">${esc(v.observacao)}</div>` : ""}
     ${v.cancelada_em ? `<div class="tit">Cancelamento</div><div class="cx">Cancelada por ${esc(v.cancelada_nome || "")} em ${quando(v.cancelada_em)}: ${esc(v.motivo_cancelamento || "")}</div>` : ""}
     <div class="ass"><div>Cliente</div><div>Vendedora</div></div>
