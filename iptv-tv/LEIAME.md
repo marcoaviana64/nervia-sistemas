@@ -1,4 +1,6 @@
-# Player IPTV — app para TV Android (uso pessoal do Marco)
+# NVPlayer — app para TV Android (uso pessoal do Marco)
+
+Antes chamado "Player IPTV"; nome NVPlayer desde a 2.3 (17/11/2026). O pacote continua `app.iptv.player`.
 
 Player de listas IPTV no formato **M3U / M3U8** para Android TV / Google TV, TV box e Fire TV (Android 7.0+), também roda em
 celular e tablet. Mesma base técnica do app da TV do Mídia Indoor (`midia-tv/`: Kotlin + Media3/ExoPlayer), mas **não tem

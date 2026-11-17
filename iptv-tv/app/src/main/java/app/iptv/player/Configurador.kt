@@ -58,7 +58,7 @@ class Configurador(private val aoReceber: (Map<String, String>) -> String?) {
             else pagina("<h2>Não deu certo</h2><p>${erro.replace("<", "&lt;")}</p><p><a href='/'>Voltar</a></p>")
         } else {
             pagina("""
-                <h2>Lista IPTV da TV</h2>
+                <h2>NVPlayer · lista da TV</h2>
                 <h3>Login e senha <small>(recomendado: separa TV, filmes e séries)</small></h3>
                 <form method="post" action="/salvar">
                   <input type="hidden" name="tipo" value="xtream">
@@ -99,7 +99,7 @@ class Configurador(private val aoReceber: (Map<String, String>) -> String?) {
     }
 
     private fun pagina(miolo: String) = """<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
-        <meta name="viewport" content="width=device-width,initial-scale=1"><title>Player IPTV</title><style>
+        <meta name="viewport" content="width=device-width,initial-scale=1"><title>NVPlayer</title><style>
         body{font-family:system-ui,sans-serif;max-width:560px;margin:24px auto;padding:0 16px;color:#222}
         label{display:block;margin:12px 0 6px;font-weight:600} textarea,input{width:100%;box-sizing:border-box;font-size:16px;padding:10px}
         h3{margin-top:28px} small{font-weight:400;color:#666}
