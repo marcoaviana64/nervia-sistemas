@@ -24,6 +24,7 @@ window.NERVIA_VERSOES = {
     ["1.0", "Lançamento: relatório das linhas móveis a partir das exportações do portal da operadora."],
   ],
   "compras": [
+    ["1.10", "Página da cotação do fornecedor: a especificação da requisição mantém as quebras de linha digitadas pelo comprador (listas de itens aparecem uma por linha)."],
     ["1.9", "Menu novo no estilo fichário, igual ao do ecossistema: as abas Painel, Requisições, Fornecedores, Histórico e Configuração viram orelhas de pasta com ícone; a aberta se junta à ficha embaixo, onde fica a escolha da unidade. No celular, as abas fechadas mostram só o ícone."],
     ["1.8", "E-mail de domínio gratuito: fornecedor com e-mail de Gmail, Hotmail e outros gratuitos perde 1 ponto na nota de qualidade da comparação (a etiqueta aparece no mapa); o fornecedor é avisado na mensagem do convite, na página da cotação e no cadastro de fornecedores."],
     ["1.7", "A aprovação automática nunca passa do limite do Gerente do setor: acima dele, a compra vai ao Gerente do setor (e ao Diretor, se passar do limite)."],

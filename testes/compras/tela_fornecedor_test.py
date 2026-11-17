@@ -43,7 +43,7 @@ def preparar_banco():
         ('PJ', '22333444000181', 'InfoMais Distribuidora', '{{"Água e energia"}}', '(21) 98888-7777', 'vendas@infomais.com', current_date + 200, 'Equipe Nervia');
       set request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000d1';
       insert into cmp_requisicoes (unidade_id, grupo, titulo, quantidade, valor_estimado, descricao)
-        select id, 'Água e energia', 'Nobreak 3 kVA senoidal', 2, 12345, 'Para o rack do CPD, com baterias.' from cmp_unidades;
+        select id, 'Água e energia', 'Nobreak 3 kVA senoidal', 2, 12345, E'Para o rack do CPD, com baterias.\nItem 2: cabo de força\nItem 3: instalação' from cmp_unidades;
     """)
 
 def iniciar_api():
@@ -138,6 +138,9 @@ try:
         cotacao(f, cod_base)
         tela = f.text_content("body")
         ok("Multicenter Itaipu pede uma cotação" in tela and "Nobreak 3 kVA senoidal" in tela and "rack do CPD" in tela, "fornecedor vê a requisição pelo link")
+        caixa = f.locator("#reqDesc").bounding_box(); linha = f.evaluate("parseFloat(getComputedStyle(document.getElementById('reqDesc')).lineHeight) || 20")
+        ok(f.evaluate("getComputedStyle(document.getElementById('reqDesc')).whiteSpace") == "pre-line" and caixa["height"] >= 2.5 * linha,
+           "especificação com várias linhas aparece em várias linhas")
         ok("12.345" not in tela and "12345" not in tela and "Carla" not in tela, "fornecedor não vê o valor estimado nem quem pediu")
         ok(not f.is_visible("#cxEmpresa") and "InfoMais Distribuidora" in f.text_content("#cxIdent"), "convite da base já vem identificado")
         f.fill("#preco", "3200"); f.fill("#prazoDias", "6"); f.fill("#declarante", "Ana Souza"); f.click("#enviar"); f.wait_for_timeout(300)
