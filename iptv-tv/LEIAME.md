@@ -11,6 +11,7 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
     da assinatura em Ajustes. Canais ao vivo em TS (padrão) ou HLS (Ajustes → Canais ao vivo em).
   - **Link M3U** — filmes e séries separados pelo endereço (`/movie/`, `/series/`, listas `m3u_plus`) ou pela extensão
     do arquivo; o resto é TV ao vivo. Link M3U que tem `username` e `password` vira login Xtream sozinho.
+- **Servidor já preenchido** (2.2, pedido do Marco em 17/11/2026): `http://auth.urltech.gy` (`Repositorio.SERVIDOR_PADRAO`) no login da TV e na página do celular; editável, porque o provedor troca o endereço de tempos em tempos. Falha de conexão no login avisa que o endereço pode ter mudado.
 - **Configuração pelo celular**: a TV mostra um QR code; o celular (mesma rede Wi-Fi) abre uma página servida pela própria
   TV (`http://<ip da TV>:8080`) com os dois formulários. Também dá para digitar com o controle. O servidor só fica ligado
   com a tela aberta e nunca devolve o login salvo.
