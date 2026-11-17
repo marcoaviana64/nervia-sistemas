@@ -163,7 +163,11 @@ class Repositorio(ctx: Context) {
     private fun carregarXtream(x: Xtream, baixar: Boolean, progresso: (String) -> Unit): Catalogo {
         if (baixar) {
             progresso("Conferindo o login…")
-            File(dir, "x_conta.json").writeText(x.loginTexto())
+            val conta = try { x.loginTexto() } catch (e: java.io.IOException) {
+                error("Não foi possível conectar ao servidor ${x.endereco}. Os provedores trocam o endereço de tempos em tempos: " +
+                    "confira o endereço atual com o seu provedor e troque no campo Servidor.")
+            }
+            File(dir, "x_conta.json").writeText(conta)
             progresso("Baixando as categorias…")
             listOf("get_live_categories" to "x_cat_live.json", "get_vod_categories" to "x_cat_vod.json",
                 "get_series_categories" to "x_cat_series.json").forEach { (a, n) ->
@@ -198,5 +202,9 @@ class Repositorio(ctx: Context) {
         return Catalogo(itens, emptyList(), conta, File(dir, "x_live.json").lastModified())
     }
 
-    companion object { const val PIN_PADRAO = "0000" }
+    companion object {
+        const val PIN_PADRAO = "0000"
+        /** Servidor que já vem preenchido no login (pedido do Marco em 17/11/2026; o provedor troca de tempos em tempos). */
+        const val SERVIDOR_PADRAO = "http://auth.urltech.gy"
+    }
 }

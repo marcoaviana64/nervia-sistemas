@@ -806,7 +806,8 @@ class MainActivity : ComponentActivity() {
     private fun motivo(e: PlaybackException) = when (e.errorCode) {
         PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> "O servidor recusou (assinatura vencida, limite de telas ou conteúdo fora do ar)."
         PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
-        PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> "Sem conexão com o servidor."
+        PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT ->
+            "Sem conexão com o servidor. Se nada abrir, o endereço do provedor pode ter mudado: Ajustes → Trocar lista / login."
         PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
         PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
         PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES -> "Este aparelho não consegue tocar o formato deste conteúdo."
@@ -1124,7 +1125,7 @@ class MainActivity : ComponentActivity() {
             inputType = InputType.TYPE_CLASS_TEXT or (if (senha) InputType.TYPE_TEXT_VARIATION_PASSWORD else InputType.TYPE_TEXT_VARIATION_URI)
             setText(valor.orEmpty())
         }
-        val fServ = campo("Servidor com a porta — ex.: http://servidor.com:8080", repo.servidor)
+        val fServ = campo("Servidor com a porta — ex.: http://servidor.com:8080", repo.servidor ?: Repositorio.SERVIDOR_PADRAO)
         val fUser = campo("Usuário", repo.usuario)
         val fSenha = campo("Senha", repo.senha, senha = true)
         val fLink = campo("Link M3U — http://…", repo.urlLista ?: "http://")
