@@ -130,7 +130,8 @@ with sync_playwright() as p:
         pg.click(".demo-modal .pri")
     fo = nova.value; fo.wait_for_selector("#pagina:not(.oculto)")
     assert "Arcádia" in fo.inner_text("#cxIdent") and "26.000" not in fo.inner_text("body")  # não mostra o valor estimado
-    fo.fill("#preco", "25300"); fo.fill("#prazoDias", "8"); fo.fill("#declarante", "Patrícia Leal"); fo.check("#aceite"); fo.click("#enviar"); fo.wait_for_timeout(500)
+    fo.on("dialog", lambda d: d.accept())  # "Confira antes de enviar" (valor, quantidade, total)
+    fo.fill("#preco", "25.300,00"); fo.fill("#prazoDias", "8"); fo.fill("#declarante", "Patrícia Leal"); fo.check("#aceite"); fo.click("#enviar"); fo.wait_for_timeout(500)
     assert "recebida" in fo.inner_text("#situacao"); fo.screenshot(path=f"{SAIDA}/demo_cotacao.png", full_page=True); fo.close()
     pg.wait_for_timeout(500)
     assert "3 de 3 propostas" in pg.inner_text("#tela") and "Patrícia Leal" in pg.inner_text("#tela")  # chega sozinha na aba do comprador

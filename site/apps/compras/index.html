@@ -8,6 +8,7 @@
 <script src="/config.js"></script>
 <script src="/versoes.js"></script>
 <script src="/email-gratuito.js"></script>
+<script src="/moeda.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <link rel="stylesheet" href="/fichario.css">
 <style>
@@ -522,8 +523,8 @@ function vConfig() {
       <div><label title="O fornecedor das Oportunidades vê só a cidade e o estado, nunca o nome">Cidade</label><input id="cCidade" value="${esc(u.cidade || "")}" placeholder="ex.: Niterói"></div>
       <div><label>Estado (UF)</label><select id="cUf"><option value="">—</option>${UFS.map(x => `<option ${x === u.uf ? "selected" : ""}>${x}</option>`).join("")}</select></div>
       <div><label>Mínimo de propostas</label><input id="cMin" type="number" min="1" max="10" value="${u.minimo_propostas}"></div>
-      <div><label>Automática até (R$)</label><input id="cAuto" type="number" step="0.01" value="${u.alcada_automatica}"></div>
-      <div><label>Gerente até (R$)</label><input id="cGer" type="number" step="0.01" value="${u.alcada_gerente}"></div>
+      <div><label>Automática até (R$)</label><input id="cAuto" data-moeda inputmode="decimal" autocomplete="off" value="${fmtM(u.alcada_automatica)}"></div>
+      <div><label>Gerente até (R$)</label><input id="cGer" data-moeda inputmode="decimal" autocomplete="off" value="${fmtM(u.alcada_gerente)}"></div>
       <div><label>Ativa</label><select id="cAtivo"><option value="1">Sim</option><option value="0" ${u.ativo ? "" : "selected"}>Não</option></select></div>
       <div><label>Peso preço (%)</label><input id="pPreco" type="number" value="${u.pesos.preco}"></div>
       <div><label>Peso prazo (%)</label><input id="pPrazo" type="number" value="${u.pesos.prazo}"></div>
@@ -577,7 +578,7 @@ function dAcesso({ sol, acesso }) {
   abrir(`<h3>${acesso ? "Renovar ou mudar o acesso" : "Liberar acesso às Oportunidades"}</h3>
     ${sol || acesso ? `<p><b>${esc(nomeF)}</b></p>` : `<label>Fornecedor da base</label><select name="f" required>${base.map(f => `<option value="${f.id}">${esc(f.nome)} — ${esc(f.grupos.join(", "))}</option>`).join("")}</select>`}
     <div class="grade" style="margin-top:8px"><div><label>Válido até</label><input name="ate" type="date" required min="${hojeISO()}" value="${acesso && acesso.valido_ate >= hojeISO() ? acesso.valido_ate : val}"></div>
-      <div><label>Valor pago (R$, opcional)</label><input name="valor" type="number" min="0" step="0.01" value="${acesso && acesso.valor != null ? acesso.valor : ""}"></div>
+      <div><label>Valor pago (R$, opcional)</label><input name="valor" data-moeda inputmode="decimal" autocomplete="off" value="${acesso && acesso.valor != null ? fmtM(acesso.valor) : ""}"></div>
       <div class="tudo"><label>Estados onde entrega (vazio = todo o Brasil)</label><input name="ufs" value="${esc(regioes.join(", "))}" placeholder="ex.: RJ, ES, MG"></div>
       <div class="tudo"><label>Observação interna</label><input name="obs" value="${esc(acesso ? acesso.obs : "")}" placeholder="ex.: Pix em 22/10, 3 meses"></div></div>
     <p class="mut">Os grupos ficam os do ${sol ? "pedido" : "cadastro"}${sol ? "" : " (para mudar, edite o fornecedor)"}. Fica registrado na auditoria.</p>`,
@@ -585,7 +586,7 @@ function dAcesso({ sol, acesso }) {
     const ufs = f.get("ufs").toUpperCase().split(/[^A-Z]+/).filter(Boolean);
     if (ufs.some(x => !UFS.includes(x))) return msg("err", "Estado desconhecido: use as siglas, separadas por vírgula (ex.: RJ, ES).");
     const res = await sb.rpc("cmp_acesso_liberar", { p_solicitacao: sol ? sol.id : null, p_fornecedor: sol ? null : acesso ? acesso.fornecedor_id : f.get("f"), p_valido_ate: f.get("ate"),
-      p_grupos: null, p_regioes: ufs, p_valor: f.get("valor") === "" ? null : Number(f.get("valor")), p_obs: f.get("obs") });
+      p_grupos: null, p_regioes: ufs, p_valor: lerM(f.get("valor")), p_obs: f.get("obs") });
     if (res.error) return msg("err", res.error.message);
     FORN = checar(await sb.rpc("cmp_fornecedores_lista")); await carregarOpAdmin();
     msg("ok", acesso ? "Acesso atualizado. O link continua o mesmo." : "Acesso liberado. Agora mande o link pelo WhatsApp ou e-mail.");
@@ -604,6 +605,8 @@ async function carregarConfig() {
 
 // ---------------------------------------------------------------- diálogos
 const dlg = $("dlg"), dlgf = $("dlgf");
+// valores em reais no formato brasileiro (/moeda.js): o type="number" lia "24.087,08" como 24,08708
+const fmtM = v => window.NERVIA_MOEDA.fmt(v), lerM = t => window.NERVIA_MOEDA.ler(t);
 function abrir(html, aoConfirmar, rotulo = "Confirmar", soLeitura = false) {
   dlgf.innerHTML = html + `<div class="acoes" style="justify-content:flex-end">${soLeitura ? "" : '<button class="bt" value="cancelar" formnovalidate>Cancelar</button>'}<button class="bt pri" value="ok">${rotulo}</button></div>`;
   dlg.onclose = async () => { if (dlg.returnValue === "ok") await aoConfirmar(new FormData(dlgf)); };
@@ -618,13 +621,13 @@ function dNovaReq() {
     <div><label>Quantidade</label><input name="qtd" type="number" min="0.001" step="0.001" value="1" required></div>
     <div><label>Unidade de medida</label><input name="um" value="un"></div>
     <div><label>Precisa até</label><input name="ate" type="date"></div>
-    <div><label>Valor estimado (R$)</label><input name="est" type="number" min="0" step="0.01"></div>
+    <div><label>Valor estimado (R$)</label><input name="est" data-moeda inputmode="decimal" autocomplete="off" placeholder="ex.: 24.087,08"></div>
     <div class="tudo"><label>Especificação técnica</label><textarea name="desc" placeholder="Modelo, medidas, potência, marca de referência, local de entrega…"></textarea></div></div>`,
   async f => {
     limparMsg();
     const r = await sb.from("cmp_requisicoes").insert({ unidade_id: UNID, titulo: f.get("titulo").trim(), grupo: f.get("grupo"), centro_custo: f.get("cc").trim(), setor_id: f.get("setor") || null,
       quantidade: Number(f.get("qtd")), unidade_medida: f.get("um").trim() || "un", precisa_ate: f.get("ate") || null,
-      valor_estimado: f.get("est") === "" ? null : Number(f.get("est")), descricao: f.get("desc").trim() });
+      valor_estimado: lerM(f.get("est")), descricao: f.get("desc").trim() });
     if (r.error) return msg("err", r.error.message);
     await carregar(); const nova = REQS[0]; if (nova) { SEL = nova.id; DET = await carregarDetalhe(SEL); VISTA = "reqs"; render(); }
     msg("ok", "Requisição criada.");
@@ -638,18 +641,18 @@ function dProposta(r, p) {
   abrir(`<h3>${p ? "Editar / re-cotar proposta" : "Registrar proposta"}</h3>
     <p class="mut">Quantidade: ${Number(r.quantidade).toLocaleString("pt-BR")} ${esc(r.unidade_medida)}. ${p ? "Mudar o preço conta como nova rodada (re-cotação) e guarda o preço anterior." : "Não achou o fornecedor? Cadastre em Fornecedores."}</p>
     <div class="grade"><div class="tudo"><label>Fornecedor</label><select name="f" ${p ? "disabled" : ""} required>${doGrupo.length ? `<optgroup label="${esc(r.grupo)}">${doGrupo.map(opt).join("")}</optgroup>` : ""}${outros.length ? `<optgroup label="Outros grupos">${outros.map(opt).join("")}</optgroup>` : ""}</select></div>
-    <div><label>Preço unitário (R$)</label><input name="preco" type="number" min="0" step="0.01" required value="${p ? p.preco_unitario : ""}"></div>
-    <div><label>Frete (R$)</label><input name="frete" type="number" min="0" step="0.01" value="${p ? p.frete : 0}"></div>
+    <div><label>Preço unitário (R$)</label><input name="preco" data-moeda inputmode="decimal" autocomplete="off" placeholder="ex.: 24.087,08" required value="${p ? fmtM(p.preco_unitario) : ""}"></div>
+    <div><label>Frete (R$)</label><input name="frete" data-moeda inputmode="decimal" autocomplete="off" placeholder="ex.: 24.087,08" value="${fmtM(p ? p.frete : 0)}"></div>
     <div><label>Prazo de entrega (dias)</label><input name="prazo" type="number" min="0" required value="${p ? p.prazo_dias : ""}"></div>
     <div><label>Pagamento</label><select name="pag">${PAGAMENTOS.map(([t]) => `<option ${p && (pg ? pg[0] === t : t === "Outro") ? "selected" : ""}>${t}</option>`).join("")}</select></div>
     <div><label>Se "Outro": prazo médio (dias)</label><input name="pagdias" type="number" min="0" value="${p && !pg ? p.pagamento_dias : ""}"></div>
-    <div><label>Custos extras 12 meses (R$)</label><input name="extras" type="number" min="0" step="0.01" value="${p ? p.custos_extras : 0}" title="manutenção, insumos — entra no custo total (TCO)"></div>
+    <div><label>Custos extras 12 meses (R$)</label><input name="extras" data-moeda inputmode="decimal" autocomplete="off" placeholder="ex.: 24.087,08" value="${fmtM(p ? p.custos_extras : 0)}" title="manutenção, insumos — entra no custo total (TCO)"></div>
     <div><label>Proposta válida até</label><input name="val" type="date" value="${p && p.validade ? p.validade : ""}"></div>
     <div class="tudo"><label>Observações</label><input name="obs" value="${p ? esc(p.obs) : ""}" placeholder="garantia, marca, condições"></div></div>`,
   async f => {
     const pag = f.get("pag"), dias = pag === "Outro" ? Number(f.get("pagdias") || 0) : PAGAMENTOS.find(x => x[0] === pag)[1];
-    await acao("cmp_salvar_proposta", { p_req: r.id, p_fornecedor: p ? p.fornecedor_id : f.get("f"), p_preco: Number(f.get("preco")), p_frete: Number(f.get("frete") || 0),
-      p_extras: Number(f.get("extras") || 0), p_prazo: Number(f.get("prazo")), p_pagamento: pag === "Outro" ? `Outro (${dias} dias)` : pag, p_pagamento_dias: dias,
+    await acao("cmp_salvar_proposta", { p_req: r.id, p_fornecedor: p ? p.fornecedor_id : f.get("f"), p_preco: lerM(f.get("preco")), p_frete: lerM(f.get("frete")) || 0,
+      p_extras: lerM(f.get("extras")) || 0, p_prazo: Number(f.get("prazo")), p_pagamento: pag === "Outro" ? `Outro (${dias} dias)` : pag, p_pagamento_dias: dias,
       p_validade: f.get("val") || null, p_obs: f.get("obs") }, p ? "Proposta atualizada." : "Proposta registrada.");
   }, "Salvar proposta");
 }
@@ -662,8 +665,8 @@ function dPropostaInternet(r, p) {
     <div class="grade"><div><label>Site</label><input name="site" list="listaSites" required maxlength="80" value="${p ? esc(p.site) : ""}" placeholder="ex.: Mercado Livre"><datalist id="listaSites">${SITES.map(x => `<option value="${x}">`).join("")}</datalist></div>
     <div><label>Vendedor / loja no site (opcional)</label><input name="vend" maxlength="120" value="${p ? esc(p.vendedor || "") : ""}"></div>
     <div class="tudo"><label>Link do produto</label><input name="link" type="url" required maxlength="1000" value="${p ? esc(p.link) : ""}" placeholder="https://..."></div>
-    <div><label>Preço unitário (R$)</label><input name="preco" type="number" min="0" step="0.01" required value="${p ? p.preco_unitario : ""}"></div>
-    <div><label>Frete (R$)</label><input name="frete" type="number" min="0" step="0.01" value="${p ? p.frete : 0}"></div>
+    <div><label>Preço unitário (R$)</label><input name="preco" data-moeda inputmode="decimal" autocomplete="off" placeholder="ex.: 24.087,08" required value="${p ? fmtM(p.preco_unitario) : ""}"></div>
+    <div><label>Frete (R$)</label><input name="frete" data-moeda inputmode="decimal" autocomplete="off" placeholder="ex.: 24.087,08" value="${fmtM(p ? p.frete : 0)}"></div>
     <div><label>Prazo de entrega (dias)</label><input name="prazo" type="number" min="0" required value="${p ? p.prazo_dias : ""}"></div>
     <div><label>Pagamento</label><select name="pag">${PAGAMENTOS.map(([t]) => `<option ${p && (pg ? pg[0] === t : t === "Outro") ? "selected" : ""}>${t}</option>`).join("")}</select></div>
     <div><label>Se "Outro": prazo médio (dias)</label><input name="pagdias" type="number" min="0" value="${p && !pg ? p.pagamento_dias : ""}"></div>
@@ -672,7 +675,7 @@ function dPropostaInternet(r, p) {
   async f => {
     const pag = f.get("pag"), dias = pag === "Outro" ? Number(f.get("pagdias") || 0) : PAGAMENTOS.find(x => x[0] === pag)[1];
     await acao("cmp_salvar_proposta_internet", { p_req: r.id, p_proposta: p ? p.id : null, p_site: f.get("site"), p_link: f.get("link"), p_vendedor: f.get("vend"),
-      p_preco: Number(f.get("preco")), p_frete: Number(f.get("frete") || 0), p_extras: 0, p_prazo: Number(f.get("prazo")),
+      p_preco: lerM(f.get("preco")), p_frete: lerM(f.get("frete")) || 0, p_extras: 0, p_prazo: Number(f.get("prazo")),
       p_pagamento: pag === "Outro" ? `Outro (${dias} dias)` : pag, p_pagamento_dias: dias, p_validade: f.get("val") || null, p_obs: f.get("obs") },
       p ? "Proposta da internet atualizada." : "Compra pela internet registrada.");
   }, "Salvar");
@@ -836,10 +839,11 @@ document.addEventListener("click", async e => {
   else if (a === "editForn") dFornecedor(FORN.find(f => f.id === id));
   else if (a === "aval") { const f = FORN.find(x => x.id === id), dar = b.dataset.dar === "1"; acao("cmp_aval", { p_fornecedor: id, p_unidade: UNID, p_dar: dar }, dar ? `Aval dado a ${f.nome}.` : `Aval retirado de ${f.nome}.`); }
   else if (a === "salvarUnidade") {
-    const u = { nome: $("cNome").value.trim(), cnpj: $("cCnpj").value.replace(/\D/g, "") || null, empresa: ($("cEmp")?.value || "").trim(), cidade: ($("cCidade")?.value || "").trim(), uf: $("cUf")?.value || "", minimo_propostas: Number($("cMin").value), alcada_automatica: Number($("cAuto").value),
-      alcada_gerente: Number($("cGer").value), ativo: $("cAtivo").value === "1",
+    const u = { nome: $("cNome").value.trim(), cnpj: $("cCnpj").value.replace(/\D/g, "") || null, empresa: ($("cEmp")?.value || "").trim(), cidade: ($("cCidade")?.value || "").trim(), uf: $("cUf")?.value || "", minimo_propostas: Number($("cMin").value), alcada_automatica: lerM($("cAuto").value),
+      alcada_gerente: lerM($("cGer").value), ativo: $("cAtivo").value === "1",
       pesos: { preco: Number($("pPreco").value), prazo: Number($("pPrazo").value), pagamento: Number($("pPag").value), qualidade: Number($("pQual").value) } };
     if (u.pesos.preco + u.pesos.prazo + u.pesos.pagamento + u.pesos.qualidade !== 100) return msg("err", "Os quatro pesos precisam somar 100.");
+    if (!(u.alcada_automatica >= 0) || !(u.alcada_gerente >= 0)) return msg("err", "Alçadas: não entendi o valor. Use o formato 5.000,00 (ponto no milhar, vírgula nos centavos).");
     const res = await sb.from("cmp_unidades").update(u).eq("id", UNID);
     if (res.error) return msg("err", res.error.message);
     UNIDADES = checar(await sb.from("cmp_unidades").select("*").order("nome")); render(); msg("ok", "Regras salvas.");
@@ -853,10 +857,10 @@ document.addEventListener("click", async e => {
   else if (a === "novoSetor" || a === "editSetor") { const x = a === "editSetor" ? SETORES.find(y => y.id === id) : null;
     abrir(`<h3>${x ? "Alterar o setor" : "Novo setor"} — ${esc(unidade().nome)}</h3><div class="grade">
       <div class="tudo"><label>Nome</label><input name="n" required value="${esc(x ? x.nome : "")}" placeholder="ex.: Financeiro"></div>
-      <div><label>Gerente aprova até (R$)</label><input name="lim" type="number" min="0" step="0.01" value="${x && x.alcada_gerente != null ? x.alcada_gerente : ""}" placeholder="vazio = ${brl(unidade().alcada_gerente)} (unidade)"></div>
+      <div><label>Gerente aprova até (R$)</label><input name="lim" data-moeda inputmode="decimal" autocomplete="off" value="${x && x.alcada_gerente != null ? fmtM(x.alcada_gerente) : ""}" placeholder="vazio = ${brl(unidade().alcada_gerente)} (unidade)"></div>
       ${x ? `<div><label>Situação</label><select name="ativo"><option value="1">Ativo</option><option value="0" ${x.ativo ? "" : "selected"}>Inativo (não aparece nas novas requisições)</option></select></div>` : ""}</div>
       <p class="mut">Acima do limite, a compra segue do Gerente do setor para o Diretor. Fica registrado no histórico e na auditoria.</p>`,
-    async f => { const v = { nome: f.get("n").trim(), alcada_gerente: f.get("lim") === "" ? null : Number(f.get("lim")) };
+    async f => { const v = { nome: f.get("n").trim(), alcada_gerente: lerM(f.get("lim")) };
       if (x) v.ativo = f.get("ativo") === "1";
       const res = x ? await sb.from("cmp_setores").update(v).eq("id", x.id) : await sb.from("cmp_setores").insert({ ...v, unidade_id: UNID });
       if (res.error) return msg("err", res.error.message.includes("duplicate") ? "Já existe um setor com esse nome nesta unidade." : res.error.message);
