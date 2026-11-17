@@ -105,14 +105,14 @@ http.server.SimpleHTTPRequestHandler.log_message = lambda *a: None
 threading.Thread(target=srv.serve_forever, daemon=True).start()
 try:
     with sync_playwright() as p:
-        b = p.chromium.launch()
+        b = p.chromium.launch(executable_path=os.environ.get("CHROMIUM") or None)
         # sem papel
         pg, er = entrar(b, "sem"); abrir(pg)
         ok("não tem papel" in pg.text_content("#aviso"), "login sem papel recebe aviso claro")
         # solicitante cria a requisição
         pg, er = entrar(b, "solicitante"); abrir(pg)
         ok("Solicitante" in pg.text_content("#papeis"), "solicitante vê o próprio papel")
-        pg.click("[data-acao=novaReq]"); ok("Computadores, periféricos" in pg.text_content("dialog"), "nova requisição mostra o que entra no grupo"); pg.select_option("[name=grupo]", "Manutenção predial"); ok("hidráulicos" in pg.text_content("dialog"), "dica muda ao trocar o grupo"); pg.select_option("[name=grupo]", "Informática e tecnologia"); pg.fill("[name=titulo]", "Switch 24 portas PoE"); pg.fill("[name=qtd]", "2"); pg.fill("[name=est]", "12000")
+        pg.click("[data-acao=novaReq]"); ok("Computadores, periféricos" in pg.text_content("dialog"), "nova requisição mostra o que entra no grupo"); pg.select_option("[name=grupo]", "Manutenção predial"); ok("hidráulicos" in pg.text_content("dialog"), "dica muda ao trocar o grupo"); pg.select_option("[name=grupo]", "Informática e tecnologia"); pg.fill("[name=titulo]", "Switch 24 portas PoE"); pg.fill("[name=qtd]", "2"); pg.fill("[name=est]", "12.000,00")
         pg.fill("[name=desc]", "Gerenciável, 4 SFP."); confirmar(pg)
         ok("#1001" in pg.text_content("#tela") and "Requisição criada" in mensagem(pg), "requisição #1001 criada e aberta")
         ok(pg.locator("[data-acao=novaProp]").count() == 0, "solicitante não vê botão de registrar proposta")
@@ -170,7 +170,7 @@ try:
         ok(pg.locator("#tMembros tr").count() >= 4, "admin vê os papéis da unidade")
         pg.fill("#pPreco", "50"); pg.click("[data-acao=salvarUnidade]"); pg.wait_for_timeout(300)
         ok("somar 100" in mensagem(pg), "pesos que não somam 100 são recusados")
-        pg.fill("#pPreco", "40"); pg.fill("#cGer", "30000"); pg.click("[data-acao=salvarUnidade]"); pg.wait_for_timeout(400)
+        pg.fill("#pPreco", "40"); pg.fill("#cGer", "30.000"); pg.click("[data-acao=salvarUnidade]"); pg.wait_for_timeout(400)
         ok("Regras salvas" in mensagem(pg), "admin altera a alçada do Gerente")
         ok(not er, "sem erros de script (admin) " + str(er))
 

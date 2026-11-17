@@ -8,6 +8,7 @@
 <title>Enviar proposta | Nervia</title>
 <script src="/config.js"></script>
 <script src="/email-gratuito.js"></script>
+<script src="/moeda.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <style>
 /* Página do fornecedor (Orçamentos de Compras, fase 2): abre pelo link do convite, sem login.
@@ -76,13 +77,13 @@ textarea{min-height:70px}
       </div>
       <div id="cxIdent" class="aviso info oculto"></div>
       <div class="grade">
-        <div><label for="preco">Preço unitário (R$)</label><input id="preco" name="preco_unitario" type="number" min="0" step="0.01" required></div>
-        <div><label for="frete">Frete (R$)</label><input id="frete" name="frete" type="number" min="0" step="0.01" value="0"></div>
+        <div><label for="preco">Preço unitário (R$)</label><input id="preco" name="preco_unitario" data-moeda inputmode="decimal" autocomplete="off" placeholder="ex.: 24.087,08" required></div>
+        <div><label for="frete">Frete (R$)</label><input id="frete" name="frete" data-moeda inputmode="decimal" autocomplete="off" placeholder="ex.: 24.087,08" value="0,00"></div>
         <div><label for="prazoDias">Prazo de entrega (dias)</label><input id="prazoDias" name="prazo_dias" type="number" min="0" step="1" required></div>
         <div><label for="pag">Pagamento</label><select id="pag" name="pag"></select></div>
         <div id="cxPagDias" class="oculto"><label for="pagDias">Prazo médio de pagamento (dias)</label><input id="pagDias" type="number" min="0" step="1"></div>
         <div><label for="validade">Proposta válida até</label><input id="validade" name="validade" type="date"></div>
-        <div><label for="extras">Custos extras em 12 meses (R$)</label><input id="extras" name="custos_extras" type="number" min="0" step="0.01" value="0" title="manutenção, insumos, instalação — se houver"></div>
+        <div><label for="extras">Custos extras em 12 meses (R$)</label><input id="extras" name="custos_extras" data-moeda inputmode="decimal" autocomplete="off" placeholder="ex.: 24.087,08" value="0,00" title="manutenção, insumos, instalação — se houver"></div>
         <div class="tudo"><label for="obs">Observações</label><textarea id="obs" name="obs" maxlength="1000" placeholder="marca, modelo, garantia, condições"></textarea></div>
         <div class="tudo"><label for="pdf">Proposta em PDF (opcional, até 10 MB)</label><input id="pdf" type="file" accept="application/pdf,.pdf"><div class="mut" id="pdfAtual"></div></div>
         <div class="tudo"><label for="declarante">Seu nome</label><input id="declarante" name="declarante" maxlength="120" autocomplete="name" required></div>
@@ -146,7 +147,8 @@ function preencher(d) {
   if (d.fornecedor) $("cxIdent").textContent = `Proposta de ${d.fornecedor.nome} (${d.fornecedor.tipo === "PF" ? "CPF" : "CNPJ"} ${fmtDoc(d.fornecedor)}).`;
   const p = d.proposta;
   if (p) {
-    $("preco").value = p.preco_unitario; $("frete").value = p.frete; $("prazoDias").value = p.prazo_dias; $("extras").value = p.custos_extras;
+    const M = window.NERVIA_MOEDA; $("preco").value = M.fmt(p.preco_unitario); $("frete").value = M.fmt(p.frete); $("prazoDias").value = p.prazo_dias; $("extras").value = M.fmt(p.custos_extras);
+    ["preco", "frete", "extras"].forEach(id => M.conferir($(id)));
     $("validade").value = p.validade || ""; $("obs").value = p.obs || ""; $("declarante").value = p.declarante || "";
     const pg = PAGAMENTOS.find(x => x[0] === p.pagamento);
     $("pag").value = pg ? pg[0] : "Outro"; $("pagDias").value = pg ? "" : p.pagamento_dias; $("pag").onchange();
@@ -173,7 +175,14 @@ $("form").onsubmit = async ev => {
   if ($("preco").value === "" || $("prazoDias").value === "") return erro("Preencha o preço unitário e o prazo de entrega.");
   if (!$("declarante").value.trim()) return erro("Informe o seu nome.");
   if (!$("aceite").checked) return erro("Marque a declaração para enviar.");
-  const dados = { preco_unitario: $("preco").value, frete: $("frete").value || "0", custos_extras: $("extras").value || "0", prazo_dias: $("prazoDias").value,
+  // valores no formato brasileiro (24.087,08): nada de type="number", que lia o ponto como decimal
+  const M = window.NERVIA_MOEDA, vPreco = M.ler($("preco").value), vFrete = M.ler($("frete").value), vExtras = M.ler($("extras").value);
+  for (const [v, nome] of [[vPreco, "Preço unitário"], [vFrete, "Frete"], [vExtras, "Custos extras"]])
+    if (Number.isNaN(v)) return erro(`${nome}: não entendi o valor. Use o formato 24.087,08 (ponto no milhar, vírgula nos centavos).`);
+  if (!(vPreco > 0)) return erro("Informe o preço unitário.");
+  const qtd = Number(DADOS.requisicao.quantidade), total = vPreco * qtd + (vFrete || 0);
+  if (!confirm(`Confira antes de enviar:\n\nPreço unitário: ${brl(vPreco)}\nQuantidade: ${qtd.toLocaleString("pt-BR")}\nFrete: ${brl(vFrete || 0)}\nTotal: ${brl(total)}\n\nEnviar a proposta?`)) return;
+  const dados = { preco_unitario: String(vPreco), frete: String(vFrete || 0), custos_extras: String(vExtras || 0), prazo_dias: $("prazoDias").value,
     pagamento: pag === "Outro" ? `Outro (${dias} dias)` : pag, pagamento_dias: String(dias), validade: $("validade").value || "",
     obs: $("obs").value, declarante: $("declarante").value.trim(), aceite: true };
   if (!DADOS.fornecedor) Object.assign(dados, { tipo: $("tipo").value, documento: $("documento").value, nome: $("nome").value.trim(), telefone: $("telefone").value.trim(), email: $("email").value.trim() });
