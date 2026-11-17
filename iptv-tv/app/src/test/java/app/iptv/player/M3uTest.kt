@@ -5,7 +5,7 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class M3uTest {
-    private fun ler(s: String) = M3u.ler(s.reader().buffered())
+    private fun ler(s: String) = M3u.ler(s.reader().buffered()).itens
 
     @Test fun formatoPadrao() {
         val l = ler("""
@@ -45,6 +45,24 @@ class M3uTest {
     @Test fun nomeVazioUsaTvgName() {
         val l = ler("\uFEFF#EXTM3U\r\n#EXTINF:-1 tvg-name=\"SBT\",\r\nhttp://s\r\n")
         assertEquals("SBT", l[0].nome)
+    }
+
+    @Test fun separaFilmesESeries() {
+        val l = M3u.ler("""
+            #EXTM3U x-tvg-url="http://guia/a.xml.gz,http://guia/b.xml"
+            #EXTINF:-1 group-title="Notícias",GloboNews
+            http://srv:80/live/u/p/1.ts
+            #EXTINF:-1 group-title="Filmes | Ação",Duro de Matar (1988)
+            http://srv:80/movie/u/p/2.mkv
+            #EXTINF:-1 group-title="Séries | Drama",Breaking Bad S01 E01
+            http://srv:80/series/u/p/3.mp4
+            #EXTINF:-1 group-title="Lançamentos",Filme Solto
+            http://cdn/filme.mp4
+            #EXTINF:-1 group-title="Novelas",Novela S02E10
+            http://cdn/novela.mp4
+        """.trimIndent().reader().buffered())
+        assertEquals(listOf(Tipo.AO_VIVO, Tipo.FILME, Tipo.SERIE, Tipo.FILME, Tipo.SERIE), l.itens.map { it.tipo })
+        assertEquals(listOf("http://guia/a.xml.gz", "http://guia/b.xml"), l.epg)
     }
 
     @Test fun buscaSemAcento() = assertEquals("noticias sao paulo", semAcento("Notícias São Paulo"))

@@ -1,12 +1,14 @@
 package app.iptv.player
 
 import android.annotation.SuppressLint
+import android.app.AlertDialog
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.text.Editable
+import android.text.InputFilter
 import android.text.InputType
 import android.text.TextUtils
 import android.text.TextWatcher
@@ -19,6 +21,7 @@ import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -31,10 +34,12 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.C
+import androidx.media3.common.Format
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
@@ -44,47 +49,65 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.Executors
 
 @OptIn(UnstableApi::class)
 class MainActivity : ComponentActivity() {
 
-    private enum class Tipo { FAVORITOS, TODOS, GRUPO, ATUALIZAR, CONFIGURAR, SAIR }
-    private data class Entrada(val rotulo: String, val tipo: Tipo, val grupo: String? = null)
+    enum class Aba(val rotulo: String) { TV("TV ao vivo"), FILMES("Filmes"), SERIES("Séries"), AJUSTES("Ajustes") }
+    private enum class TE { FAVORITOS, CONTINUAR, TODOS, GRUPO, ACAO }
+    private data class Entrada(val rotulo: String, val tipo: TE, val grupo: String? = null, val acao: String? = null, val bloqueado: Boolean = false)
 
     private lateinit var repo: Repositorio
+    private lateinit var guia: Guia
     private lateinit var player: ExoPlayer
     private lateinit var video: PlayerView
     private lateinit var raiz: FrameLayout
     private lateinit var painel: LinearLayout
     private lateinit var rvGrupos: RecyclerView
-    private lateinit var rvCanais: RecyclerView
+    private lateinit var rvItens: RecyclerView
     private lateinit var busca: EditText
     private lateinit var titulo: TextView
+    private lateinit var guiaBox: TextView
+    private lateinit var infoAjustes: TextView
     private lateinit var barra: TextView
     private lateinit var aviso: TextView
+    private val abas = LinkedHashMap<Aba, TextView>()
     private var telaConfig: View? = null
+    private var ficha: View? = null
     private var configurador: Configurador? = null
 
     private val bg = Executors.newSingleThreadExecutor()
+    private val rede = Executors.newFixedThreadPool(2)
     private val h = Handler(Looper.getMainLooper())
 
-    private var todos: List<Canal> = emptyList()
-    private var porGrupo: Map<String, List<Canal>> = emptyMap()
+    private var catalogo: Catalogo? = null
+    private var porAba: Map<Aba, List<Item>> = emptyMap()
+    private var gruposDe: Map<Aba, Map<String, List<Item>>> = emptyMap()
+    private var porUrl: Map<String, Item> = emptyMap()
+    private var porSerie: Map<String, Item> = emptyMap()
+    private var aba = Aba.TV
     private var entradas: List<Entrada> = emptyList()
     private var grupoSel = -1
-    private var visiveis: List<Canal> = emptyList()
-    private var atual: Canal? = null
-    private var sequencia: List<Canal> = emptyList()
+    private val grupoDaAba = HashMap<Aba, String>()
+    private var visiveis: List<Item> = emptyList()
+    private var atual: Item? = null
+    private var sequencia: List<Item> = emptyList()
+    private var voltarPara: Item? = null
     private var tentativas = 0
     private var mimeForcado: String? = null
     private var parado = false
     private var primeiraCarga = true
-    /** A lista tem logos? Sem nenhum, a coluna do logo some. */
+    private var desbloqueado = false
+    private var focadoGuia: Item? = null
     private var algumLogo = false
 
     private val corDestaque = Color.rgb(0x2F, 0x9F, 0xD0)
     private val Int.dp get() = (this * resources.displayMetrics.density).toInt()
+    private val hhmm = SimpleDateFormat("HH:mm", Locale.US)
 
     // ---------------------------------------------------------------- ciclo de vida
 
@@ -96,10 +119,24 @@ class MainActivity : ComponentActivity() {
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
         repo = Repositorio(this)
+        guia = Guia(repo)
+        guia.aoAtualizar = {
+            if (aba == Aba.TV) rvItens.adapter?.notifyDataSetChanged()
+            if (aba == Aba.AJUSTES) atualizarInfoAjustes()
+        }
         montarTela()
 
         player = ExoPlayer.Builder(this).build()
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().apply {
+            setPreferredAudioLanguage(repo.idiomaAudio ?: "pt")
+            when (val l = repo.idiomaLegenda) {
+                null -> Unit
+                "off" -> setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                else -> setPreferredTextLanguage(l)
+            }
+        }.build()
         video.player = player
+        video.resizeMode = FORMATOS[repo.formatoTela.coerceIn(0, FORMATOS.size - 1)].second
         player.addListener(ouvinte)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -107,30 +144,22 @@ class MainActivity : ComponentActivity() {
         })
 
         when {
-            repo.urlLista == null -> mostrarConfig()
-            repo.temCopia() -> {
-                avisar("Abrindo a lista…")
-                bg.execute {
-                    val canais = try { repo.lerCopia() } catch (_: Exception) { emptyList() }
-                    runOnUiThread {
-                        if (canais.isEmpty()) baixarLista(false) else {
-                            avisar(null); aplicar(canais)
-                            if (repo.copiaVelha()) baixarLista(true)
-                        }
-                    }
-                }
-            }
-            else -> baixarLista(false)
+            !repo.configurado() -> mostrarConfig()
+            else -> carregarCatalogo(baixar = false, silencioso = false)
         }
     }
 
     override fun onStart() {
         super.onStart()
-        if (parado) { parado = false; atual?.let { iniciar(it) } }
+        if (parado) {
+            parado = false
+            atual?.let { if (it.tipo == Tipo.AO_VIVO) iniciar(it) else iniciar(it, repo.posicao(it.url)?.first ?: 0, tocar = false) }
+        }
     }
 
     override fun onStop() {
         super.onStop()
+        salvarProgresso()
         parado = true
         h.removeCallbacks(tentarDeNovo)
         player.stop()
@@ -139,15 +168,30 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         player.release()
         configurador?.parar()
-        bg.shutdownNow()
+        bg.shutdownNow(); rede.shutdownNow()
         h.removeCallbacksAndMessages(null)
         super.onDestroy()
     }
 
-    // ---------------------------------------------------------------- tela
+    // ---------------------------------------------------------------- peças da tela
 
-    private fun texto(tam: Float, cor: Int = Color.WHITE) = TextView(this).apply {
-        textSize = tam; setTextColor(cor)
+    private fun texto(tam: Float, cor: Int = Color.WHITE) = TextView(this).apply { textSize = tam; setTextColor(cor) }
+    private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+
+    private fun botao(rotulo: String, acao: () -> Unit) = Button(this).apply {
+        text = rotulo
+        isAllCaps = false
+        textSize = 17f
+        setOnClickListener { acao() }
+        layoutParams = LinearLayout.LayoutParams(-2, -2).apply { marginEnd = 10.dp }
+    }
+
+    private fun pintar(v: View, focado: Boolean, marcado: Boolean) {
+        v.setBackgroundColor(when {
+            focado -> corDestaque
+            marcado -> Color.argb(60, 255, 255, 255)
+            else -> Color.TRANSPARENT
+        })
     }
 
     private fun montarTela() {
@@ -160,24 +204,38 @@ class MainActivity : ComponentActivity() {
         }
         raiz.addView(video, FrameLayout.LayoutParams(-1, -1))
 
-        // painel: grupos à esquerda, canais à direita
         painel = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setBackgroundColor(Color.argb(225, 8, 12, 16))
-            setPadding(24.dp, 16.dp, 24.dp, 16.dp)
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.argb(232, 8, 12, 16))
+            setPadding(24.dp, 12.dp, 24.dp, 12.dp)
         }
+        val barraAbas = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, 0, 0, 8.dp) }
+        Aba.entries.forEach { a ->
+            val t = texto(19f).apply {
+                text = a.rotulo
+                setPadding(18.dp, 8.dp, 18.dp, 8.dp)
+                isFocusable = true; isClickable = true
+                setOnClickListener { trocarAba(a, focar = true) }
+                setOnFocusChangeListener { v, f -> pintar(v, f, a == aba) }
+            }
+            abas[a] = t
+            barraAbas.addView(t)
+        }
+        painel.addView(barraAbas)
+
+        val corpo = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         rvGrupos = RecyclerView(this).apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
             adapter = AdGrupos()
             itemAnimator = null
         }
-        painel.addView(rvGrupos, LinearLayout.LayoutParams(0, -1, 0.3f))
+        corpo.addView(rvGrupos, LinearLayout.LayoutParams(0, -1, 0.3f))
 
         val coluna = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(20.dp, 0, 0, 0) }
-        titulo = texto(15f, Color.LTGRAY).apply { setPadding(4.dp, 0, 0, 6.dp) }
+        titulo = texto(15f, Color.LTGRAY).apply { setPadding(4.dp, 0, 0, 4.dp) }
         coluna.addView(titulo)
         busca = EditText(this).apply {
-            hint = "Buscar canal ou filme…"
+            hint = "Buscar…"
             setHintTextColor(Color.GRAY); setTextColor(Color.WHITE); textSize = 16f
             isSingleLine = true
             imeOptions = EditorInfo.IME_ACTION_SEARCH
@@ -185,24 +243,31 @@ class MainActivity : ComponentActivity() {
             addTextChangedListener(object : TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
                 override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
-                override fun afterTextChanged(s: Editable?) {
-                    h.removeCallbacks(filtrar); h.postDelayed(filtrar, 250)
-                }
+                override fun afterTextChanged(s: Editable?) { h.removeCallbacks(filtrar); h.postDelayed(filtrar, 300) }
             })
         }
         coluna.addView(busca, LinearLayout.LayoutParams(-1, -2))
-        rvCanais = RecyclerView(this).apply {
+        rvItens = RecyclerView(this).apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
-            adapter = AdCanais()
+            adapter = AdItens()
             itemAnimator = null
         }
-        coluna.addView(rvCanais, LinearLayout.LayoutParams(-1, 0, 1f))
-        painel.addView(coluna, LinearLayout.LayoutParams(0, -1, 0.7f))
+        coluna.addView(rvItens, LinearLayout.LayoutParams(-1, 0, 1f))
+        guiaBox = texto(15f, Color.rgb(220, 225, 230)).apply {
+            setBackgroundColor(Color.argb(70, 255, 255, 255))
+            setPadding(14.dp, 8.dp, 14.dp, 8.dp)
+            maxLines = 6; ellipsize = TextUtils.TruncateAt.END
+        }
+        coluna.addView(guiaBox, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 6.dp })
+        infoAjustes = texto(17f, Color.rgb(220, 225, 230)).apply { setPadding(4.dp, 8.dp, 4.dp, 8.dp); visibility = View.GONE }
+        coluna.addView(infoAjustes, LinearLayout.LayoutParams(-1, 0, 1f))
+        corpo.addView(coluna, LinearLayout.LayoutParams(0, -1, 0.7f))
+        painel.addView(corpo, LinearLayout.LayoutParams(-1, 0, 1f))
         painel.visibility = View.GONE
         raiz.addView(painel, FrameLayout.LayoutParams(-1, -1))
 
-        barra = texto(20f).apply {
-            setBackgroundColor(Color.argb(200, 0, 0, 0))
+        barra = texto(19f).apply {
+            setBackgroundColor(Color.argb(205, 0, 0, 0))
             setPadding(28.dp, 14.dp, 28.dp, 14.dp)
             visibility = View.GONE
         }
@@ -210,7 +275,7 @@ class MainActivity : ComponentActivity() {
 
         aviso = texto(20f).apply {
             gravity = Gravity.CENTER
-            setBackgroundColor(Color.argb(170, 0, 0, 0))
+            setBackgroundColor(Color.argb(180, 0, 0, 0))
             setPadding(28.dp, 16.dp, 28.dp, 16.dp)
             visibility = View.GONE
         }
@@ -221,24 +286,7 @@ class MainActivity : ComponentActivity() {
     private fun avisar(msg: String?) {
         aviso.text = msg.orEmpty()
         aviso.visibility = if (msg == null) View.GONE else View.VISIBLE
-    }
-
-    private val esconderBarra = Runnable { barra.visibility = View.GONE }
-
-    private fun mostrarBarra() {
-        val c = atual ?: return
-        val pos = sequencia.indexOf(c)
-        val sb = StringBuilder()
-        if (pos >= 0) sb.append(pos + 1).append("   ")
-        sb.append(c.nome).append('\n').append(c.grupo)
-        if (ehFilme()) {
-            sb.append("     ").append(tempo(player.currentPosition)).append(" / ").append(tempo(player.duration))
-            if (!player.isPlaying) sb.append("   ❚❚ pausado")
-        }
-        barra.text = sb
-        barra.visibility = View.VISIBLE
-        h.removeCallbacks(esconderBarra)
-        h.postDelayed(esconderBarra, 4000)
+        aviso.bringToFront()
     }
 
     private fun tempo(ms: Long): String {
@@ -247,147 +295,435 @@ class MainActivity : ComponentActivity() {
         return if (s >= 3600) "%d:%02d:%02d".format(s / 3600, s / 60 % 60, s % 60) else "%d:%02d".format(s / 60, s % 60)
     }
 
-    /** Filme/episódio (tem duração): aceita pausar e avançar. Canal ao vivo, não. */
-    private fun ehFilme() = player.isCurrentMediaItemSeekable && player.duration != C.TIME_UNSET && player.duration > 0
+    // ---------------------------------------------------------------- carregar
 
-    // ---------------------------------------------------------------- lista
-
-    private fun baixarLista(silencioso: Boolean) {
-        if (!silencioso) avisar("Baixando a lista…")
+    private fun carregarCatalogo(baixar: Boolean, silencioso: Boolean) {
+        if (!silencioso) avisar(if (baixar) "Baixando a lista…" else "Abrindo a lista…")
         bg.execute {
             try {
-                val canais = repo.baixar()
-                runOnUiThread { if (!silencioso) avisar(null); aplicar(canais) }
+                val c = repo.carregar(baixar) { p -> if (!silencioso) runOnUiThread { avisar(p) } }
+                runOnUiThread {
+                    if (!silencioso) avisar(null)
+                    aplicar(c)
+                    if (!baixar && repo.copiaVelha()) carregarCatalogo(baixar = true, silencioso = true)
+                }
             } catch (e: Exception) {
                 runOnUiThread {
-                    val msg = "Não foi possível baixar a lista: ${e.message ?: e.javaClass.simpleName}"
                     if (silencioso) return@runOnUiThread
                     avisar(null)
-                    if (todos.isEmpty()) mostrarConfig(msg) else Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+                    val msg = "Não foi possível carregar a lista: ${e.message ?: e.javaClass.simpleName}"
+                    when {
+                        catalogo != null -> toast(msg)
+                        !baixar -> carregarCatalogo(baixar = true, silencioso = false)
+                        else -> mostrarConfig(msg)
+                    }
                 }
             }
         }
     }
 
-    private fun aplicar(canais: List<Canal>) {
-        todos = canais
-        algumLogo = canais.any { it.logo != null }
-        porGrupo = canais.groupBy { it.grupo }
-        entradas = buildList {
-            add(Entrada("★  Favoritos", Tipo.FAVORITOS))
-            add(Entrada("Todos  (${canais.size})", Tipo.TODOS))
-            porGrupo.forEach { (g, l) -> add(Entrada("$g  (${l.size})", Tipo.GRUPO, g)) }
-            add(Entrada("↻  Atualizar lista", Tipo.ATUALIZAR))
-            add(Entrada("⚙  Trocar lista", Tipo.CONFIGURAR))
-            add(Entrada("✕  Sair", Tipo.SAIR))
-        }
-        rvGrupos.adapter?.notifyDataSetChanged()
-        atual = atual?.let { a -> canais.firstOrNull { it.url == a.url } }
+    private fun abaDe(i: Item) = when (i.tipo) { Tipo.AO_VIVO -> Aba.TV; Tipo.FILME -> Aba.FILMES; Tipo.SERIE -> Aba.SERIES }
 
+    private fun aplicar(c: Catalogo) {
+        catalogo = c
+        val m = c.itens.groupBy { abaDe(it) }
+        porAba = Aba.entries.associateWith { m[it].orEmpty() }
+        gruposDe = porAba.mapValues { (_, l) -> l.groupByTo(LinkedHashMap()) { it.grupo } }
+        porUrl = c.itens.filter { it.url.isNotBlank() }.associateBy { it.url }
+        porSerie = c.itens.filter { it.tipo == Tipo.SERIE && it.url.isBlank() && it.id != null }.associateBy { it.id!! }
+        guia.preparar(c)
+        abas.forEach { (a, t) ->
+            val n = porAba[a]?.size ?: 0
+            t.text = if (a == Aba.AJUSTES) a.rotulo else "${a.rotulo}  ${"%,d".format(Locale.forLanguageTag("pt-BR"), n)}"
+        }
+        atual = atual?.let { a -> porUrl[a.url] ?: a }
         if (primeiraCarga) {
             primeiraCarga = false
-            val ultimo = repo.ultimoCanal?.let { u -> canais.firstOrNull { it.url == u } }
+            val ultimo = repo.ultimoCanal?.let { u -> porUrl[u] }?.takeIf { it.tipo == Tipo.AO_VIVO && !travado(it) }
             if (ultimo != null) {
-                selecionarGrupo(indiceDoGrupo(ultimo), focar = false)
-                tocar(ultimo, porGrupo[ultimo.grupo].orEmpty())
+                grupoDaAba[Aba.TV] = ultimo.grupo
+                trocarAba(Aba.TV, focar = false)
+                tocar(ultimo, gruposDe[Aba.TV]?.get(ultimo.grupo).orEmpty())
                 return
             }
-            selecionarGrupo(if (repo.favoritos.isNotEmpty()) 0 else 1, focar = false)
+            trocarAba(Aba.TV, focar = false)
             mostrarPainel()
         } else {
-            selecionarGrupo(grupoSel.coerceIn(0, entradas.size - 1), focar = false)
+            trocarAba(aba, focar = false)
         }
     }
 
-    private fun indiceDoGrupo(c: Canal) = entradas.indexOfFirst { it.tipo == Tipo.GRUPO && it.grupo == c.grupo }.coerceAtLeast(1)
+    // ---------------------------------------------------------------- abas, grupos e itens
 
-    private fun canaisDe(e: Entrada): List<Canal> = when (e.tipo) {
-        Tipo.FAVORITOS -> repo.favoritos.let { f -> todos.filter { it.url in f } }
-        Tipo.TODOS -> todos
-        Tipo.GRUPO -> porGrupo[e.grupo].orEmpty()
-        else -> visiveis
+    private fun adulto(i: Item) = i.adulto || RX_ADULTO.containsMatchIn(i.grupo)
+    private fun travado(i: Item) = repo.pin != null && !desbloqueado && adulto(i)
+    private fun semTravados(l: List<Item>) = if (repo.pin == null || desbloqueado) l else l.filter { !adulto(it) }
+
+    private fun trocarAba(a: Aba, focar: Boolean) {
+        aba = a
+        abas.forEach { (k, v) -> pintar(v, v.hasFocus(), k == a) }
+        montarEntradas()
+        val ajustes = a == Aba.AJUSTES
+        busca.visibility = if (ajustes) View.GONE else View.VISIBLE
+        rvItens.visibility = if (ajustes) View.GONE else View.VISIBLE
+        infoAjustes.visibility = if (ajustes) View.VISIBLE else View.GONE
+        guiaBox.visibility = if (a == Aba.TV) View.VISIBLE else View.GONE
+        guiaBox.text = "Escolha um canal para ver a programação."
+        busca.hint = when (a) { Aba.TV -> "Buscar canal…"; Aba.FILMES -> "Buscar filme…"; else -> "Buscar série…" }
+        algumLogo = porAba[a].orEmpty().any { it.logo != null }
+        if (busca.text.isNotEmpty()) busca.setText("")
+        if (ajustes) {
+            grupoSel = -1
+            titulo.text = "Ajustes"
+            atualizarInfoAjustes()
+            if (focar) rvGrupos.post { rvGrupos.findViewHolderForAdapterPosition(0)?.itemView?.requestFocus() }
+            return
+        }
+        val nomeGrupo = grupoDaAba[a]
+        var i = nomeGrupo?.let { g -> entradas.indexOfFirst { it.tipo == TE.GRUPO && it.grupo == g } } ?: -1
+        if (i < 0) i = entradas.indexOfFirst { e -> e.tipo != TE.GRUPO && itensDe(e).isNotEmpty() }
+        if (i < 0) i = entradas.indexOfFirst { it.tipo == TE.TODOS }
+        selecionarGrupo(i, focar)
+    }
+
+    private fun montarEntradas() {
+        entradas = if (aba == Aba.AJUSTES) buildList {
+            add(Entrada("↻  Atualizar lista agora", TE.ACAO, acao = "atualizar"))
+            add(Entrada("⚙  Trocar lista / login", TE.ACAO, acao = "trocar"))
+            add(Entrada("🔒  Controle dos pais: ${if (repo.pin == null) "desligado" else "ligado"}", TE.ACAO, acao = "pin"))
+            if (repo.xtream != null) add(Entrada("📺  Canais ao vivo em: ${if (repo.formatoAoVivo == "m3u8") "HLS" else "TS"}", TE.ACAO, acao = "formato"))
+            add(Entrada("🗑  Limpar \"Continuar assistindo\"", TE.ACAO, acao = "limpar"))
+            add(Entrada("✕  Sair do app", TE.ACAO, acao = "sair"))
+        } else buildList {
+            add(Entrada("★  Favoritos", TE.FAVORITOS))
+            if (aba != Aba.TV) add(Entrada("▶  Continuar assistindo", TE.CONTINUAR))
+            add(Entrada("Todos  (${porAba[aba]?.size ?: 0})", TE.TODOS))
+            gruposDe[aba]?.forEach { (g, l) ->
+                val b = repo.pin != null && !desbloqueado && (RX_ADULTO.containsMatchIn(g) || l.any { it.adulto })
+                add(Entrada((if (b) "🔒 " else "") + "$g  (${l.size})", TE.GRUPO, g, bloqueado = b))
+            }
+        }
+        rvGrupos.adapter?.notifyDataSetChanged()
+    }
+
+    private fun itensDe(e: Entrada): List<Item> {
+        val lista = porAba[aba].orEmpty()
+        return when (e.tipo) {
+            TE.FAVORITOS -> repo.favoritos.let { f -> semTravados(lista.filter { repo.chave(it) in f }) }
+            TE.CONTINUAR -> semTravados(
+                if (aba == Aba.SERIES) repo.seriesRecentes().mapNotNull { porSerie[it] }
+                else repo.recentes().mapNotNull { porUrl[it] }.filter { abaDe(it) == aba }
+            )
+            TE.TODOS -> semTravados(lista)
+            TE.GRUPO -> if (e.bloqueado) emptyList() else gruposDe[aba]?.get(e.grupo).orEmpty()
+            TE.ACAO -> emptyList()
+        }
     }
 
     private fun selecionarGrupo(i: Int, focar: Boolean) {
         val e = entradas.getOrNull(i) ?: return
-        if (e.tipo !in setOf(Tipo.FAVORITOS, Tipo.TODOS, Tipo.GRUPO)) return
+        if (e.tipo == TE.ACAO) return
         val antes = grupoSel
         grupoSel = i
+        e.grupo?.let { grupoDaAba[aba] = it } ?: grupoDaAba.remove(aba)
         if (busca.text.isNotEmpty()) busca.setText("")
-        visiveis = canaisDe(e)
+        visiveis = itensDe(e)
         titulo.text = when {
-            e.tipo == Tipo.FAVORITOS && visiveis.isEmpty() ->
-                "Favoritos: nenhum ainda. Segure OK (ou aperte Menu) num canal para marcar."
-            else -> "${e.rotulo.substringBeforeLast("  (")} · ${visiveis.size}"
+            e.bloqueado -> "Grupo protegido: aperte OK no grupo e digite a senha do controle dos pais."
+            e.tipo == TE.FAVORITOS && visiveis.isEmpty() -> "Favoritos: nenhum ainda. Segure OK (ou aperte Menu) num item para marcar."
+            e.tipo == TE.CONTINUAR && visiveis.isEmpty() -> "Nada começado ainda."
+            else -> "${e.rotulo.substringBeforeLast("  (").removePrefix("🔒 ")} · ${visiveis.size}"
         }
-        rvCanais.adapter?.notifyDataSetChanged()
-        rvCanais.scrollToPosition(0)
+        rvItens.adapter?.notifyDataSetChanged()
+        rvItens.scrollToPosition(0)
         if (antes >= 0) rvGrupos.adapter?.notifyItemChanged(antes)
         rvGrupos.adapter?.notifyItemChanged(i)
-        if (focar) focarCanal(0)
+        if (focar) focarItem(0)
     }
 
     private val filtrar = Runnable {
+        if (aba == Aba.AJUSTES) return@Runnable
         val q = semAcento(busca.text.toString().trim())
         if (q.isEmpty()) {
-            entradas.getOrNull(grupoSel)?.let { visiveis = canaisDe(it); titulo.text = "${it.rotulo.substringBeforeLast("  (")} · ${visiveis.size}" }
+            entradas.getOrNull(grupoSel)?.let { visiveis = itensDe(it); titulo.text = "${it.rotulo.substringBeforeLast("  (")} · ${visiveis.size}" }
         } else {
             val partes = q.split(Regex("\\s+"))
-            visiveis = todos.filter { c -> partes.all { c.chave.contains(it) } }
+            visiveis = semTravados(porAba[aba].orEmpty()).filter { c -> partes.all { c.chave.contains(it) } }
             titulo.text = "Busca: ${visiveis.size} resultado(s)"
         }
-        rvCanais.adapter?.notifyDataSetChanged()
-        rvCanais.scrollToPosition(0)
+        rvItens.adapter?.notifyDataSetChanged()
+        rvItens.scrollToPosition(0)
     }
 
-    private fun focarCanal(i: Int) {
+    private fun focarItem(i: Int) {
         if (visiveis.isEmpty()) return
         val p = i.coerceIn(0, visiveis.size - 1)
-        (rvCanais.layoutManager as LinearLayoutManager).scrollToPositionWithOffset(p, 120.dp)
-        rvCanais.post { rvCanais.findViewHolderForAdapterPosition(p)?.itemView?.requestFocus() }
+        (rvItens.layoutManager as LinearLayoutManager).scrollToPositionWithOffset(p, 120.dp)
+        rvItens.post { rvItens.findViewHolderForAdapterPosition(p)?.itemView?.requestFocus() }
     }
 
-    private fun mostrarPainel() {
+    private fun mostrarPainel(foco: Item? = atual) {
         painel.visibility = View.VISIBLE
         barra.visibility = View.GONE
-        val i = atual?.let { visiveis.indexOf(it) } ?: -1
-        if (i >= 0) focarCanal(i)
-        else if (visiveis.isNotEmpty()) focarCanal(0)
-        else rvGrupos.post { rvGrupos.findViewHolderForAdapterPosition(grupoSel.coerceAtLeast(0))?.itemView?.requestFocus() }
+        val i = foco?.let { visiveis.indexOf(it) } ?: -1
+        when {
+            i >= 0 -> focarItem(i)
+            aba != Aba.AJUSTES && visiveis.isNotEmpty() -> focarItem(0)
+            else -> rvGrupos.post { rvGrupos.findViewHolderForAdapterPosition(grupoSel.coerceAtLeast(0))?.itemView?.requestFocus() }
+        }
     }
 
     private fun esconderPainel() {
         painel.visibility = View.GONE
         currentFocus?.clearFocus()
         raiz.requestFocus()
+        if (ehVod() && telaConfig == null && ficha == null) player.play()
     }
 
-    private fun alternarFavorito(c: Canal) {
-        val marcado = repo.alternarFavorito(c.url)
+    private fun alternarFavorito(c: Item) {
+        val marcado = repo.alternarFavorito(c)
         Toast.makeText(this, if (marcado) "★ ${c.nome} nos favoritos" else "${c.nome} saiu dos favoritos", Toast.LENGTH_SHORT).show()
-        if (entradas.getOrNull(grupoSel)?.tipo == Tipo.FAVORITOS && busca.text.isEmpty()) {
-            val pos = visiveis.indexOf(c)
+        if (painel.visibility != View.VISIBLE) return
+        if (entradas.getOrNull(grupoSel)?.tipo == TE.FAVORITOS && busca.text.isEmpty()) {
+            val p = visiveis.indexOf(c)
             selecionarGrupo(grupoSel, focar = false)
-            focarCanal(pos)
-        } else {
-            rvCanais.adapter?.notifyItemChanged(visiveis.indexOf(c))
+            focarItem(p)
+        } else visiveis.indexOf(c).takeIf { it >= 0 }?.let { rvItens.adapter?.notifyItemChanged(it) }
+    }
+
+    private fun abrirItem(i: Item) {
+        if (travado(i)) { desbloquear { abrirItem(i) }; return }
+        when {
+            i.tipo == Tipo.AO_VIVO -> tocar(i, visiveis.filter { it.tipo == Tipo.AO_VIVO }.ifEmpty { listOf(i) })
+            i.tipo == Tipo.SERIE && i.url.isBlank() -> abrirFichaSerie(i)
+            else -> abrirFichaFilme(i)
         }
+    }
+
+    // ---------------------------------------------------------------- guia de programação
+
+    private fun textoGuia(l: List<Programa>): String {
+        if (l.isEmpty()) return "Sem guia de programação para este canal."
+        val n = System.currentTimeMillis()
+        val sb = StringBuilder()
+        l.take(4).forEachIndexed { k, p ->
+            if (n >= p.inicio && n < p.fim) sb.append("Agora   ")
+            sb.append(hhmm.format(Date(p.inicio))).append("–").append(hhmm.format(Date(p.fim))).append("   ").append(p.titulo)
+            if (k == 0 && p.descricao.isNotBlank()) sb.append("\n      ").append(p.descricao.replace('\n', ' ').take(160))
+            sb.append('\n')
+        }
+        return sb.toString().trimEnd()
+    }
+
+    private val atualizarGuia = Runnable {
+        val i = focadoGuia ?: return@Runnable
+        guiaBox.text = "${i.nome}: carregando a programação…"
+        guia.programas(i) { l ->
+            if (focadoGuia != i) return@programas
+            guiaBox.text = "${i.nome}\n" + textoGuia(l)
+            visiveis.indexOf(i).takeIf { it >= 0 }?.let { rvItens.adapter?.notifyItemChanged(it) }
+        }
+    }
+
+    // ---------------------------------------------------------------- fichas (filme e série)
+
+    private class FichaV(val tela: View, val capa: ImageView, val nome: TextView, val meta: TextView,
+                         val sinopse: TextView, val botoes: LinearLayout, val extra: LinearLayout)
+
+    private fun novaFicha(item: Item): FichaV {
+        fecharFicha(mostrar = false)
+        painel.visibility = View.GONE
+        if (ehVod()) player.pause()
+        val tela = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(Color.rgb(10, 14, 20))
+            setPadding(40.dp, 30.dp, 40.dp, 20.dp)
+            isClickable = true
+        }
+        val capa = ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_START; adjustViewBounds = true }
+        tela.addView(capa, LinearLayout.LayoutParams(190.dp, 285.dp))
+        val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(28.dp, 0, 0, 0) }
+        val nome = texto(26f).apply { typeface = Typeface.DEFAULT_BOLD; text = item.nome }
+        val meta = texto(15f, Color.LTGRAY).apply {
+            setPadding(0, 6.dp, 0, 10.dp)
+            text = listOfNotNull(item.ano, item.nota?.let { "★ $it" }, item.grupo).joinToString("   ·   ")
+        }
+        val sinopse = texto(16f, Color.rgb(222, 226, 230)).apply { maxLines = 6; ellipsize = TextUtils.TruncateAt.END }
+        val botoes = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, 14.dp, 0, 10.dp) }
+        val extra = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        col.addView(nome); col.addView(meta); col.addView(sinopse); col.addView(botoes)
+        col.addView(extra, LinearLayout.LayoutParams(-1, 0, 1f))
+        tela.addView(col, LinearLayout.LayoutParams(0, -1, 1f))
+        raiz.addView(tela, FrameLayout.LayoutParams(-1, -1))
+        aviso.bringToFront()
+        ficha = tela
+        Logos.mostrar(capa, item.logo, 380)
+        return FichaV(tela, capa, nome, meta, sinopse, botoes, extra)
+    }
+
+    private fun fecharFicha(mostrar: Boolean) {
+        ficha?.let { raiz.removeView(it) }
+        ficha = null
+        if (mostrar) mostrarPainel(voltarPara ?: atual)
+    }
+
+    private fun botaoFavorito(i: Item): Button {
+        fun rot() = if (repo.chave(i) in repo.favoritos) "★ Nos favoritos" else "☆ Favoritar"
+        return botao(rot()) {}.apply { setOnClickListener { alternarFavorito(i); text = rot() } }
+    }
+
+    private fun abrirFichaFilme(item: Item) {
+        val f = novaFicha(item)
+        f.sinopse.text = if (repo.xtream != null && item.tipo == Tipo.FILME) "Carregando…" else ""
+        val p = repo.posicao(item.url)
+        val primeiro: Button = if (p != null && p.first > 60_000 && p.first < p.second * 95 / 100) {
+            val b = botao("▶  Continuar de ${tempo(p.first)}") { tocarVod(item, listOf(item), p.first, item) }
+            f.botoes.addView(b)
+            f.botoes.addView(botao("Do início") { tocarVod(item, listOf(item), 0, item) })
+            b
+        } else botao(if (p != null && p.second > 0 && p.first >= p.second * 95 / 100) "▶  Assistir de novo" else "▶  Assistir") {
+            tocarVod(item, listOf(item), 0, item)
+        }.also { f.botoes.addView(it) }
+        f.botoes.addView(botaoFavorito(item))
+        primeiro.post { primeiro.requestFocus() }
+        val x = repo.xtream
+        val id = item.id
+        if (x == null || id == null || item.tipo != Tipo.FILME) return
+        rede.execute {
+            val d = try { x.filme(id) } catch (_: Exception) { null }
+            runOnUiThread {
+                if (ficha !== f.tela) return@runOnUiThread
+                if (d == null) { f.sinopse.text = ""; return@runOnUiThread }
+                f.meta.text = listOfNotNull(d.ano ?: item.ano, d.duracao, d.genero, (d.nota ?: item.nota)?.let { "★ $it" })
+                    .joinToString("   ·   ")
+                f.sinopse.text = listOfNotNull(d.sinopse, d.diretor?.let { "Direção: $it" }, d.elenco?.let { "Elenco: $it" })
+                    .joinToString("\n\n")
+                if (item.logo == null && d.capa != null) Logos.mostrar(f.capa, d.capa, 380)
+            }
+        }
+    }
+
+    private fun epItem(serie: Item, e: Episodio, capa: String?) = Item(
+        tipo = Tipo.SERIE, nome = "${serie.nome} — T${e.temporada} E${e.numero}  ${e.titulo}", url = e.url,
+        grupo = serie.grupo, logo = e.imagem ?: capa ?: serie.logo, id = e.id, adulto = serie.adulto,
+        pai = serie.id, temporada = e.temporada, num = e.numero,
+    )
+
+    private fun abrirFichaSerie(item: Item) {
+        val f = novaFicha(item)
+        f.botoes.addView(botaoFavorito(item).also { b -> b.post { b.requestFocus() } })
+        f.sinopse.text = "Carregando as temporadas…"
+        val x = repo.xtream ?: return
+        val id = item.id ?: return
+        rede.execute {
+            val s = try { x.serie(id) } catch (e: Exception) { e }
+            runOnUiThread {
+                if (ficha !== f.tela) return@runOnUiThread
+                if (s is FichaSerie) montarTemporadas(f, item, s)
+                else f.sinopse.text = "Não foi possível carregar a série: ${(s as Exception).message}"
+            }
+        }
+    }
+
+    private fun montarTemporadas(f: FichaV, serie: Item, s: FichaSerie) {
+        f.meta.text = listOfNotNull(s.ano ?: serie.ano, s.genero, (s.nota ?: serie.nota)?.let { "★ $it" },
+            "${s.episodios.size} temporada(s)").joinToString("   ·   ")
+        f.sinopse.text = listOfNotNull(s.sinopse, s.elenco?.let { "Elenco: $it" }).joinToString("\n\n")
+        if (serie.logo == null && s.capa != null) Logos.mostrar(f.capa, s.capa, 380)
+        if (s.episodios.isEmpty()) { f.sinopse.append("\n\nNenhum episódio encontrado no servidor."); return }
+        val ult = repo.serieUltimo(serie.id!!)
+        var temp = ult?.first?.takeIf { it in s.episodios } ?: s.episodios.keys.first()
+        val itensDaTemp = { t: Int -> s.episodios[t].orEmpty().map { epItem(serie, it, s.capa) } }
+        if (ult != null) {
+            val eps = itensDaTemp(ult.first)
+            eps.firstOrNull { it.id == ult.second }?.let { e ->
+                val p = repo.posicao(e.url)
+                val rot = if (p != null && p.first > 60_000 && p.first < p.second * 95 / 100)
+                    "▶  Continuar T${e.temporada} E${e.num} (${tempo(p.first)})" else "▶  Continuar T${e.temporada} E${e.num}"
+                val b = botao(rot) { tocarVod(e, eps, p?.first?.takeIf { it < (p.second * 95 / 100) } ?: 0, serie) }
+                f.botoes.addView(b, 0)
+                b.post { b.requestFocus() }
+            }
+        }
+        val linha = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val rolar = HorizontalScrollView(this).apply { addView(linha); isHorizontalScrollBarEnabled = false }
+        val lista = RecyclerView(this).apply { layoutManager = LinearLayoutManager(this@MainActivity); itemAnimator = null }
+        val ad = AdEpisodios(serie)
+        lista.adapter = ad
+        val botoesT = HashMap<Int, TextView>()
+        fun escolher(t: Int) {
+            temp = t
+            ad.lista = itensDaTemp(t)
+            ad.notifyDataSetChanged()
+            botoesT.forEach { (k, v) -> pintar(v, v.hasFocus(), k == t) }
+        }
+        s.episodios.keys.forEach { t ->
+            val b = texto(17f).apply {
+                text = if (t == 0) "Extras" else "Temporada $t"
+                setPadding(16.dp, 8.dp, 16.dp, 8.dp)
+                isFocusable = true; isClickable = true
+                setOnFocusChangeListener { v, foc -> pintar(v, foc, t == temp); if (foc && t != temp) escolher(t) }
+                setOnClickListener { lista.post { lista.findViewHolderForAdapterPosition(0)?.itemView?.requestFocus() } }
+            }
+            botoesT[t] = b
+            linha.addView(b)
+        }
+        f.extra.addView(rolar)
+        f.extra.addView(lista, LinearLayout.LayoutParams(-1, 0, 1f))
+        escolher(temp)
+        if (f.botoes.childCount == 1) botoesT[temp]?.post { botoesT[temp]?.requestFocus() }
     }
 
     // ---------------------------------------------------------------- reprodução
 
-    private fun tocar(c: Canal, seq: List<Canal>) {
+    private fun ehVod() = atual?.let { it.tipo != Tipo.AO_VIVO } == true
+
+    private fun salvarProgresso() {
+        val c = atual ?: return
+        if (c.tipo == Tipo.AO_VIVO) return
+        val d = player.duration
+        if (d == C.TIME_UNSET || d <= 0) return
+        repo.salvarPosicao(c.url, player.currentPosition, d)
+    }
+
+    private val salvarPeriodico = object : Runnable {
+        override fun run() {
+            if (ehVod() && player.isPlaying) salvarProgresso()
+            h.postDelayed(this, 15_000)
+        }
+    }
+
+    private fun tocar(c: Item, seq: List<Item>) {
+        salvarProgresso()
         val anterior = atual
         atual = c
         sequencia = seq.ifEmpty { listOf(c) }
+        voltarPara = null
         repo.ultimoCanal = c.url
         tentativas = 0
         mimeForcado = null
         iniciar(c)
+        fecharFicha(mostrar = false)
         esconderPainel()
         mostrarBarra()
-        anterior?.let { a -> visiveis.indexOf(a).takeIf { it >= 0 }?.let { rvCanais.adapter?.notifyItemChanged(it) } }
-        visiveis.indexOf(c).takeIf { it >= 0 }?.let { rvCanais.adapter?.notifyItemChanged(it) }
+        anterior?.let { a -> visiveis.indexOf(a).takeIf { it >= 0 }?.let { rvItens.adapter?.notifyItemChanged(it) } }
+        visiveis.indexOf(c).takeIf { it >= 0 }?.let { rvItens.adapter?.notifyItemChanged(it) }
+    }
+
+    private fun tocarVod(c: Item, seq: List<Item>, inicio: Long, de: Item?) {
+        salvarProgresso()
+        atual = c
+        sequencia = seq.ifEmpty { listOf(c) }
+        voltarPara = de
+        tentativas = 0
+        mimeForcado = null
+        if (c.pai != null && c.id != null) repo.marcarSerie(c.pai, c.temporada, c.id)
+        iniciar(c, inicio)
+        fecharFicha(mostrar = false)
+        esconderPainel()
+        mostrarBarra()
+        h.removeCallbacks(salvarPeriodico)
+        h.postDelayed(salvarPeriodico, 15_000)
     }
 
     private fun mimeDe(url: String): String? {
@@ -399,34 +735,31 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun iniciar(c: Canal) {
+    private fun iniciar(c: Item, inicio: Long = 0, tocar: Boolean = true) {
         h.removeCallbacks(tentarDeNovo)
         val http = DefaultHttpDataSource.Factory()
-            .setUserAgent(c.userAgent ?: Repositorio.USER_AGENT)
+            .setUserAgent(c.userAgent ?: Http.USER_AGENT)
             .setAllowCrossProtocolRedirects(true)
             .setConnectTimeoutMs(15_000)
             .setReadTimeoutMs(20_000)
         c.referer?.let { http.setDefaultRequestProperties(mapOf("Referer" to it)) }
         val item = MediaItem.Builder().setUri(c.url).apply { (mimeForcado ?: mimeDe(c.url))?.let { setMimeType(it) } }.build()
         val fonte = DefaultMediaSourceFactory(DefaultDataSource.Factory(this, http)).createMediaSource(item)
-        player.setMediaSource(fonte)
+        player.setMediaSource(fonte, inicio)
         player.prepare()
-        player.playWhenReady = true
+        player.playWhenReady = tocar
     }
 
-    private val tentarDeNovo = Runnable { atual?.let { iniciar(it) } }
+    private val tentarDeNovo = Runnable {
+        atual?.let { iniciar(it, if (it.tipo == Tipo.AO_VIVO) 0 else player.currentPosition.coerceAtLeast(0)) }
+    }
 
     private val ouvinte = object : Player.Listener {
         override fun onPlaybackStateChanged(estado: Int) {
             when (estado) {
                 Player.STATE_BUFFERING -> avisar("Carregando…")
                 Player.STATE_READY -> { avisar(null); tentativas = 0 }
-                Player.STATE_ENDED -> {
-                    avisar(null)
-                    // canal ao vivo que o servidor fechou: reconecta. Filme que acabou: abre a lista.
-                    if (player.duration == C.TIME_UNSET || !player.isCurrentMediaItemSeekable) atual?.let { iniciar(it) }
-                    else mostrarPainel()
-                }
+                Player.STATE_ENDED -> { avisar(null); terminou() }
                 else -> Unit
             }
         }
@@ -448,18 +781,35 @@ class MainActivity : ComponentActivity() {
                 avisar("Sem sinal em \"${c.nome}\"… tentando de novo ($tentativas/3)")
                 h.postDelayed(tentarDeNovo, 3000)
             } else {
-                avisar("Não foi possível abrir \"${c.nome}\".\n${motivo(e)}\nEscolha outro canal (OK abre a lista).")
+                avisar("Não foi possível abrir \"${c.nome}\".\n${motivo(e)}\nAperte Voltar para escolher outro.")
             }
         }
     }
 
+    private fun terminou() {
+        val c = atual ?: return
+        if (c.tipo == Tipo.AO_VIVO) { iniciar(c); return }  // canal ao vivo que o servidor fechou: reconecta
+        val d = player.duration
+        if (d != C.TIME_UNSET && d > 0) repo.salvarPosicao(c.url, d, d)
+        val prox = sequencia.indexOf(c).takeIf { it >= 0 }?.let { sequencia.getOrNull(it + 1) }
+        if (c.pai != null && prox != null) {
+            Toast.makeText(this, "Próximo episódio: ${prox.nome}", Toast.LENGTH_SHORT).show()
+            tocarVod(prox, sequencia, 0, voltarPara)
+            return
+        }
+        player.stop()
+        val de = voltarPara
+        atual = null
+        if (de != null) abrirItem(de) else mostrarPainel()
+    }
+
     private fun motivo(e: PlaybackException) = when (e.errorCode) {
-        PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> "O servidor recusou (assinatura vencida, limite de telas ou canal fora do ar)."
+        PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> "O servidor recusou (assinatura vencida, limite de telas ou conteúdo fora do ar)."
         PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
         PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> "Sem conexão com o servidor."
         PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
         PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
-        PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES -> "Este aparelho não consegue tocar o formato deste canal."
+        PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES -> "Este aparelho não consegue tocar o formato deste conteúdo."
         PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED -> "Formato de transmissão não suportado."
         else -> e.errorCodeName
     }
@@ -468,34 +818,246 @@ class MainActivity : ComponentActivity() {
         val c = atual ?: return
         if (sequencia.size < 2) return
         val i = sequencia.indexOf(c).let { if (it < 0) 0 else it }
-        val n = sequencia[(i + passo).mod(sequencia.size)]
-        tocar(n, sequencia)
+        tocar(sequencia[(i + passo).mod(sequencia.size)], sequencia)
+    }
+
+    private val esconderBarra = Runnable { barra.visibility = View.GONE }
+
+    private fun mostrarBarra() {
+        val c = atual ?: return
+        fun desenhar(progs: List<Programa>?) {
+            val sb = StringBuilder()
+            if (c.tipo == Tipo.AO_VIVO) {
+                val pos = sequencia.indexOf(c)
+                if (c.num > 0) sb.append(c.num).append("   ") else if (pos >= 0) sb.append(pos + 1).append("   ")
+                sb.append(c.nome).append("      ").append(c.grupo)
+                progs?.take(2)?.forEach { p ->
+                    sb.append('\n').append(hhmm.format(Date(p.inicio))).append("–").append(hhmm.format(Date(p.fim))).append("   ").append(p.titulo)
+                }
+            } else {
+                sb.append(c.nome).append('\n').append(tempo(player.currentPosition)).append(" / ").append(tempo(player.duration))
+                if (!player.playWhenReady) sb.append("     ❚❚ pausado")
+                sb.append("        ◀ volta 10 s   ▶ avança 30 s   Menu: áudio e legenda")
+            }
+            barra.text = sb
+        }
+        desenhar(null)
+        barra.visibility = View.VISIBLE
+        barra.bringToFront(); aviso.bringToFront()
+        h.removeCallbacks(esconderBarra)
+        h.postDelayed(esconderBarra, 5000)
+        if (c.tipo == Tipo.AO_VIVO) guia.programas(c) { l -> if (atual == c && barra.visibility == View.VISIBLE) desenhar(l) }
+    }
+
+    // ---------------------------------------------------------------- opções (áudio, legenda, tela)
+
+    private fun dialogo(tituloD: String, itens: List<Pair<String, () -> Unit>>) {
+        AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+            .setTitle(tituloD)
+            .setItems(itens.map { it.first }.toTypedArray()) { d, i -> d.dismiss(); itens[i].second() }
+            .show()
+    }
+
+    private fun descrever(f: Format, n: Int): String {
+        val idioma = f.language?.takeIf { it != "und" && it.isNotBlank() }?.let {
+            Locale.forLanguageTag(it).getDisplayLanguage(Locale.forLanguageTag("pt-BR")).replaceFirstChar { c -> c.uppercase() }
+        }
+        val canais = when (f.channelCount) { 1 -> "mono"; 2 -> "estéreo"; 6 -> "5.1"; 8 -> "7.1"; else -> null }
+        return listOfNotNull(idioma ?: f.label ?: "Faixa $n", f.label?.takeIf { idioma != null && !it.equals(idioma, true) }, canais)
+            .joinToString(" · ")
+    }
+
+    private fun faixaAtual(tipo: Int): String? {
+        player.currentTracks.groups.filter { it.type == tipo }.forEach { g ->
+            for (i in 0 until g.length) if (g.isTrackSelected(i)) return descrever(g.getTrackFormat(i), i + 1)
+        }
+        return null
+    }
+
+    private fun escolherFaixa(tipo: Int) {
+        val ops = mutableListOf<Pair<String, () -> Unit>>()
+        if (tipo == C.TRACK_TYPE_TEXT) ops += "Desligada" to {
+            player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+                .clearOverridesOfType(C.TRACK_TYPE_TEXT).setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true).build()
+            repo.idiomaLegenda = "off"
+        }
+        var n = 0
+        player.currentTracks.groups.filter { it.type == tipo }.forEach { g ->
+            for (i in 0 until g.length) if (g.isTrackSupported(i)) {
+                val f = g.getTrackFormat(i)
+                n++
+                ops += (descrever(f, n) + if (g.isTrackSelected(i)) "   ✓" else "") to {
+                    player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+                        .setTrackTypeDisabled(tipo, false)
+                        .setOverrideForType(TrackSelectionOverride(g.mediaTrackGroup, i))
+                        .apply {
+                            if (tipo == C.TRACK_TYPE_AUDIO) setPreferredAudioLanguage(f.language) else setPreferredTextLanguage(f.language)
+                        }.build()
+                    if (tipo == C.TRACK_TYPE_AUDIO) repo.idiomaAudio = f.language else repo.idiomaLegenda = f.language ?: "und"
+                }
+            }
+        }
+        if (n == 0) {
+            toast(if (tipo == C.TRACK_TYPE_AUDIO) "Este conteúdo tem um áudio só." else "Este conteúdo não tem legenda.")
+            return
+        }
+        dialogo(if (tipo == C.TRACK_TYPE_AUDIO) "Áudio" else "Legenda", ops)
+    }
+
+    private fun opcoes() {
+        val c = atual ?: return
+        val ops = mutableListOf<Pair<String, () -> Unit>>()
+        ops += "Áudio: ${faixaAtual(C.TRACK_TYPE_AUDIO) ?: "padrão"}" to { escolherFaixa(C.TRACK_TYPE_AUDIO) }
+        ops += "Legenda: ${faixaAtual(C.TRACK_TYPE_TEXT) ?: "desligada"}" to { escolherFaixa(C.TRACK_TYPE_TEXT) }
+        ops += "Tela: ${FORMATOS[repo.formatoTela.coerceIn(0, FORMATOS.size - 1)].first}" to {
+            repo.formatoTela = (repo.formatoTela + 1) % FORMATOS.size
+            video.resizeMode = FORMATOS[repo.formatoTela].second
+            toast("Tela: ${FORMATOS[repo.formatoTela].first}")
+        }
+        if (c.tipo == Tipo.AO_VIVO) {
+            ops += "Guia deste canal" to {
+                guia.programas(c) { l ->
+                    AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                        .setTitle(c.nome).setMessage(textoGuia(l).ifBlank { "Sem guia." }).setPositiveButton("OK", null).show()
+                }
+            }
+            ops += "Lista de canais" to { mostrarPainel() }
+        } else {
+            ops += "Voltar ao começo" to { player.seekTo(0) }
+        }
+        ops += (if (repo.chave(c) in repo.favoritos) "Tirar dos favoritos" else "★ Favoritar") to { alternarFavorito(c) }
+        dialogo(c.nome, ops)
+    }
+
+    // ---------------------------------------------------------------- controle dos pais
+
+    private fun pedirSenha(tituloD: String, depois: (String) -> Unit) {
+        val campo = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            filters = arrayOf(InputFilter.LengthFilter(8))
+            hint = "Senha (números)"
+        }
+        val caixa = FrameLayout(this).apply { setPadding(24.dp, 8.dp, 24.dp, 0); addView(campo) }
+        AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+            .setTitle(tituloD).setView(caixa)
+            .setPositiveButton("OK") { _, _ -> depois(campo.text.toString()) }
+            .setNegativeButton("Cancelar", null)
+            .show()
+        campo.requestFocus()
+    }
+
+    private fun desbloquear(depois: () -> Unit) {
+        val pin = repo.pin ?: return depois()
+        pedirSenha("Senha do controle dos pais") {
+            if (it == pin) {
+                desbloqueado = true
+                val g = grupoSel
+                montarEntradas()
+                selecionarGrupo(g, focar = false)
+                depois()
+            } else toast("Senha errada.")
+        }
+    }
+
+    private fun acaoPin() {
+        val pin = repo.pin
+        if (pin == null) {
+            pedirSenha("Crie a senha do controle dos pais (4 a 8 números)") { s ->
+                if (s.length < 4) { toast("A senha precisa ter pelo menos 4 números."); return@pedirSenha }
+                pedirSenha("Repita a senha") { s2 ->
+                    if (s2 != s) { toast("As senhas não conferem."); return@pedirSenha }
+                    repo.pin = s; desbloqueado = false
+                    toast("Controle dos pais ligado: os grupos adultos pedem a senha.")
+                    trocarAba(Aba.AJUSTES, focar = true)
+                }
+            }
+        } else pedirSenha("Senha atual do controle dos pais") { s ->
+            if (s != pin) { toast("Senha errada."); return@pedirSenha }
+            dialogo("Controle dos pais", listOf(
+                "Trocar a senha" to { repo.pin = null; acaoPin() },
+                "Desligar" to { repo.pin = null; desbloqueado = false; toast("Controle dos pais desligado."); trocarAba(Aba.AJUSTES, focar = true) },
+            ))
+        }
+    }
+
+    // ---------------------------------------------------------------- ajustes
+
+    private fun atualizarInfoAjustes() {
+        val c = catalogo
+        val br = Locale.forLanguageTag("pt-BR")
+        val data = SimpleDateFormat("dd/MM/yyyy HH:mm", br)
+        val sb = StringBuilder()
+        val x = repo.xtream
+        if (x != null) {
+            sb.append("Lista: login e senha (Xtream)\nServidor: ${x.endereco}   ·   Usuário: ${repo.usuario}\n")
+            c?.conta?.let { k ->
+                val partes = listOfNotNull(
+                    k.status?.let { if (it.equals("Active", true)) "Assinatura ativa" else "Situação: $it" },
+                    k.validade?.let { "vence em ${SimpleDateFormat("dd/MM/yyyy", br).format(Date(it))}" },
+                    k.conexoes?.let { "telas: ${k.ativas ?: "?"} em uso de $it" },
+                )
+                if (partes.isNotEmpty()) sb.append(partes.joinToString("   ·   ")).append('\n')
+            }
+        } else if (repo.configurado()) {
+            sb.append("Lista: link M3U\n${repo.urlLista?.substringBefore("?")?.take(60)}\n")
+        }
+        if (c != null) {
+            sb.append("\n%,d canais   ·   %,d filmes   ·   %,d séries\n".format(br,
+                porAba[Aba.TV]?.size ?: 0, porAba[Aba.FILMES]?.size ?: 0, porAba[Aba.SERIES]?.size ?: 0))
+            sb.append("Atualizada em ${data.format(Date(c.atualizadoEm))} (atualiza sozinha a cada 24 h)\n")
+        }
+        sb.append("Guia de programação: ${guia.situacao}\n")
+        sb.append("Controle dos pais: ${if (repo.pin == null) "desligado" else "ligado (grupos adultos pedem senha)"}\n")
+        sb.append("\nNo controle, assistindo TV: ▲▼ troca de canal · OK ou ◀▶ abre a lista · Menu: áudio, legenda, tela e guia.\n")
+        sb.append("Assistindo filme ou série: OK pausa · ◀ volta 10 s · ▶ avança 30 s · Menu: áudio, legenda e tela · Voltar: sai e guarda onde parou.\n")
+        sb.append("Na lista: segure OK (ou aperte Menu) num item para marcar como favorito.\n")
+        sb.append("\nPlayer IPTV ${versao()}")
+        infoAjustes.text = sb
+    }
+
+    private fun versao(): String = try { packageManager.getPackageInfo(packageName, 0).versionName ?: "" } catch (_: Exception) { "" }
+
+    private fun acao(e: Entrada, pos: Int) {
+        when (e.acao) {
+            "atualizar" -> { repo.limparCacheGuia(); carregarCatalogo(baixar = true, silencioso = false) }
+            "trocar" -> mostrarConfig()
+            "pin" -> acaoPin()
+            "formato" -> {
+                repo.formatoAoVivo = if (repo.formatoAoVivo == "m3u8") "ts" else "m3u8"
+                toast("Canais ao vivo em ${if (repo.formatoAoVivo == "m3u8") "HLS" else "TS"}. Se um canal travar, experimente o outro formato.")
+                carregarCatalogo(baixar = false, silencioso = false)
+            }
+            "limpar" -> { repo.limparContinuar(); toast("\"Continuar assistindo\" limpo.") }
+            "sair" -> finish()
+            else -> if (e.bloqueado) desbloquear { focarItem(0) } else selecionarGrupo(pos, focar = true)
+        }
     }
 
     // ---------------------------------------------------------------- teclas
 
-    /** Assistindo (sem lista nem configuração na tela): as teclas do controle mandam no player. */
-    private fun assistindo() = telaConfig == null && painel.visibility != View.VISIBLE && atual != null
+    /** Assistindo (sem lista, ficha nem configuração na tela): as teclas do controle mandam no player. */
+    private fun assistindo() = telaConfig == null && ficha == null && painel.visibility != View.VISIBLE && atual != null
 
     override fun onKeyUp(keyCode: Int, ev: KeyEvent): Boolean =
         if (assistindo() && keyCode in TECLAS_PLAYER) true else super.onKeyUp(keyCode, ev)
 
     override fun onKeyDown(keyCode: Int, ev: KeyEvent): Boolean {
         if (!assistindo()) return super.onKeyDown(keyCode, ev)
-        val filme = ehFilme()
+        val vod = ehVod()
         when (keyCode) {
-            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_CHANNEL_DOWN -> if (filme) mostrarBarra() else zapear(-1)
-            KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_CHANNEL_UP -> if (filme) mostrarBarra() else zapear(+1)
+            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_CHANNEL_DOWN -> if (vod) mostrarBarra() else zapear(-1)
+            KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_CHANNEL_UP -> if (vod) mostrarBarra() else zapear(+1)
             KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_MEDIA_REWIND ->
-                if (filme) { player.seekTo((player.currentPosition - 10_000).coerceAtLeast(0)); mostrarBarra() } else mostrarPainel()
+                if (vod) { player.seekTo((player.currentPosition - 10_000).coerceAtLeast(0)); mostrarBarra() } else mostrarPainel()
             KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_MEDIA_FAST_FORWARD ->
-                if (filme) { player.seekTo(player.currentPosition + 30_000); mostrarBarra() } else mostrarPainel()
+                if (vod) { player.seekTo(player.currentPosition + 30_000); mostrarBarra() } else mostrarPainel()
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER ->
-                if (filme) { player.playWhenReady = !player.playWhenReady; mostrarBarra() } else mostrarPainel()
+                if (vod) { player.playWhenReady = !player.playWhenReady; salvarProgresso(); mostrarBarra() } else mostrarPainel()
             KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_MEDIA_PLAY, KeyEvent.KEYCODE_MEDIA_PAUSE -> {
                 player.playWhenReady = !player.playWhenReady; mostrarBarra()
             }
-            KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_GUIDE -> mostrarPainel()
+            KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_SETTINGS, KeyEvent.KEYCODE_CAPTIONS -> opcoes()
+            KeyEvent.KEYCODE_GUIDE -> mostrarPainel()
             KeyEvent.KEYCODE_INFO -> mostrarBarra()
             else -> return super.onKeyDown(keyCode, ev)
         }
@@ -504,10 +1066,17 @@ class MainActivity : ComponentActivity() {
 
     private fun voltar() {
         when {
-            telaConfig != null -> if (todos.isNotEmpty()) fecharConfig() else finish()
+            telaConfig != null -> if (catalogo != null) fecharConfig() else finish()
+            ficha != null -> { fecharFicha(mostrar = true) }
             painel.visibility == View.VISIBLE && busca.text.isNotEmpty() -> busca.setText("")
             painel.visibility == View.VISIBLE && atual != null -> esconderPainel()
             painel.visibility == View.VISIBLE -> finish()
+            ehVod() -> {
+                salvarProgresso()
+                player.pause()
+                val de = voltarPara
+                if (de != null) abrirItem(de) else mostrarPainel()
+            }
             else -> mostrarPainel()
         }
     }
@@ -516,9 +1085,11 @@ class MainActivity : ComponentActivity() {
 
     @SuppressLint("SetTextI18n")
     private fun mostrarConfig(erro: String? = null) {
-        if (telaConfig != null) fecharConfig()
+        if (telaConfig != null) fecharConfig(mostrar = false)
+        fecharFicha(mostrar = false)
+        painel.visibility = View.GONE
         player.pause()
-        val conf = Configurador { url -> runOnUiThread { receberLista(url) } }
+        val conf = Configurador { campos -> validar(campos)?.let { return@Configurador it }; runOnUiThread { receber(campos) }; null }
         conf.iniciar()
         configurador = conf
         val ip = Configurador.ipLocal()
@@ -526,154 +1097,213 @@ class MainActivity : ComponentActivity() {
 
         val tela = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
+            gravity = Gravity.CENTER_VERTICAL
             setBackgroundColor(Color.rgb(10, 14, 20))
-            setPadding(48.dp, 32.dp, 48.dp, 32.dp)
+            setPadding(48.dp, 24.dp, 48.dp, 24.dp)
             isClickable = true
         }
         val esq = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        esq.addView(texto(30f).apply { text = "Configurar a lista IPTV"; typeface = Typeface.DEFAULT_BOLD })
-        erro?.let { esq.addView(texto(16f, Color.rgb(255, 120, 110)).apply { text = it; setPadding(0, 12.dp, 0, 0) }) }
-        esq.addView(texto(18f, Color.LTGRAY).apply {
-            setPadding(0, 16.dp, 0, 16.dp)
+        esq.addView(texto(28f).apply { text = "Configurar a lista IPTV"; typeface = Typeface.DEFAULT_BOLD })
+        erro?.let { esq.addView(texto(16f, Color.rgb(255, 120, 110)).apply { text = it; setPadding(0, 10.dp, 0, 0) }) }
+        esq.addView(texto(17f, Color.LTGRAY).apply {
+            setPadding(0, 12.dp, 0, 12.dp)
             text = if (endereco != null)
-                "Pelo celular (mais fácil):\n1. Conecte o celular na mesma rede Wi-Fi da TV.\n2. Leia o QR code ou abra  $endereco\n" +
-                    "3. Cole o endereço M3U do seu provedor e toque em Enviar.\n\nOu digite o endereço aqui com o controle:"
-            else "Digite o endereço M3U do seu provedor com o controle:"
+                "Pelo celular (mais fácil): na mesma rede Wi-Fi da TV, leia o QR code ou abra  $endereco  e preencha lá.\nOu preencha aqui com o controle:"
+            else "Preencha com o controle:"
         })
-        val campo = EditText(this).apply {
-            hint = "http://servidor:porta/get.php?username=…&password=…&type=m3u_plus"
+        var xtream = repo.tipoFonte != "m3u"
+        val modos = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        fun campo(dica: String, valor: String?, senha: Boolean = false) = EditText(this).apply {
+            hint = dica
             setHintTextColor(Color.GRAY); setTextColor(Color.WHITE); textSize = 16f
             isSingleLine = true
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
-            imeOptions = EditorInfo.IME_ACTION_DONE
-            setText(if (repo.urlLista == null) "http://" else "")
+            inputType = InputType.TYPE_CLASS_TEXT or (if (senha) InputType.TYPE_TEXT_VARIATION_PASSWORD else InputType.TYPE_TEXT_VARIATION_URI)
+            setText(valor.orEmpty())
         }
-        esq.addView(campo, LinearLayout.LayoutParams(-1, -2))
-        val botoes = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, 12.dp, 0, 0) }
-        val salvar = Button(this).apply {
-            text = "Salvar e carregar"
-            setOnClickListener {
-                val u = campo.text.toString().trim()
-                if (u.length > 10 && (u.startsWith("http://") || u.startsWith("https://"))) receberLista(u)
-                else Toast.makeText(this@MainActivity, "O endereço tem de começar com http:// ou https://", Toast.LENGTH_LONG).show()
-            }
+        val fServ = campo("Servidor com a porta — ex.: http://servidor.com:8080", repo.servidor)
+        val fUser = campo("Usuário", repo.usuario)
+        val fSenha = campo("Senha", repo.senha, senha = true)
+        val fLink = campo("Link M3U — http://…", repo.urlLista ?: "http://")
+        val fEpg = campo("Guia XMLTV (opcional) — http://…xml ou .xml.gz", repo.epgUrl)
+        val boxX = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; addView(fServ); addView(fUser); addView(fSenha) }
+        val boxM = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; addView(fLink); addView(fEpg) }
+        val bX = botao("Login e senha") {}
+        val bM = botao("Link M3U") {}
+        fun mostrarModo() {
+            boxX.visibility = if (xtream) View.VISIBLE else View.GONE
+            boxM.visibility = if (xtream) View.GONE else View.VISIBLE
+            bX.alpha = if (xtream) 1f else 0.55f; bM.alpha = if (xtream) 0.55f else 1f
+        }
+        bX.setOnClickListener { xtream = true; mostrarModo() }
+        bM.setOnClickListener { xtream = false; mostrarModo() }
+        modos.addView(bX); modos.addView(bM)
+        esq.addView(modos)
+        esq.addView(boxX, LinearLayout.LayoutParams(-1, -2))
+        esq.addView(boxM, LinearLayout.LayoutParams(-1, -2))
+        val botoes = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, 10.dp, 0, 0) }
+        val salvar = botao("Salvar e carregar") {
+            val campos = if (xtream) mapOf("tipo" to "xtream", "servidor" to fServ.text.toString().trim(),
+                "usuario" to fUser.text.toString().trim(), "senha" to fSenha.text.toString().trim())
+            else mapOf("tipo" to "m3u", "lista" to fLink.text.toString().trim(), "epg" to fEpg.text.toString().trim())
+            val e = validar(campos)
+            if (e != null) toast(e) else receber(campos)
         }
         botoes.addView(salvar)
-        if (todos.isNotEmpty()) botoes.addView(Button(this).apply { text = "Cancelar"; setOnClickListener { fecharConfig() } })
+        if (catalogo != null) botoes.addView(botao("Cancelar") { fecharConfig() })
         esq.addView(botoes)
+        mostrarModo()
         tela.addView(esq, LinearLayout.LayoutParams(0, -2, 1f))
         if (endereco != null) {
             tela.addView(ImageView(this).apply {
                 setImageBitmap(Configurador.qr(endereco, 420))
                 setPadding(32.dp, 0, 0, 0)
-            }, LinearLayout.LayoutParams(260.dp, 260.dp))
+            }, LinearLayout.LayoutParams(250.dp, 250.dp))
         }
         raiz.addView(tela, FrameLayout.LayoutParams(-1, -1))
+        aviso.bringToFront()
         telaConfig = tela
         avisar(null)
-        salvar.post { salvar.requestFocus() }
+        (if (xtream) bX else bM).post { (if (xtream) bX else bM).requestFocus() }
     }
 
-    private fun fecharConfig() {
+    /** Confere os campos do formulário (TV ou celular). null = certo. */
+    private fun validar(c: Map<String, String>): String? {
+        val http = { s: String? -> s != null && (s.startsWith("http://") || s.startsWith("https://")) && s.length > 10 }
+        return when (c["tipo"]) {
+            "xtream" -> when {
+                c["servidor"].isNullOrBlank() -> "Informe o servidor (com a porta)."
+                c["usuario"].isNullOrBlank() || c["senha"].isNullOrBlank() -> "Informe o usuário e a senha."
+                else -> try { Xtream.normalizar(c["servidor"]!!); null } catch (_: Exception) { "Servidor inválido." }
+            }
+            "m3u" -> when {
+                !http(c["lista"]) -> "O link tem de começar com http:// ou https://."
+                !c["epg"].isNullOrBlank() && !http(c["epg"]) -> "O endereço do guia tem de começar com http:// ou https://."
+                else -> null
+            }
+            else -> "Formulário inválido."
+        }
+    }
+
+    private fun receber(c: Map<String, String>) {
+        if (c["tipo"] == "xtream") repo.salvarXtream(c["servidor"]!!, c["usuario"]!!, c["senha"]!!)
+        else {
+            val link = c["lista"]!!
+            val x = Xtream.deLink(link)
+            if (x != null) {
+                repo.salvarXtream(x.first, x.second, x.third)
+                toast("O link tem usuário e senha: entrando com login (separa TV, filmes e séries).")
+            } else repo.salvarM3u(link, c["epg"])
+        }
+        salvarProgresso()
+        player.stop()
+        atual = null
+        catalogo = null
+        primeiraCarga = true
+        desbloqueado = false
+        grupoDaAba.clear()
+        fecharConfig(mostrar = false)
+        carregarCatalogo(baixar = true, silencioso = false)
+    }
+
+    private fun fecharConfig(mostrar: Boolean = true) {
         configurador?.parar(); configurador = null
         telaConfig?.let { raiz.removeView(it) }
         telaConfig = null
-        if (atual != null && painel.visibility != View.VISIBLE) player.play() else if (painel.visibility != View.VISIBLE && todos.isNotEmpty()) mostrarPainel()
-    }
-
-    private fun receberLista(url: String) {
-        repo.urlLista = url
-        val primeira = todos.isEmpty()
-        fecharConfig()
-        if (primeira) primeiraCarga = true
-        baixarLista(false)
-    }
-
-    private fun acao(e: Entrada) {
-        when (e.tipo) {
-            Tipo.ATUALIZAR -> baixarLista(false)
-            Tipo.CONFIGURAR -> mostrarConfig()
-            Tipo.SAIR -> finish()
-            else -> { selecionarGrupo(entradas.indexOf(e), focar = true) }
-        }
+        if (mostrar && catalogo != null) mostrarPainel()
     }
 
     // ---------------------------------------------------------------- listas (RecyclerView)
 
     private class VH(v: View) : RecyclerView.ViewHolder(v)
 
-    private fun pintar(v: View, focado: Boolean, marcado: Boolean) {
-        v.setBackgroundColor(when {
-            focado -> corDestaque
-            marcado -> Color.argb(60, 255, 255, 255)
-            else -> Color.TRANSPARENT
-        })
-    }
-
     private inner class AdGrupos : RecyclerView.Adapter<VH>() {
         override fun getItemCount() = entradas.size
-        override fun onCreateViewHolder(p: ViewGroup, t: Int): VH {
-            val tv = texto(17f).apply {
-                setPadding(14.dp, 11.dp, 14.dp, 11.dp)
-                isFocusable = true; isClickable = true
-                isSingleLine = true; ellipsize = TextUtils.TruncateAt.END
-                layoutParams = RecyclerView.LayoutParams(-1, -2)
-            }
-            return VH(tv)
-        }
+        override fun onCreateViewHolder(p: ViewGroup, t: Int): VH = VH(texto(17f).apply {
+            setPadding(14.dp, 11.dp, 14.dp, 11.dp)
+            isFocusable = true; isClickable = true
+            isSingleLine = true; ellipsize = TextUtils.TruncateAt.END
+            layoutParams = RecyclerView.LayoutParams(-1, -2)
+        })
+
         override fun onBindViewHolder(vh: VH, pos: Int) {
             val tv = vh.itemView as TextView
             val e = entradas[pos]
             tv.text = e.rotulo
-            tv.setTextColor(if (e.tipo in setOf(Tipo.ATUALIZAR, Tipo.CONFIGURAR, Tipo.SAIR)) Color.LTGRAY else Color.WHITE)
+            tv.setTextColor(if (e.tipo == TE.ACAO || e.bloqueado) Color.LTGRAY else Color.WHITE)
             pintar(tv, tv.hasFocus(), pos == grupoSel)
             tv.setOnFocusChangeListener { v, f ->
                 val p = vh.bindingAdapterPosition
                 pintar(v, f, p == grupoSel)
-                if (f && p >= 0 && p != grupoSel && entradas[p].tipo in setOf(Tipo.FAVORITOS, Tipo.TODOS, Tipo.GRUPO)) {
+                if (f && p >= 0 && p != grupoSel && entradas[p].tipo != TE.ACAO) {
                     h.removeCallbacksAndMessages(TROCA_GRUPO)
-                    HandlerCompat.postDelayed(h, { if (v.hasFocus()) selecionarGrupo(p, focar = false) }, TROCA_GRUPO, 200)
+                    HandlerCompat.postDelayed(h, { if (v.hasFocus()) selecionarGrupo(p, focar = false) }, TROCA_GRUPO, 220)
                 }
             }
-            tv.setOnClickListener { vh.bindingAdapterPosition.takeIf { it >= 0 }?.let { acao(entradas[it]) } }
+            tv.setOnClickListener { vh.bindingAdapterPosition.takeIf { it >= 0 }?.let { acao(entradas[it], it) } }
         }
     }
 
-    private inner class AdCanais : RecyclerView.Adapter<VH>() {
+    private inner class AdItens : RecyclerView.Adapter<VH>() {
         override fun getItemCount() = visiveis.size
+        override fun getItemViewType(position: Int) = if (aba == Aba.TV) 0 else 1
+
         override fun onCreateViewHolder(p: ViewGroup, t: Int): VH {
             val linha = LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(10.dp, 6.dp, 10.dp, 6.dp)
+                setPadding(10.dp, 5.dp, 10.dp, 5.dp)
                 isFocusable = true; isClickable = true; isLongClickable = true
                 layoutParams = RecyclerView.LayoutParams(-1, -2)
             }
-            linha.addView(texto(14f, Color.GRAY).apply { gravity = Gravity.END; setPadding(0, 0, 12.dp, 0) }, LinearLayout.LayoutParams(52.dp, -2))
-            linha.addView(ImageView(this@MainActivity).apply { scaleType = ImageView.ScaleType.FIT_CENTER }, LinearLayout.LayoutParams(64.dp, 36.dp))
-            linha.addView(texto(18f).apply {
-                isSingleLine = true; ellipsize = TextUtils.TruncateAt.END; setPadding(14.dp, 0, 8.dp, 0)
-            }, LinearLayout.LayoutParams(0, -2, 1f))
+            linha.addView(texto(14f, Color.GRAY).apply { gravity = Gravity.END; setPadding(0, 0, 12.dp, 0) },
+                LinearLayout.LayoutParams(if (t == 0) 52.dp else 0, -2))
+            linha.addView(ImageView(this@MainActivity).apply { scaleType = ImageView.ScaleType.FIT_CENTER },
+                if (t == 0) LinearLayout.LayoutParams(64.dp, 36.dp) else LinearLayout.LayoutParams(44.dp, 64.dp))
+            val col = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL; setPadding(14.dp, 0, 8.dp, 0) }
+            col.addView(texto(18f).apply { isSingleLine = true; ellipsize = TextUtils.TruncateAt.END })
+            col.addView(texto(14f, Color.rgb(160, 170, 180)).apply { isSingleLine = true; ellipsize = TextUtils.TruncateAt.END })
+            linha.addView(col, LinearLayout.LayoutParams(0, -2, 1f))
             linha.addView(texto(18f, Color.rgb(255, 200, 60)))
             return VH(linha)
         }
+
         override fun onBindViewHolder(vh: VH, pos: Int) {
             val linha = vh.itemView as LinearLayout
             val c = visiveis[pos]
-            (linha.getChildAt(0) as TextView).text = (pos + 1).toString()
+            val tv = aba == Aba.TV
+            (linha.getChildAt(0) as TextView).text = if (tv) (if (c.num > 0) c.num else pos + 1).toString() else ""
             (linha.getChildAt(1) as ImageView).let { img ->
                 img.visibility = if (algumLogo) View.VISIBLE else View.GONE
-                Logos.mostrar(img, c.logo)
+                Logos.mostrar(img, c.logo, if (tv) 128 else 110)
             }
-            (linha.getChildAt(2) as TextView).apply {
-                text = if (busca.text.isNotEmpty()) "${c.nome}   ·  ${c.grupo}" else c.nome
+            val col = linha.getChildAt(2) as LinearLayout
+            (col.getChildAt(0) as TextView).apply {
+                text = c.nome
                 setTextColor(if (c == atual) Color.rgb(120, 210, 255) else Color.WHITE)
             }
-            (linha.getChildAt(3) as TextView).text = if (c.url in repo.favoritos) "★" else ""
+            val sub = when (c.tipo) {
+                Tipo.AO_VIVO -> guia.agora(c)?.let { "Agora: ${it.titulo}" }
+                else -> {
+                    val p = if (c.url.isNotBlank()) repo.posicao(c.url) else null
+                    val prog = p?.let { (a, d) -> if (d > 0 && a >= d * 95 / 100) "✓ assistido" else if (a > 60_000) "◐ parou em ${tempo(a)}" else null }
+                    listOfNotNull(c.ano, c.nota?.let { "★ $it" }, prog).joinToString("   ·   ").ifBlank { null }
+                }
+            }
+            val emBusca = busca.text.isNotEmpty() || entradas.getOrNull(grupoSel)?.tipo in setOf(TE.FAVORITOS, TE.CONTINUAR, TE.TODOS)
+            (col.getChildAt(1) as TextView).apply {
+                text = listOfNotNull(sub, if (emBusca) c.grupo else null).joinToString("   ·   ")
+                visibility = if (text.isEmpty()) View.GONE else View.VISIBLE
+            }
+            (linha.getChildAt(3) as TextView).text = if (repo.chave(c) in repo.favoritos) "★" else ""
             pintar(linha, linha.hasFocus(), false)
-            linha.setOnFocusChangeListener { v, f -> pintar(v, f, false) }
-            linha.setOnClickListener { vh.bindingAdapterPosition.takeIf { it >= 0 }?.let { tocar(visiveis[it], visiveis) } }
+            linha.setOnFocusChangeListener { v, f ->
+                pintar(v, f, false)
+                if (f && aba == Aba.TV) {
+                    vh.bindingAdapterPosition.takeIf { it >= 0 }?.let { focadoGuia = visiveis[it] }
+                    h.removeCallbacks(atualizarGuia); h.postDelayed(atualizarGuia, 300)
+                }
+            }
+            linha.setOnClickListener { vh.bindingAdapterPosition.takeIf { it >= 0 }?.let { abrirItem(visiveis[it]) } }
             linha.setOnLongClickListener { vh.bindingAdapterPosition.takeIf { it >= 0 }?.let { alternarFavorito(visiveis[it]) }; true }
             linha.setOnKeyListener { _, k, ev ->
                 if (k == KeyEvent.KEYCODE_MENU && ev.action == KeyEvent.ACTION_UP) {
@@ -683,13 +1313,46 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private inner class AdEpisodios(val serie: Item) : RecyclerView.Adapter<VH>() {
+        var lista: List<Item> = emptyList()
+        override fun getItemCount() = lista.size
+        override fun onCreateViewHolder(p: ViewGroup, t: Int): VH = VH(texto(17f).apply {
+            setPadding(14.dp, 9.dp, 14.dp, 9.dp)
+            isFocusable = true; isClickable = true
+            isSingleLine = true; ellipsize = TextUtils.TruncateAt.END
+            layoutParams = RecyclerView.LayoutParams(-1, -2)
+        })
+
+        override fun onBindViewHolder(vh: VH, pos: Int) {
+            val tv = vh.itemView as TextView
+            val e = lista[pos]
+            val p = repo.posicao(e.url)
+            val marca = p?.let { (a, d) -> if (d > 0 && a >= d * 95 / 100) "   ✓" else if (a > 60_000) "   ◐ ${tempo(a)}" else "" } ?: ""
+            tv.text = "E%02d   %s%s".format(e.num, e.nome.substringAfter("  ", e.nome), marca)
+            pintar(tv, tv.hasFocus(), false)
+            tv.setOnFocusChangeListener { v, f -> pintar(v, f, false) }
+            tv.setOnClickListener {
+                val i = vh.bindingAdapterPosition.takeIf { it >= 0 } ?: return@setOnClickListener
+                val ep = lista[i]
+                val q = repo.posicao(ep.url)
+                val inicio = q?.let { (a, d) -> if (a > 60_000 && d > 0 && a < d * 95 / 100) a else 0 } ?: 0
+                tocarVod(ep, lista, inicio, serie)
+            }
+        }
+    }
+
     private companion object {
         val TROCA_GRUPO = Any()
+        val FORMATOS = listOf(
+            "Ajustar" to AspectRatioFrameLayout.RESIZE_MODE_FIT,
+            "Esticar" to AspectRatioFrameLayout.RESIZE_MODE_FILL,
+            "Preencher (corta as bordas)" to AspectRatioFrameLayout.RESIZE_MODE_ZOOM,
+        )
         val TECLAS_PLAYER = setOf(
             KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT,
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER, KeyEvent.KEYCODE_CHANNEL_UP,
             KeyEvent.KEYCODE_CHANNEL_DOWN, KeyEvent.KEYCODE_MEDIA_REWIND, KeyEvent.KEYCODE_MEDIA_FAST_FORWARD,
             KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_MEDIA_PLAY, KeyEvent.KEYCODE_MEDIA_PAUSE,
-            KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_GUIDE, KeyEvent.KEYCODE_INFO)
+            KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_SETTINGS, KeyEvent.KEYCODE_CAPTIONS, KeyEvent.KEYCODE_GUIDE, KeyEvent.KEYCODE_INFO)
     }
 }

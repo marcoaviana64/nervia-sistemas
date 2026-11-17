@@ -14,10 +14,11 @@ import kotlin.concurrent.thread
 
 /**
  * Pequeno servidor na rede de casa, só enquanto a tela de configuração está aberta: o celular abre
- * http://<ip da TV>:<porta>, cola o endereço da lista e envia (digitar uma URL longa no controle remoto é sofrido).
- * Não devolve a lista atual (tem usuário e senha) para ninguém.
+ * http://<ip da TV>:<porta> e envia o login (servidor, usuário e senha) ou o link M3U (digitar no controle remoto é sofrido).
+ * Não devolve a configuração atual (tem usuário e senha) para ninguém.
+ * [aoReceber] recebe os campos do formulário e devolve null (aceito) ou a mensagem de erro.
  */
-class Configurador(private val aoReceber: (String) -> Unit) {
+class Configurador(private val aoReceber: (Map<String, String>) -> String?) {
     private var servidor: ServerSocket? = null
     val porta: Int get() = servidor?.localPort ?: 0
 
@@ -52,22 +53,31 @@ class Configurador(private val aoReceber: (String) -> Unit) {
             val campos = String(corpo, 0, lidos).split('&').associate {
                 it.substringBefore('=') to URLDecoder.decode(it.substringAfter('=', ""), "UTF-8")
             }
-            val url = campos["lista"]?.trim().orEmpty()
-            if (url.startsWith("http://") || url.startsWith("https://")) {
-                aoReceber(url)
-                pagina("<h2>Pronto!</h2><p>A TV está carregando a lista. Pode fechar esta página.</p>")
-            } else {
-                pagina("<h2>Endereço inválido</h2><p>O endereço tem de começar com http:// ou https://.</p><p><a href='/'>Voltar</a></p>")
-            }
+            val erro = aoReceber(campos.mapValues { it.value.trim() })
+            if (erro == null) pagina("<h2>Pronto!</h2><p>A TV está carregando a lista. Pode fechar esta página.</p>")
+            else pagina("<h2>Não deu certo</h2><p>${erro.replace("<", "&lt;")}</p><p><a href='/'>Voltar</a></p>")
         } else {
             pagina("""
                 <h2>Lista IPTV da TV</h2>
+                <h3>Login e senha <small>(recomendado: separa TV, filmes e séries)</small></h3>
                 <form method="post" action="/salvar">
-                  <label>Endereço da lista (M3U):</label>
-                  <textarea name="lista" rows="4" placeholder="http://servidor:porta/get.php?username=...&password=...&type=m3u_plus" required></textarea>
+                  <input type="hidden" name="tipo" value="xtream">
+                  <label>Servidor (com a porta)</label>
+                  <input name="servidor" placeholder="http://servidor.com:8080" required autocapitalize="off" autocorrect="off">
+                  <label>Usuário</label><input name="usuario" required autocapitalize="off" autocorrect="off">
+                  <label>Senha</label><input name="senha" type="password" required>
                   <button type="submit">Enviar para a TV</button>
                 </form>
-                <p class="obs">Use o endereço M3U que o seu provedor passou (às vezes chamado de "link M3U" ou "m3u_plus").</p>
+                <h3>Ou link M3U</h3>
+                <form method="post" action="/salvar">
+                  <input type="hidden" name="tipo" value="m3u">
+                  <label>Endereço da lista (M3U)</label>
+                  <textarea name="lista" rows="3" placeholder="http://servidor:porta/get.php?username=...&password=...&type=m3u_plus" required></textarea>
+                  <label>Guia de programação (XMLTV) — opcional</label>
+                  <input name="epg" placeholder="http://.../xmltv.php ou .xml.gz" autocapitalize="off">
+                  <button type="submit">Enviar para a TV</button>
+                </form>
+                <p class="obs">Se o link M3U tiver "username" e "password", a TV entra com login e senha sozinha.</p>
             """.trimIndent())
         }
         val bytes = html.toByteArray()
@@ -91,7 +101,8 @@ class Configurador(private val aoReceber: (String) -> Unit) {
     private fun pagina(miolo: String) = """<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
         <meta name="viewport" content="width=device-width,initial-scale=1"><title>Player IPTV</title><style>
         body{font-family:system-ui,sans-serif;max-width:560px;margin:24px auto;padding:0 16px;color:#222}
-        label{display:block;margin:12px 0 6px;font-weight:600} textarea{width:100%;box-sizing:border-box;font-size:16px;padding:10px}
+        label{display:block;margin:12px 0 6px;font-weight:600} textarea,input{width:100%;box-sizing:border-box;font-size:16px;padding:10px}
+        h3{margin-top:28px} small{font-weight:400;color:#666}
         button{margin-top:12px;width:100%;padding:14px;font-size:17px;background:#2F9FD0;color:#fff;border:0;border-radius:8px}
         .obs{color:#666;font-size:14px}</style></head><body>$miolo</body></html>"""
 
