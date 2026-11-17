@@ -12,6 +12,13 @@
   X-Robots-Tag: noindex, nofollow
   Cache-Control: no-cache
 
+# Player IPTV (app pessoal do Marco, iptv-tv/; pedido dele em 17/11/2026): mesmo tratamento do tv.apk
+/player.apk
+  Content-Type: application/vnd.android.package-archive
+  Content-Disposition: attachment; filename="player-iptv.apk"
+  X-Robots-Tag: noindex, nofollow
+  Cache-Control: no-cache
+
 # Página do fornecedor (link de cotação, sem login): fora dos buscadores e sem Referer
 /cotacao/*
   X-Robots-Tag: noindex, nofollow
