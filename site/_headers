@@ -13,7 +13,7 @@
   Cache-Control: no-cache
 
 # NVPlayer, antes Player IPTV (app pessoal do Marco, iptv-tv/; pedido dele em 17/11/2026): mesmo tratamento do tv.apk
-/player.apk
+/nvplayer.apk
   Content-Type: application/vnd.android.package-archive
   Content-Disposition: attachment; filename="nvplayer.apk"
   X-Robots-Tag: noindex, nofollow
