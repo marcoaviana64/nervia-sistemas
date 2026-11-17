@@ -287,6 +287,10 @@ class TelaTest {
         val link = "http://127.0.0.1:${servidor.localPort}/get.php?username=marco&password=segredo&type=m3u_plus&output=ts"
         assertTrue(enviar(porta(act), "tipo=m3u&lista=${enc(link)}").contains("Pronto"))
         esperar { textos(raiz).any { it == "Filmes  3" } }
+        // sem configurar nada, o controle dos pais já vem ligado com a senha 0000
+        assertTrue(textos(raiz).contains("🔒 Adultos XXX  (1)"))
+        clicar(raiz, "Ajustes")
+        assertTrue(textos(raiz).joinToString().contains("senha padrão 0000"))
         val prefs = act.getSharedPreferences("iptv", Context.MODE_PRIVATE)
         assertEquals("xtream", prefs.getString("tipo", null))
         assertEquals("marco", prefs.getString("usuario", null))
