@@ -26,8 +26,8 @@ android {
         applicationId = "app.iptv.player"
         minSdk = 24          // Android 7.0
         targetSdk = 36
-        versionCode = 4
-        versionName = "2.2"
+        versionCode = 5
+        versionName = "2.3"
     }
 
     signingConfigs {

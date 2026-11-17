@@ -1016,7 +1016,7 @@ class MainActivity : ComponentActivity() {
         sb.append("\nNo controle, assistindo TV: ▲▼ troca de canal · OK ou ◀▶ abre a lista · Menu: áudio, legenda, tela e guia.\n")
         sb.append("Assistindo filme ou série: OK pausa · ◀ volta 10 s · ▶ avança 30 s · Menu: áudio, legenda e tela · Voltar: sai e guarda onde parou.\n")
         sb.append("Na lista: segure OK (ou aperte Menu) num item para marcar como favorito.\n")
-        sb.append("\nPlayer IPTV ${versao()}")
+        sb.append("\nNVPlayer ${versao()}")
         infoAjustes.text = sb
     }
 
