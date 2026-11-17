@@ -61,9 +61,13 @@ class Repositorio(ctx: Context) {
         get() = str("formato") ?: "ts"
         set(v) = put("formato", v)
 
+    /**
+     * Senha do controle dos pais. Padrão "0000" (pedido do Marco em 17/11/2026: grupos adultos já começam bloqueados).
+     * Desligado = "" guardado (assim o padrão não volta sozinho).
+     */
     var pin: String?
-        get() = str("pin")
-        set(v) = put("pin", v)
+        get() = if (prefs.contains("pin")) str("pin")?.ifBlank { null } else PIN_PADRAO
+        set(v) = put("pin", v ?: "")
 
     var idiomaAudio: String?
         get() = str("idioma_audio")
@@ -193,4 +197,6 @@ class Repositorio(ctx: Context) {
         if (itens.isEmpty()) error("O servidor não devolveu nenhum canal, filme ou série")
         return Catalogo(itens, emptyList(), conta, File(dir, "x_live.json").lastModified())
     }
+
+    companion object { const val PIN_PADRAO = "0000" }
 }

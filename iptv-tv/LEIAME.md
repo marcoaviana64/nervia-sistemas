@@ -25,7 +25,7 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
 - **Continuar de onde parou**: posição guardada a cada 15 s e ao sair; termina sozinho o episódio e passa ao próximo.
 - **Áudio e legenda**: Menu assistindo → Áudio (dublado/original, 5.1…), Legenda (ou desligada), Tela (ajustar, esticar,
   preencher). A escolha de idioma vale para os próximos (padrão: áudio em português).
-- **Controle dos pais**: senha de 4 a 8 números (Ajustes). Grupos adultos (nome com adult/xxx/+18… ou marcados pelo
+- **Controle dos pais**: já vem LIGADO com a senha padrão **0000** (2.1, pedido do Marco em 17/11/2026); trocar ou desligar em Ajustes (4 a 8 números; desligado fica guardado e o padrão não volta). Grupos adultos (nome com adult/xxx/+18… ou marcados pelo
   servidor) ficam com 🔒, somem de Todos, Favoritos e da busca e pedem a senha uma vez por uso do app.
 - **Controle remoto**: TV — ▲▼/CH± troca canal, OK ou ◀▶ abre a lista, Menu = opções, Voltar = lista. Filme/série — OK
   pausa, ◀ −10 s, ▶ +30 s, Menu = opções, Voltar = sai e guarda onde parou. Na lista, segurar OK (ou Menu) = favorito.

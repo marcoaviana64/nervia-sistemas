@@ -1007,7 +1007,11 @@ class MainActivity : ComponentActivity() {
             sb.append("Atualizada em ${data.format(Date(c.atualizadoEm))} (atualiza sozinha a cada 24 h)\n")
         }
         sb.append("Guia de programação: ${guia.situacao}\n")
-        sb.append("Controle dos pais: ${if (repo.pin == null) "desligado" else "ligado (grupos adultos pedem senha)"}\n")
+        sb.append("Controle dos pais: ${when (repo.pin) {
+            null -> "desligado"
+            Repositorio.PIN_PADRAO -> "ligado com a senha padrão ${Repositorio.PIN_PADRAO} (troque em Controle dos pais)"
+            else -> "ligado (grupos adultos pedem senha)"
+        }}\n")
         sb.append("\nNo controle, assistindo TV: ▲▼ troca de canal · OK ou ◀▶ abre a lista · Menu: áudio, legenda, tela e guia.\n")
         sb.append("Assistindo filme ou série: OK pausa · ◀ volta 10 s · ▶ avança 30 s · Menu: áudio, legenda e tela · Voltar: sai e guarda onde parou.\n")
         sb.append("Na lista: segure OK (ou aperte Menu) num item para marcar como favorito.\n")
