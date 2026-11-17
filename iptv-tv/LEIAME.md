@@ -52,8 +52,8 @@ No Robolectric o relógio fica parado: o teste avança com `idleFor`. Se o Maven
 baixar os `android-all-instrumented` 14 e 15 desse espelho numa pasta e rodar com `-Probolectric.dir=<pasta>`.
 
 ## Instalar
-Link para a TV: **https://nervia.com.br/player.apk** (digitar no app Downloader ou no navegador da TV). Ao gerar APK novo, copiar
-`app/build/outputs/apk/release/app-release.apk` para `site/player.apk` (subir `versionCode` antes).
+Link para a TV: **https://nervia.com.br/nvplayer.apk** (o antigo nervia.com.br/player.apk leva ao novo, por `site/_redirects`) (digitar no app Downloader ou no navegador da TV). Ao gerar APK novo, copiar
+`app/build/outputs/apk/release/app-release.apk` para `site/nvplayer.apk` (subir `versionCode` antes).
 
 Sem Play Store: pelo ADB (`adb install -r app-release.apk`), por um app de enviar arquivos para a TV, ou pelo Downloader com um
 link direto para o APK. Na TV, permitir "Fontes desconhecidas" / "Instalar apps desconhecidos" para o app usado.
