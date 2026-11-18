@@ -51,6 +51,7 @@ window.NERVIA_VERSOES = {
     ["1.0", "Lançamento: contas e licenças de cada unidade, mudanças entre exportações e licenças pagas sem uso."],
   ],
   "midia": [
+    ["2.2", "TV ligada pelo controle (saindo do modo de espera) volta sozinha para o Mídia Indoor em poucos segundos, em vez de ficar na tela inicial da TV ou cair no modo ambiente. Precisa da permissão \"Sobrepor a outros apps\". (app da TV 1.8)"],
     ["2.1", "Tempo de tela enviado uma vez por dia: a TV manda depois da meia-noite os números do dia anterior (menos chamadas ao servidor). O dia de hoje aparece no relatório no dia seguinte. (app da TV 1.7)"],
     ["2.0", "Relatório de tempo de tela: nova aba que mostra quanto tempo cada vídeo e cada imagem apareceu em cada TV no mês (exibições, tempo total, média por dia e parte do tempo), com impressão em PDF e planilha. A própria TV anota o tempo, também sem internet. Conta a partir do app da TV 1.6. Botão ▶ Ver em cada mídia da playlist e no que cada TV está tocando agora: abre o vídeo ou a foto no portal. (app da TV 1.6)"],
     ["1.9", "Foto com formato diferente da TV (por exemplo, foto deitada na TV em pé) aparece inteira sobre um fundo desfocado da própria foto, em vez de faixas pretas. (app da TV 1.5)"],
