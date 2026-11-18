@@ -36,6 +36,13 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
   `#EXTVLCOPT` e `url|User-Agent=…` respeitados; sem eles o app se apresenta como VLC.
 - Tudo (login, posições, favoritos, senha dos pais) fica só no aparelho, sem backup na nuvem.
 
+- **DNS alternativo** (2.4, 18/11/2026: em outro local o login dava "Não foi possível conectar ao servidor auth.urltech.gy",
+  provavelmente bloqueio por DNS da operadora): toda a rede do app (login, listas, capas e o vídeo, via
+  `media3-datasource-okhttp`) passa pelo OkHttp com `DnsAlternativo` (`Rede.kt`): procura o nome no DNS do local E por
+  DNS-over-HTTPS (Cloudflare 1.1.1.1, depois Google 8.8.8.8, guardado 10 min) e tenta os endereços dos dois (se não
+  concordam, o do DNS alternativo primeiro). Não resolve bloqueio por IP. A mensagem de erro agora diz a causa
+  (nome não encontrado, sem resposta, conexão recusada, https). Teste: `DnsTest`.
+
 ## Ainda não tem (ideias)
 Grade de programação de todos os canais ao mesmo tempo, assistir programa que já passou (catch-up), gravação.
 

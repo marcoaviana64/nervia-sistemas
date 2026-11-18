@@ -1,9 +1,9 @@
 package app.iptv.player
 
+import okhttp3.Request
 import java.io.File
 import java.io.InputStream
-import java.net.HttpURLConnection
-import java.net.URL
+import java.util.concurrent.TimeUnit
 
 object Http {
     /** Muitos provedores recusam o agente padrão do Android; este é aceito pela grande maioria. */
@@ -11,26 +11,12 @@ object Http {
 
     class Status(val codigo: Int) : Exception("O servidor respondeu $codigo")
 
-    /** GET seguindo redirecionamentos (inclusive http ↔ https, que o HttpURLConnection não segue sozinho). */
+    /** GET pela rede do app (DNS alternativo, redirecionamentos inclusive http ↔ https). */
     fun abrir(endereco: String, leitura: Int = 90_000): InputStream {
-        var url = URL(endereco)
-        repeat(6) {
-            val c = url.openConnection() as HttpURLConnection
-            c.instanceFollowRedirects = false
-            c.connectTimeout = 15_000
-            c.readTimeout = leitura
-            c.setRequestProperty("User-Agent", USER_AGENT)
-            val st = c.responseCode
-            if (st in 300..399) {
-                val destino = c.getHeaderField("Location") ?: error("Redirecionamento sem destino")
-                c.disconnect()
-                url = URL(url, destino)
-                return@repeat
-            }
-            if (st != 200) { c.disconnect(); throw Status(st) }
-            return c.inputStream
-        }
-        error("Redirecionamentos demais")
+        val cli = Rede.cliente.newBuilder().readTimeout(leitura.toLong(), TimeUnit.MILLISECONDS).build()
+        val r = cli.newCall(Request.Builder().url(endereco).header("User-Agent", USER_AGENT).build()).execute()
+        if (r.code != 200) { r.close(); throw Status(r.code) }
+        return r.body!!.byteStream()
     }
 
     fun texto(endereco: String): String = abrir(endereco, 30_000).use { it.readBytes().toString(Charsets.UTF_8) }

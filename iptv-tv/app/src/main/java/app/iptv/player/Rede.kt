@@ -1,0 +1,90 @@
+package app.iptv.player
+
+import okhttp3.Dns
+import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.OkHttpClient
+import okhttp3.dnsoverhttps.DnsOverHttps
+import java.io.IOException
+import java.net.ConnectException
+import java.net.InetAddress
+import java.net.NoRouteToHostException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
+import javax.net.ssl.SSLException
+
+/**
+ * Rede do app (2.4). Muitas operadoras no Brasil bloqueiam endereços de IPTV pelo DNS: o nome não é encontrado
+ * ou aponta para um endereço que não responde. Por isso o nome é procurado no DNS da internet do local E num DNS
+ * alternativo por HTTPS (Cloudflare, depois Google); a conexão tenta os endereços de um e de outro.
+ */
+class DnsAlternativo(
+    private val sistema: (String) -> List<InetAddress> = { Dns.SYSTEM.lookup(it) },
+    private val alternativo: (String) -> List<InetAddress> = ::porHttps,
+    private val agora: () -> Long = System::currentTimeMillis,
+) : Dns {
+    private val cache = ConcurrentHashMap<String, Pair<Long, List<InetAddress>>>()
+
+    override fun lookup(hostname: String): List<InetAddress> {
+        if (local(hostname)) return sistema(hostname)
+        val doSistema = try { sistema(hostname) } catch (_: UnknownHostException) { emptyList() }
+        val doAlternativo = alt(hostname)
+        if (doSistema.isEmpty() && doAlternativo.isEmpty())
+            throw UnknownHostException("$hostname não foi encontrado (nem pelo DNS da internet deste local, nem pelo DNS alternativo)")
+        // Se os dois concordam em algum endereço, vale a ordem do sistema (servidor mais próximo); se não concordam,
+        // o DNS do local pode estar desviando o nome: tenta primeiro o do DNS alternativo.
+        val concordam = doSistema.any { it in doAlternativo }
+        return (if (concordam || doAlternativo.isEmpty()) doSistema + doAlternativo else doAlternativo + doSistema).distinct()
+    }
+
+    private fun alt(host: String): List<InetAddress> {
+        cache[host]?.let { (quando, lista) -> if (agora() - quando < (if (lista.isEmpty()) 60_000 else 600_000)) return lista }
+        val lista = try { alternativo(host) } catch (_: Exception) { emptyList() }
+        cache[host] = agora() to lista
+        return lista
+    }
+
+    companion object {
+        /** Endereço IP, nome da rede local ou "localhost": não passa pelo DNS alternativo. */
+        fun local(h: String) = h == "localhost" || !h.contains('.') || h.endsWith(".local") ||
+            h.matches(Regex("[0-9.]+")) || h.contains(':')
+
+        private val semDns = OkHttpClient.Builder().connectTimeout(6, TimeUnit.SECONDS).readTimeout(6, TimeUnit.SECONDS).build()
+        private fun ip(s: String) = InetAddress.getByName(s) // literal: não consulta DNS
+        private val resolvedores by lazy {
+            listOf(
+                DnsOverHttps.Builder().client(semDns).url("https://cloudflare-dns.com/dns-query".toHttpUrl())
+                    .bootstrapDnsHosts(ip("1.1.1.1"), ip("1.0.0.1")).includeIPv6(false).build(),
+                DnsOverHttps.Builder().client(semDns).url("https://dns.google/dns-query".toHttpUrl())
+                    .bootstrapDnsHosts(ip("8.8.8.8"), ip("8.8.4.4")).includeIPv6(false).build(),
+            )
+        }
+
+        fun porHttps(host: String): List<InetAddress> {
+            for (r in resolvedores) try { return r.lookup(host) } catch (_: Exception) {}
+            return emptyList()
+        }
+    }
+}
+
+object Rede {
+    val cliente: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .dns(DnsAlternativo())
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(90, TimeUnit.SECONDS)
+            .followRedirects(true).followSslRedirects(true)
+            .build()
+    }
+
+    /** Explicação curta do erro de rede, para mostrar na tela. */
+    fun explicar(e: Throwable): String = when (e) {
+        is UnknownHostException -> "o nome do servidor não foi encontrado, nem pelo DNS alternativo"
+        is SocketTimeoutException -> "o servidor não respondeu a tempo"
+        is ConnectException, is NoRouteToHostException -> "a conexão foi recusada ou não chegou ao servidor"
+        is SSLException -> "falha na conexão segura (https)"
+        is IOException -> "a conexão caiu (${e.message ?: e.javaClass.simpleName})"
+        else -> e.message ?: e.javaClass.simpleName
+    }
+}
