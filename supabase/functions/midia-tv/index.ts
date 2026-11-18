@@ -3,11 +3,14 @@
 //   {acao:"aguardar", aparelho, codigo}    → "aguardando" | "expirado" | "vinculado" (+ token, entregue UMA vez)
 //   {acao:"playlist", token}               → o que tocar: lista de arquivos do Drive com md5, tempo e a chave de download
 //   {acao:"sinal",    token, ...}          → sinal de vida (o painel mostra online/offline, espaço livre, erros)
+//   {acao:"arquivo",  token, id} + Range   → o arquivo do Drive repassado pela Nervia (caminho alternativo quando a rede
+//                                            do local recusa o Google Drive; ver _shared/midia_arquivo.ts)
 // Token inválido (TV desvinculada) → 401 {situacao:"desvinculada"}: o app apaga o token e volta à tela do código.
 import { admin } from "../_shared/banco.ts";
 import { VERSAO } from "../_shared/http.ts";
 import { urlDownload } from "../_shared/drive.ts";
 import { sincronizarConta, versaoConteudo } from "../_shared/midia.ts";
+import { type MidiaDaTv, repassarArquivo } from "../_shared/midia_arquivo.ts";
 import { bancoMidia } from "../_shared/midia_banco.ts";
 
 const sb = admin();
@@ -19,6 +22,19 @@ export const INTERVALO_SINAL_S = 180;      // e manda o sinal de vida a cada 3 m
 const resp = (corpo: unknown, status = 200) => new Response(JSON.stringify(corpo), { status, headers: { "Content-Type": "application/json" } });
 const falha = (mensagem: string, status = 400) => resp({ ok: false, mensagem }, status);
 const ok = <T>(r: { data: T; error: { message: string } | null }) => { if (r.error) throw new Error(r.error.message); return r.data; };
+
+/** Arquivo aprovado de uma playlist da conta (ativa) da TV; null = não é desta TV. */
+async function acharMidia(telaId: string, driveId: string): Promise<MidiaDaTv | null> {
+  const tela = ok(await sb.from("mi_telas").select("conta_id").eq("id", telaId).single()) as { conta_id: string };
+  const conta = ok(await sb.from("mi_contas").select("ativo").eq("id", tela.conta_id).single()) as { ativo: boolean };
+  if (!conta.ativo) return null;
+  const pls = (ok(await sb.from("mi_playlists").select("id").eq("conta_id", tela.conta_id)) as { id: string }[]).map((p) => p.id);
+  if (!pls.length) return null;
+  const ms = ok(await sb.from("mi_midias").select("drive_id, chave, tamanho, mime")
+    .eq("drive_id", driveId).eq("situacao", "ok").in("playlist_id", pls).limit(1)) as Record<string, unknown>[];
+  const m = ms[0];
+  return m ? { drive_id: String(m.drive_id), chave: String(m.chave ?? ""), tamanho: Number(m.tamanho), mime: String(m.mime ?? "") } : null;
+}
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return falha("Use POST", 405);
@@ -54,6 +70,11 @@ Deno.serve(async (req) => {
           conteudo: await versaoConteudo(itens), chave_api: CHAVE,
           intervalo_playlist_s: itens.length ? INTERVALO_PLAYLIST_S : INTERVALO_SEM_CONTEUDO_S, intervalo_sinal_s: INTERVALO_SINAL_S,
         });
+      }
+      case "arquivo": {
+        const telaId = ok(await sb.rpc("mi_tv_tela", { p_token: String(c.token ?? "") })) as string | null;
+        if (!telaId) return resp({ ok: false, situacao: "desvinculada" }, 401);
+        return await repassarArquivo(telaId, String(c.id ?? ""), req.headers.get("range"), CHAVE, acharMidia);
       }
       case "sinal": {
         const aceito = ok(await sb.rpc("mi_tv_sinal", { p_token: String(c.token ?? ""), p_dados: c })) as boolean;

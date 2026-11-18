@@ -7,6 +7,7 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
+import org.json.JSONObject
 
 /** Baixa os arquivos da playlist do Google Drive para o aparelho (retomando downloads interrompidos) e apaga o que saiu. */
 class Baixador(private val pasta: File) {
@@ -16,8 +17,10 @@ class Baixador(private val pasta: File) {
     fun pronto(i: Item) = arquivo(i).exists()
     fun espacoLivreMb(): Long = runCatching { StatFs(pasta.path).availableBytes / 1_048_576 }.getOrDefault(-1)
 
-    /** Baixa um arquivo (se ainda não estiver no aparelho). Confere o md5 informado pelo Drive. */
-    fun baixar(i: Item, chaveApi: String) {
+    /** Baixa um arquivo (se ainda não estiver no aparelho). Confere o md5 informado pelo Drive.
+     *  token == null: direto do Google Drive (padrão). Com token: pela função midia-tv da Nervia, que busca no Drive e
+     *  repassa (caminho alternativo para rede que recusa o Google; ver supabase/functions/_shared/midia_arquivo.ts). */
+    fun baixar(i: Item, chaveApi: String, token: String? = null) {
         val destino = arquivo(i)
         if (destino.exists()) return
         val parte = File(pasta, i.arquivo + ".part")
@@ -26,17 +29,28 @@ class Baixador(private val pasta: File) {
         if (StatFs(pasta.path).availableBytes < (i.tamanho - jaTem) + margem) {
             throw IOException("pouco espaço no aparelho para baixar (${i.tamanho / 1_048_576} MB)")
         }
-        val c = URL(i.url + "&key=" + chaveApi).openConnection() as HttpURLConnection
+        val c = if (token == null) {
+            (URL(i.url + "&key=" + chaveApi).openConnection() as HttpURLConnection).also { c ->
+                i.chaveRecurso?.let { c.setRequestProperty("X-Goog-Drive-Resource-Keys", "${i.id}/$it") }
+            }
+        } else {
+            Api.conexao().also { it.setRequestProperty("Content-Type", "application/json") }
+        }
         try {
             c.connectTimeout = 20_000
             c.readTimeout = 60_000
-            i.chaveRecurso?.let { c.setRequestProperty("X-Goog-Drive-Resource-Keys", "${i.id}/$it") }
             if (jaTem > 0) c.setRequestProperty("Range", "bytes=$jaTem-")
+            if (token != null) {
+                c.requestMethod = "POST"; c.doOutput = true
+                c.outputStream.use { it.write(JSONObject().put("acao", "arquivo").put("token", token).put("id", i.id).toString().toByteArray()) }
+            }
             val codigo = c.responseCode
             if (codigo == 416) { parte.delete(); throw IOException("download reiniciado") }
             if (codigo != 200 && codigo != 206) {
-                val msg = c.errorStream?.bufferedReader()?.use { it.readText() }?.let { Regex("\"message\"\\s*:\\s*\"([^\"]+)").find(it)?.groupValues?.get(1) }
-                throw IOException("Google Drive respondeu $codigo${msg?.let { ": $it" } ?: ""}")
+                val corpo = runCatching { c.errorStream?.bufferedReader()?.use { it.readText().take(4000) } }.getOrNull().orEmpty()
+                if (token != null && codigo == 401) throw IOException("TV desvinculada")
+                val quem = if (token == null) "Google Drive respondeu $codigo" else "servidor da Nervia respondeu $codigo"
+                throw IOException("$quem${motivoDoCorpo(corpo)?.let { ": $it" } ?: ""}")
             }
             val continuar = codigo == 206 && jaTem > 0
             val md5 = MessageDigest.getInstance("MD5")
@@ -51,6 +65,15 @@ class Baixador(private val pasta: File) {
         } finally {
             c.disconnect()
         }
+    }
+
+    /** Mensagem do Google (JSON "message"); se a resposta não é do Google Drive (página de bloqueio da rede, por exemplo),
+     *  o título ou o começo do texto, para a equipe saber quem recusou. */
+    private fun motivoDoCorpo(corpo: String): String? {
+        if (corpo.isBlank()) return null
+        Regex("\"(?:message|mensagem)\"\\s*:\\s*\"([^\"]+)").find(corpo)?.let { return it.groupValues[1] }
+        Regex("<title>([^<]{1,120})</title>", RegexOption.IGNORE_CASE).find(corpo)?.let { return "página \"${it.groupValues[1].trim()}\"" }
+        return corpo.replace(Regex("<[^>]*>"), " ").replace(Regex("\\s+"), " ").trim().take(100).ifBlank { null }
     }
 
     private fun copiar(entrada: java.io.InputStream, saida: java.io.OutputStream?, md5: MessageDigest) {

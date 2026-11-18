@@ -199,11 +199,13 @@ function avisoConta() {
 function vTelas() {
   if (!CONTA) return avisoConta();
   const on = TELAS.filter(online).length, off = TELAS.filter(t => t.ultimo_sinal && !online(t));
+  const travadas = TELAS.filter(t => online(t) && !t.tocando && t.baixando > 0 && errosDownload(t).length);
   return avisoConta() + `<div class="kpis">
       <div class="kpi ${TELAS.length && on === TELAS.length ? "ok" : off.length ? "crit" : ""}"><b>${on} de ${TELAS.length}</b><span>TVs online agora</span></div>
       <div class="kpi"><b>${PLS.length}</b><span>playlists (subpastas)</span></div>
       <div class="kpi"><b>${mbTxt(usado())}</b><span>usados de ${(CONTA.limite_mb / 1000).toLocaleString("pt-BR")} GB</span></div>
     </div>
+    ${travadas.length ? `<div class="aviso crit">${travadas.map(t => `<b>${esc(t.nome)}</b>`).join(", ")} ${travadas.length > 1 ? "não estão conseguindo baixar os arquivos e ficam" : "não está conseguindo baixar os arquivos da playlist e fica"} na tela de espera. ${dicaDownload(travadas.flatMap(t => t.erros))} Não adianta esperar: a TV tenta de novo a cada 5 minutos.</div>` : ""}
     ${off.length ? `<div class="aviso warn">${off.map(t => `<b>${esc(t.nome)}</b> sem sinal ${desde(t.ultimo_sinal)}`).join(" · ")}. A TV continua tocando o que já baixou, mas não recebe alterações. Confira se está ligada e com internet.</div>` : ""}
     <div class="card"><h2>TVs<span class="dir"><button class="bt pri" data-acao="addTv">+ Adicionar TV</button></span></h2>
     ${TELAS.length ? `<div class="tw"><table><tr><th>TV</th><th>Status</th><th>Playlist</th><th>Posição da TV</th><th class="esc-m">Aparelho</th><th class="esc-m">Situação</th><th></th></tr>
@@ -215,12 +217,24 @@ function vTelas() {
         <td><select data-pl="${t.id}"><option value="">— nenhuma (tela de espera) —</option>${PLS.map(p => `<option value="${p.id}" ${p.id === t.playlist_id ? "selected" : ""}>${esc(p.nome)}</option>`).join("")}</select></td>
         <td><select data-rot="${t.id}" title="Como a TV está instalada: o app gira a imagem para ficar certa">${POSICOES.map(([g, n]) => `<option value="${g}" ${g === (t.rotacao || 0) ? "selected" : ""}>${n}</option>`).join("")}</select></td>
         <td class="esc-m">${esc(t.modelo || "—")}<div class="mut">${t.android ? "Android " + esc(t.android) : ""}${t.versao_app ? " · app " + esc(t.versao_app) : ""}${t.espaco_livre_mb != null ? ` · ${(t.espaco_livre_mb / 1024).toFixed(1).replace(".", ",")} GB livres` : ""}</div></td>
-        <td class="esc-m">${t.baixando ? tag(`baixando ${t.baixando} arquivo(s)`, "t-info") : t.ultimo_sinal ? tag("em dia", "t-ok") : ""}
+        <td class="esc-m">${t.baixando && errosDownload(t).length ? tag(`não consegue baixar ${errosDownload(t).length} arquivo(s)`, "t-crit") : t.baixando ? tag(`baixando ${t.baixando} arquivo(s)`, "t-info") : t.ultimo_sinal ? tag("em dia", "t-ok") : ""}
           ${t.espaco_livre_mb != null && t.espaco_livre_mb * 1048576 < usado() + 524288000 ? tag(`pouco espaço: ${(t.espaco_livre_mb / 1024).toFixed(1).replace(".", ",")} GB livres`, "t-warn") : ""}
           ${erros.map(e => `<div class="mut" style="color:var(--crit)">${esc(e.nome)}: ${esc(e.erro)}</div>`).join("")}</td>
         <td style="white-space:nowrap"><button class="bt peq" data-acao="renomear" data-id="${t.id}">Renomear</button> <button class="bt peq perigo" data-acao="desvincular" data-id="${t.id}">Desvincular</button></td></tr>`;
     }).join("")}</table></div>` : `<div class="vazio">Nenhuma TV ainda. Instale o app <b>Mídia Indoor Nervia</b> na TV ou no TV box: ele mostra um código de 6 caracteres. Depois clique em <b>+ Adicionar TV</b>.</div>`}
     <p class="mut">A troca de playlist e de posição chega à TV em até 5 minutos (TV sem nada para passar: em até 30 segundos). A playlist troca no fim do item que está passando. <b>Posição da TV:</b> para TV instalada em pé, escolha para que lado ela foi girada; o app gira a imagem, sem precisar de vídeo rotacionado.</p></div>`;
+}
+/** Erros de download que a TV mandou no sinal ("não baixou: …"). */
+function errosDownload(t) { return (Array.isArray(t.erros) ? t.erros : []).filter(e => /não baixou/.test(e.erro || "")); }
+/** O que fazer, pelo erro mais comum: 403 do Drive com o servidor baixando normal = rede do local bloqueando o Google Drive. */
+function dicaDownload(erros) {
+  const txt = (erros || []).map(e => e.erro || "").join(" ");
+  if (/pela Nervia/.test(txt)) return "Nem o download direto do Google Drive nem o pelo servidor da Nervia funcionaram: confira a internet do local.";
+  if (/respondeu 403/.test(txt)) return "O Google Drive recusou o download (403). A rede do local pode estar bloqueando o Google Drive: teste a TV com outra internet (por exemplo, o roteador do celular) ou peça para liberar <b>www.googleapis.com</b>. O app da TV 1.4 contorna sozinho (baixa pelo servidor da Nervia): instale a versão nova.";
+  if (/respondeu 404/.test(txt)) return "Arquivo não encontrado no Google Drive: confira se ainda está na pasta e se a pasta continua com \"qualquer pessoa com o link\".";
+  if (/pouco espaço/.test(txt)) return "Falta espaço no aparelho: apague apps ou use mídias menores.";
+  if (/resolve host|UnknownHost|timeout|failed to connect/i.test(txt)) return "A TV não alcança o Google Drive: confira a internet do local.";
+  return "Veja o erro de cada arquivo na coluna Situação.";
 }
 function dlgAddTv() {
   if (!PLS.length) { msg("info", "Ligue a pasta do Drive antes (aba Pasta do Drive), para escolher a playlist da TV. Dá para vincular agora e escolher depois."); }

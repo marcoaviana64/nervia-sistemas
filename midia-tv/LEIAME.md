@@ -15,6 +15,10 @@ Instalado fora da Play Store, pela Nervia (ver `IMPLANTACAO.md` §10).
 - Tela sempre ligada, tela cheia. **Abre sozinho** quando a TV liga (`BootReceiver`), **volta sozinho** 3 s depois de travar
   (`App`) e 3 min depois de sair da tela (`MainActivity.onStop`). No Android 10+ as duas coisas só funcionam com a permissão
   "Sobrepor a outros apps" concedida (regra do Android para abrir tela vinda do segundo plano) — a Nervia concede por ADB.
+- **Download pela Nervia** (app 1.4): se o download direto do Google Drive falhar (rede que recusa o Google: na Linum Gávea, internet
+  Nio, 403 em tudo e no 4G funcionava), tenta na hora pela função `midia-tv` (ação `arquivo`, com Range), que busca no Drive e
+  repassa; dando certo, usa esse caminho até o app reabrir. O tráfego pela função conta na cota de saída do Supabase (Pro: 250 GB/mês).
+- Download que falha: aviso amarelo em destaque na tela de espera, com o motivo e o que fazer.
 - Token inválido (TV desvinculada no painel) → volta para a tela do código e apaga as mídias.
 
 ## Compilar
@@ -39,7 +43,12 @@ SurfaceView não gira junto. A posição fica guardada no aparelho e vale mesmo 
 
 ## Assinatura
 `assinatura.properties` (fora do git) com `arquivo`, `senha`, `apelido` (e `senha_chave`, se diferente). Sem ele o APK sai com a
-chave de depuração, só para piloto. **A chave de depuração do piloto** (SHA-256 `c04daff6…f9ab`, a do APK em `site/tv.apk`) foi entregue ao Marco para guardar: para gerar uma atualização que instale por cima nos aparelhos do piloto, colocar esse arquivo em `~/.android/debug.keystore` antes de compilar (sem ele sai outra chave e a TV recusa a atualização: desinstalar e vincular de novo). **Guardar a chave de produção com cuidado**: sem ela não dá para atualizar o app nas TVs.
+chave de depuração (não usar mais). **Desde o app 1.4 (18/11/2026) o APK é assinado com a chave de PRODUÇÃO** `nervia-midia-tv.jks`
+(apelido `midia-tv`, RSA 4096, válida por 30 anos, SHA-256 do certificado `40bee7d8…3ef4`), entregue ao Marco junto com o
+`assinatura.properties` para guardar (fora do GitHub). Para compilar uma atualização, colocar os dois arquivos nesta pasta.
+**Sem essa chave não dá para atualizar o app nas TVs** (sai outra assinatura, a TV recusa: desinstalar e vincular de novo).
+A chave de depuração do piloto (SHA-256 `c04daff6…f9ab`) ficou para trás: as TVs com o app 1.3 ou anterior precisam desinstalar e
+instalar a 1.4 uma vez.
 
 ## Versão
 Ao mudar o app, subir `versionCode` e `versionName` em `app/build.gradle.kts`. O painel mostra a versão de cada TV.

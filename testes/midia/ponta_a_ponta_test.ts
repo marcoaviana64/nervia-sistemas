@@ -190,6 +190,23 @@ Deno.test({ name: "Mídia Indoor de ponta a ponta", sanitizeOps: false, sanitize
     const r = await tv({ acao: "playlist", token });
     eq([r.j.playlist, r.j.itens.map((i: { nome: string }) => i.nome)], ["Praça", ["01_cardapio.jpg"]]);
   });
+  await t.step("download pela Nervia (rede que recusa o Google): arquivo da conta, Range, recusado e token inválido", async () => {
+    const arq = (corpo: unknown, range?: string) => tvH(new Request("http://x/midia-tv", { method: "POST", body: JSON.stringify(corpo),
+      headers: range ? { Range: range } : {} }));
+    // a TV agora está na playlist Praça, mas o vídeo do Hall é da mesma conta: continua liberado
+    const r = await arq({ acao: "arquivo", token, id: "v1" });
+    eq(r.status, 200);
+    eq(md5(new Uint8Array(await r.arrayBuffer())), md5(h264));
+    const p = await arq({ acao: "arquivo", token, id: "v1" }, "bytes=100-");
+    eq(p.status, 206);
+    eq(Array.from(new Uint8Array(await p.arrayBuffer())), Array.from(h264.slice(100)), "continua do byte 100");
+    const rec = await arq({ acao: "arquivo", token, id: "v2" });   // vídeo recusado (H.265) não sai
+    eq(rec.status, 404); await rec.body?.cancel();
+    const fora = await arq({ acao: "arquivo", token, id: "naoexisteNaConta" });
+    eq(fora.status, 404); await fora.body?.cancel();
+    const sem = await arq({ acao: "arquivo", token: "x".repeat(64), id: "v1" });
+    eq(sem.status, 401); await sem.body?.cancel();
+  });
   await t.step("conta suspensa: TV recebe playlist vazia (tela de espera)", async () => {
     await rest(T.admin, `/mi_contas?id=eq.${conta}`, { method: "PATCH", body: JSON.stringify({ ativo: false }) });
     const r = await tv({ acao: "playlist", token });

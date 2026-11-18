@@ -79,7 +79,7 @@
   <ul>
     <li><b>Online</b>: a TV mandou sinal nos últimos 10 minutos (ela avisa a cada 3 min). <b>Offline</b>: sem sinal há mais tempo; ela continua passando o que já baixou, mas não recebe alterações.</li>
     <li><b>Aparelho</b>: modelo, versão do Android, versão do app e espaço livre.</li>
-    <li><b>Situação</b>: "em dia", "baixando N arquivo(s)", "pouco espaço" (o aparelho tem menos espaço livre que as mídias da conta) ou o nome de um arquivo que o aparelho não conseguiu tocar.</li>
+    <li><b>Situação</b>: "em dia", "baixando N arquivo(s)", "pouco espaço" (o aparelho tem menos espaço livre que as mídias da conta) ou o nome de um arquivo que o aparelho não conseguiu tocar. <b>"Não consegue baixar"</b> (em vermelho, com aviso no alto da aba): a TV tenta baixar e o Google Drive recusa; ela fica na tela de espera. Quando a rede do local bloqueia o Google Drive, a TV (app 1.4 ou mais novo) já baixa sozinha pelo servidor da Nervia; esse aviso aparece só se nem assim der certo: confira a internet do local. Com app antigo (1.3 ou anterior), instale a versão nova.</li>
     <li><b>Desvincular</b>: a TV volta para a tela do código (para usar em outro lugar ou trocar de conta).</li>
   </ul>
 
@@ -89,7 +89,7 @@
     <li><b>Quem vê:</b> marque os logins do cliente (o app Mídia Indoor é liberado junto). Os logins são criados em Administração → Logins.</li>
     <li><b>Instalação na TV:</b> siga o <a href="instalacao.html">roteiro de instalação na TV</a> (para imprimir, com a ficha da instalação): ADB pela rede, permissão "Sobrepor a outros apps", protetor de tela desligado e a conferência antes de sair.</li>
     <li><b>Suspender:</b> editar a conta e desmarcar "Conta ativa": as TVs ficam na tela de espera.</li>
-    <li><b>Tela de espera:</b> quando a TV não tem o que passar (sem playlist, playlist vazia, baixando os primeiros arquivos ou sem internet antes do primeiro download), ela mostra uma propaganda do Mídia Indoor com QR code para o WhatsApp da Nervia. A linha pequena no pé da tela traz o nome da TV e o motivo, para a equipe saber o que falta.</li>
+    <li><b>Tela de espera:</b> quando a TV não tem o que passar (sem playlist, playlist vazia, baixando os primeiros arquivos ou sem internet antes do primeiro download), ela mostra uma propaganda do Mídia Indoor com QR code para o WhatsApp da Nervia. A linha pequena no pé da tela traz o nome da TV e o motivo, para a equipe saber o que falta. Se os downloads falham, aparece um <b>aviso amarelo em destaque</b> com o motivo e o que fazer: não adianta esperar, a TV tenta de novo a cada 5 minutos.</li>
   </ol>
   <p>Toda ação fica no registro de auditoria: conta criada/alterada, acesso liberado, pasta trocada, TV vinculada/desvinculada e playlist trocada.</p>
 

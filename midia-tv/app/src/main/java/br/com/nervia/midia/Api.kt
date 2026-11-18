@@ -8,15 +8,19 @@ import java.net.URL
 object Api {
     private val URL_FUNCAO = "${BuildConfig.SUPABASE_URL}/functions/v1/midia-tv"
 
+    /** Conexão com a função, já com a chave publicável (o download pela Nervia usa direto, para ler os bytes). */
+    fun conexao(): HttpURLConnection = (URL(URL_FUNCAO).openConnection() as HttpURLConnection).also {
+        it.setRequestProperty("apikey", BuildConfig.SUPABASE_CHAVE)
+    }
+
     fun chamar(corpo: JSONObject): Pair<Int, JSONObject> {
-        val c = URL(URL_FUNCAO).openConnection() as HttpURLConnection
+        val c = conexao()
         try {
             c.requestMethod = "POST"
             c.connectTimeout = 20_000
             c.readTimeout = 60_000
             c.doOutput = true
             c.setRequestProperty("Content-Type", "application/json")
-            c.setRequestProperty("apikey", BuildConfig.SUPABASE_CHAVE)
             c.outputStream.use { it.write(corpo.toString().toByteArray()) }
             val codigo = c.responseCode
             val texto = (if (codigo < 400) c.inputStream else c.errorStream)?.bufferedReader()?.use { it.readText() } ?: "{}"

@@ -34,8 +34,8 @@ android {
         applicationId = "br.com.nervia.midia"
         minSdk = 24          // Android 7.0
         targetSdk = 36
-        versionCode = 4
-        versionName = "1.3"
+        versionCode = 5
+        versionName = "1.4"
         buildConfigField("String", "SUPABASE_URL", "\"${lerConfig("SUPABASE_URL")}\"")
         buildConfigField("String", "SUPABASE_CHAVE", "\"${lerConfig("SUPABASE_ANON_KEY")}\"")
     }
