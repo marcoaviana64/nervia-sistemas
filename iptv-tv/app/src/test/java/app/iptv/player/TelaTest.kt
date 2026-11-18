@@ -199,7 +199,7 @@ class TelaTest {
         ultimaRaiz = raiz
         ocioso()
         assertTrue(textos(raiz).contains("Login e senha"))
-        assertTrue(textos(raiz).contains("http://auth.urltech.gy"))
+        assertTrue(textos(raiz).contains("http://p.urldata.gy"))
         foto(raiz, "tela-configurar")
 
         val p = porta(act)
@@ -207,7 +207,7 @@ class TelaTest {
             s.getOutputStream().write("GET / HTTP/1.1\r\nHost: tv\r\n\r\n".toByteArray())
             val pag = s.getInputStream().readBytes().decodeToString()
             assertTrue(pag.contains("name=\"usuario\"") && pag.contains("name=\"lista\""))
-            assertTrue(pag.contains("value=\"http://auth.urltech.gy\""))
+            assertTrue(pag.contains("value=\"http://p.urldata.gy\""))
         }
         // senha errada: o celular vê o erro depois, na TV (o login é conferido no servidor)
         assertTrue(enviar(p, "tipo=xtream&servidor=&usuario=marco&senha=x").contains("Informe o servidor"))

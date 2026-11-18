@@ -237,7 +237,7 @@ class Repositorio(ctx: Context) {
     companion object {
         const val PIN_PADRAO = "0000"
         /** Servidor que já vem preenchido no login (pedido do Marco em 17/11/2026; o provedor troca de tempos em tempos). */
-        const val SERVIDOR_PADRAO = "http://auth.urltech.gy"
+        const val SERVIDOR_PADRAO = "http://p.urldata.gy"
         /** Arquivo que o Marco atualiza (site/nvplayer.json): {"servidores": ["http://…", "http://…"]}. */
         const val URL_SERVIDORES = "https://nervia.com.br/nvplayer.json"
         /** Só os testes trocam. */
