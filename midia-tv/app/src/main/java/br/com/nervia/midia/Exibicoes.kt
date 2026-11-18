@@ -3,12 +3,17 @@ package br.com.nervia.midia
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.util.Calendar
+import java.util.TimeZone
 import java.util.UUID
 
 /**
  * Tempo de tela (pedido do Marco em 18/11/2026: relatório mensal ao cliente de quanto tempo cada mídia apareceu em cada TV).
  * Cada exibição (mídia, início, segundos que ficou DE FATO na tela, com o app à vista) é anotada numa linha do arquivo
- * `pendentes.jsonl`, também sem internet. Para mandar, as linhas viram arquivos de lote (`lote-<uuid>.jsonl`, até
+ * `pendentes.jsonl`, também sem internet. **Envio diário** (decisão do Marco em 18/11/2026, para não gerar uma chamada à função
+ * a cada sinal): só vão as exibições que começaram ANTES de hoje (dia de Brasília); as de hoje ficam no aparelho até o dia
+ * seguinte. Assim a TV chama o servidor uma vez por dia, no primeiro sinal depois da meia-noite (ou quando a internet voltar).
+ * Para mandar, as linhas dos dias anteriores viram arquivos de lote (`lote-<uuid>.jsonl`, até
  * [POR_LOTE] linhas): o mesmo lote é reenviado com o mesmo código até o servidor confirmar, e o servidor não conta um lote
  * duas vezes (mi_tv_exibicoes). Exibição com menos de 1 s não conta. Se a TV ficar muito tempo sem internet, os lotes
  * mais antigos saem quando passam de [LIMITE_BYTES] (o servidor também ignora o que tem mais de 60 dias).
@@ -40,15 +45,20 @@ class Exibicoes(private val pasta: File, private val agora: () -> Long = System:
         runCatching { pendentes.appendText(linha.toString() + "\n") }
     }
 
-    /** Lotes prontos para mandar (os pendentes viram lotes aqui), do mais antigo para o mais novo. */
+    /** Lotes prontos para mandar (as exibições de dias anteriores viram lotes aqui), do mais antigo para o mais novo. */
     fun lotes(): List<File> = synchronized(trava) {
         if (pendentes.exists() && pendentes.length() > 0) {
             val linhas = runCatching { pendentes.readLines().filter { it.isNotBlank() } }.getOrDefault(emptyList())
-            linhas.chunked(POR_LOTE).forEachIndexed { n, parte ->
+            val corte = inicioDeHoje()
+            // linha que não dá para ler vai junto (o servidor descarta): não fica presa no aparelho
+            val (antigas, deHoje) = linhas.partition { runCatching { JSONObject(it).getLong("inicio") < corte }.getOrDefault(true) }
+            antigas.chunked(POR_LOTE).forEachIndexed { n, parte ->
                 // nome com a hora e a ordem: a lista sai em ordem; o uuid é o código do lote no servidor
                 File(pasta, "lote-%013d-%03d-%s.jsonl".format(agora(), n, UUID.randomUUID())).writeText(parte.joinToString("\n") + "\n")
             }
-            pendentes.delete()
+            if (antigas.isNotEmpty()) {
+                if (deHoje.isEmpty()) pendentes.delete() else pendentes.writeText(deHoje.joinToString("\n") + "\n")
+            }
         }
         val todos = (pasta.listFiles { f -> f.name.startsWith("lote-") } ?: emptyArray()).sortedBy { it.name }.toMutableList()
         while (todos.sumOf { it.length() } > LIMITE_BYTES && todos.size > 1) todos.removeAt(0).delete()
@@ -72,6 +82,11 @@ class Exibicoes(private val pasta: File, private val agora: () -> Long = System:
             synchronized(trava) { l.delete() }
         }
     }
+
+    /** Meia-noite de hoje em Brasília (ms desde 1970), pelo relógio da TV. */
+    private fun inicioDeHoje(): Long = Calendar.getInstance(TimeZone.getTimeZone("America/Sao_Paulo")).apply {
+        timeInMillis = agora(); set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
 
     companion object {
         const val POR_LOTE = 2000

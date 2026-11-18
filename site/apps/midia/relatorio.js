@@ -7,8 +7,8 @@ const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julh
 const hojeBR = () => new Date().toLocaleDateString("en-CA", { timeZone: TZ });   // AAAA-MM-DD em Brasília
 const mesNome = m => `${MESES[+m.slice(5, 7) - 1]} de ${m.slice(0, 4)}`;
 const ultimoDia = m => new Date(+m.slice(0, 4), +m.slice(5, 7), 0).getDate();
-/** Dias do período para a média: o mês inteiro, ou até hoje no mês atual. */
-const diasPeriodo = m => { const h = hojeBR(); return h.slice(0, 7) === m ? +h.slice(8, 10) : ultimoDia(m); };
+/** Dias do período para a média: o mês inteiro, ou até ONTEM no mês atual (a TV manda o dia no dia seguinte). */
+const diasPeriodo = m => { const h = hojeBR(); return h.slice(0, 7) === m ? Math.max(1, +h.slice(8, 10) - 1) : ultimoDia(m); };
 const tempoTxt = s => {
   s = Math.round(s || 0);
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60;
@@ -74,12 +74,12 @@ function vRelatorio() {
       <div><label for="relMes">Mês</label><input type="month" id="relMes" value="${REL.mes}" max="${hojeBR().slice(0, 7)}"></div>
       <div><label for="relTela">TV</label><select id="relTela"><option value="">Todas as TVs</option>${telasDoMes.map(t => `<option value="${t.id}" ${t.id === REL.tela ? "selected" : ""}>${esc(t.nome)}</option>`).join("")}</select></div>
     </div>
-    <p class="mut">Tempo em que cada mídia ficou de fato na tela (TV ligada, com o app aberto), anotado pela própria TV, inclusive sem internet, em horário de Brasília. Exibições de menos de 1 segundo não contam. A contagem começa quando a TV recebe o app 1.6 ou mais novo.</p></div>`;
+    <p class="mut">Tempo em que cada mídia ficou de fato na tela (TV ligada, com o app aberto), anotado pela própria TV, inclusive sem internet, em horário de Brasília. Exibições de menos de 1 segundo não contam. <b>Os números de cada dia chegam no dia seguinte</b>: a TV manda uma vez por dia, depois da meia-noite (ou quando a internet voltar). A contagem começa quando a TV recebe o app 1.6 ou mais novo.</p></div>`;
   const cabecalho = `<div class="so-imp"><div class="imp-topo"><div><b>Relatório de tempo de tela</b><br>${esc(CONTA.nome)} · ${esc(mesNome(REL.mes))}${telaSel ? " · " + esc(telaSel) : ""}</div>
     <div class="mut">Mídia Indoor · Nervia Tecnologia<br>Gerado em ${new Date().toLocaleString("pt-BR", { timeZone: TZ, day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</div></div></div>`;
   if (REL.erro) return controles + `<div class="aviso crit">Não foi possível carregar o relatório: ${esc(REL.erro)}</div>`;
   if (!REL.linhas) return controles + '<div class="vazio">Carregando…</div>';
-  if (!linhas.length) return controles + `<div class="vazio">Nenhuma exibição registrada em ${esc(mesNome(REL.mes))}${telaSel ? " nesta TV" : ""}.</div>`;
+  if (!linhas.length) return controles + `<div class="vazio">Nenhuma exibição registrada em ${esc(mesNome(REL.mes))}${telaSel ? " nesta TV" : ""}.${REL.mes === hojeBR().slice(0, 7) ? " Os números de hoje chegam amanhã." : ""}</div>`;
 
   return controles + cabecalho + `<div class="kpis">
       <div class="kpi"><b>${tempoTxt(total)}</b><span>tempo de tela no período</span></div>
@@ -103,7 +103,7 @@ function vRelatorio() {
       ${porTelaMidia.sort((a, b) => nomeTela(a.tela).localeCompare(nomeTela(b.tela), "pt-BR") || b.segundos - a.segundos)
         .map(x => `<tr><td>${esc(nomeTela(x.tela))}</td><td>${esc(x.nome)}</td><td class="num">${numBR(x.vezes)}</td><td class="num">${tempoTxt(x.segundos)}</td><td class="num">${pctTxt(x.segundos, totTela(x.tela))}</td></tr>`).join("")}
     </table></div></div>`}
-    <p class="mut so-imp">Tempo em que cada mídia ficou de fato na tela (TV ligada, com o app aberto), anotado pela própria TV, em horário de Brasília. Média por dia = tempo ÷ ${dias} dia(s) do período.</p>`;
+    <p class="mut so-imp">Tempo em que cada mídia ficou de fato na tela (TV ligada, com o app aberto), anotado pela própria TV, em horário de Brasília. Média por dia = tempo ÷ ${dias} dia(s) do período${REL.mes === hojeBR().slice(0, 7) ? " (até ontem)" : ""}.</p>`;
 }
 
 /** CSV por dia (separado por ponto e vírgula, com BOM, para abrir certo no Excel). */
