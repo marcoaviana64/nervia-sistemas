@@ -31,6 +31,15 @@ const FALSO = `(() => {
       { id: 't2', conta_id: 'c1', nome: 'Estacionamento', playlist_id: 'p2', ultimo_sinal: min(190), versao_app: '1.0', modelo: 'Google TV', android: '12', tocando: '', espaco_livre_mb: 300, baixando: 0, erros: [{ nome: 'promo.mp4', erro: 'este aparelho não toca o vídeo' }] },
       { id: 't3', conta_id: 'c1', nome: 'Vitrine da loja', playlist_id: 'p1', ultimo_sinal: min(2), versao_app: '1.3', modelo: 'TCL Smart TV', android: '14', tocando: '', espaco_livre_mb: 2400, baixando: 2, erros: [{ nome: '01_black-friday.mp4', erro: 'não baixou: Google Drive respondeu 403' }, { nome: '02_cardapio.jpg', erro: 'não baixou: Google Drive respondeu 403' }] }],
     codigos: { 'ABC234': 'livre' },
+    mi_exibicoes: (() => {
+      const mes = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }).slice(0, 7);
+      return [
+        { conta_id: 'c1', tela_id: 't1', tela_nome: 'Hall de entrada', dia: mes + '-01', drive_id: 'F1', nome: '01_black-friday.mp4', tipo: 'video', vezes: 100, segundos: 3000 },
+        { conta_id: 'c1', tela_id: 't1', tela_nome: 'Hall de entrada', dia: mes + '-01', drive_id: 'F2', nome: '02_horario.png', tipo: 'imagem', vezes: 100, segundos: 1000 },
+        { conta_id: 'c1', tela_id: 't1', tela_nome: 'Hall de entrada', dia: mes + '-02', drive_id: 'F1', nome: '01_black-friday.mp4', tipo: 'video', vezes: 50, segundos: 1500 },
+        { conta_id: 'c1', tela_id: 'tX', tela_nome: 'Vitrine antiga', dia: mes + '-01', drive_id: 'F1', nome: '01_black-friday.mp4', tipo: 'video', vezes: 10, segundos: 300 },
+        { conta_id: 'c2', tela_id: 'tY', tela_nome: 'Outra conta', dia: mes + '-01', drive_id: 'F9', nome: 'nao-aparece.mp4', tipo: 'video', vezes: 1, segundos: 99999 }];
+    })(),
     log: []
   };
   const gravar = () => localStorage.setItem('db_teste', JSON.stringify(db));
@@ -38,7 +47,7 @@ const FALSO = `(() => {
   const pode = c => admin() || db.mi_acessos.some(a => a.user_id === EU && a.conta_id === c);
   const conta = id => db.mi_contas.find(c => c.id === id), pl = id => db.mi_playlists.find(p => p.id === id);
   const ver = { perfis: r => admin() || r.user_id === EU, app_acessos: r => admin() || r.user_id === EU, mi_contas: r => pode(r.id),
-    mi_acessos: r => admin() || r.user_id === EU, mi_playlists: r => pode(r.conta_id), mi_midias: r => pode((pl(r.playlist_id) || {}).conta_id), mi_telas: r => pode(r.conta_id) };
+    mi_acessos: r => admin() || r.user_id === EU, mi_playlists: r => pode(r.conta_id), mi_midias: r => pode((pl(r.playlist_id) || {}).conta_id), mi_telas: r => pode(r.conta_id), mi_exibicoes: r => pode(r.conta_id) };
   const erro = m => ({ data: null, error: { message: m } });
   const ok = d => ({ data: d, error: null });
   class Q {
@@ -50,6 +59,9 @@ const FALSO = `(() => {
     delete() { this.op = 'delete'; return this; }
     eq(c, v) { this.f.push(r => r[c] === v); return this; }
     in(c, v) { this.f.push(r => v.includes(r[c])); return this; }
+    gte(c, v) { this.f.push(r => r[c] >= v); return this; }
+    lte(c, v) { this.f.push(r => r[c] <= v); return this; }
+    range(a, b) { this.rg = [a, b]; return this; }
     order() { return this; }
     single() { this.um = true; return this; }
     maybeSingle() { this.um = true; return this; }
@@ -64,7 +76,8 @@ const FALSO = `(() => {
       }
       if (this.op === 'update') { if (!admin()) return erro('permission denied for table ' + t); sel().forEach(r => Object.assign(r, this.vals)); gravar(); return ok([]); }
       if (this.op === 'delete') { if (!admin()) return erro('permission denied'); const fora = new Set(sel()); db[t] = db[t].filter(r => !fora.has(r)); gravar(); return ok([]); }
-      const d = JSON.parse(JSON.stringify(sel()));
+      let d = JSON.parse(JSON.stringify(sel()));
+      if (this.rg) d = d.slice(this.rg[0], this.rg[1] + 1);
       return ok(this.um ? d[0] || null : d);
     }
   }
@@ -127,7 +140,7 @@ async function pagina(b, papel, largura = 1300, url = '/apps/midia/') {
   const ctx = await b.newContext({ viewport: { width: largura, height: 900 } });
   await ctx.addInitScript(p => { if (!sessionStorage.getItem('iniciado')) { localStorage.clear(); localStorage.setItem('papel_teste', p); sessionStorage.setItem('iniciado', '1'); } }, papel);
   const pg = await ctx.newPage(); const erros = [];
-  pg.on('pageerror', e => erros.push(String(e)));
+  pg.on('pageerror', e => { erros.push(String(e)); if (process.env.DEPURAR) console.log('ERRO PAGINA', String(e)); });
   pg.on('dialog', d => d.type() === 'prompt' ? d.accept('Hall L1') : d.accept());
   await pg.route('**/supabase-js@*/**', r => r.fulfill({ body: FALSO, contentType: 'text/javascript' }));
   await pg.goto(`http://127.0.0.1:${PORTA}${url}`);
@@ -145,6 +158,7 @@ const db = pg => pg.evaluate(() => window.__db);
     const { pg, erros } = await pagina(b, 'cliente');
     ok((await pg.locator('[data-versao=midia]').count()) === 1, 'topo com a versão do app');
     ok(await pg.locator('#abaAdmin').isHidden(), 'cliente não vê a aba Contas');
+    if (process.env.DEPURAR) console.log('AVISO', await pg.locator('#aviso').innerText(), await pg.locator('body').innerText().then(t => t.slice(0, 300)));
     const kpi = await pg.locator('.kpi').first().innerText();
     ok(kpi.includes('2 de 3'), 'KPI: 2 de 3 TVs online');
     const crit = await pg.locator('.aviso.crit').innerText();
@@ -154,6 +168,28 @@ const db = pg => pg.evaluate(() => window.__db);
     ok((await pg.locator('#tela').innerText()).includes('este aparelho não toca o vídeo'), 'erro informado pela TV aparece');
     ok((await pg.locator('#tela').innerText()).includes('pouco espaço: 0,3 GB livres'), 'aviso de pouco espaço na TV');
     await print(pg, 'midia_tvs');
+    // ---- Relatório (tempo de tela)
+    await pg.click('.aba[data-v=relatorio]'); await pg.waitForTimeout(300);
+    const rel = await pg.locator('#tela').innerText();
+    ok(rel.includes('1 h 36 min') && rel.includes('260') && !rel.includes('nao-aparece'), 'relatório: tempo total (5.800 s = 1 h 36 min) e exibições só da conta');
+    ok(rel.includes('Vitrine antiga') && rel.includes('(desvinculada)'), 'relatório: TV desvinculada continua no relatório');
+    const linhaVideo = await pg.locator('tr', { hasText: '01_black-friday.mp4' }).first().innerText();
+    ok(linhaVideo.includes('1 h 20 min') && linhaVideo.includes('82,8%'), 'relatório: por mídia com tempo e % (4.800 de 5.800 s)');
+    ok(rel.includes('% DO TEMPO DA TV') || rel.toLowerCase().includes('% do tempo da tv'), 'relatório: cada mídia em cada TV');
+    await pg.selectOption('#relTela', 't1'); await pg.waitForTimeout(150);
+    const rel2 = await pg.locator('.kpis').innerText(), tabelas2 = await pg.locator('#tela table').allInnerTexts();
+    ok(rel2.includes('1 h 31 min') && rel2.includes('média por dia') && !tabelas2.join(' ').includes('Vitrine antiga') && tabelas2.length === 1, 'relatório: filtro por TV (5.500 s) com média por dia');
+    const [dl] = await Promise.all([pg.waitForEvent('download'), pg.click('[data-acao=relCsv]')]);
+    const csv = fs.readFileSync(await dl.path(), 'utf8');
+    ok(csv.charCodeAt(0) === 0xfeff && csv.includes('Dia;TV;Mídia;Tipo;Exibições;Segundos;Tempo de tela') && csv.split('\r\n').length === 4 && csv.includes('Hall de entrada;01_black-friday.mp4;vídeo;100;3000;50 min 00 s'),
+      'relatório: CSV por dia da TV escolhida, para o Excel');
+    await pg.emulateMedia({ media: 'print' });
+    ok(await pg.locator('.imp-topo').isVisible() && await pg.locator('.barra').isHidden() && (await pg.locator('.imp-topo').innerText()).includes('Relatório de tempo de tela'), 'relatório: impressão com cabeçalho, sem menu');
+    await print(pg, 'midia_relatorio_impressao');
+    await pg.emulateMedia({ media: 'screen' });
+    await pg.fill('#relMes', '2020-01'); await pg.dispatchEvent('#relMes', 'change'); await pg.waitForTimeout(200);
+    ok((await pg.locator('#tela').innerText()).includes('Nenhuma exibição registrada em janeiro de 2020'), 'relatório: mês sem exibições avisa');
+    await pg.click('.aba[data-v=telas]'); await pg.waitForTimeout(150);
     // trocar playlist
     await pg.selectOption('select[data-pl=t1]', 'p2');
     await pg.waitForTimeout(200);

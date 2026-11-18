@@ -5,6 +5,8 @@
 //   {acao:"sinal",    token, ...}          → sinal de vida (o painel mostra online/offline, espaço livre, erros)
 //   {acao:"arquivo",  token, id} + Range   → o arquivo do Drive repassado pela Nervia (caminho alternativo quando a rede
 //                                            do local recusa o Google Drive; ver _shared/midia_arquivo.ts)
+//   {acao:"exibicoes", token, lote, itens:[{id, nome, tipo, inicio, segundos}]} → tempo de tela (relatório do painel);
+//                                            lote repetido não conta duas vezes (mi_tv_exibicoes)
 // Token inválido (TV desvinculada) → 401 {situacao:"desvinculada"}: o app apaga o token e volta à tela do código.
 import { admin } from "../_shared/banco.ts";
 import { VERSAO } from "../_shared/http.ts";
@@ -75,6 +77,10 @@ Deno.serve(async (req) => {
         const telaId = ok(await sb.rpc("mi_tv_tela", { p_token: String(c.token ?? "") })) as string | null;
         if (!telaId) return resp({ ok: false, situacao: "desvinculada" }, 401);
         return await repassarArquivo(telaId, String(c.id ?? ""), req.headers.get("range"), CHAVE, acharMidia);
+      }
+      case "exibicoes": {
+        const n = ok(await sb.rpc("mi_tv_exibicoes", { p_token: String(c.token ?? ""), p_lote: String(c.lote ?? ""), p_itens: c.itens ?? [] })) as number | null;
+        return n === null ? resp({ ok: false, situacao: "desvinculada" }, 401) : resp({ ok: true, gravadas: n });
       }
       case "sinal": {
         const aceito = ok(await sb.rpc("mi_tv_sinal", { p_token: String(c.token ?? ""), p_dados: c })) as boolean;
