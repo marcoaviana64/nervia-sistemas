@@ -18,7 +18,10 @@ import kotlin.concurrent.thread
  * Não devolve a configuração atual (tem usuário e senha) para ninguém.
  * [aoReceber] recebe os campos do formulário e devolve null (aceito) ou a mensagem de erro.
  */
-class Configurador(private val aoReceber: (Map<String, String>) -> String?) {
+class Configurador(
+    private val servidorPadrao: String = Repositorio.SERVIDOR_PADRAO,
+    private val aoReceber: (Map<String, String>) -> String?,
+) {
     private var servidor: ServerSocket? = null
     val porta: Int get() = servidor?.localPort ?: 0
 
@@ -63,7 +66,7 @@ class Configurador(private val aoReceber: (Map<String, String>) -> String?) {
                 <form method="post" action="/salvar">
                   <input type="hidden" name="tipo" value="xtream">
                   <label>Servidor (com a porta)</label>
-                  <input name="servidor" value="${Repositorio.SERVIDOR_PADRAO}" placeholder="http://servidor.com:8080" required autocapitalize="off" autocorrect="off">
+                  <input name="servidor" value="${servidorPadrao.replace("\"", "&quot;")}" placeholder="http://servidor.com:8080" required autocapitalize="off" autocorrect="off">
                   <label>Usuário</label><input name="usuario" required autocapitalize="off" autocorrect="off">
                   <label>Senha</label><input name="senha" type="password" required>
                   <button type="submit">Enviar para a TV</button>

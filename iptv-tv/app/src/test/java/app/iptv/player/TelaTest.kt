@@ -110,6 +110,7 @@ class TelaTest {
                         val corpo: ByteArray? = when {
                             caminho == "/player_api.php" -> xtream(q["action"], q)?.toByteArray()
                             caminho == "/lista.m3u" -> m3u.toByteArray()
+                            caminho == "/nvplayer.json" -> publicados?.toByteArray()
                             caminho.startsWith("/img/") -> capa(caminho.removePrefix("/img/").substringBefore('.').toInt())
                             else -> null
                         }
@@ -121,6 +122,11 @@ class TelaTest {
             }
         }.apply { isDaemon = true }.start()
     }
+
+    /** Conteúdo do nvplayer.json imitado (null = 404). */
+    @Volatile private var publicados: String? = null
+
+    @org.junit.Before fun site() { Repositorio.urlServidores = "http://127.0.0.1:${servidor.localPort}/nvplayer.json" }
 
     @After fun parar() = servidor.close()
 
@@ -297,5 +303,30 @@ class TelaTest {
         assertEquals("xtream", prefs.getString("tipo", null))
         assertEquals("marco", prefs.getString("usuario", null))
         ctl.pause().stop().destroy()
+    }
+
+    @Test fun servidorDoSite() {
+        val base = "http://127.0.0.1:${servidor.localPort}"
+        // o site publica um endereço que não responde e, depois, o certo
+        publicados = """{"servidores": ["http://127.0.0.1:1", "$base"]}"""
+        val ctl = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val act = ctl.get()
+        val raiz = act.window.decorView
+        // primeira vez: o campo Servidor troca para o 1º endereço do site
+        esperar { textos(raiz).contains("http://127.0.0.1:1") }
+        // a pessoa envia com o endereço antigo (que não responde): o app procura no site e acha o que funciona
+        assertTrue(enviar(porta(act), "tipo=xtream&servidor=${enc("http://127.0.0.1:2")}&usuario=marco&senha=segredo").contains("Pronto"))
+        esperar(30) { textos(raiz).any { it == "Filmes  3" } }
+        val prefs = act.getSharedPreferences("iptv", Context.MODE_PRIVATE)
+        assertEquals(base, prefs.getString("servidor", null))
+        assertEquals("http://127.0.0.1:1\n$base", prefs.getString("srv_publicados", null))
+        ctl.pause().stop().destroy()
+    }
+
+    @Test fun lerArquivoDoSite() {
+        assertEquals(listOf("http://a.com:8080", "http://b.net"),
+            Repositorio.lerServidores("""{"servidores": ["a.com:8080/", "http://b.net", "http://b.net", ""]}"""))
+        assertEquals(listOf("http://c.gy"), Repositorio.lerServidores("""{"servidor": "http://c.gy"}"""))
+        assertEquals(emptyList<String>(), Repositorio.lerServidores("""{"obs": "nada"}"""))
     }
 }

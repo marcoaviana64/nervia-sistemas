@@ -43,6 +43,14 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
   concordam, o do DNS alternativo primeiro). Não resolve bloqueio por IP. A mensagem de erro agora diz a causa
   (nome não encontrado, sem resposta, conexão recusada, https). Teste: `DnsTest`.
 
+- **Endereço do servidor pelo site** (2.5, pedido do Marco em 18/11/2026: "um local com o link; eu sempre atualizo e o
+  aplicativo pega deste local"): `site/nvplayer.json` = `{"servidores": ["http://…", "http://…"]}`, publicado em
+  https://nervia.com.br/nvplayer.json (sem cache). O 1º vem preenchido no login (`Repositorio.servidorPadrao`, TV e
+  página do celular; na primeira vez a TV busca o arquivo e troca o campo se ninguém mexeu). Se o servidor salvo não
+  responder, o app lê o arquivo, tenta os outros endereços com o mesmo usuário e senha e grava o que funcionar
+  (`carregarXtream`). A última lista lida fica no aparelho (`srv_publicados`). Para trocar: editar o arquivo no GitHub
+  (ou pedir ao Claude) e fazer o merge na main; não precisa de APK novo. Teste: `TelaTest.servidorDoSite`.
+
 ## Ainda não tem (ideias)
 Grade de programação de todos os canais ao mesmo tempo, assistir programa que já passou (catch-up), gravação.
 
