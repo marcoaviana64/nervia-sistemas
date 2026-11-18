@@ -3220,7 +3220,13 @@ select pg_temp.erro2($$select ctr_cliente_salvar('{"apelido":"park lagos","razao
 select pg_temp.erro2($$select ctr_cliente_salvar('{"apelido":"Outro","razao_social":"Outro","cnpj":"34147021000156"}'::jsonb || jsonb_build_object('empresa_id', current_setting('ctr.nervia')::bigint))$$, 'CNPJ', 'contratos: CNPJ repetido recusado');
 select pg_temp.erro2($$select ctr_cliente_salvar('{"apelido":"Outro","razao_social":"Outro","cnpj":"123"}'::jsonb || jsonb_build_object('empresa_id', current_setting('ctr.nervia')::bigint))$$, 'inválido', 'contratos: CNPJ com dígitos errados recusado');
 insert into ctr_t values ('k1', ctr_contrato_salvar(jsonb_build_object('cliente_id', (select v from ctr_t where k = 'lagos'), 'inicio', '2026-01-01', 'fim', '2026-12-31',
-  'valor_mensal', 3600, 'objeto', 'de consultoria de TI', 'assinantes', 'a@lagos.com', 'local_assinatura', 'Cabo Frio')));
+  'valor_mensal', 3600, 'objeto', 'de consultoria de TI', 'assinantes', 'a@lagos.com', 'assinante_cliente', 'Ana Lagos, CPF 111.111.111-11', 'local_assinatura', 'Cabo Frio')));
+select pg_temp.ok((select assinante_cliente = 'Ana Lagos, CPF 111.111.111-11' and assinantes = 'a@lagos.com' from ctr_contratos where id = (select v from ctr_t where k = 'k1')),
+  'contratos 2.1: quem assina pelo cliente (nome) gravado junto com os e-mails');
+select ctr_empresa_salvar(jsonb_build_object('id', current_setting('ctr.nervia')::bigint, 'contratada_assinante', 'Marco Teste, CPF 222.222.222-22'));
+select pg_temp.ok((select contratada_assinante = 'Marco Teste, CPF 222.222.222-22' and contratada_nome = 'NERVIA TESTE' from ctr_empresas where id = current_setting('ctr.nervia')::bigint)
+  and exists (select 1 from auditoria where acao = 'contratos_empresa_alterada' and detalhes -> 'depois' ->> 'contratada_assinante' = 'Marco Teste, CPF 222.222.222-22'),
+  'contratos 2.1: quem assina pela empresa gravado (o resto mantido) e auditado');
 select pg_temp.ok((select situacao = 'rascunho' and dia_vencimento = 30 and parcela_extra from ctr_contratos where id = (select v from ctr_t where k = 'k1')), 'contratos: contrato novo em rascunho, vence dia 30, com parcela extra');
 select pg_temp.erro2($$select ctr_cobrancas_gerar((select v from ctr_t where k = 'k1'))$$, 'Gere o contrato', 'contratos: rascunho não gera cobranças');
 select pg_temp.erro2($$select ctr_contrato_etapa((select v from ctr_t where k = 'k1'), 'encerrado')$$, 'Só contrato assinado', 'contratos: não encerra sem assinatura');
@@ -3232,6 +3238,7 @@ select pg_temp.ok((select situacao = 'assinado' and gerado_em = '2025-12-20' and
   'contratos: etapas gerado → enviado → assinado com as datas');
 select pg_temp.erro2($$select ctr_contrato_salvar(jsonb_build_object('id', (select v from ctr_t where k = 'k1'), 'valor_mensal', 3800))$$, 'informe o motivo', 'contratos: mudar valor depois de assinado exige motivo');
 select ctr_contrato_salvar(jsonb_build_object('id', (select v from ctr_t where k = 'k1'), 'obs', 'contato: Douglas'));
+select pg_temp.ok((select assinante_cliente = 'Ana Lagos, CPF 111.111.111-11' from ctr_contratos where id = (select v from ctr_t where k = 'k1')), 'contratos 2.1: salvar sem a chave mantém quem assina');
 select pg_temp.ok((select ctr_cobrancas_gerar((select v from ctr_t where k = 'k1'))) = 13, 'contratos: gera 12 meses + parcela extra');
 select pg_temp.ok((select ctr_cobrancas_gerar((select v from ctr_t where k = 'k1'))) = 0, 'contratos: gerar de novo não repete');
 select pg_temp.ok((select vencimento = '2026-02-28' from ctr_cobrancas where competencia = '2026/02') and (select vencimento = '2026-12-30' and valor = 3600 from ctr_cobrancas where competencia = '2026/13'),
@@ -3292,7 +3299,7 @@ select pg_temp.erro2($$select ctr_conciliar((select id from ctr_extrato where fi
   'não é de contrato', 'contratos: crédito ignorado não dá baixa');
 -- renovar, encerrar, rescindir, histórico
 insert into ctr_t values ('k3', ctr_contrato_renovar((select v from ctr_t where k = 'k1'), '{"inicio":"2027-01-01","fim":"2027-12-31","valor_mensal":3800}'));
-select pg_temp.ok((select situacao = 'rascunho' and valor_mensal = 3800 and anterior_id = (select v from ctr_t where k = 'k1') and local_assinatura = 'Cabo Frio' from ctr_contratos where id = (select v from ctr_t where k = 'k3')),
+select pg_temp.ok((select situacao = 'rascunho' and valor_mensal = 3800 and anterior_id = (select v from ctr_t where k = 'k1') and local_assinatura = 'Cabo Frio' and assinante_cliente = 'Ana Lagos, CPF 111.111.111-11' from ctr_contratos where id = (select v from ctr_t where k = 'k3')),
   'contratos: renovação copia os dados com novo prazo e valor');
 select pg_temp.erro2($$select ctr_contrato_renovar((select v from ctr_t where k = 'k1'), '{"inicio":"2026-06-01"}')$$, 'antes do fim', 'contratos: renovação não sobrepõe o contrato atual');
 select pg_temp.erro2($$select ctr_contrato_etapa((select v from ctr_t where k = 'k2'), 'rescindido')$$, 'motivo', 'contratos: rescindir exige motivo');

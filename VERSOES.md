@@ -172,6 +172,7 @@ Ao publicar mudança num app: linha nova no topo do app aqui (com a data) e em `
 
 | Versão | Data | O que mudou |
 |---|---|---|
+| 2.1 | 18/11/2026 | Quem assina o contrato pelo nome: no contrato, o representante do cliente que assina (nome e CPF); em Configuração, quem assina pela sua empresa. O modelo novo diz quem assina por cada parte e vale para assinatura à mão ou eletrônica; os e-mails ficam só para a plataforma de assinatura. |
 | 2.0 | 10/11/2026 | Várias empresas: cada empresa usa o app com os próprios clientes, contratos, cobranças, extrato, impostos e modelo do Word, e cada pessoa entra como gestor (faz tudo) ou consulta (só lê); seletor de empresa no topo. Nova aba Dashboard, a primeira: cobrado × recebido por mês, previsão dos próximos meses, atraso ao longo do tempo, concentração da receita e prazo de recebimento por cliente, contratos que terminam. O Painel virou Resumo e o extrato aceita o OFX de qualquer banco. |
 | 1.2 | 09/11/2026 | Textos do app sem citar um serviço de assinatura específico: o contrato pode ser assinado pela plataforma de assinatura digital que você preferir. |
 | 1.1 | 09/11/2026 | Foro por cliente: cada cliente tem o foro eleito e a sede da arbitragem do contrato (montados pela cidade e UF), para contratos fora do Rio de Janeiro; sem preencher, vale o padrão da Configuração. |
