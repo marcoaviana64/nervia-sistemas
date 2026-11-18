@@ -61,6 +61,12 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
   desconhecidos). **Ao publicar APK novo: subir `versionCode`, copiar para `site/nvplayer.apk` e pôr o MESMO número em
   `codigo` (e o nome/novidades) no `nvplayer.json`, no mesmo merge.** A mesma chave de assinatura é obrigatória.
 
+- **TV ao vivo em três colunas** (2.7, pedido do Marco em 18/11/2026, com a foto de outro app): grupos · canais · prévia.
+  O mesmo `PlayerView` muda de lugar (`posicionarVideo`): com a lista aberta na aba TV fica na caixa 16:9 da direita
+  (`previa`), com a programação do canal embaixo (`guiaBox`, nome em negrito); em tela cheia volta para a tela toda.
+  OK num canal = toca na prévia; OK de novo no mesmo canal = tela cheia; Voltar = volta à lista com a prévia. Recados
+  do player (carregando, sem sinal) aparecem dentro da prévia (`avisarVideo`). Filmes, Séries e Ajustes continuam em 2 colunas.
+
 ## Ainda não tem (ideias)
 Grade de programação de todos os canais ao mesmo tempo, assistir programa que já passou (catch-up), gravação.
 
