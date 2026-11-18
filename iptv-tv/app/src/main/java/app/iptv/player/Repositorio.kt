@@ -36,6 +36,25 @@ class Repositorio(ctx: Context) {
         limparCache()
     }
 
+    // ---------------------------------------------------------------- endereço do servidor publicado pela Nervia
+
+    /**
+     * Lista de servidores mantida no site (pedido do Marco em 18/11/2026: o provedor troca o endereço de tempos em
+     * tempos; ele atualiza o arquivo e os aparelhos pegam sozinhos). A última lista lida fica guardada no aparelho.
+     */
+    val servidoresPublicados: List<String>
+        get() = str("srv_publicados")?.split('\n')?.filter { it.isNotBlank() }.orEmpty()
+
+    /** Servidor que vem preenchido no login: o 1º da lista do site, ou o embutido no app. */
+    val servidorPadrao: String get() = servidoresPublicados.firstOrNull() ?: SERVIDOR_PADRAO
+
+    /** Bloqueante. Lê a lista do site; sem internet ou arquivo inválido, devolve a última guardada. */
+    fun atualizarServidores(endereco: String = urlServidores): List<String> {
+        val lista = try { lerServidores(Http.texto(endereco)) } catch (_: Exception) { emptyList() }
+        if (lista.isNotEmpty()) put("srv_publicados", lista.joinToString("\n"))
+        return lista.ifEmpty { servidoresPublicados }
+    }
+
     fun salvarM3u(url: String, epg: String?) {
         prefs.edit().putString("tipo", "m3u").putString("url", url.trim()).putString("epg", epg?.trim()?.ifBlank { null })
             .remove("ultimo").apply()
@@ -160,13 +179,25 @@ class Repositorio(ctx: Context) {
         return Catalogo(l.itens, listOfNotNull(epgUrl) + l.epg, null, arq.lastModified())
     }
 
-    private fun carregarXtream(x: Xtream, baixar: Boolean, progresso: (String) -> Unit): Catalogo {
+    private fun carregarXtream(x0: Xtream, baixar: Boolean, progresso: (String) -> Unit): Catalogo {
+        var x = x0
         if (baixar) {
             progresso("Conferindo o login…")
             val conta = try { x.loginTexto() } catch (e: java.io.IOException) {
-                error("Não foi possível conectar ao servidor ${x.endereco}: ${Rede.explicar(e)}. " +
-                    "A internet deste local pode estar bloqueando o servidor, ou o provedor trocou o endereço: " +
-                    "confira o endereço atual com o seu provedor e troque no campo Servidor.")
+                // Servidor não respondeu: tenta os endereços publicados pela Nervia (o provedor pode ter trocado).
+                progresso("Procurando o endereço atual do servidor…")
+                var achou: Pair<Xtream, String>? = null
+                for (s in atualizarServidores()) {
+                    val alt = try { Xtream(s, usuario!!, senha!!) } catch (_: Exception) { continue }
+                    if (alt.base == x.base) continue
+                    try { achou = alt to alt.loginTexto(); break } catch (_: Exception) {}
+                }
+                val (nx, t) = achou ?: error("Não foi possível conectar ao servidor ${x.endereco}: ${Rede.explicar(e)}. " +
+                    "Os outros endereços publicados também não responderam. A internet deste local pode estar bloqueando " +
+                    "o servidor, ou o provedor trocou o endereço: confira com o seu provedor e troque no campo Servidor.")
+                put("servidor", nx.base)
+                x = nx
+                t
             }
             File(dir, "x_conta.json").writeText(conta)
             progresso("Baixando as categorias…")
@@ -206,6 +237,20 @@ class Repositorio(ctx: Context) {
     companion object {
         const val PIN_PADRAO = "0000"
         /** Servidor que já vem preenchido no login (pedido do Marco em 17/11/2026; o provedor troca de tempos em tempos). */
-        const val SERVIDOR_PADRAO = "http://auth.urltech.gy"
+        const val SERVIDOR_PADRAO = "http://p.urldata.gy"
+        /** Arquivo que o Marco atualiza (site/nvplayer.json): {"servidores": ["http://…", "http://…"]}. */
+        const val URL_SERVIDORES = "https://nervia.com.br/nvplayer.json"
+        /** Só os testes trocam. */
+        @JvmStatic var urlServidores = URL_SERVIDORES
+
+        /** {"servidores": [...]} ou {"servidor": "..."}; só endereços válidos, sem repetir. */
+        fun lerServidores(json: String): List<String> {
+            val o = org.json.JSONObject(json)
+            val brutos = o.optJSONArray("servidores")?.let { a -> (0 until a.length()).map { a.optString(it) } }
+                ?: listOfNotNull(o.optString("servidor").ifBlank { null })
+            return brutos.filter { it.isNotBlank() }
+                .mapNotNull { try { Xtream.normalizar(it).takeIf { u -> u.startsWith("http") && u.substringAfter("://").isNotBlank() } } catch (_: Exception) { null } }
+                .distinct()
+        }
     }
 }

@@ -13,7 +13,7 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
     da assinatura em Ajustes. Canais ao vivo em TS (padrão) ou HLS (Ajustes → Canais ao vivo em).
   - **Link M3U** — filmes e séries separados pelo endereço (`/movie/`, `/series/`, listas `m3u_plus`) ou pela extensão
     do arquivo; o resto é TV ao vivo. Link M3U que tem `username` e `password` vira login Xtream sozinho.
-- **Servidor já preenchido** (2.2, pedido do Marco em 17/11/2026): `http://auth.urltech.gy` (`Repositorio.SERVIDOR_PADRAO`) no login da TV e na página do celular; editável, porque o provedor troca o endereço de tempos em tempos. Falha de conexão no login avisa que o endereço pode ter mudado.
+- **Servidor já preenchido** (2.2, pedido do Marco em 17/11/2026): `http://p.urldata.gy` (`Repositorio.SERVIDOR_PADRAO`; na 2.2 era `auth.urltech.gy`, endereço errado) no login da TV e na página do celular; editável, porque o provedor troca o endereço de tempos em tempos. Falha de conexão no login avisa que o endereço pode ter mudado.
 - **Configuração pelo celular**: a TV mostra um QR code; o celular (mesma rede Wi-Fi) abre uma página servida pela própria
   TV (`http://<ip da TV>:8080`) com os dois formulários. Também dá para digitar com o controle. O servidor só fica ligado
   com a tela aberta e nunca devolve o login salvo.
@@ -42,6 +42,14 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
   DNS-over-HTTPS (Cloudflare 1.1.1.1, depois Google 8.8.8.8, guardado 10 min) e tenta os endereços dos dois (se não
   concordam, o do DNS alternativo primeiro). Não resolve bloqueio por IP. A mensagem de erro agora diz a causa
   (nome não encontrado, sem resposta, conexão recusada, https). Teste: `DnsTest`.
+
+- **Endereço do servidor pelo site** (2.5, pedido do Marco em 18/11/2026: "um local com o link; eu sempre atualizo e o
+  aplicativo pega deste local"): `site/nvplayer.json` = `{"servidores": ["http://…", "http://…"]}`, publicado em
+  https://nervia.com.br/nvplayer.json (sem cache). O 1º vem preenchido no login (`Repositorio.servidorPadrao`, TV e
+  página do celular; na primeira vez a TV busca o arquivo e troca o campo se ninguém mexeu). Se o servidor salvo não
+  responder, o app lê o arquivo, tenta os outros endereços com o mesmo usuário e senha e grava o que funcionar
+  (`carregarXtream`). A última lista lida fica no aparelho (`srv_publicados`). Para trocar: editar o arquivo no GitHub
+  (ou pedir ao Claude) e fazer o merge na main; não precisa de APK novo. Teste: `TelaTest.servidorDoSite`.
 
 ## Ainda não tem (ideias)
 Grade de programação de todos os canais ao mesmo tempo, assistir programa que já passou (catch-up), gravação.

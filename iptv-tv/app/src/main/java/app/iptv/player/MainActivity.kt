@@ -1092,7 +1092,7 @@ class MainActivity : ComponentActivity() {
         fecharFicha(mostrar = false)
         painel.visibility = View.GONE
         player.pause()
-        val conf = Configurador { campos -> validar(campos)?.let { return@Configurador it }; runOnUiThread { receber(campos) }; null }
+        val conf = Configurador(repo.servidorPadrao) { campos -> validar(campos)?.let { return@Configurador it }; runOnUiThread { receber(campos) }; null }
         conf.iniciar()
         configurador = conf
         val ip = Configurador.ipLocal()
@@ -1123,7 +1123,15 @@ class MainActivity : ComponentActivity() {
             inputType = InputType.TYPE_CLASS_TEXT or (if (senha) InputType.TYPE_TEXT_VARIATION_PASSWORD else InputType.TYPE_TEXT_VARIATION_URI)
             setText(valor.orEmpty())
         }
-        val fServ = campo("Servidor com a porta — ex.: http://servidor.com:8080", repo.servidor ?: Repositorio.SERVIDOR_PADRAO)
+        val fServ = campo("Servidor com a porta — ex.: http://servidor.com:8080", repo.servidor ?: repo.servidorPadrao)
+        if (repo.servidor == null) {
+            // primeira vez: busca no site o endereço atual e troca o preenchido, se ninguém mexeu no campo
+            val antes = fServ.text.toString()
+            rede.execute {
+                val novo = repo.atualizarServidores().firstOrNull()
+                if (novo != null) runOnUiThread { if (fServ.text.toString() == antes && novo != antes) fServ.setText(novo) }
+            }
+        }
         val fUser = campo("Usuário", repo.usuario)
         val fSenha = campo("Senha", repo.senha, senha = true)
         val fLink = campo("Link M3U — http://…", repo.urlLista ?: "http://")
