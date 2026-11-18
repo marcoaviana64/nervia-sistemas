@@ -76,6 +76,12 @@ class MainActivity : ComponentActivity() {
     private lateinit var infoAjustes: TextView
     private lateinit var barra: TextView
     private lateinit var aviso: TextView
+    // 2.7 (pedido do Marco em 18/11/2026, com a foto de outro app): TV ao vivo em 3 colunas — grupos, canais e,
+    // à direita, a prévia do canal (o mesmo player, menor) com a programação embaixo.
+    private lateinit var lado: LinearLayout
+    private lateinit var previa: FrameLayout
+    private lateinit var previaTexto: TextView
+    private lateinit var coluna: LinearLayout
     private val abas = LinkedHashMap<Aba, TextView>()
     private var telaConfig: View? = null
     private var ficha: View? = null
@@ -259,7 +265,7 @@ class MainActivity : ComponentActivity() {
         }
         corpo.addView(rvGrupos, LinearLayout.LayoutParams(0, -1, 0.3f))
 
-        val coluna = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(20.dp, 0, 0, 0) }
+        coluna = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(20.dp, 0, 0, 0) }
         titulo = texto(15f, Color.LTGRAY).apply { setPadding(4.dp, 0, 0, 4.dp) }
         coluna.addView(titulo)
         busca = EditText(this).apply {
@@ -286,10 +292,28 @@ class MainActivity : ComponentActivity() {
             setPadding(14.dp, 8.dp, 14.dp, 8.dp)
             maxLines = 6; ellipsize = TextUtils.TruncateAt.END
         }
-        coluna.addView(guiaBox, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 6.dp })
+        lado = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(20.dp, 0, 0, 0); visibility = View.GONE }
+        previa = object : FrameLayout(this) {
+            // caixa 16:9 (a largura manda)
+            override fun onMeasure(w: Int, hh: Int) {
+                val l = MeasureSpec.getSize(w)
+                super.onMeasure(w, MeasureSpec.makeMeasureSpec(l * 9 / 16, MeasureSpec.EXACTLY))
+            }
+        }.apply { setBackgroundColor(Color.BLACK) }
+        previaTexto = texto(16f, Color.LTGRAY).apply {
+            gravity = Gravity.CENTER
+            text = "Escolha um canal: OK mostra aqui, OK de novo abre em tela cheia."
+            setPadding(16.dp, 0, 16.dp, 0)
+        }
+        previa.addView(previaTexto, FrameLayout.LayoutParams(-1, -1))
+        lado.addView(previa, LinearLayout.LayoutParams(-1, -2))
+        guiaBox.textSize = 17f
+        guiaBox.maxLines = 12
+        lado.addView(guiaBox, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = 10.dp })
         infoAjustes = texto(17f, Color.rgb(220, 225, 230)).apply { setPadding(4.dp, 8.dp, 4.dp, 8.dp); visibility = View.GONE }
         coluna.addView(infoAjustes, LinearLayout.LayoutParams(-1, 0, 1f))
         corpo.addView(coluna, LinearLayout.LayoutParams(0, -1, 0.7f))
+        corpo.addView(lado, LinearLayout.LayoutParams(0, -1, 0.42f))
         painel.addView(corpo, LinearLayout.LayoutParams(-1, 0, 1f))
         painel.visibility = View.GONE
         raiz.addView(painel, FrameLayout.LayoutParams(-1, -1))
@@ -315,6 +339,16 @@ class MainActivity : ComponentActivity() {
         aviso.text = msg.orEmpty()
         aviso.visibility = if (msg == null) View.GONE else View.VISIBLE
         aviso.bringToFront()
+    }
+
+    /** Recado do player: na prévia aparece dentro da caixa do vídeo; em tela cheia, no meio da tela. */
+    private fun avisarVideo(msg: String?) {
+        if (video.parent === previa) {
+            avisar(null)
+            previaTexto.text = msg.orEmpty()
+            previaTexto.visibility = if (msg == null) View.GONE else View.VISIBLE
+            previaTexto.bringToFront()
+        } else avisar(msg)
     }
 
     private fun tempo(ms: Long): String {
@@ -397,6 +431,11 @@ class MainActivity : ComponentActivity() {
         infoAjustes.visibility = if (ajustes) View.VISIBLE else View.GONE
         guiaBox.visibility = if (a == Aba.TV) View.VISIBLE else View.GONE
         guiaBox.text = "Escolha um canal para ver a programação."
+        val tv3 = a == Aba.TV
+        lado.visibility = if (tv3) View.VISIBLE else View.GONE
+        rvGrupos.layoutParams = (rvGrupos.layoutParams as LinearLayout.LayoutParams).apply { weight = if (tv3) 0.24f else 0.3f }
+        coluna.layoutParams = (coluna.layoutParams as LinearLayout.LayoutParams).apply { weight = if (tv3) 0.34f else 0.7f }
+        posicionarVideo()
         busca.hint = when (a) { Aba.TV -> "Buscar canal…"; Aba.FILMES -> "Buscar filme…"; else -> "Buscar série…" }
         algumLogo = porAba[a].orEmpty().any { it.logo != null }
         if (busca.text.isNotEmpty()) busca.setText("")
@@ -492,9 +531,24 @@ class MainActivity : ComponentActivity() {
         rvItens.post { rvItens.findViewHolderForAdapterPosition(p)?.itemView?.requestFocus() }
     }
 
+    /** Com a lista de canais aberta, o vídeo vai para a prévia; senão, ocupa a tela toda (atrás do resto). */
+    private fun posicionarVideo() {
+        val naPrevia = painel.visibility == View.VISIBLE && aba == Aba.TV && telaConfig == null && ficha == null
+        val destino: FrameLayout = if (naPrevia) previa else raiz
+        if (video.parent !== destino) {
+            (video.parent as? ViewGroup)?.removeView(video)
+            destino.addView(video, 0, FrameLayout.LayoutParams(-1, -1))
+        }
+        painel.setBackgroundColor(if (naPrevia) Color.rgb(8, 12, 16) else Color.argb(232, 8, 12, 16))
+        if (atual?.tipo != Tipo.AO_VIVO) previaTexto.text = "Escolha um canal: OK mostra aqui, OK de novo abre em tela cheia."
+        previaTexto.visibility = if (atual?.tipo == Tipo.AO_VIVO) View.GONE else View.VISIBLE
+        if (naPrevia && atual?.tipo != Tipo.AO_VIVO && ehVod()) player.pause()
+    }
+
     private fun mostrarPainel(foco: Item? = atual) {
         painel.visibility = View.VISIBLE
         barra.visibility = View.GONE
+        posicionarVideo()
         val i = foco?.let { visiveis.indexOf(it) } ?: -1
         when {
             i >= 0 -> focarItem(i)
@@ -505,6 +559,7 @@ class MainActivity : ComponentActivity() {
 
     private fun esconderPainel() {
         painel.visibility = View.GONE
+        posicionarVideo()
         currentFocus?.clearFocus()
         raiz.requestFocus()
         if (ehVod() && telaConfig == null && ficha == null) player.play()
@@ -524,7 +579,16 @@ class MainActivity : ComponentActivity() {
     private fun abrirItem(i: Item) {
         if (travado(i)) { desbloquear { abrirItem(i) }; return }
         when {
-            i.tipo == Tipo.AO_VIVO -> tocar(i, visiveis.filter { it.tipo == Tipo.AO_VIVO }.ifEmpty { listOf(i) })
+            i.tipo == Tipo.AO_VIVO -> {
+                val seq = visiveis.filter { it.tipo == Tipo.AO_VIVO }.ifEmpty { listOf(i) }
+                val naLista = painel.visibility == View.VISIBLE && aba == Aba.TV
+                when {
+                    // 2º OK no canal que já está na prévia = tela cheia
+                    naLista && i == atual -> { sequencia = seq; esconderPainel(); mostrarBarra() }
+                    naLista -> tocar(i, seq, telaCheia = false)
+                    else -> tocar(i, seq)
+                }
+            }
             i.tipo == Tipo.SERIE && i.url.isBlank() -> abrirFichaSerie(i)
             else -> abrirFichaFilme(i)
         }
@@ -550,7 +614,11 @@ class MainActivity : ComponentActivity() {
         guiaBox.text = "${i.nome}: carregando a programação…"
         guia.programas(i) { l ->
             if (focadoGuia != i) return@programas
-            guiaBox.text = "${i.nome}\n" + textoGuia(l)
+            guiaBox.text = android.text.SpannableStringBuilder().apply {
+                append(i.nome, android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 0)
+                setSpan(android.text.style.RelativeSizeSpan(1.25f), 0, length, 0)
+                append("\n\n").append(textoGuia(l))
+            }
             visiveis.indexOf(i).takeIf { it >= 0 }?.let { rvItens.adapter?.notifyItemChanged(it) }
         }
     }
@@ -723,7 +791,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun tocar(c: Item, seq: List<Item>) {
+    private fun tocar(c: Item, seq: List<Item>, telaCheia: Boolean = true) {
         salvarProgresso()
         val anterior = atual
         atual = c
@@ -733,9 +801,15 @@ class MainActivity : ComponentActivity() {
         tentativas = 0
         mimeForcado = null
         iniciar(c)
-        fecharFicha(mostrar = false)
-        esconderPainel()
-        mostrarBarra()
+        if (telaCheia) {
+            fecharFicha(mostrar = false)
+            esconderPainel()
+            mostrarBarra()
+        } else {
+            posicionarVideo()
+            focadoGuia = c
+            h.removeCallbacks(atualizarGuia); h.post(atualizarGuia)
+        }
         anterior?.let { a -> visiveis.indexOf(a).takeIf { it >= 0 }?.let { rvItens.adapter?.notifyItemChanged(it) } }
         visiveis.indexOf(c).takeIf { it >= 0 }?.let { rvItens.adapter?.notifyItemChanged(it) }
     }
@@ -784,9 +858,9 @@ class MainActivity : ComponentActivity() {
     private val ouvinte = object : Player.Listener {
         override fun onPlaybackStateChanged(estado: Int) {
             when (estado) {
-                Player.STATE_BUFFERING -> avisar("Carregando…")
-                Player.STATE_READY -> { avisar(null); tentativas = 0 }
-                Player.STATE_ENDED -> { avisar(null); terminou() }
+                Player.STATE_BUFFERING -> avisarVideo("Carregando…")
+                Player.STATE_READY -> { avisarVideo(null); tentativas = 0 }
+                Player.STATE_ENDED -> { avisarVideo(null); terminou() }
                 else -> Unit
             }
         }
@@ -805,10 +879,10 @@ class MainActivity : ComponentActivity() {
             }
             if (tentativas < 3) {
                 tentativas++
-                avisar("Sem sinal em \"${c.nome}\"… tentando de novo ($tentativas/3)")
+                avisarVideo("Sem sinal em \"${c.nome}\"… tentando de novo ($tentativas/3)")
                 h.postDelayed(tentarDeNovo, 3000)
             } else {
-                avisar("Não foi possível abrir \"${c.nome}\".\n${motivo(e)}\nAperte Voltar para escolher outro.")
+                avisarVideo("Não foi possível abrir \"${c.nome}\".\n${motivo(e)}\nAperte Voltar para escolher outro.")
             }
         }
     }

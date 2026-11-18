@@ -230,6 +230,23 @@ class TelaTest {
         esperar { textos(raiz).any { it.contains("Jornal da Noite") && it.contains("Agora") } }
         foto(raiz, "tela-tv")
 
+        // 2.7: OK no canal = prévia à direita (lista continua aberta); OK de novo = tela cheia; Voltar = lista
+        fun campo(n: String) = MainActivity::class.java.getDeclaredField(n).apply { isAccessible = true }.get(act) as View
+        val painel = campo("painel"); val video = campo("video"); val previa = campo("previa")
+        clicar(raiz, "TV Exemplo HD")
+        ocioso()
+        assertEquals(View.VISIBLE, painel.visibility)
+        assertTrue("vídeo na prévia", video.parent === previa)
+        foto(raiz, "tela-tv-previa")
+        clicar(raiz, "TV Exemplo HD")
+        ocioso()
+        assertEquals(View.GONE, painel.visibility)
+        assertTrue("vídeo em tela cheia", video.parent !== previa)
+        act.onBackPressedDispatcher.onBackPressed()
+        ocioso()
+        assertEquals(View.VISIBLE, painel.visibility)
+        assertTrue(video.parent === previa)
+
         // Filmes: continuar assistindo e ficha
         clicar(raiz, "Filmes  3")
         esperar { textos(raiz).any { it.startsWith("Ação  (2)") } }
