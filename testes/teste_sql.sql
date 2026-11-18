@@ -2960,6 +2960,17 @@ select pg_temp.ok((mi_tv_aguardar('aparelho-teste-01', (select v from mit where 
 select pg_temp.ok(mi_tv_tela((select v from mit where k = 'tok')) = (select v::uuid from mit where k = 'tela') and mi_tv_tela('errado') is null, 'midia: token identifica a TV');
 select pg_temp.ok(mi_tv_sinal((select v from mit where k = 'tok'), '{"versao_app":"1.0","modelo":"Box X","espaco_livre_mb":"5000","erros":[{"nome":"a.mp4","erro":"não toca"}]}'), 'midia: sinal de vida aceito');
 select pg_temp.ok((select ultimo_sinal is not null and modelo = 'Box X' and espaco_livre_mb = 5000 and jsonb_array_length(erros) = 1 from mi_telas), 'midia: sinal grava aparelho, espaço e erros');
+select pg_temp.ok(mi_tv_sinal((select v from mit where k = 'tok'), '{"tela_largura":"3840","tela_altura":"2160"}') is not null, 'midia: sinal com a resolução da tela');
+reset role;
+update mi_telas set ultimo_sinal = now() - interval '1 minute';
+set role service_role;
+select mi_tv_sinal((select v from mit where k = 'tok'), '{"tela_largura":3840,"tela_altura":2160}');
+select pg_temp.ok((select tela_largura = 3840 and tela_altura = 2160 from mi_telas), 'midia: resolução da tela gravada');
+reset role;
+update mi_telas set ultimo_sinal = now() - interval '1 minute';
+set role service_role;
+select mi_tv_sinal((select v from mit where k = 'tok'), '{"tela_largura":"99999","tela_altura":"x"}');
+select pg_temp.ok((select tela_largura = 3840 and tela_altura = 2160 from mi_telas), 'midia: resolução estranha não apaga a anterior');
 -- tempo de tela (18/11/2026): a TV manda lotes de exibições; o servidor guarda o resumo por TV × dia × mídia
 insert into mit select 'agora', (extract(epoch from now()) * 1000)::bigint::text;
 select pg_temp.ok(mi_tv_exibicoes((select v from mit where k = 'tok'), 'lote-0001-aaaa',

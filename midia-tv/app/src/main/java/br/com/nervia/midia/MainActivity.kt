@@ -477,6 +477,7 @@ class MainActivity : Activity() {
             .put("espaco_livre_mb", baixador.espacoLivreMb())
             .put("baixando", baixando)
             .put("download_pela_nervia", pelaNervia)
+            .apply { telaFisica()?.let { (w, h) -> put("tela_largura", w).put("tela_altura", h) } }
             .put("erros", JSONArray(erros.entries.take(20).map { JSONObject().put("nome", it.key).put("erro", it.value) }))
             .put("abre_sozinho", Relancar.podeAbrirSozinho(this))
         try {
@@ -487,6 +488,14 @@ class MainActivity : Activity() {
             Log.w(TAG, "sinal: ${e.message}")
         }
     }
+
+    /** Pixels do painel da TV (o maior modo que o aparelho informa; em TV 4K a interface costuma ser 1920×1080, mas o painel é
+     *  3840×2160). Vai para o painel, que mostra o tamanho ideal das mídias para esta TV (com a Posição da TV). */
+    private fun telaFisica(): Pair<Int, Int>? = runCatching {
+        val d = (getSystemService(DISPLAY_SERVICE) as android.hardware.display.DisplayManager).getDisplay(android.view.Display.DEFAULT_DISPLAY)
+        val m = d.supportedModes.maxByOrNull { it.physicalWidth.toLong() * it.physicalHeight } ?: d.mode
+        m.physicalWidth to m.physicalHeight
+    }.getOrNull()?.takeIf { it.first >= 100 && it.second >= 100 }
 
     private fun playlistJson(p: Playlist) = JSONObject()
         .put("tela", p.tela).put("playlist", p.playlist).put("conteudo", p.conteudo).put("chave_api", p.chaveApi)
