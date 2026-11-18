@@ -84,6 +84,11 @@ class MainActivity : ComponentActivity() {
     private lateinit var coluna: LinearLayout
     private lateinit var relogio: TextView
     private lateinit var status: TextView
+    /** 2.10: aviso pequeno de vencimento da lista, no canto de baixo à esquerda. */
+    private lateinit var lembrete: TextView
+    private var proximoLembrete = 0L
+    /** 2.10: vigia do canal ao vivo (reconecta quando a imagem para). */
+    private val vigia = Vigia()
     /** Lista nova baixada em segundo plano enquanto a pessoa assiste em tela cheia: aplica ao abrir a lista. */
     private var catalogoPendente: Catalogo? = null
     private val abas = LinkedHashMap<Aba, TextView>()
@@ -146,6 +151,8 @@ class MainActivity : ComponentActivity() {
             }
         }.build()
         video.player = player
+        h.postDelayed(vigiar, 2000)
+        h.postDelayed(conferirVencimento, 5000)
         video.resizeMode = FORMATOS[repo.formatoTela.coerceIn(0, FORMATOS.size - 1)].second
         player.addListener(ouvinte)
 
@@ -375,6 +382,14 @@ class MainActivity : ComponentActivity() {
             elevation = 10.dp.toFloat()
         }
         raiz.addView(status, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.END).apply { setMargins(0, 24.dp, 36.dp, 0) })
+
+        lembrete = texto(14f, Estilo.TEXTO).apply {
+            background = Estilo.cartao(this@MainActivity, Color.argb(170, 16, 20, 30), 14f)
+            setPadding(14.dp, 7.dp, 14.dp, 7.dp)
+            visibility = View.GONE
+            elevation = 6.dp.toFloat()
+        }
+        raiz.addView(lembrete, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.START).apply { setMargins(28.dp, 0, 0, 24.dp) })
         atualizarRelogio.run()
         setContentView(raiz)
     }
@@ -385,6 +400,57 @@ class MainActivity : ComponentActivity() {
             h.postDelayed(this, 20_000)
         }
     }
+
+    /** 2.10: a cada minuto confere se é hora do aviso de vencimento (a cada 2 h, fica 10 min). */
+    private val conferirVencimento = object : Runnable {
+        override fun run() {
+            h.postDelayed(this, 60_000)
+            val agora = System.currentTimeMillis()
+            val t = Vencimento.texto(catalogo?.conta?.validade, agora)
+            if (t == null) { lembrete.visibility = View.GONE; return }
+            if (agora >= proximoLembrete) {
+                proximoLembrete = agora + Vencimento.INTERVALO
+                lembrete.text = t
+                lembrete.visibility = View.VISIBLE
+                lembrete.bringToFront()
+                h.removeCallbacks(esconderLembrete)
+                h.postDelayed(esconderLembrete, Vencimento.DURACAO)
+            }
+        }
+    }
+    private val esconderLembrete = Runnable { lembrete.visibility = View.GONE }
+
+    /** 2.10: a cada 2 s confere se o canal ao vivo travou; se travou, reconecta sozinho. */
+    private val vigiar = object : Runnable {
+        override fun run() {
+            h.postDelayed(this, 2000)
+            val agora = System.currentTimeMillis()
+            val c = atual
+            if (c == null || c.tipo != Tipo.AO_VIVO || parado || player.playerError != null) { vigia.reiniciar(agora); return }
+            val q = player.videoDecoderCounters?.let {
+                it.ensureUpdated()
+                (it.renderedOutputBufferCount + it.droppedBufferCount + it.skippedOutputBufferCount).toLong()
+            } ?: -1L
+            val pronto = player.playbackState == Player.STATE_READY
+            if (vigia.conferir(agora, player.playWhenReady, pronto, player.currentPosition, q)) {
+                anotar("${c.nome}: ${if (pronto) "a imagem parou" else "ficou carregando"}; reconectado sozinho")
+                mostrarStatus("⟳  O sinal parou · reconectando…")
+                h.postDelayed({ if (status.text.startsWith("⟳  O sinal")) mostrarStatus(null) }, 5000)
+                iniciar(c)
+            }
+        }
+    }
+
+    /** 2.10: registro dos problemas do vídeo (últimos 30), mostrado em Ajustes. */
+    private fun anotar(msg: String) {
+        val p = getSharedPreferences("diario", MODE_PRIVATE)
+        val linha = SimpleDateFormat("dd/MM HH:mm", Locale.US).format(Date()) + "  " + msg.replace('\n', ' ')
+        val l = (listOf(linha) + p.getString("eventos", "").orEmpty().split('\n').filter { it.isNotBlank() }).take(30)
+        p.edit().putString("eventos", l.joinToString("\n")).apply()
+    }
+
+    private fun eventos(): List<String> =
+        getSharedPreferences("diario", MODE_PRIVATE).getString("eventos", "").orEmpty().split('\n').filter { it.isNotBlank() }
 
     /** Recado discreto no canto (null = some). */
     private fun mostrarStatus(msg: String?) {
@@ -978,6 +1044,7 @@ class MainActivity : ComponentActivity() {
                 mimeForcado = MimeTypes.APPLICATION_M3U8
                 iniciar(c); return
             }
+            if (tentativas == 0) anotar("${c.nome}: ${motivo(e)}")
             if (tentativas < 3) {
                 tentativas++
                 avisarVideo("Sem sinal em \"${c.nome}\"… tentando de novo ($tentativas/3)")
@@ -1228,6 +1295,10 @@ class MainActivity : ComponentActivity() {
         sb.append("\nNo controle, assistindo TV: ▲▼ troca de canal · OK ou ◀▶ abre a lista · Menu: áudio, legenda, tela e guia.\n")
         sb.append("Assistindo filme ou série: OK pausa · ◀ volta 10 s · ▶ avança 30 s · Menu: áudio, legenda e tela · Voltar: sai e guarda onde parou.\n")
         sb.append("Na lista: segure OK (ou aperte Menu) num item para marcar como favorito.\n")
+        val ev = eventos()
+        sb.append("\nProblemas no vídeo (os mais recentes primeiro): ")
+        if (ev.isEmpty()) sb.append("nenhum registrado\n")
+        else { sb.append("${ev.size}\n"); ev.take(12).forEach { sb.append("   ").append(it).append('\n') } }
         sb.append("\nNVPlayer ${versao()}")
         infoAjustes.text = sb
     }
