@@ -329,4 +329,28 @@ class TelaTest {
         assertEquals(listOf("http://c.gy"), Repositorio.lerServidores("""{"servidor": "http://c.gy"}"""))
         assertEquals(emptyList<String>(), Repositorio.lerServidores("""{"obs": "nada"}"""))
     }
+
+    @Test fun avisaVersaoNova() {
+        publicados = """{"servidores": [], "versao": {"codigo": 999, "nome": "9.9", "apk": "https://nervia.com.br/nvplayer.apk", "novidades": "Teste de aviso."}}"""
+        val ctl = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val act = ctl.get()
+        var d: android.app.AlertDialog? = null
+        esperar { d = org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog() as android.app.AlertDialog?; d?.isShowing == true }
+        val sd = shadowOf(d!!)
+        assertEquals("Nova versão do NVPlayer: 9.9", sd.title.toString())
+        assertTrue(sd.message.toString().contains("Teste de aviso."))
+        // "Depois": não pergunta de novo por um dia
+        d!!.getButton(android.content.DialogInterface.BUTTON_NEGATIVE).performClick()
+        ocioso()
+        val prefs = act.getSharedPreferences("iptv", Context.MODE_PRIVATE)
+        assertTrue(prefs.getLong("atualizacao_adiada", 0) > System.currentTimeMillis() + 23 * 3_600_000L)
+        ctl.pause().stop().destroy()
+    }
+
+    @Test fun lerVersaoDoSite() {
+        val v = Atualizador.lerVersao("""{"versao": {"codigo": 8, "nome": "2.6", "apk": "https://nervia.com.br/nvplayer.apk"}}""")!!
+        assertEquals(8L, v.codigo); assertEquals("2.6", v.nome); assertEquals(null, v.novidades)
+        assertEquals(null, Atualizador.lerVersao("""{"versao": {"codigo": 8, "apk": "http://inseguro/x.apk"}}"""))
+        assertEquals(null, Atualizador.lerVersao("""{"servidores": []}"""))
+    }
 }

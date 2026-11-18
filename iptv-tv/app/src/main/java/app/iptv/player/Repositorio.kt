@@ -50,10 +50,22 @@ class Repositorio(ctx: Context) {
 
     /** Bloqueante. Lê a lista do site; sem internet ou arquivo inválido, devolve a última guardada. */
     fun atualizarServidores(endereco: String = urlServidores): List<String> {
-        val lista = try { lerServidores(Http.texto(endereco)) } catch (_: Exception) { emptyList() }
+        val texto = try { Http.texto(endereco) } catch (_: Exception) { null }
+        val lista = texto?.let { try { lerServidores(it) } catch (_: Exception) { null } }.orEmpty()
         if (lista.isNotEmpty()) put("srv_publicados", lista.joinToString("\n"))
+        // 2.6: o mesmo arquivo diz qual é a versão nova do app (bloco "versao")
+        if (texto != null) try { put("site_versao", org.json.JSONObject(texto).optJSONObject("versao")?.toString()) } catch (_: Exception) {}
         return lista.ifEmpty { servidoresPublicados }
     }
+
+    /** Versão do app publicada no site (última lida). */
+    val versaoPublicada: Versao?
+        get() = str("site_versao")?.let { try { Atualizador.lerVersao("{\"versao\":$it}") } catch (_: Exception) { null } }
+
+    /** "Depois" na atualização: não pergunta de novo até esta hora. */
+    var atualizacaoAdiadaAte: Long
+        get() = prefs.getLong("atualizacao_adiada", 0)
+        set(v) = prefs.edit().putLong("atualizacao_adiada", v).apply()
 
     fun salvarM3u(url: String, epg: String?) {
         prefs.edit().putString("tipo", "m3u").putString("url", url.trim()).putString("epg", epg?.trim()?.ifBlank { null })

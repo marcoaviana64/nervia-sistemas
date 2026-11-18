@@ -1,3 +1,9 @@
 {
-  "servidores": ["http://p.urldata.gy"]
+  "servidores": ["http://p.urldata.gy"],
+  "versao": {
+    "codigo": 8,
+    "nome": "2.6",
+    "apk": "https://nervia.com.br/nvplayer.apk",
+    "novidades": "O app avisa quando há versão nova e se atualiza por aqui, sem o Downloader."
+  }
 }
