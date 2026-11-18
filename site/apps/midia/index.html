@@ -86,6 +86,11 @@ dialog h3{margin:0 0 4px}
 .chk{display:flex;gap:6px;align-items:center;margin:4px 0;font-size:13px;text-transform:none;letter-spacing:0;font-weight:400;color:var(--ink)}
 .chk input{width:auto}
 .centro{padding:60px 16px;text-align:center;color:var(--ink-soft)}
+/* Ver a mídia (player do Google Drive) */
+dialog.largo{max-width:900px}
+.ver{margin-top:10px;background:#000;border-radius:10px;overflow:hidden;aspect-ratio:16/9}
+.ver.empe{aspect-ratio:9/16;max-height:72vh;margin-left:auto;margin-right:auto}
+.ver iframe{width:100%;height:100%;border:0;display:block}
 /* aba Relatório (tempo de tela) */
 .filtros{display:flex;flex-wrap:wrap;gap:12px}.filtros>div{min-width:200px}
 tr.tot td{font-weight:700;border-top:2px solid var(--border)}
@@ -227,7 +232,7 @@ function vTelas() {
     ${TELAS.map(t => {
       const erros = Array.isArray(t.erros) ? t.erros : [];
       const st = !t.ultimo_sinal ? `${tag("aguardando 1º sinal", "t-mut")}` : online(t) ? `<span class="dot" style="background:var(--ok)"></span>Online` : `<span class="dot" style="background:var(--crit)"></span>Offline`;
-      return `<tr><td><b>${esc(t.nome)}</b>${t.tocando ? `<div class="mut">tocando: ${esc(t.tocando)}</div>` : ""}</td>
+      return `<tr><td><b>${esc(t.nome)}</b>${t.tocando ? `<div class="mut">tocando: ${esc(t.tocando)}${verBt(midiaTocando(t), " · ")}</div>` : ""}</td>
         <td>${st}${t.ultimo_sinal ? `<div class="mut">sinal ${desde(t.ultimo_sinal)}</div>` : ""}</td>
         <td><select data-pl="${t.id}"><option value="">— nenhuma (tela de espera) —</option>${PLS.map(p => `<option value="${p.id}" ${p.id === t.playlist_id ? "selected" : ""}>${esc(p.nome)}</option>`).join("")}</select></td>
         <td><select data-rot="${t.id}" title="Como a TV está instalada: o app gira a imagem para ficar certa">${POSICOES.map(([g, n]) => `<option value="${g}" ${g === (t.rotacao || 0) ? "selected" : ""}>${n}</option>`).join("")}</select></td>
@@ -293,12 +298,30 @@ function vPlaylists() {
         const info = m.tipo === "video" ? [m.codec, m.largura ? `${m.largura}×${m.altura}` : "", m.duracao_s ? durTxt(m.duracao_s) : ""].filter(Boolean).join(" · ") : m.tipo === "imagem" ? ["imagem", m.largura ? `${m.largura}×${m.altura}` : ""].filter(Boolean).join(" · ") : "";
         return `<div class="item ${bad ? "recusado" : ""}"><div class="pos">${bad ? "–" : okDe(p.id).indexOf(m) + 1}</div>
           <div class="mini ${bad ? "bad" : m.tipo === "imagem" ? "img" : ""}">${bad ? "✕" : m.tipo === "video" ? "▶" : "IMG"}</div>
-          <div><div class="nome">${esc(m.nome)}</div><div class="mut">${esc(info)}${info ? " · " : ""}${mbTxt(m.tamanho)}</div>
+          <div><div class="nome">${esc(m.nome)}</div><div class="mut">${esc(info)}${info ? " · " : ""}${mbTxt(m.tamanho)}${verBt(m, " · ")}</div>
             ${bad ? `<div class="mut" style="color:var(--crit)">Não vai para a TV: ${esc(m.motivo)}</div>` : ""}</div>
           <div class="lado">${!bad && m.tipo === "imagem" ? `<span class="tempo"><input type="number" min="3" max="300" data-tempo="${m.id}" value="${m.tempo_s || ""}" placeholder="${CONTA.tempo_imagem_s}"> s na tela</span>` : !bad ? `<span class="mut">${durTxt(m.duracao_s)}</span>` : ""}</div></div>`;
       }).join("") : '<div class="vazio">Subpasta vazia.</div>'}
       <p class="mut">Imagem sem tempo próprio fica ${CONTA.tempo_imagem_s} s (padrão da conta, na aba Pasta do Drive). Vídeo passa inteiro.</p>` : ""}</div></div>`;
 }
+
+// ---------------------------------------------------------------- Ver a mídia (pedido do Marco em 18/11/2026)
+// Abre o arquivo da pasta no player do próprio Google Drive (o mesmo arquivo que a TV baixa; não é imagem ao vivo da TV).
+// Sem custo da Nervia: o navegador busca direto no Drive (a pasta é "qualquer pessoa com o link").
+const verBt = (m, antes = "") => m && (m.tipo === "video" || m.tipo === "imagem") ? `${antes}<button class="lnk" data-acao="ver" data-id="${m.id}">▶ Ver</button>` : "";
+/** A mídia que a TV disse estar tocando (pelo nome, de preferência na playlist dela). */
+const midiaTocando = t => MIDIAS.find(m => m.playlist_id === t.playlist_id && m.nome === t.tocando) || MIDIAS.find(m => m.nome === t.tocando) || null;
+const urlDrive = (m, modo) => `https://drive.google.com/file/d/${encodeURIComponent(m.drive_id)}/${modo}${m.chave ? "?resourcekey=" + encodeURIComponent(m.chave) : ""}`;
+function dlgVer(m) {
+  if (!m) return;
+  const emPe = m.altura && m.largura && m.altura > m.largura;
+  $("dlg").classList.add("largo");
+  $("dlgf").innerHTML = `<h3>${esc(m.nome)}</h3><div class="mut">${m.tipo === "video" ? "Vídeo" : "Imagem"} da pasta do Google Drive: o mesmo arquivo que as TVs baixam.</div>
+    <div class="ver ${emPe ? "empe" : ""}"><iframe src="${urlDrive(m, "preview")}" allow="autoplay; fullscreen" allowfullscreen title="${esc(m.nome)}"></iframe></div>
+    <div class="fim"><a class="bt" href="${urlDrive(m, "view")}" target="_blank" rel="noopener">Abrir no Drive</a><button class="bt pri" value="x">Fechar</button></div>`;
+  $("dlg").showModal();
+}
+$("dlg").addEventListener("close", () => { if ($("dlg").classList.contains("largo")) { $("dlg").classList.remove("largo"); $("dlgf").innerHTML = ""; } });   // para o vídeo
 
 // ---------------------------------------------------------------- Pasta do Drive
 function vConfig() {
@@ -392,6 +415,7 @@ document.addEventListener("click", async e => {
   const id = b.dataset.id, a = b.dataset.acao;
   try {
     if (a === "addTv") dlgAddTv();
+    else if (a === "ver") dlgVer(MIDIAS.find(x => x.id === id));
     else if (a === "renomear") {
       const t = TELAS.find(x => x.id === id), nome = prompt("Nome da TV:", t.nome);
       if (nome && nome.trim()) { checar(await sb.rpc("mi_tela_salvar", { p_tela: id, p_nome: nome.trim(), p_playlist: t.playlist_id })); await carregar(); render(); msg("ok", "Nome salvo."); }

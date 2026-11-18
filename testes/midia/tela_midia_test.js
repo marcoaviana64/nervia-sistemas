@@ -168,6 +168,17 @@ const db = pg => pg.evaluate(() => window.__db);
     ok((await pg.locator('#tela').innerText()).includes('este aparelho não toca o vídeo'), 'erro informado pela TV aparece');
     ok((await pg.locator('#tela').innerText()).includes('pouco espaço: 0,3 GB livres'), 'aviso de pouco espaço na TV');
     await print(pg, 'midia_tvs');
+    // ---- Ver a mídia (player do Drive)
+    await pg.route('https://drive.google.com/**', r => r.fulfill({ body: '<html><body>player do Drive</body></html>', contentType: 'text/html' }));
+    await pg.locator('tr', { has: pg.locator('select[data-pl=t1]') }).locator('[data-acao=ver]').click();
+    ok(await pg.locator('#dlg[open] iframe[src*="drive.google.com/file/d/F1/preview"]').count() === 1 && (await pg.locator('#dlg h3').innerText()) === '01_black-friday.mp4',
+      'ver: o que a TV está tocando abre no player do Drive');
+    await print(pg, 'midia_ver');
+    await pg.click('#dlg button[value=x]'); await pg.waitForTimeout(100);
+    ok(!(await pg.locator('#dlg').evaluate(d => d.open)) && (await pg.locator('#dlg iframe').count()) === 0, 'ver: fechar para o vídeo');
+    await pg.click('.aba[data-v=playlists]'); await pg.waitForTimeout(150);
+    ok(await pg.locator('.item [data-acao=ver]').count() >= 2, 'ver: cada mídia da playlist tem o ▶ Ver');
+    await pg.click('.aba[data-v=telas]'); await pg.waitForTimeout(150);
     // ---- Relatório (tempo de tela)
     await pg.click('.aba[data-v=relatorio]'); await pg.waitForTimeout(300);
     const rel = await pg.locator('#tela').innerText();
