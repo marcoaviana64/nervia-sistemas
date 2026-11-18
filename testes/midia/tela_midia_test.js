@@ -25,9 +25,9 @@ const FALSO = `(() => {
       { id: 'm1', playlist_id: 'p1', drive_id: 'F1', nome: '01_black-friday.mp4', tipo: 'video', situacao: 'ok', motivo: '', tamanho: 44040192, codec: 'H.264', largura: 1920, altura: 1080, duracao_s: 30, posicao: 1, tempo_s: null },
       { id: 'm2', playlist_id: 'p1', drive_id: 'F2', nome: '02_horario.png', tipo: 'imagem', situacao: 'ok', motivo: '', tamanho: 838860, largura: 1920, altura: 1080, duracao_s: null, posicao: 2, tempo_s: null },
       { id: 'm3', playlist_id: 'p1', drive_id: 'F3', nome: '03_iphone.mp4', tipo: 'video', situacao: 'recusado', motivo: 'vídeo em H.265 (HEVC): exporte em MP4 com H.264', tamanho: 9000000, codec: 'H.265 (HEVC)', largura: 1920, altura: 1080, duracao_s: 15, posicao: 3, tempo_s: null },
-      { id: 'm4', playlist_id: 'p2', drive_id: 'F4', nome: '01_cardapio.jpg', tipo: 'imagem', situacao: 'ok', motivo: '', tamanho: 2202009, posicao: 1, tempo_s: 12 }],
+      { id: 'm4', playlist_id: 'p2', drive_id: 'F4', nome: '01_cardapio.jpg', tipo: 'imagem', situacao: 'ok', motivo: '', tamanho: 2202009, largura: 1920, altura: 1080, posicao: 1, tempo_s: 12 }],
     mi_telas: [
-      { id: 't1', conta_id: 'c1', nome: 'Hall de entrada', playlist_id: 'p1', ultimo_sinal: min(1), versao_app: '1.0', modelo: 'TV box X96', android: '9', tocando: '01_black-friday.mp4', espaco_livre_mb: 6200, baixando: 0, erros: [] },
+      { id: 't1', conta_id: 'c1', nome: 'Hall de entrada', playlist_id: 'p1', tela_largura: 3840, tela_altura: 2160, ultimo_sinal: min(1), versao_app: '1.0', modelo: 'TV box X96', android: '9', tocando: '01_black-friday.mp4', espaco_livre_mb: 6200, baixando: 0, erros: [] },
       { id: 't2', conta_id: 'c1', nome: 'Estacionamento', playlist_id: 'p2', ultimo_sinal: min(190), versao_app: '1.0', modelo: 'Google TV', android: '12', tocando: '', espaco_livre_mb: 300, baixando: 0, erros: [{ nome: 'promo.mp4', erro: 'este aparelho não toca o vídeo' }] },
       { id: 't3', conta_id: 'c1', nome: 'Vitrine da loja', playlist_id: 'p1', ultimo_sinal: min(2), versao_app: '1.3', modelo: 'TCL Smart TV', android: '14', tocando: '', espaco_livre_mb: 2400, baixando: 2, erros: [{ nome: '01_black-friday.mp4', erro: 'não baixou: Google Drive respondeu 403' }, { nome: '02_cardapio.jpg', erro: 'não baixou: Google Drive respondeu 403' }] }],
     codigos: { 'ABC234': 'livre' },
@@ -211,6 +211,21 @@ const db = pg => pg.evaluate(() => window.__db);
     await pg.waitForTimeout(200);
     ok((await db(pg)).mi_telas.find(t => t.id === 't1').rotacao === 90 && (await pg.locator('#msg').innerText()).includes('em pé'), 'posição da TV (em pé) grava pela rpc');
     ok(!(await pg.locator('tr', { has: pg.locator('select[data-rot=t1]') }).innerText()).includes('pouco espaço'), 'sem aviso de espaço na TV com espaço sobrando');
+    const linhaT1 = await pg.locator('tr', { has: pg.locator('select[data-rot=t1]') }).innerText();
+    ok(linhaT1.includes('Formato ideal: em pé 9:16') && linhaT1.includes('vídeo 1080×1920') && linhaT1.includes('até 2160×3840'),
+      'formato ideal: TV 4K em pé → vídeo 1080×1920, foto até 2160×3840');
+    ok((await pg.locator('tr', { has: pg.locator('select[data-rot=t2]') }).innerText()).includes('aparece quando a TV tiver o app 1.9'), 'formato ideal: TV sem a resolução avisa');
+    await pg.locator('tr', { has: pg.locator('select[data-rot=t1]') }).locator('[data-acao=copiarFormato]').click(); await pg.waitForTimeout(150);
+    const copia = await pg.locator('#msg').innerText();
+    ok(copia.includes('EM PÉ (vertical)') && copia.includes('Vídeo: MP4 (H.264), 1080×1920') && copia.includes('fundo desfocado'), 'formato ideal: mensagem pronta para o cliente');
+    await pg.click('.aba[data-v=playlists]'); await pg.waitForTimeout(150);
+    await pg.click('[data-plsel=p2]'); await pg.waitForTimeout(150);   // a TV Hall de entrada foi trocada para esta playlist acima
+    const plTxt = await pg.locator('#tela').innerText();
+    ok(plTxt.includes('Formato diferente da TV "Hall de entrada" (em pé 9:16): aparece com fundo desfocado'),
+      'playlist: foto deitada numa TV em pé avisa (fundo desfocado)');
+    await pg.click('[data-plsel=p1]'); await pg.waitForTimeout(150);
+    ok(!(await pg.locator('#tela').innerText()).includes('Formato diferente'), 'playlist: sem TV em pé nesta playlist, sem aviso');
+    await pg.click('.aba[data-v=telas]'); await pg.waitForTimeout(150);
     // adicionar TV: código inválido, código usado, ok
     await pg.click('[data-acao=addTv]');
     await pg.fill('#fCod', 'AB'); await pg.fill('#fNome', 'Vitrine'); await pg.click('#fOk');

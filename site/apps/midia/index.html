@@ -188,7 +188,7 @@ async function carregar() {
   const [c, p, t] = await Promise.all([
     sb.from("mi_contas").select("*").eq("id", CONTA.id).single().then(checar),
     sb.from("mi_playlists").select("*").eq("conta_id", CONTA.id).order("raiz", { ascending: false }).order("nome").then(checar),
-    sb.from("mi_telas").select("id, conta_id, nome, playlist_id, rotacao, aparelho, vinculada_em, ultimo_sinal, versao_app, modelo, android, tocando, conteudo, espaco_livre_mb, baixando, erros").eq("conta_id", CONTA.id).order("nome").then(checar)]);
+    sb.from("mi_telas").select("id, conta_id, nome, playlist_id, rotacao, aparelho, vinculada_em, ultimo_sinal, versao_app, modelo, android, tocando, conteudo, espaco_livre_mb, baixando, erros, tela_largura, tela_altura").eq("conta_id", CONTA.id).order("nome").then(checar)]);
   CONTA = c; PLS = p; TELAS = t;
   MIDIAS = PLS.length ? checar(await sb.from("mi_midias").select("*").in("playlist_id", PLS.map(x => x.id)).order("posicao")) : [];
   if (!PLS.some(x => x.id === PLSEL)) PLSEL = (PLS[0] || {}).id || null;
@@ -232,7 +232,7 @@ function vTelas() {
     ${TELAS.map(t => {
       const erros = Array.isArray(t.erros) ? t.erros : [];
       const st = !t.ultimo_sinal ? `${tag("aguardando 1º sinal", "t-mut")}` : online(t) ? `<span class="dot" style="background:var(--ok)"></span>Online` : `<span class="dot" style="background:var(--crit)"></span>Offline`;
-      return `<tr><td><b>${esc(t.nome)}</b>${t.tocando ? `<div class="mut">tocando: ${esc(t.tocando)}${verBt(midiaTocando(t), " · ")}</div>` : ""}</td>
+      return `<tr><td><b>${esc(t.nome)}</b>${t.tocando ? `<div class="mut">tocando: ${esc(t.tocando)}${verBt(midiaTocando(t), " · ")}</div>` : ""}${formatoLinha(t)}</td>
         <td>${st}${t.ultimo_sinal ? `<div class="mut">sinal ${desde(t.ultimo_sinal)}</div>` : ""}</td>
         <td><select data-pl="${t.id}"><option value="">— nenhuma (tela de espera) —</option>${PLS.map(p => `<option value="${p.id}" ${p.id === t.playlist_id ? "selected" : ""}>${esc(p.nome)}</option>`).join("")}</select></td>
         <td><select data-rot="${t.id}" title="Como a TV está instalada: o app gira a imagem para ficar certa">${POSICOES.map(([g, n]) => `<option value="${g}" ${g === (t.rotacao || 0) ? "selected" : ""}>${n}</option>`).join("")}</select></td>
@@ -299,10 +299,47 @@ function vPlaylists() {
         return `<div class="item ${bad ? "recusado" : ""}"><div class="pos">${bad ? "–" : okDe(p.id).indexOf(m) + 1}</div>
           <div class="mini ${bad ? "bad" : m.tipo === "imagem" ? "img" : ""}">${bad ? "✕" : m.tipo === "video" ? "▶" : "IMG"}</div>
           <div><div class="nome">${esc(m.nome)}</div><div class="mut">${esc(info)}${info ? " · " : ""}${mbTxt(m.tamanho)}${verBt(m, " · ")}</div>
-            ${bad ? `<div class="mut" style="color:var(--crit)">Não vai para a TV: ${esc(m.motivo)}</div>` : ""}</div>
+            ${bad ? `<div class="mut" style="color:var(--crit)">Não vai para a TV: ${esc(m.motivo)}</div>` : ""}
+            ${telasForaDoFormato(m).map(t => `<div class="mut" style="color:var(--warn)">Formato diferente da TV "${esc(t.nome)}" (${formatoTv(t).emPe ? "em pé" : "deitada"} ${formatoTv(t).proporcao}): ${m.tipo === "video" ? "aparece com faixas pretas" : "aparece com fundo desfocado"}.</div>`).join("")}</div>
           <div class="lado">${!bad && m.tipo === "imagem" ? `<span class="tempo"><input type="number" min="3" max="300" data-tempo="${m.id}" value="${m.tempo_s || ""}" placeholder="${CONTA.tempo_imagem_s}"> s na tela</span>` : !bad ? `<span class="mut">${durTxt(m.duracao_s)}</span>` : ""}</div></div>`;
       }).join("") : '<div class="vazio">Subpasta vazia.</div>'}
       <p class="mut">Imagem sem tempo próprio fica ${CONTA.tempo_imagem_s} s (padrão da conta, na aba Pasta do Drive). Vídeo passa inteiro.</p>` : ""}</div></div>`;
+}
+
+// ---------------------------------------------------------------- Formato ideal das mídias por TV (pedido do Marco em 18/11/2026)
+// O app da TV (1.9+) manda os pixels do painel (deitado); com a Posição da TV sai o formato em que a mídia ocupa a tela toda.
+// Vídeo: no máximo 1080p (regra do app: H.264 até 1920×1080 / 1080×1920). Foto: pode ter a resolução do painel.
+const mdc = (a, b) => b ? mdc(b, a % b) : a;
+function formatoTv(t) {
+  if (!t.tela_largura || !t.tela_altura) return null;
+  let w = Math.max(t.tela_largura, t.tela_altura), h = Math.min(t.tela_largura, t.tela_altura);   // painel deitado
+  const emPe = t.rotacao === 90 || t.rotacao === 270;
+  if (emPe) [w, h] = [h, w];
+  const g = mdc(w, h), prop = `${w / g}:${h / g}`;
+  const proporcao = ({ "16:9": "16:9", "9:16": "9:16", "8:5": "16:10", "5:8": "10:16", "64:27": "21:9" })[prop] || prop;
+  const k = Math.min(1, 1920 / Math.max(w, h)), vw = Math.round(w * k / 2) * 2, vh = Math.round(h * k / 2) * 2;
+  return { w, h, emPe, proporcao, video: `${vw}×${vh}`, foto: `${w}×${h}`, fotoMaior: w * h > vw * vh };
+}
+function formatoLinha(t) {
+  const f = formatoTv(t);
+  if (!f) return t.ultimo_sinal ? '<div class="mut">Formato ideal: aparece quando a TV tiver o app 1.9 ou mais novo.</div>' : "";
+  return `<div class="mut">Formato ideal: <b>${f.emPe ? "em pé" : "deitado"} ${f.proporcao}</b> · vídeo ${f.video} · foto ${f.video}${f.fotoMaior ? ` (até ${f.foto})` : ""}
+    · <button class="lnk" data-acao="copiarFormato" data-id="${t.id}">copiar para o cliente</button></div>`;
+}
+function textoFormato(t) {
+  const f = formatoTv(t);
+  return `Mídia Indoor — TV "${t.nome}"\n` +
+    `A tela está ${f.emPe ? "EM PÉ (vertical)" : "DEITADA (horizontal)"}, proporção ${f.proporcao}. Para ocupar a tela toda:\n` +
+    `• Vídeo: MP4 (H.264), ${f.video} pixels, até 300 MB.\n` +
+    `• Foto: JPG ou PNG, ${f.video} pixels${f.fotoMaior ? ` (pode ser até ${f.foto})` : ""}, até 30 MB.\n` +
+    `Mídia em outro formato aparece inteira, sem esticar: foto com fundo desfocado, vídeo com faixas pretas.\n` +
+    `Coloque os arquivos na pasta do Google Drive da playlist desta TV; a ordem segue o nome do arquivo (01_, 02_…).`;
+}
+/** TVs com resolução conhecida que tocam a playlist e têm formato diferente do arquivo (diferença acima de 3%). */
+function telasForaDoFormato(m) {
+  if (!m.largura || !m.altura || m.situacao !== "ok") return [];
+  const pm = m.largura / m.altura;
+  return TELAS.filter(t => t.playlist_id === m.playlist_id).filter(t => { const f = formatoTv(t); return f && Math.abs(pm - f.w / f.h) / (f.w / f.h) > 0.03; });
 }
 
 // ---------------------------------------------------------------- Ver a mídia (pedido do Marco em 18/11/2026)
@@ -416,6 +453,11 @@ document.addEventListener("click", async e => {
   try {
     if (a === "addTv") dlgAddTv();
     else if (a === "ver") dlgVer(MIDIAS.find(x => x.id === id));
+    else if (a === "copiarFormato") {
+      const txt = textoFormato(TELAS.find(x => x.id === id));
+      try { await navigator.clipboard.writeText(txt); msg("ok", "Copiado. Cole na mensagem ao cliente (WhatsApp ou e-mail):\n\n" + txt); }
+      catch { msg("info", "Copie a mensagem abaixo para o cliente:\n\n" + txt); }
+    }
     else if (a === "renomear") {
       const t = TELAS.find(x => x.id === id), nome = prompt("Nome da TV:", t.nome);
       if (nome && nome.trim()) { checar(await sb.rpc("mi_tela_salvar", { p_tela: id, p_nome: nome.trim(), p_playlist: t.playlist_id })); await carregar(); render(); msg("ok", "Nome salvo."); }
