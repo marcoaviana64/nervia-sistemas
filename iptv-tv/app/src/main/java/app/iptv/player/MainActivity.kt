@@ -148,6 +148,33 @@ class MainActivity : ComponentActivity() {
             !repo.configurado() -> mostrarConfig()
             else -> carregarCatalogo(baixar = false, silencioso = false)
         }
+        // 2.6: confere no site se há versão nova (e o endereço atual do servidor)
+        rede.execute {
+            repo.atualizarServidores()
+            runOnUiThread { if (!isFinishing && !isDestroyed) procurarAtualizacao(automatico = true) }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        atualizador.voltou()
+    }
+
+    private val atualizador by lazy { Atualizador(this, ::avisar, ::toast) }
+
+    private fun procurarAtualizacao(automatico: Boolean) {
+        atualizador.oferecer(repo.versaoPublicada, automatico, repo.atualizacaoAdiadaAte, { repo.atualizacaoAdiadaAte = it }) { v ->
+            player.pause()
+            avisar("Baixando a atualização ${v.nome}…")
+            rede.execute {
+                val r = try { Result.success(atualizador.baixar(v)) } catch (e: Exception) { Result.failure(e) }
+                runOnUiThread {
+                    avisar(null)
+                    r.onSuccess { atualizador.instalar(it) }
+                        .onFailure { toast("Não foi possível baixar a atualização: ${it.message ?: it.javaClass.simpleName}") }
+                }
+            }
+        }
     }
 
     override fun onStart() {
@@ -394,6 +421,8 @@ class MainActivity : ComponentActivity() {
             add(Entrada("🔒  Controle dos pais: ${if (repo.pin == null) "desligado" else "ligado"}", TE.ACAO, acao = "pin"))
             if (repo.xtream != null) add(Entrada("📺  Canais ao vivo em: ${if (repo.formatoAoVivo == "m3u8") "HLS" else "TS"}", TE.ACAO, acao = "formato"))
             add(Entrada("🗑  Limpar \"Continuar assistindo\"", TE.ACAO, acao = "limpar"))
+            val nova = repo.versaoPublicada?.takeIf { it.codigo > atualizador.versaoAtual() }
+            add(Entrada(if (nova != null) "⬆  Atualizar o app para a versão ${nova.nome}" else "⬆  Procurar atualização do app", TE.ACAO, acao = "versao"))
             add(Entrada("✕  Sair do app", TE.ACAO, acao = "sair"))
         } else buildList {
             add(Entrada("★  Favoritos", TE.FAVORITOS))
@@ -1031,6 +1060,13 @@ class MainActivity : ComponentActivity() {
                 carregarCatalogo(baixar = false, silencioso = false)
             }
             "limpar" -> { repo.limparContinuar(); toast("\"Continuar assistindo\" limpo.") }
+            "versao" -> {
+                avisar("Procurando atualização…")
+                rede.execute {
+                    repo.atualizarServidores()
+                    runOnUiThread { avisar(null); procurarAtualizacao(automatico = false); montarEntradas() }
+                }
+            }
             "sair" -> finish()
             else -> if (e.bloqueado) desbloquear { focarItem(0) } else selecionarGrupo(pos, focar = true)
         }

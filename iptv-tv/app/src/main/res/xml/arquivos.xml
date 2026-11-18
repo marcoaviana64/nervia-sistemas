@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Atualização pelo app: o APK baixado fica em cache/atualizacao e vai ao instalador por este FileProvider. -->
+<paths>
+    <cache-path name="atualizacao" path="atualizacao/" />
+</paths>

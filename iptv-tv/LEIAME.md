@@ -51,6 +51,16 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
   (`carregarXtream`). A última lista lida fica no aparelho (`srv_publicados`). Para trocar: editar o arquivo no GitHub
   (ou pedir ao Claude) e fazer o merge na main; não precisa de APK novo. Teste: `TelaTest.servidorDoSite`.
 
+- **Atualização pelo próprio app** (2.6, pedido do Marco em 18/11/2026): o mesmo `site/nvplayer.json` tem o bloco
+  `"versao": {"codigo": 8, "nome": "2.6", "apk": "https://nervia.com.br/nvplayer.apk", "novidades": "…"}`. Ao abrir, o app
+  lê o arquivo; com `codigo` maior que o `versionCode` instalado, pergunta "Nova versão do NVPlayer" (Atualizar agora /
+  Depois = não pergunta de novo por 1 dia; Ajustes → "Atualizar o app" / "Procurar atualização do app" pergunta na hora).
+  Baixa o APK para `cache/atualizacao`, confere pacote e versão (`getPackageArchiveInfo`) e abre o instalador do Android
+  pelo FileProvider (`Atualizador.kt`, permissão `REQUEST_INSTALL_PACKAGES`). Na primeira vez o Android pede para
+  liberar "instalar apps" para o NVPlayer (abre a configuração; no Fire TV: Opções do desenvolvedor → Instalar apps
+  desconhecidos). **Ao publicar APK novo: subir `versionCode`, copiar para `site/nvplayer.apk` e pôr o MESMO número em
+  `codigo` (e o nome/novidades) no `nvplayer.json`, no mesmo merge.** A mesma chave de assinatura é obrigatória.
+
 ## Ainda não tem (ideias)
 Grade de programação de todos os canais ao mesmo tempo, assistir programa que já passou (catch-up), gravação.
 
