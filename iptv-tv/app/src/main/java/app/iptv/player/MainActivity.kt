@@ -1454,8 +1454,8 @@ class MainActivity : ComponentActivity() {
 
     private inner class AdGrupos : RecyclerView.Adapter<VH>() {
         override fun getItemCount() = entradas.size
-        override fun onCreateViewHolder(p: ViewGroup, t: Int): VH = VH(texto(16f).apply {
-            setPadding(16.dp, 8.dp, 16.dp, 8.dp)
+        override fun onCreateViewHolder(p: ViewGroup, t: Int): VH = VH(texto(15f).apply {
+            setPadding(16.dp, 6.dp, 16.dp, 6.dp)
             typeface = Estilo.MEDIO
             isFocusable = true; isClickable = true
             isSingleLine = true; ellipsize = TextUtils.TruncateAt.END
@@ -1488,23 +1488,23 @@ class MainActivity : ComponentActivity() {
             val linha = LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                if (t == 0) setPadding(8.dp, 5.dp, 12.dp, 5.dp) else setPadding(12.dp, 6.dp, 16.dp, 6.dp)
+                if (t == 0) setPadding(8.dp, 3.dp, 12.dp, 3.dp) else setPadding(12.dp, 4.dp, 16.dp, 4.dp)
                 isFocusable = true; isClickable = true; isLongClickable = true
                 layoutParams = RecyclerView.LayoutParams(-1, -2).apply { bottomMargin = 2.dp }
             }
-            linha.addView(texto(13f, Estilo.TEXTO_3).apply { gravity = Gravity.END; typeface = Estilo.MEDIO; setPadding(0, 0, 10.dp, 0); isSingleLine = true },
-                LinearLayout.LayoutParams(if (t == 0) 54.dp else 0, -2))
+            linha.addView(texto(12f, Estilo.TEXTO_3).apply { gravity = Gravity.END; typeface = Estilo.MEDIO; setPadding(0, 0, 10.dp, 0); isSingleLine = true },
+                LinearLayout.LayoutParams(if (t == 0) 50.dp else 0, -2))
             // logo numa "plaquinha" arredondada
             linha.addView(ImageView(this@MainActivity).apply {
                 scaleType = ImageView.ScaleType.FIT_CENTER
                 background = Estilo.cartao(this@MainActivity, Color.argb(26, 255, 255, 255), 10f)
                 if (t == 0) setPadding(4.dp, 2.dp, 4.dp, 2.dp)
                 Estilo.arredondar(this, 8f)
-            }, if (t == 0) LinearLayout.LayoutParams(50.dp, 30.dp) else LinearLayout.LayoutParams(40.dp, 58.dp))
+            }, if (t == 0) LinearLayout.LayoutParams(44.dp, 26.dp) else LinearLayout.LayoutParams(36.dp, 52.dp))
             val col = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL; setPadding(12.dp, 0, 6.dp, 0) }
-            col.addView(texto(16f).apply { typeface = Estilo.MEDIO; isSingleLine = true; ellipsize = TextUtils.TruncateAt.END })
-            col.addView(texto(13f, Estilo.TEXTO_2).apply { isSingleLine = true; ellipsize = TextUtils.TruncateAt.END })
-            col.addView(Barrinha(this@MainActivity), LinearLayout.LayoutParams(-1, 3.dp).apply { topMargin = 3.dp; marginEnd = 40.dp })
+            col.addView(texto(15f).apply { typeface = Estilo.MEDIO; isSingleLine = true; ellipsize = TextUtils.TruncateAt.END })
+            col.addView(texto(12f, Estilo.TEXTO_2).apply { isSingleLine = true; ellipsize = TextUtils.TruncateAt.END })
+            col.addView(Barrinha(this@MainActivity), LinearLayout.LayoutParams(-1, 3.dp).apply { topMargin = 2.dp; marginEnd = 40.dp })
             linha.addView(col, LinearLayout.LayoutParams(0, -2, 1f))
             linha.addView(texto(18f, Color.rgb(0xFF, 0xCC, 0x4D)))
             return VH(linha)
