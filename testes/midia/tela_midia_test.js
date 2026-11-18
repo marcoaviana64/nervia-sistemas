@@ -194,10 +194,15 @@ const db = pg => pg.evaluate(() => window.__db);
     const csv = fs.readFileSync(await dl.path(), 'utf8');
     ok(csv.charCodeAt(0) === 0xfeff && csv.includes('Dia;TV;Mídia;Tipo;Exibições;Segundos;Tempo de tela') && csv.split('\r\n').length === 4 && csv.includes('Hall de entrada;01_black-friday.mp4;vídeo;100;3000;50 min 00 s'),
       'relatório: CSV por dia da TV escolhida, para o Excel');
-    await pg.emulateMedia({ media: 'print' });
-    ok(await pg.locator('.imp-topo').isVisible() && await pg.locator('.barra').isHidden() && (await pg.locator('.imp-topo').innerText()).includes('Relatório de tempo de tela'), 'relatório: impressão com cabeçalho, sem menu');
-    await print(pg, 'midia_relatorio_impressao');
-    await pg.emulateMedia({ media: 'screen' });
+    const [jan] = await Promise.all([pg.waitForEvent('popup'), pg.click('[data-acao=relImprimir]')]);
+    await jan.waitForLoadState();
+    const html = await jan.content(), txtJan = await jan.locator('body').innerText();
+    ok(txtJan.includes('Relatório de tempo de tela') && txtJan.includes('Hall de entrada') && txtJan.includes('1 h 31 min') && txtJan.includes('Tempo em que cada mídia ficou'),
+      'relatório: impressão numa janela só com o relatório (cabeçalho, números e nota)');
+    ok(!/Mídia Indoor<\/b>|class="barra|data-v="telas"|Imprimir \/ PDF|<select|<button/.test(html) && /@page\{size:A4;margin:0\}/.test(html),
+      'relatório: impressão sem o topo do site, sem menu e sem botões; margem da folha zero (sem cabeçalho do navegador)');
+    if (SAIDA) { await jan.setViewportSize({ width: 794, height: 1123 }); await jan.screenshot({ path: path.join(SAIDA, 'midia_relatorio_impressao.png'), fullPage: true }); }
+    await jan.close();
     await pg.fill('#relMes', '2020-01'); await pg.dispatchEvent('#relMes', 'change'); await pg.waitForTimeout(200);
     ok((await pg.locator('#tela').innerText()).includes('Nenhuma exibição registrada em janeiro de 2020'), 'relatório: mês sem exibições avisa');
     await pg.click('.aba[data-v=telas]'); await pg.waitForTimeout(150);
