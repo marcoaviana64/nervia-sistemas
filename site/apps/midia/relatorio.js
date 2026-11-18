@@ -106,6 +106,39 @@ function vRelatorio() {
     <p class="mut so-imp">Tempo em que cada mídia ficou de fato na tela (TV ligada, com o app aberto), anotado pela própria TV, em horário de Brasília. Média por dia = tempo ÷ ${dias} dia(s) do período${REL.mes === hojeBR().slice(0, 7) ? " (até ontem)" : ""}.</p>`;
 }
 
+/** Impressão / PDF numa janela só com o relatório (pedido do Marco em 18/11/2026: impresso de dentro da Área do Cliente
+ *  saía com o cabeçalho do site e o do navegador). Margem da folha zero (@page) = o navegador não tem onde pôr o cabeçalho
+ *  e o rodapé dele (endereço, data, título); a margem fica no corpo da página. */
+function relImprimir() {
+  const copia = $("tela").cloneNode(true);
+  copia.querySelectorAll(".noprint, button, select, input").forEach(n => n.remove());
+  copia.querySelectorAll(".so-imp").forEach(n => n.classList.remove("so-imp"));
+  const titulo = `Tempo de tela - ${CONTA.nome} - ${mesNome(REL.mes)}`;
+  const w = window.open("", "_blank");
+  if (!w) { msg("err", "O navegador bloqueou a janela da impressão. Permita janelas deste site e tente de novo."); return; }
+  w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(titulo)}</title><style>
+    @page{size:A4;margin:0}
+    *{box-sizing:border-box}
+    body{margin:0;padding:14mm 13mm;font:12px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#0f1b2d;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .imp-topo{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;border-bottom:2px solid #107e99;padding-bottom:8px;margin-bottom:14px;font-size:14px}
+    .imp-topo b{font-size:17px}.mut{color:#4f5f73;font-size:11px}
+    .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+    .kpi{border:1px solid #ccd6de;border-radius:8px;padding:8px 10px}.kpi b{font-size:17px;display:block}.kpi span{font-size:11px;color:#4f5f73}
+    .card{border:1px solid #ccd6de;border-radius:8px;padding:10px 12px;margin-bottom:12px;break-inside:avoid}
+    .card h2{font-size:13px;margin:0 0 6px}
+    table{width:100%;border-collapse:collapse;font-size:11.5px}
+    th,td{text-align:left;padding:5px 4px;border-bottom:1px solid #dde6ec;vertical-align:top}
+    th{color:#4f5f73;font-size:10px;text-transform:uppercase;letter-spacing:.04em}
+    td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+    tr.tot td{font-weight:700;border-top:2px solid #ccd6de}
+    tr{break-inside:avoid}
+    .tag{display:inline-block;font-size:10px;padding:1px 6px;border-radius:999px;background:#eaf1f4;color:#4f5f73;font-weight:600}
+  </style></head><body>${copia.innerHTML}</body></html>`);
+  w.document.close();
+  w.addEventListener("afterprint", () => w.close());
+  setTimeout(() => { w.focus(); w.print(); }, 300);
+}
+
 /** CSV por dia (separado por ponto e vírgula, com BOM, para abrir certo no Excel). */
 function relCsv() {
   const linhas = (REL.tela ? REL.linhas.filter(l => l.tela_id === REL.tela) : REL.linhas);
@@ -125,6 +158,6 @@ document.addEventListener("change", e => {
 });
 document.addEventListener("click", e => {
   const b = e.target.closest("[data-acao]"); if (!b) return;
-  if (b.dataset.acao === "relImprimir") window.print();
+  if (b.dataset.acao === "relImprimir") relImprimir();
   else if (b.dataset.acao === "relCsv") relCsv();
 });
