@@ -28,7 +28,8 @@ const FALSO = `(() => {
       { id: 'm4', playlist_id: 'p2', drive_id: 'F4', nome: '01_cardapio.jpg', tipo: 'imagem', situacao: 'ok', motivo: '', tamanho: 2202009, posicao: 1, tempo_s: 12 }],
     mi_telas: [
       { id: 't1', conta_id: 'c1', nome: 'Hall de entrada', playlist_id: 'p1', ultimo_sinal: min(1), versao_app: '1.0', modelo: 'TV box X96', android: '9', tocando: '01_black-friday.mp4', espaco_livre_mb: 6200, baixando: 0, erros: [] },
-      { id: 't2', conta_id: 'c1', nome: 'Estacionamento', playlist_id: 'p2', ultimo_sinal: min(190), versao_app: '1.0', modelo: 'Google TV', android: '12', tocando: '', espaco_livre_mb: 300, baixando: 0, erros: [{ nome: 'promo.mp4', erro: 'este aparelho não toca o vídeo' }] }],
+      { id: 't2', conta_id: 'c1', nome: 'Estacionamento', playlist_id: 'p2', ultimo_sinal: min(190), versao_app: '1.0', modelo: 'Google TV', android: '12', tocando: '', espaco_livre_mb: 300, baixando: 0, erros: [{ nome: 'promo.mp4', erro: 'este aparelho não toca o vídeo' }] },
+      { id: 't3', conta_id: 'c1', nome: 'Vitrine da loja', playlist_id: 'p1', ultimo_sinal: min(2), versao_app: '1.3', modelo: 'TCL Smart TV', android: '14', tocando: '', espaco_livre_mb: 2400, baixando: 2, erros: [{ nome: '01_black-friday.mp4', erro: 'não baixou: Google Drive respondeu 403' }, { nome: '02_cardapio.jpg', erro: 'não baixou: Google Drive respondeu 403' }] }],
     codigos: { 'ABC234': 'livre' },
     log: []
   };
@@ -145,7 +146,10 @@ const db = pg => pg.evaluate(() => window.__db);
     ok((await pg.locator('[data-versao=midia]').count()) === 1, 'topo com a versão do app');
     ok(await pg.locator('#abaAdmin').isHidden(), 'cliente não vê a aba Contas');
     const kpi = await pg.locator('.kpi').first().innerText();
-    ok(kpi.includes('1 de 2'), 'KPI: 1 de 2 TVs online');
+    ok(kpi.includes('2 de 3'), 'KPI: 2 de 3 TVs online');
+    const crit = await pg.locator('.aviso.crit').innerText();
+    ok(crit.includes('Vitrine da loja') && crit.includes('403') && crit.includes('www.googleapis.com') && crit.includes('Não adianta esperar'), 'aviso: TV que não consegue baixar (403), com o que fazer');
+    ok((await pg.locator('tr', { has: pg.locator('select[data-pl=t3]') }).innerText()).includes('não consegue baixar 2 arquivo(s)'), 'situação da TV: não consegue baixar (em vez de "baixando")');
     ok((await pg.locator('.aviso.warn').innerText()).includes('Estacionamento'), 'aviso da TV offline');
     ok((await pg.locator('#tela').innerText()).includes('este aparelho não toca o vídeo'), 'erro informado pela TV aparece');
     ok((await pg.locator('#tela').innerText()).includes('pouco espaço: 0,3 GB livres'), 'aviso de pouco espaço na TV');

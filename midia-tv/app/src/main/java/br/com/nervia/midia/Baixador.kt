@@ -35,8 +35,8 @@ class Baixador(private val pasta: File) {
             val codigo = c.responseCode
             if (codigo == 416) { parte.delete(); throw IOException("download reiniciado") }
             if (codigo != 200 && codigo != 206) {
-                val msg = c.errorStream?.bufferedReader()?.use { it.readText() }?.let { Regex("\"message\"\\s*:\\s*\"([^\"]+)").find(it)?.groupValues?.get(1) }
-                throw IOException("Google Drive respondeu $codigo${msg?.let { ": $it" } ?: ""}")
+                val corpo = runCatching { c.errorStream?.bufferedReader()?.use { it.readText().take(4000) } }.getOrNull().orEmpty()
+                throw IOException("Google Drive respondeu $codigo${motivoDoCorpo(corpo)?.let { ": $it" } ?: ""}")
             }
             val continuar = codigo == 206 && jaTem > 0
             val md5 = MessageDigest.getInstance("MD5")
@@ -51,6 +51,15 @@ class Baixador(private val pasta: File) {
         } finally {
             c.disconnect()
         }
+    }
+
+    /** Mensagem do Google (JSON "message"); se a resposta não é do Google Drive (página de bloqueio da rede, por exemplo),
+     *  o título ou o começo do texto, para a equipe saber quem recusou. */
+    private fun motivoDoCorpo(corpo: String): String? {
+        if (corpo.isBlank()) return null
+        Regex("\"message\"\\s*:\\s*\"([^\"]+)").find(corpo)?.let { return it.groupValues[1] }
+        Regex("<title>([^<]{1,120})</title>", RegexOption.IGNORE_CASE).find(corpo)?.let { return "página \"${it.groupValues[1].trim()}\"" }
+        return corpo.replace(Regex("<[^>]*>"), " ").replace(Regex("\\s+"), " ").trim().take(100).ifBlank { null }
     }
 
     private fun copiar(entrada: java.io.InputStream, saida: java.io.OutputStream?, md5: MessageDigest) {

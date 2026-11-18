@@ -28,10 +28,10 @@ class VitrineTest {
         else -> emptyList()
     }
 
-    private fun desenhar(emPe: Boolean, w: Int, h: Int, nome: String): Vitrine {
+    private fun desenhar(emPe: Boolean, w: Int, h: Int, nome: String, aviso: String = ""): Vitrine {
         val vit = Vitrine(ApplicationProvider.getApplicationContext(), Handler(Looper.getMainLooper()))
         vit.arrumar(emPe)
-        vit.mostrar("TV Recepção · nenhuma playlist escolhida para esta TV · app 1.3")
+        vit.mostrar("TV Recepção · nenhuma playlist escolhida para esta TV · app 1.3", aviso)
         vit.view.measure(View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY))
         vit.view.layout(0, 0, w, h)
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
@@ -57,5 +57,16 @@ class VitrineTest {
         assertTrue(v.view.getChildAt(0).bottom <= 1920)
         v.esconder()
         assertEquals(View.GONE, v.view.visibility)
+    }
+
+    /** Download recusado: o aviso aparece em destaque (quem olha a TV sabe que não adianta esperar) e cabe na tela. */
+    @Test fun comAviso() {
+        val aviso = "Não foi possível baixar os arquivos da playlist: o Google Drive recusou o download (403). A rede deste local " +
+            "pode estar bloqueando o Google Drive: teste com outra internet (ex.: roteador do celular) ou peça para liberar www.googleapis.com."
+        val v = desenhar(true, 1080, 1920, "vitrine-aviso", aviso)
+        assertTrue(textos(v.view).contains(aviso))
+        assertTrue(v.view.getChildAt(1).visibility == View.VISIBLE && v.view.getChildAt(1).bottom <= 1920)
+        v.mostrar("TV Recepção · app 1.4")
+        assertEquals(View.GONE, v.view.getChildAt(1).visibility)
     }
 }

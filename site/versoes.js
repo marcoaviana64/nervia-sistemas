@@ -51,6 +51,7 @@ window.NERVIA_VERSOES = {
     ["1.0", "Lançamento: contas e licenças de cada unidade, mudanças entre exportações e licenças pagas sem uso."],
   ],
   "midia": [
+    ["1.8", "Quando a TV não consegue baixar os arquivos do Google Drive, ela avisa na tela, em destaque, o motivo e o que fazer, em vez de ficar em \"baixando…\". O painel também avisa no alto da aba TVs e na Situação da TV (\"não consegue baixar\"), com a dica do erro: por exemplo, a rede do local bloqueando o Google Drive. (app da TV 1.4)"],
     ["1.7", "Menu novo no estilo fichário, igual ao dos outros apps da Nervia: as abas TVs, Playlists, Pasta do Drive e Contas viram orelhas de pasta com ícone; a aberta se junta à ficha embaixo. No celular, as abas fechadas mostram só o ícone."],
     ["1.6", "A versão do app aparece na tela da TV (no alto da tela do código e no pé da tela de espera), para conferir a atualização sem abrir o painel."],
     ["1.5", "Tela de espera nova: quando a TV não tem o que passar, mostra uma propaganda do Mídia Indoor com QR code para falar com a Nervia, e no pé o nome da TV e o motivo. Fire TV Stick testado e aprovado, com o caminho para abrir o app quando o aparelho está sem internet."],

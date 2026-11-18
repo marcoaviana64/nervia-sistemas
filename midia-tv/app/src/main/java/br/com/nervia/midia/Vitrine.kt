@@ -31,6 +31,12 @@ class Vitrine(private val ctx: Context, private val handler: Handler) {
     private val m = sp(12f).toInt()
     private val frase = texto(40f, Color.WHITE, negrito = true).apply { text = FRASES[0] }
     private val situacao = texto(13f, Color.rgb(111, 125, 129), centro = true)
+    /** Aviso em destaque quando algo impede a TV de passar o conteúdo (ex.: download recusado): quem olha a TV fica sabendo
+     *  que não adianta esperar (pedido do Marco em 18/11/2026). Vazio = escondido. */
+    private val alerta = texto(17f, Color.rgb(33, 25, 0), negrito = true, centro = true).apply {
+        background = GradientDrawable().apply { setColor(Color.rgb(255, 214, 102)); cornerRadius = sp(10f) }
+        val pd = sp(12f).toInt(); setPadding(pd, pd, pd, pd); visibility = View.GONE
+    }
     private val blocoTexto: LinearLayout
     private val blocoQr: LinearLayout
     private val miolo: LinearLayout
@@ -81,6 +87,7 @@ class Vitrine(private val ctx: Context, private val handler: Handler) {
             background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(Color.rgb(8, 34, 41), Color.rgb(12, 17, 19), Color.rgb(16, 60, 72)))
             setPadding(m * 4, m * 3, m * 4, m * 2)
             addView(miolo, LinearLayout.LayoutParams(-1, 0, 1f))
+            addView(alerta, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = m })
             addView(situacao, LinearLayout.LayoutParams(-1, -2))
         }
         arrumar(emPe = false)
@@ -95,8 +102,10 @@ class Vitrine(private val ctx: Context, private val handler: Handler) {
         miolo.requestLayout()
     }
 
-    fun mostrar(linhaDaEquipe: String) {
+    fun mostrar(linhaDaEquipe: String, aviso: String = "") {
         situacao.text = linhaDaEquipe
+        alerta.text = aviso
+        alerta.visibility = if (aviso.isBlank()) View.GONE else View.VISIBLE
         if (view.visibility != View.VISIBLE) {
             view.visibility = View.VISIBLE
             handler.removeCallbacks(trocarFrase)

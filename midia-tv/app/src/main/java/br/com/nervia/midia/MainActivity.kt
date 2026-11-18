@@ -81,6 +81,7 @@ class MainActivity : Activity() {
     private val erros = ConcurrentHashMap<String, String>()
     private val falharamAoTocar = ConcurrentHashMap.newKeySet<String>()   // Item.arquivo
     private var baixando = 0
+    private var avisoDownload = ""   // aviso da última rodada com download falhando; continua na tela enquanto tenta de novo
     private var conteudo = ""
     private var nomeTela = ""
     private var saindoDeProposito = false
@@ -188,11 +189,11 @@ class MainActivity : Activity() {
     private fun esconderVitrine() = vitrine.esconder()
 
     /** TV vinculada sem nada para passar: mostra a vitrine; a linha de baixo diz à equipe o que está acontecendo. */
-    private fun mostrarVitrine(situacao: String) {
+    private fun mostrarVitrine(situacao: String, alerta: String = "") {
         pararReproducao()
         painel.visibility = View.GONE
         val aviso = if (!Relancar.podeAbrirSozinho(this)) "falta a permissão \"Sobrepor a outros apps\"" else ""
-        vitrine.mostrar(listOf(nomeTela, situacao, aviso, "app ${BuildConfig.VERSION_NAME}").filter { it.isNotBlank() }.joinToString(" · "))
+        vitrine.mostrar(listOf(nomeTela, situacao, aviso, "app ${BuildConfig.VERSION_NAME}").filter { it.isNotBlank() }.joinToString(" · "), alerta)
     }
 
     private fun mostrarPainel(codigo: String, linha: String, baixo: String) {
@@ -297,21 +298,42 @@ class MainActivity : Activity() {
     private suspend fun baixarTodos(p: Playlist) {
         val faltam = p.itens.filter { !baixador.pronto(it) }.distinctBy { it.arquivo }
         baixando = faltam.size
+        var falhas = 0
+        var ultimaFalha = ""
         faltam.forEachIndexed { n, i ->
-            if (atual == null) mostrarVitrine("baixando ${n + 1} de ${faltam.size}: ${i.nome}")
+            if (atual == null) mostrarVitrine("baixando ${n + 1} de ${faltam.size}: ${i.nome}",
+                if (falhas > 0) "$falhas de ${faltam.size} arquivo(s) não baixaram: ${explicarFalha(ultimaFalha)}" else avisoDownload)
             try {
                 withContext(Dispatchers.IO) { baixador.baixar(i, p.chaveApi) }
                 erros.remove(i.nome)
                 if (atual == null) atualizarLista(p.itens.filter { baixador.pronto(it) })
             } catch (e: Exception) {
                 Log.w(TAG, "download ${i.nome}: ${e.message}")
-                erros[i.nome] = "não baixou: ${e.message}"
+                falhas++; ultimaFalha = e.message ?: e.javaClass.simpleName
+                erros[i.nome] = "não baixou: $ultimaFalha"
             }
             baixando--
         }
         baixando = p.itens.count { !baixador.pronto(it) }
         // lista completa com o que está no aparelho (o que falhou entra na próxima rodada)
         atualizarLista(p.itens.filter { baixador.pronto(it) })
+        // nada para passar porque os downloads falharam: avisa na tela em vez de deixar "baixando…" (não adianta esperar)
+        avisoDownload = if (falhas > 0)
+            "Não foi possível baixar ${if (falhas == faltam.size) "os arquivos" else "$falhas arquivo(s)"} da playlist: ${explicarFalha(ultimaFalha)}"
+        else ""
+        if (atual == null && falhas > 0) mostrarVitrine("tenta de novo a cada ${(p.intervaloPlaylistS + 59) / 60} min", avisoDownload)
+    }
+
+    /** Motivo do download que falhou, em linguagem de quem está na loja, com o que fazer. */
+    private fun explicarFalha(msg: String): String = when {
+        msg.contains("respondeu 403") ->
+            "o Google Drive recusou o download (403). A rede deste local pode estar bloqueando o Google Drive: " +
+                "teste com outra internet (ex.: roteador do celular) ou peça para liberar www.googleapis.com. Detalhe: $msg"
+        msg.contains("respondeu 404") -> "o arquivo não foi encontrado no Google Drive (apagado ou sem compartilhamento). Detalhe: $msg"
+        msg.contains("pouco espaço") -> msg
+        msg.contains("Unable to resolve host", true) || msg.contains("UnknownHost", true) || msg.contains("timeout", true) ||
+            msg.contains("failed to connect", true) -> "sem conexão com o Google Drive (internet ou rede deste local). Detalhe: $msg"
+        else -> msg
     }
 
     private fun atualizarLista(nova: List<Item>) {
