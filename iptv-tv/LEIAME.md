@@ -67,6 +67,16 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
   OK num canal = toca na prévia; OK de novo no mesmo canal = tela cheia; Voltar = volta à lista com a prévia. Recados
   do player (carregando, sem sinal) aparecem dentro da prévia (`avisarVideo`). Filmes, Séries e Ajustes continuam em 2 colunas.
 
+- **Visual novo** (2.8, pedido do Marco em 18/11/2026: "design moderno, estilo Apple"): `Estilo.kt` (degradê escuro,
+  cartões arredondados, item focado em azul com leve aumento, botões em pílula, campos arredondados, `Barrinha` com o
+  andamento do programa em cada canal), topo com a marca, abas em pílulas e relógio, programação com o "AGORA"
+  (`guiaRica`), barra da tela cheia em cartão. O vídeo usa TextureView (`res/layout/video.xml`) para a prévia ter
+  cantos arredondados.
+- **Atualização da lista sem "travar"** (2.8; o Marco viu a TV parar e em Ajustes estava atualizando a lista): a
+  atualização em segundo plano mostra "⟳ Atualizando a lista…" no canto (`mostrarStatus`, com a etapa) e "✓ Lista
+  atualizada" no fim; roda com prioridade baixa (`THREAD_PRIORITY_BACKGROUND`) e, se a pessoa estiver em tela cheia,
+  a lista nova só entra quando ela abrir a lista (`catalogoPendente`), para o vídeo não engasgar.
+
 ## Ainda não tem (ideias)
 Grade de programação de todos os canais ao mesmo tempo, assistir programa que já passou (catch-up), gravação.
 

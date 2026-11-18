@@ -82,6 +82,10 @@ class MainActivity : ComponentActivity() {
     private lateinit var previa: FrameLayout
     private lateinit var previaTexto: TextView
     private lateinit var coluna: LinearLayout
+    private lateinit var relogio: TextView
+    private lateinit var status: TextView
+    /** Lista nova baixada em segundo plano enquanto a pessoa assiste em tela cheia: aplica ao abrir a lista. */
+    private var catalogoPendente: Catalogo? = null
     private val abas = LinkedHashMap<Aba, TextView>()
     private var telaConfig: View? = null
     private var ficha: View? = null
@@ -112,7 +116,6 @@ class MainActivity : ComponentActivity() {
     private var focadoGuia: Item? = null
     private var algumLogo = false
 
-    private val corDestaque = Color.rgb(0x2F, 0x9F, 0xD0)
     private val Int.dp get() = (this * resources.displayMetrics.density).toInt()
     private val hhmm = SimpleDateFormat("HH:mm", Locale.US)
 
@@ -217,20 +220,15 @@ class MainActivity : ComponentActivity() {
         isAllCaps = false
         textSize = 17f
         setOnClickListener { acao() }
-        layoutParams = LinearLayout.LayoutParams(-2, -2).apply { marginEnd = 10.dp }
+        layoutParams = LinearLayout.LayoutParams(-2, -2).apply { marginEnd = 12.dp }
+        Estilo.botao(this)
     }
 
-    private fun pintar(v: View, focado: Boolean, marcado: Boolean) {
-        v.setBackgroundColor(when {
-            focado -> corDestaque
-            marcado -> Color.argb(60, 255, 255, 255)
-            else -> Color.TRANSPARENT
-        })
-    }
+    private fun pintar(v: View, focado: Boolean, marcado: Boolean) = Estilo.pintar(v, focado, marcado)
 
     private fun montarTela() {
-        raiz = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
-        video = PlayerView(this).apply {
+        raiz = FrameLayout(this).apply { background = Estilo.fundoTela() }
+        video = (layoutInflater.inflate(R.layout.video, raiz, false) as PlayerView).apply {
             useController = false
             resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
             setShutterBackgroundColor(Color.BLACK)
@@ -240,25 +238,49 @@ class MainActivity : ComponentActivity() {
 
         painel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.argb(232, 8, 12, 16))
-            setPadding(24.dp, 12.dp, 24.dp, 12.dp)
+            background = Estilo.fundoTela(238)
+            setPadding(36.dp, 18.dp, 36.dp, 18.dp)
+            clipChildren = false; clipToPadding = false
         }
-        val barraAbas = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, 0, 0, 8.dp) }
+        // topo: marca à esquerda, abas em pílulas no meio, relógio à direita
+        val barraAbas = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 0, 0, 16.dp); clipChildren = false; clipToPadding = false
+        }
+        barraAbas.addView(texto(24f).apply {
+            text = android.text.SpannableStringBuilder().apply {
+                append("NV", android.text.style.ForegroundColorSpan(Estilo.AZUL_CLARO), 0)
+                append("Player")
+            }
+            typeface = Estilo.NEGRITO; letterSpacing = -0.02f
+            setPadding(4.dp, 0, 28.dp, 0)
+        })
+        val pilulas = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            background = Estilo.cartao(this@MainActivity, Color.argb(18, 255, 255, 255), 26f)
+            setPadding(5.dp, 5.dp, 5.dp, 5.dp); clipChildren = false; clipToPadding = false
+        }
         Aba.entries.forEach { a ->
-            val t = texto(19f).apply {
+            val t = texto(17f).apply {
                 text = a.rotulo
-                setPadding(18.dp, 8.dp, 18.dp, 8.dp)
+                typeface = Estilo.MEDIO
+                setPadding(22.dp, 9.dp, 22.dp, 9.dp)
                 isFocusable = true; isClickable = true
                 setOnClickListener { trocarAba(a, focar = true) }
-                setOnFocusChangeListener { v, f -> pintar(v, f, a == aba) }
+                setOnFocusChangeListener { v, f -> Estilo.pintar(v, f, a == aba, 22f) }
             }
             abas[a] = t
-            barraAbas.addView(t)
+            pilulas.addView(t)
         }
+        barraAbas.addView(pilulas)
+        barraAbas.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
+        relogio = texto(20f, Estilo.TEXTO_2).apply { typeface = Estilo.LEVE }
+        barraAbas.addView(relogio)
         painel.addView(barraAbas)
 
         val corpo = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         rvGrupos = RecyclerView(this).apply {
+            clipChildren = false; clipToPadding = false; setPadding(4.dp, 4.dp, 8.dp, 4.dp)
             layoutManager = LinearLayoutManager(this@MainActivity)
             adapter = AdGrupos()
             itemAnimator = null
@@ -266,11 +288,12 @@ class MainActivity : ComponentActivity() {
         corpo.addView(rvGrupos, LinearLayout.LayoutParams(0, -1, 0.3f))
 
         coluna = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(20.dp, 0, 0, 0) }
-        titulo = texto(15f, Color.LTGRAY).apply { setPadding(4.dp, 0, 0, 4.dp) }
+        titulo = texto(15f, Estilo.TEXTO_2).apply { setPadding(8.dp, 0, 0, 6.dp); typeface = Estilo.MEDIO; isAllCaps = false }
         coluna.addView(titulo)
         busca = EditText(this).apply {
             hint = "Buscar…"
-            setHintTextColor(Color.GRAY); setTextColor(Color.WHITE); textSize = 16f
+            setHintTextColor(Estilo.TEXTO_3); setTextColor(Color.WHITE); textSize = 16f
+            Estilo.campo(this)
             isSingleLine = true
             imeOptions = EditorInfo.IME_ACTION_SEARCH
             inputType = InputType.TYPE_CLASS_TEXT
@@ -280,16 +303,18 @@ class MainActivity : ComponentActivity() {
                 override fun afterTextChanged(s: Editable?) { h.removeCallbacks(filtrar); h.postDelayed(filtrar, 300) }
             })
         }
-        coluna.addView(busca, LinearLayout.LayoutParams(-1, -2))
+        coluna.addView(busca, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 8.dp; marginStart = 4.dp; marginEnd = 8.dp })
         rvItens = RecyclerView(this).apply {
+            clipChildren = false; clipToPadding = false; setPadding(4.dp, 4.dp, 8.dp, 4.dp)
             layoutManager = LinearLayoutManager(this@MainActivity)
             adapter = AdItens()
             itemAnimator = null
         }
         coluna.addView(rvItens, LinearLayout.LayoutParams(-1, 0, 1f))
-        guiaBox = texto(15f, Color.rgb(220, 225, 230)).apply {
-            setBackgroundColor(Color.argb(70, 255, 255, 255))
-            setPadding(14.dp, 8.dp, 14.dp, 8.dp)
+        guiaBox = texto(15f, Estilo.TEXTO).apply {
+            background = Estilo.cartao(this@MainActivity, Color.argb(16, 255, 255, 255), 18f)
+            setPadding(22.dp, 18.dp, 22.dp, 18.dp)
+            setLineSpacing(4.dp.toFloat(), 1f)
             maxLines = 6; ellipsize = TextUtils.TruncateAt.END
         }
         lado = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(20.dp, 0, 0, 0); visibility = View.GONE }
@@ -299,8 +324,8 @@ class MainActivity : ComponentActivity() {
                 val l = MeasureSpec.getSize(w)
                 super.onMeasure(w, MeasureSpec.makeMeasureSpec(l * 9 / 16, MeasureSpec.EXACTLY))
             }
-        }.apply { setBackgroundColor(Color.BLACK) }
-        previaTexto = texto(16f, Color.LTGRAY).apply {
+        }.apply { setBackgroundColor(Color.BLACK); Estilo.arredondar(this, 18f) }
+        previaTexto = texto(16f, Estilo.TEXTO_2).apply {
             gravity = Gravity.CENTER
             text = "Escolha um canal: OK mostra aqui, OK de novo abre em tela cheia."
             setPadding(16.dp, 0, 16.dp, 0)
@@ -310,7 +335,10 @@ class MainActivity : ComponentActivity() {
         guiaBox.textSize = 17f
         guiaBox.maxLines = 12
         lado.addView(guiaBox, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = 10.dp })
-        infoAjustes = texto(17f, Color.rgb(220, 225, 230)).apply { setPadding(4.dp, 8.dp, 4.dp, 8.dp); visibility = View.GONE }
+        infoAjustes = texto(17f, Estilo.TEXTO).apply {
+            background = Estilo.cartao(this@MainActivity, Color.argb(16, 255, 255, 255), 18f)
+            setPadding(24.dp, 18.dp, 24.dp, 18.dp); setLineSpacing(4.dp.toFloat(), 1f); visibility = View.GONE
+        }
         coluna.addView(infoAjustes, LinearLayout.LayoutParams(-1, 0, 1f))
         corpo.addView(coluna, LinearLayout.LayoutParams(0, -1, 0.7f))
         corpo.addView(lado, LinearLayout.LayoutParams(0, -1, 0.42f))
@@ -318,21 +346,50 @@ class MainActivity : ComponentActivity() {
         painel.visibility = View.GONE
         raiz.addView(painel, FrameLayout.LayoutParams(-1, -1))
 
-        barra = texto(19f).apply {
-            setBackgroundColor(Color.argb(205, 0, 0, 0))
-            setPadding(28.dp, 14.dp, 28.dp, 14.dp)
+        barra = texto(18f).apply {
+            background = Estilo.cartao(this@MainActivity, Color.argb(214, 14, 18, 28), 22f)
+            setPadding(30.dp, 20.dp, 30.dp, 20.dp)
+            setLineSpacing(3.dp.toFloat(), 1f)
             visibility = View.GONE
+            elevation = 8.dp.toFloat()
         }
-        raiz.addView(barra, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+        raiz.addView(barra, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM).apply { setMargins(48.dp, 0, 48.dp, 36.dp) })
 
-        aviso = texto(20f).apply {
+        aviso = texto(19f).apply {
             gravity = Gravity.CENTER
-            setBackgroundColor(Color.argb(180, 0, 0, 0))
-            setPadding(28.dp, 16.dp, 28.dp, 16.dp)
+            typeface = Estilo.MEDIO
+            background = Estilo.cartao(this@MainActivity, Color.argb(225, 16, 20, 30), 20f)
+            setPadding(30.dp, 18.dp, 30.dp, 18.dp)
             visibility = View.GONE
+            elevation = 10.dp.toFloat()
         }
         raiz.addView(aviso, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
+
+        // 2.8: "Atualizando a lista…" no canto enquanto a lista é baixada sem travar a tela
+        status = texto(15f, Estilo.TEXTO).apply {
+            typeface = Estilo.MEDIO
+            background = Estilo.cartao(this@MainActivity, Color.argb(215, 16, 20, 30), 18f)
+            setPadding(18.dp, 9.dp, 18.dp, 9.dp)
+            visibility = View.GONE
+            elevation = 10.dp.toFloat()
+        }
+        raiz.addView(status, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.END).apply { setMargins(0, 24.dp, 36.dp, 0) })
+        atualizarRelogio.run()
         setContentView(raiz)
+    }
+
+    private val atualizarRelogio = object : Runnable {
+        override fun run() {
+            relogio.text = SimpleDateFormat("EEE, d 'de' MMM   HH:mm", Locale.forLanguageTag("pt-BR")).format(Date())
+            h.postDelayed(this, 20_000)
+        }
+    }
+
+    /** Recado discreto no canto (null = some). */
+    private fun mostrarStatus(msg: String?) {
+        status.text = msg.orEmpty()
+        status.visibility = if (msg == null) View.GONE else View.VISIBLE
+        status.bringToFront()
     }
 
     private fun avisar(msg: String?) {
@@ -361,17 +418,32 @@ class MainActivity : ComponentActivity() {
 
     private fun carregarCatalogo(baixar: Boolean, silencioso: Boolean) {
         if (!silencioso) avisar(if (baixar) "Baixando a lista…" else "Abrindo a lista…")
+        else mostrarStatus("⟳  Atualizando a lista… pode continuar assistindo")
         bg.execute {
+            // 2.8: a atualização em segundo plano roda com prioridade baixa, para não disputar com o vídeo
+            android.os.Process.setThreadPriority(if (silencioso) android.os.Process.THREAD_PRIORITY_BACKGROUND else android.os.Process.THREAD_PRIORITY_DEFAULT)
             try {
-                val c = repo.carregar(baixar) { p -> if (!silencioso) runOnUiThread { avisar(p) } }
+                val c = repo.carregar(baixar) { p ->
+                    runOnUiThread { if (!silencioso) avisar(p) else mostrarStatus("⟳  Atualizando a lista · ${p.trimEnd('…')}…") }
+                }
                 runOnUiThread {
                     if (!silencioso) avisar(null)
+                    if (silencioso) {
+                        mostrarStatus("✓  Lista atualizada")
+                        h.postDelayed({ if (status.text.startsWith("✓")) mostrarStatus(null) }, 3500)
+                        // assistindo em tela cheia: troca a lista só quando a pessoa abrir a lista (sem engasgar o vídeo)
+                        if (assistindo()) { catalogoPendente = c; return@runOnUiThread }
+                    }
                     aplicar(c)
                     if (!baixar && repo.copiaVelha()) carregarCatalogo(baixar = true, silencioso = true)
                 }
             } catch (e: Exception) {
                 runOnUiThread {
-                    if (silencioso) return@runOnUiThread
+                    if (silencioso) {
+                        mostrarStatus("Não deu para atualizar a lista agora; seguimos com a cópia do aparelho")
+                        h.postDelayed({ if (!status.text.startsWith("⟳")) mostrarStatus(null) }, 6000)
+                        return@runOnUiThread
+                    }
                     avisar(null)
                     val msg = "Não foi possível carregar a lista: ${e.message ?: e.javaClass.simpleName}"
                     when {
@@ -539,13 +611,14 @@ class MainActivity : ComponentActivity() {
             (video.parent as? ViewGroup)?.removeView(video)
             destino.addView(video, 0, FrameLayout.LayoutParams(-1, -1))
         }
-        painel.setBackgroundColor(if (naPrevia) Color.rgb(8, 12, 16) else Color.argb(232, 8, 12, 16))
+        painel.background = Estilo.fundoTela(if (naPrevia) 255 else 238)
         if (atual?.tipo != Tipo.AO_VIVO) previaTexto.text = "Escolha um canal: OK mostra aqui, OK de novo abre em tela cheia."
         previaTexto.visibility = if (atual?.tipo == Tipo.AO_VIVO) View.GONE else View.VISIBLE
         if (naPrevia && atual?.tipo != Tipo.AO_VIVO && ehVod()) player.pause()
     }
 
     private fun mostrarPainel(foco: Item? = atual) {
+        catalogoPendente?.let { catalogoPendente = null; aplicar(it) }
         painel.visibility = View.VISIBLE
         barra.visibility = View.GONE
         posicionarVideo()
@@ -609,16 +682,38 @@ class MainActivity : ComponentActivity() {
         return sb.toString().trimEnd()
     }
 
+    /** Programação do canal para o quadro ao lado da prévia: nome grande, horários em azul, o de agora destacado. */
+    private fun guiaRica(i: Item, l: List<Programa>): CharSequence {
+        val sb = android.text.SpannableStringBuilder()
+        fun span(t: String, vararg sp: Any) { val a = sb.length; sb.append(t); sp.forEach { sb.setSpan(it, a, sb.length, 0) } }
+        span(i.nome, android.text.style.StyleSpan(Typeface.BOLD), android.text.style.RelativeSizeSpan(1.35f))
+        if (i.grupo.isNotBlank()) { sb.append("\n"); span(i.grupo, android.text.style.ForegroundColorSpan(Estilo.TEXTO_3), android.text.style.RelativeSizeSpan(0.85f)) }
+        sb.append("\n\n")
+        if (l.isEmpty()) { span("Sem guia de programação para este canal.", android.text.style.ForegroundColorSpan(Estilo.TEXTO_2)); return sb }
+        val n = System.currentTimeMillis()
+        l.take(5).forEachIndexed { k, p ->
+            val agora = n >= p.inicio && n < p.fim
+            span(hhmm.format(Date(p.inicio)) + " – " + hhmm.format(Date(p.fim)) + "   ",
+                android.text.style.ForegroundColorSpan(if (agora) Estilo.AZUL_CLARO else Estilo.TEXTO_2))
+            if (agora) span(" AGORA ", android.text.style.BackgroundColorSpan(Estilo.VERMELHO), android.text.style.ForegroundColorSpan(Color.WHITE),
+                android.text.style.StyleSpan(Typeface.BOLD), android.text.style.RelativeSizeSpan(0.7f))
+            if (agora) sb.append("  ")
+            span(p.titulo, android.text.style.StyleSpan(if (agora) Typeface.BOLD else Typeface.NORMAL))
+            if (k == 0 && p.descricao.isNotBlank()) {
+                sb.append("\n")
+                span(p.descricao.replace('\n', ' ').take(180), android.text.style.ForegroundColorSpan(Estilo.TEXTO_2), android.text.style.RelativeSizeSpan(0.88f))
+            }
+            sb.append("\n\n")
+        }
+        return sb.trimEnd() as CharSequence
+    }
+
     private val atualizarGuia = Runnable {
         val i = focadoGuia ?: return@Runnable
         guiaBox.text = "${i.nome}: carregando a programação…"
         guia.programas(i) { l ->
             if (focadoGuia != i) return@programas
-            guiaBox.text = android.text.SpannableStringBuilder().apply {
-                append(i.nome, android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 0)
-                setSpan(android.text.style.RelativeSizeSpan(1.25f), 0, length, 0)
-                append("\n\n").append(textoGuia(l))
-            }
+            guiaBox.text = guiaRica(i, l)
             visiveis.indexOf(i).takeIf { it >= 0 }?.let { rvItens.adapter?.notifyItemChanged(it) }
         }
     }
@@ -634,20 +729,25 @@ class MainActivity : ComponentActivity() {
         if (ehVod()) player.pause()
         val tela = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setBackgroundColor(Color.rgb(10, 14, 20))
-            setPadding(40.dp, 30.dp, 40.dp, 20.dp)
+            background = Estilo.fundoTela()
+            setPadding(56.dp, 44.dp, 56.dp, 28.dp)
             isClickable = true
+            clipChildren = false; clipToPadding = false
         }
-        val capa = ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_START; adjustViewBounds = true }
-        tela.addView(capa, LinearLayout.LayoutParams(190.dp, 285.dp))
-        val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(28.dp, 0, 0, 0) }
-        val nome = texto(26f).apply { typeface = Typeface.DEFAULT_BOLD; text = item.nome }
-        val meta = texto(15f, Color.LTGRAY).apply {
+        val capa = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            background = Estilo.cartao(this@MainActivity, Color.argb(22, 255, 255, 255), 18f)
+            Estilo.arredondar(this, 18f); elevation = 12.dp.toFloat()
+        }
+        tela.addView(capa, LinearLayout.LayoutParams(210.dp, 315.dp))
+        val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(40.dp, 0, 0, 0); clipChildren = false; clipToPadding = false }
+        val nome = texto(32f).apply { typeface = Estilo.NEGRITO; letterSpacing = -0.01f; text = item.nome }
+        val meta = texto(15f, Estilo.TEXTO_2).apply {
             setPadding(0, 6.dp, 0, 10.dp)
             text = listOfNotNull(item.ano, item.nota?.let { "★ $it" }, item.grupo).joinToString("   ·   ")
         }
-        val sinopse = texto(16f, Color.rgb(222, 226, 230)).apply { maxLines = 6; ellipsize = TextUtils.TruncateAt.END }
-        val botoes = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, 14.dp, 0, 10.dp) }
+        val sinopse = texto(17f, Color.rgb(0xD5, 0xDA, 0xE2)).apply { maxLines = 6; ellipsize = TextUtils.TruncateAt.END; setLineSpacing(4.dp.toFloat(), 1f) }
+        val botoes = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, 22.dp, 0, 14.dp); clipChildren = false; clipToPadding = false }
         val extra = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         col.addView(nome); col.addView(meta); col.addView(sinopse); col.addView(botoes)
         col.addView(extra, LinearLayout.LayoutParams(-1, 0, 1f))
@@ -928,18 +1028,28 @@ class MainActivity : ComponentActivity() {
     private fun mostrarBarra() {
         val c = atual ?: return
         fun desenhar(progs: List<Programa>?) {
-            val sb = StringBuilder()
+            val sb = android.text.SpannableStringBuilder()
+            fun span(t: String, vararg sp: Any) { val a = sb.length; sb.append(t); sp.forEach { sb.setSpan(it, a, sb.length, 0) } }
             if (c.tipo == Tipo.AO_VIVO) {
                 val pos = sequencia.indexOf(c)
-                if (c.num > 0) sb.append(c.num).append("   ") else if (pos >= 0) sb.append(pos + 1).append("   ")
-                sb.append(c.nome).append("      ").append(c.grupo)
+                val num = if (c.num > 0) c.num.toString() else if (pos >= 0) (pos + 1).toString() else null
+                num?.let { span("$it   ", android.text.style.ForegroundColorSpan(Estilo.TEXTO_3), android.text.style.StyleSpan(Typeface.BOLD)) }
+                span(c.nome, android.text.style.StyleSpan(Typeface.BOLD), android.text.style.RelativeSizeSpan(1.3f))
+                span("      " + c.grupo, android.text.style.ForegroundColorSpan(Estilo.TEXTO_2), android.text.style.RelativeSizeSpan(0.85f))
+                val n = System.currentTimeMillis()
                 progs?.take(2)?.forEach { p ->
-                    sb.append('\n').append(hhmm.format(Date(p.inicio))).append("–").append(hhmm.format(Date(p.fim))).append("   ").append(p.titulo)
+                    val agora = n >= p.inicio && n < p.fim
+                    sb.append('\n')
+                    span(hhmm.format(Date(p.inicio)) + " – " + hhmm.format(Date(p.fim)) + "   ",
+                        android.text.style.ForegroundColorSpan(if (agora) Estilo.AZUL_CLARO else Estilo.TEXTO_2))
+                    span(p.titulo, android.text.style.ForegroundColorSpan(if (agora) Estilo.TEXTO else Estilo.TEXTO_2))
                 }
             } else {
-                sb.append(c.nome).append('\n').append(tempo(player.currentPosition)).append(" / ").append(tempo(player.duration))
-                if (!player.playWhenReady) sb.append("     ❚❚ pausado")
-                sb.append("        ◀ volta 10 s   ▶ avança 30 s   Menu: áudio e legenda")
+                span(c.nome, android.text.style.StyleSpan(Typeface.BOLD), android.text.style.RelativeSizeSpan(1.3f))
+                sb.append('\n')
+                span(tempo(player.currentPosition) + " / " + tempo(player.duration), android.text.style.ForegroundColorSpan(Estilo.AZUL_CLARO))
+                if (!player.playWhenReady) span("     ❚❚ pausado", android.text.style.StyleSpan(Typeface.BOLD))
+                span("        ◀ volta 10 s   ▶ avança 30 s   Menu: áudio e legenda", android.text.style.ForegroundColorSpan(Estilo.TEXTO_3))
             }
             barra.text = sb
         }
@@ -1211,15 +1321,17 @@ class MainActivity : ComponentActivity() {
         val tela = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setBackgroundColor(Color.rgb(10, 14, 20))
-            setPadding(48.dp, 24.dp, 48.dp, 24.dp)
+            background = Estilo.fundoTela()
+            setPadding(64.dp, 28.dp, 64.dp, 28.dp)
             isClickable = true
+            clipChildren = false; clipToPadding = false
         }
-        val esq = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        esq.addView(texto(28f).apply { text = "Configurar a lista IPTV"; typeface = Typeface.DEFAULT_BOLD })
+        val esq = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; clipChildren = false; clipToPadding = false }
+        esq.addView(texto(15f, Estilo.AZUL_CLARO).apply { text = "NVPlayer"; typeface = Estilo.MEDIO })
+        esq.addView(texto(30f).apply { text = "Configurar a lista IPTV"; typeface = Estilo.NEGRITO; letterSpacing = -0.01f })
         erro?.let { esq.addView(texto(16f, Color.rgb(255, 120, 110)).apply { text = it; setPadding(0, 10.dp, 0, 0) }) }
-        esq.addView(texto(17f, Color.LTGRAY).apply {
-            setPadding(0, 12.dp, 0, 12.dp)
+        esq.addView(texto(17f, Estilo.TEXTO_2).apply {
+            setPadding(0, 12.dp, 0, 16.dp)
             text = if (endereco != null)
                 "Pelo celular (mais fácil): na mesma rede Wi-Fi da TV, leia o QR code ou abra  $endereco  e preencha lá.\nOu preencha aqui com o controle:"
             else "Preencha com o controle:"
@@ -1228,10 +1340,12 @@ class MainActivity : ComponentActivity() {
         val modos = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         fun campo(dica: String, valor: String?, senha: Boolean = false) = EditText(this).apply {
             hint = dica
-            setHintTextColor(Color.GRAY); setTextColor(Color.WHITE); textSize = 16f
+            setHintTextColor(Estilo.TEXTO_3); setTextColor(Color.WHITE); textSize = 16f
             isSingleLine = true
             inputType = InputType.TYPE_CLASS_TEXT or (if (senha) InputType.TYPE_TEXT_VARIATION_PASSWORD else InputType.TYPE_TEXT_VARIATION_URI)
             setText(valor.orEmpty())
+            Estilo.campo(this)
+            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 10.dp }
         }
         val fServ = campo("Servidor com a porta — ex.: http://servidor.com:8080", repo.servidor ?: repo.servidorPadrao)
         if (repo.servidor == null) {
@@ -1340,17 +1454,18 @@ class MainActivity : ComponentActivity() {
     private inner class AdGrupos : RecyclerView.Adapter<VH>() {
         override fun getItemCount() = entradas.size
         override fun onCreateViewHolder(p: ViewGroup, t: Int): VH = VH(texto(17f).apply {
-            setPadding(14.dp, 11.dp, 14.dp, 11.dp)
+            setPadding(18.dp, 13.dp, 18.dp, 13.dp)
+            typeface = Estilo.MEDIO
             isFocusable = true; isClickable = true
             isSingleLine = true; ellipsize = TextUtils.TruncateAt.END
-            layoutParams = RecyclerView.LayoutParams(-1, -2)
+            layoutParams = RecyclerView.LayoutParams(-1, -2).apply { bottomMargin = 4.dp }
         })
 
         override fun onBindViewHolder(vh: VH, pos: Int) {
             val tv = vh.itemView as TextView
             val e = entradas[pos]
             tv.text = e.rotulo
-            tv.setTextColor(if (e.tipo == TE.ACAO || e.bloqueado) Color.LTGRAY else Color.WHITE)
+            tv.setTextColor(if (e.tipo == TE.ACAO || e.bloqueado) Estilo.TEXTO_2 else Estilo.TEXTO)
             pintar(tv, tv.hasFocus(), pos == grupoSel)
             tv.setOnFocusChangeListener { v, f ->
                 val p = vh.bindingAdapterPosition
@@ -1372,19 +1487,25 @@ class MainActivity : ComponentActivity() {
             val linha = LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(10.dp, 5.dp, 10.dp, 5.dp)
+                setPadding(12.dp, 9.dp, 16.dp, 9.dp)
                 isFocusable = true; isClickable = true; isLongClickable = true
-                layoutParams = RecyclerView.LayoutParams(-1, -2)
+                layoutParams = RecyclerView.LayoutParams(-1, -2).apply { bottomMargin = 4.dp }
             }
-            linha.addView(texto(14f, Color.GRAY).apply { gravity = Gravity.END; setPadding(0, 0, 12.dp, 0) },
-                LinearLayout.LayoutParams(if (t == 0) 52.dp else 0, -2))
-            linha.addView(ImageView(this@MainActivity).apply { scaleType = ImageView.ScaleType.FIT_CENTER },
-                if (t == 0) LinearLayout.LayoutParams(64.dp, 36.dp) else LinearLayout.LayoutParams(44.dp, 64.dp))
-            val col = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL; setPadding(14.dp, 0, 8.dp, 0) }
-            col.addView(texto(18f).apply { isSingleLine = true; ellipsize = TextUtils.TruncateAt.END })
-            col.addView(texto(14f, Color.rgb(160, 170, 180)).apply { isSingleLine = true; ellipsize = TextUtils.TruncateAt.END })
+            linha.addView(texto(14f, Estilo.TEXTO_3).apply { gravity = Gravity.END; typeface = Estilo.MEDIO; setPadding(0, 0, 12.dp, 0) },
+                LinearLayout.LayoutParams(if (t == 0) 50.dp else 0, -2))
+            // logo numa "plaquinha" arredondada
+            linha.addView(ImageView(this@MainActivity).apply {
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                background = Estilo.cartao(this@MainActivity, Color.argb(26, 255, 255, 255), 10f)
+                if (t == 0) setPadding(6.dp, 4.dp, 6.dp, 4.dp)
+                Estilo.arredondar(this, 10f)
+            }, if (t == 0) LinearLayout.LayoutParams(68.dp, 40.dp) else LinearLayout.LayoutParams(48.dp, 70.dp))
+            val col = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL; setPadding(16.dp, 0, 8.dp, 0) }
+            col.addView(texto(18f).apply { typeface = Estilo.MEDIO; isSingleLine = true; ellipsize = TextUtils.TruncateAt.END })
+            col.addView(texto(14f, Estilo.TEXTO_2).apply { isSingleLine = true; ellipsize = TextUtils.TruncateAt.END; setPadding(0, 2.dp, 0, 0) })
+            col.addView(Barrinha(this@MainActivity), LinearLayout.LayoutParams(-1, 3.dp).apply { topMargin = 6.dp; marginEnd = 40.dp })
             linha.addView(col, LinearLayout.LayoutParams(0, -2, 1f))
-            linha.addView(texto(18f, Color.rgb(255, 200, 60)))
+            linha.addView(texto(18f, Color.rgb(0xFF, 0xCC, 0x4D)))
             return VH(linha)
         }
 
@@ -1392,7 +1513,11 @@ class MainActivity : ComponentActivity() {
             val linha = vh.itemView as LinearLayout
             val c = visiveis[pos]
             val tv = aba == Aba.TV
-            (linha.getChildAt(0) as TextView).text = if (tv) (if (c.num > 0) c.num else pos + 1).toString() else ""
+            (linha.getChildAt(0) as TextView).apply {
+                // o canal que está passando ganha o ▶ no lugar do número
+                text = if (!tv) "" else if (c == atual) "▶" else (if (c.num > 0) c.num else pos + 1).toString()
+                setTextColor(if (c == atual) Estilo.AZUL_CLARO else Color.argb(150, 255, 255, 255))
+            }
             (linha.getChildAt(1) as ImageView).let { img ->
                 img.visibility = if (algumLogo) View.VISIBLE else View.GONE
                 Logos.mostrar(img, c.logo, if (tv) 128 else 110)
@@ -1400,7 +1525,7 @@ class MainActivity : ComponentActivity() {
             val col = linha.getChildAt(2) as LinearLayout
             (col.getChildAt(0) as TextView).apply {
                 text = c.nome
-                setTextColor(if (c == atual) Color.rgb(120, 210, 255) else Color.WHITE)
+                setTextColor(Estilo.TEXTO)
             }
             val sub = when (c.tipo) {
                 Tipo.AO_VIVO -> guia.agora(c)?.let { "Agora: ${it.titulo}" }
@@ -1414,6 +1539,12 @@ class MainActivity : ComponentActivity() {
             (col.getChildAt(1) as TextView).apply {
                 text = listOfNotNull(sub, if (emBusca) c.grupo else null).joinToString("   ·   ")
                 visibility = if (text.isEmpty()) View.GONE else View.VISIBLE
+            }
+            (col.getChildAt(2) as Barrinha).apply {
+                val ag = if (c.tipo == Tipo.AO_VIVO) guia.agora(c) else null
+                val n = System.currentTimeMillis()
+                visibility = if (ag != null && ag.fim > ag.inicio) View.VISIBLE else View.GONE
+                if (ag != null && ag.fim > ag.inicio) fracao = (n - ag.inicio).toFloat() / (ag.fim - ag.inicio)
             }
             (linha.getChildAt(3) as TextView).text = if (repo.chave(c) in repo.favoritos) "★" else ""
             pintar(linha, linha.hasFocus(), false)

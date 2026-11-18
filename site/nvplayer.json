@@ -3,9 +3,9 @@
     "http://p.urldata.gy"
   ],
   "versao": {
-    "codigo": 9,
-    "nome": "2.7",
+    "codigo": 10,
+    "nome": "2.8",
     "apk": "https://nervia.com.br/nvplayer.apk",
-    "novidades": "TV ao vivo em três colunas: grupos, canais e a prévia do canal com a programação. OK mostra o canal na prévia, OK de novo abre em tela cheia, Voltar retorna à lista."
+    "novidades": "Visual novo, mais moderno: cartões arredondados, destaque azul no item escolhido, relógio, programação com o que está passando agora. Ao atualizar a lista, aparece o aviso \"Atualizando a lista\" no canto e o vídeo continua sem travar."
   }
 }
