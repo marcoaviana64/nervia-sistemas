@@ -229,7 +229,8 @@ function errosDownload(t) { return (Array.isArray(t.erros) ? t.erros : []).filte
 /** O que fazer, pelo erro mais comum: 403 do Drive com o servidor baixando normal = rede do local bloqueando o Google Drive. */
 function dicaDownload(erros) {
   const txt = (erros || []).map(e => e.erro || "").join(" ");
-  if (/respondeu 403/.test(txt)) return "O Google Drive recusou o download (403). A rede do local pode estar bloqueando o Google Drive: teste a TV com outra internet (por exemplo, o roteador do celular) ou peça para liberar <b>www.googleapis.com</b>.";
+  if (/pela Nervia/.test(txt)) return "Nem o download direto do Google Drive nem o pelo servidor da Nervia funcionaram: confira a internet do local.";
+  if (/respondeu 403/.test(txt)) return "O Google Drive recusou o download (403). A rede do local pode estar bloqueando o Google Drive: teste a TV com outra internet (por exemplo, o roteador do celular) ou peça para liberar <b>www.googleapis.com</b>. O app da TV 1.4 contorna sozinho (baixa pelo servidor da Nervia): instale a versão nova.";
   if (/respondeu 404/.test(txt)) return "Arquivo não encontrado no Google Drive: confira se ainda está na pasta e se a pasta continua com \"qualquer pessoa com o link\".";
   if (/pouco espaço/.test(txt)) return "Falta espaço no aparelho: apague apps ou use mídias menores.";
   if (/resolve host|UnknownHost|timeout|failed to connect/i.test(txt)) return "A TV não alcança o Google Drive: confira a internet do local.";

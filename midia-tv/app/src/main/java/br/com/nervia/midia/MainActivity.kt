@@ -81,6 +81,7 @@ class MainActivity : Activity() {
     private val erros = ConcurrentHashMap<String, String>()
     private val falharamAoTocar = ConcurrentHashMap.newKeySet<String>()   // Item.arquivo
     private var baixando = 0
+    private var pelaNervia = false   // a rede deste local recusa o Google Drive: baixar pela função da Nervia (até o app reabrir)
     private var avisoDownload = ""   // aviso da última rodada com download falhando; continua na tela enquanto tenta de novo
     private var conteudo = ""
     private var nomeTela = ""
@@ -280,7 +281,7 @@ class MainActivity : Activity() {
                     lista = emptyList(); pendente = null
                     mostrarVitrine(if (p.playlist.isEmpty()) "nenhuma playlist escolhida para esta TV" else "a playlist \"${p.playlist}\" está vazia")
                 } else {
-                    baixarTodos(p)
+                    baixarTodos(p, t)
                 }
                 conteudo = p.conteudo
                 // apaga o que não está mais em uso (nem na lista atual, nem na nova)
@@ -295,7 +296,7 @@ class MainActivity : Activity() {
 
     /** Baixa o que falta, um por vez. Parada (sem nada tocando), começa a tocar assim que o 1º arquivo fica pronto;
      *  tocando, a lista nova entra no fim do item que está passando, quando tudo terminar de baixar. */
-    private suspend fun baixarTodos(p: Playlist) {
+    private suspend fun baixarTodos(p: Playlist, token: String) {
         val faltam = p.itens.filter { !baixador.pronto(it) }.distinctBy { it.arquivo }
         baixando = faltam.size
         var falhas = 0
@@ -304,7 +305,7 @@ class MainActivity : Activity() {
             if (atual == null) mostrarVitrine("baixando ${n + 1} de ${faltam.size}: ${i.nome}",
                 if (falhas > 0) "$falhas de ${faltam.size} arquivo(s) não baixaram: ${explicarFalha(ultimaFalha)}" else avisoDownload)
             try {
-                withContext(Dispatchers.IO) { baixador.baixar(i, p.chaveApi) }
+                withContext(Dispatchers.IO) { baixar(i, p.chaveApi, token) }
                 erros.remove(i.nome)
                 if (atual == null) atualizarLista(p.itens.filter { baixador.pronto(it) })
             } catch (e: Exception) {
@@ -324,8 +325,29 @@ class MainActivity : Activity() {
         if (atual == null && falhas > 0) mostrarVitrine("tenta de novo a cada ${(p.intervaloPlaylistS + 59) / 60} min", avisoDownload)
     }
 
+    /** Direto do Google Drive; se a rede recusar o Google (403, sem conexão com ele), tenta na hora pela Nervia e, dando
+     *  certo, passa a usar esse caminho nesta TV até o app reabrir (pedido do Marco em 18/11/2026, rede Nio da Linum Gávea). */
+    private fun baixar(i: Item, chaveApi: String, token: String) {
+        if (pelaNervia) { baixador.baixar(i, chaveApi, token); return }
+        try {
+            baixador.baixar(i, chaveApi)
+        } catch (e: java.io.IOException) {
+            val m = e.message.orEmpty()
+            if (m.contains("pouco espaço") || m.contains("md5")) throw e
+            Log.w(TAG, "direto falhou (${i.nome}: $m); tentando pela Nervia")
+            try {
+                baixador.baixar(i, chaveApi, token)
+            } catch (e2: java.io.IOException) {
+                throw java.io.IOException("$m; pela Nervia: ${e2.message}")
+            }
+            pelaNervia = true
+            Log.i(TAG, "rede deste local recusa o Google Drive: downloads pela Nervia")
+        }
+    }
+
     /** Motivo do download que falhou, em linguagem de quem está na loja, com o que fazer. */
     private fun explicarFalha(msg: String): String = when {
+        msg.contains("pela Nervia") -> "não foi possível baixar nem direto do Google Drive nem pelo servidor da Nervia. Confira a internet deste local. Detalhe: $msg"
         msg.contains("respondeu 403") ->
             "o Google Drive recusou o download (403). A rede deste local pode estar bloqueando o Google Drive: " +
                 "teste com outra internet (ex.: roteador do celular) ou peça para liberar www.googleapis.com. Detalhe: $msg"
@@ -424,6 +446,7 @@ class MainActivity : Activity() {
             .put("conteudo", conteudo)
             .put("espaco_livre_mb", baixador.espacoLivreMb())
             .put("baixando", baixando)
+            .put("download_pela_nervia", pelaNervia)
             .put("erros", JSONArray(erros.entries.take(20).map { JSONObject().put("nome", it.key).put("erro", it.value) }))
             .put("abre_sozinho", Relancar.podeAbrirSozinho(this))
         try {
