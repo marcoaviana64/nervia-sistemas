@@ -2960,6 +2960,40 @@ select pg_temp.ok((mi_tv_aguardar('aparelho-teste-01', (select v from mit where 
 select pg_temp.ok(mi_tv_tela((select v from mit where k = 'tok')) = (select v::uuid from mit where k = 'tela') and mi_tv_tela('errado') is null, 'midia: token identifica a TV');
 select pg_temp.ok(mi_tv_sinal((select v from mit where k = 'tok'), '{"versao_app":"1.0","modelo":"Box X","espaco_livre_mb":"5000","erros":[{"nome":"a.mp4","erro":"não toca"}]}'), 'midia: sinal de vida aceito');
 select pg_temp.ok((select ultimo_sinal is not null and modelo = 'Box X' and espaco_livre_mb = 5000 and jsonb_array_length(erros) = 1 from mi_telas), 'midia: sinal grava aparelho, espaço e erros');
+-- tempo de tela (18/11/2026): a TV manda lotes de exibições; o servidor guarda o resumo por TV × dia × mídia
+insert into mit select 'agora', (extract(epoch from now()) * 1000)::bigint::text;
+select pg_temp.ok(mi_tv_exibicoes((select v from mit where k = 'tok'), 'lote-0001-aaaa',
+  jsonb_build_array(
+    jsonb_build_object('id', 'F1', 'nome', '01_promo.mp4', 'tipo', 'video', 'inicio', (select v::bigint from mit where k = 'agora') - 60000, 'segundos', 30.04),
+    jsonb_build_object('id', 'F1', 'nome', '01_promo.mp4', 'tipo', 'video', 'inicio', (select v::bigint from mit where k = 'agora') - 20000, 'segundos', 29.96),
+    jsonb_build_object('id', 'F2', 'nome', '02_cardapio.jpg', 'inicio', (select v::bigint from mit where k = 'agora') - 30000, 'segundos', 10),
+    jsonb_build_object('id', 'F2', 'nome', '02_cardapio.jpg', 'inicio', (select v::bigint from mit where k = 'agora'), 'segundos', 0.4),
+    jsonb_build_object('id', 'F2', 'nome', 'velho.jpg', 'inicio', (select v::bigint from mit where k = 'agora') - 90 * 86400000::bigint, 'segundos', 10),
+    jsonb_build_object('id', '../x', 'nome', 'x', 'inicio', (select v::bigint from mit where k = 'agora'), 'segundos', 10))) = 2,
+  'midia: lote de exibições entra (curta, antiga e id estranho ignorados)');
+select pg_temp.ok((select vezes = 2 and segundos = 60.0 and tipo = 'video' and nome = '01_promo.mp4' and tela_nome = 'Hall de entrada'
+   and dia = (now() at time zone 'America/Sao_Paulo')::date from mi_exibicoes where drive_id = 'F1')
+  and (select vezes = 1 and segundos = 10 and tipo = 'imagem' from mi_exibicoes where drive_id = 'F2'),
+  'midia: resumo por dia (Brasília) com vezes, segundos e tipo (da mídia quando a TV não manda)');
+select pg_temp.ok(mi_tv_exibicoes((select v from mit where k = 'tok'), 'lote-0001-aaaa',
+  jsonb_build_array(jsonb_build_object('id', 'F1', 'nome', '01_promo.mp4', 'inicio', (select v::bigint from mit where k = 'agora'), 'segundos', 30))) = 0
+  and (select vezes = 2 from mi_exibicoes where drive_id = 'F1'), 'midia: o mesmo lote mandado de novo não conta duas vezes');
+select mi_tv_exibicoes((select v from mit where k = 'tok'), 'lote-0002-bbbb',
+  jsonb_build_array(jsonb_build_object('id', 'F1', 'nome', '01_promo.mp4', 'inicio', (select v::bigint from mit where k = 'agora'), 'segundos', 30)));
+select pg_temp.ok((select vezes = 3 and segundos = 90.0 from mi_exibicoes where drive_id = 'F1'), 'midia: lote novo soma no mesmo dia');
+select pg_temp.ok(mi_tv_exibicoes('token-errado', 'lote-0003-cccc', '[]') is null, 'midia: token inválido não grava exibição');
+select pg_temp.erro2('select mi_tv_exibicoes((select v from mit where k = ''tok''), ''x'', ''[]'')', 'Lote inválido', 'midia: lote com código estranho é recusado');
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok((select count(*) = 2 from mi_exibicoes), 'midia: cliente da conta lê o tempo de tela das TVs dele');
+select pg_temp.erro2('select * from mi_exib_lotes', 'permission', 'midia: cliente não lê os lotes');
+select pg_temp.erro2('update mi_exibicoes set vezes = 99', 'permission', 'midia: cliente não altera o tempo de tela');
+select pg_temp.erro2('select mi_tv_exibicoes(''x'', ''lote-0004-dddd'', ''[]'')', 'permission', 'midia: tela não chama a função da TV');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.ok((select count(*) = 0 from mi_exibicoes), 'midia: login sem acesso não vê o tempo de tela');
+reset role;
+set role service_role;
 reset role;
 -- código vencido
 update mi_codigos_vinculo set expira_em = now() - interval '1 minute', tela_id = null, entregue = false where codigo = (select v from mit where k = 'cod');
@@ -2988,6 +3022,7 @@ set role service_role;
 select pg_temp.ok(mi_tv_tela((select v from mit where k = 'tok')) is null and not mi_tv_sinal((select v from mit where k = 'tok'), '{}'), 'midia: TV desvinculada perde o token');
 reset role;
 select pg_temp.ok(exists (select 1 from auditoria where acao = 'midia_tv_desvinculada'), 'midia: desvínculo auditado');
+select pg_temp.ok((select count(*) = 2 from mi_exibicoes where tela_nome in ('Hall de entrada', 'Hall L1')), 'midia: tempo de tela continua depois do desvínculo da TV');
 -- pasta trocada: playlists da pasta antiga somem
 set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';

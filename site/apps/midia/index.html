@@ -86,6 +86,24 @@ dialog h3{margin:0 0 4px}
 .chk{display:flex;gap:6px;align-items:center;margin:4px 0;font-size:13px;text-transform:none;letter-spacing:0;font-weight:400;color:var(--ink)}
 .chk input{width:auto}
 .centro{padding:60px 16px;text-align:center;color:var(--ink-soft)}
+/* Ver a mídia (player do Google Drive) */
+dialog.largo{max-width:900px}
+.ver{margin-top:10px;background:#000;border-radius:10px;overflow:hidden;aspect-ratio:16/9}
+.ver.empe{aspect-ratio:9/16;max-height:72vh;margin-left:auto;margin-right:auto}
+.ver iframe{width:100%;height:100%;border:0;display:block}
+/* aba Relatório (tempo de tela) */
+.filtros{display:flex;flex-wrap:wrap;gap:12px}.filtros>div{min-width:200px}
+tr.tot td{font-weight:700;border-top:2px solid var(--border)}
+.so-imp{display:none}
+.imp-topo{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;border-bottom:2px solid #107e99;padding-bottom:8px;margin-bottom:14px;font-size:15px}
+@media print{
+  :root{--bg:#fff;--surface:#fff;--surface-2:#f1f4f6;--ink:#000;--ink-soft:#444;--border:#ccc;color-scheme:light}
+  body{background:#fff}.casca{max-width:none;padding:0}
+  .topo,.barra,#msg,.noprint{display:none!important}
+  .so-imp{display:block}p.so-imp{display:block}
+  .card{border:1px solid #ccc;break-inside:avoid}.kpi{border:1px solid #ccc}
+  .tw{overflow:visible}
+}
 @media (max-width:820px){.dois{grid-template-columns:1fr}.item{grid-template-columns:22px 48px 1fr}.item .tempo,.item .lado{grid-column:3}.esc-m{display:none}}
 </style>
 </head>
@@ -98,6 +116,7 @@ dialog h3{margin:0 0 4px}
       <div class="orelhas">
         <button class="aba on" data-v="telas" title="TVs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="12" rx="1.5"/><path d="M8 21h8M12 17v4"/></svg><span>TVs</span><span class="n" id="nTelas"></span></button>
         <button class="aba" data-v="playlists" title="Playlists"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M4 6h11M4 11h11M4 16h7"/><path d="m16 14 5 3-5 3z"/></svg><span>Playlists</span><span class="n" id="nPls"></span></button>
+        <button class="aba" data-v="relatorio" title="Relatório"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M4 20V4M4 20h16"/><path d="M8 16v-4M12 16V8M16 16v-6"/></svg><span>Relatório</span></button>
         <button class="aba" data-v="config" title="Pasta do Drive"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/></svg><span>Pasta do Drive</span></button>
         <button class="aba" data-v="admin" id="abaAdmin" title="Contas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17.5" cy="9" r="2.4"/><path d="M15.5 14.4A5 5 0 0 1 21.5 19"/></svg><span>Contas</span></button>
       </div>
@@ -108,6 +127,7 @@ dialog h3{margin:0 0 4px}
   </div>
 </div>
 <dialog id="dlg"><form method="dialog" id="dlgf"></form></dialog>
+<script src="relatorio.js"></script>   <!-- aba Relatório (tempo de tela); antes do script principal, que já desenha a tela -->
 
 <script>
 const CFG = window.NERVIA_CONFIG || {};
@@ -184,7 +204,7 @@ const usado = () => { const v = new Map(); MIDIAS.filter(m => m.situacao === "ok
 function render() {
   document.querySelectorAll(".aba").forEach(b => b.classList.toggle("on", b.dataset.v === VISTA));
   $("nTelas").textContent = TELAS.length || ""; $("nPls").textContent = PLS.length || "";
-  $("tela").innerHTML = ({ telas: vTelas, playlists: vPlaylists, config: vConfig, admin: vAdmin })[VISTA]();
+  $("tela").innerHTML = ({ telas: vTelas, playlists: vPlaylists, relatorio: vRelatorio, config: vConfig, admin: vAdmin })[VISTA]();
   if (VISTA === "admin") carregarAdmin().catch(e => msg("err", e.message));
 }
 function avisoConta() {
@@ -212,7 +232,7 @@ function vTelas() {
     ${TELAS.map(t => {
       const erros = Array.isArray(t.erros) ? t.erros : [];
       const st = !t.ultimo_sinal ? `${tag("aguardando 1º sinal", "t-mut")}` : online(t) ? `<span class="dot" style="background:var(--ok)"></span>Online` : `<span class="dot" style="background:var(--crit)"></span>Offline`;
-      return `<tr><td><b>${esc(t.nome)}</b>${t.tocando ? `<div class="mut">tocando: ${esc(t.tocando)}</div>` : ""}</td>
+      return `<tr><td><b>${esc(t.nome)}</b>${t.tocando ? `<div class="mut">tocando: ${esc(t.tocando)}${verBt(midiaTocando(t), " · ")}</div>` : ""}</td>
         <td>${st}${t.ultimo_sinal ? `<div class="mut">sinal ${desde(t.ultimo_sinal)}</div>` : ""}</td>
         <td><select data-pl="${t.id}"><option value="">— nenhuma (tela de espera) —</option>${PLS.map(p => `<option value="${p.id}" ${p.id === t.playlist_id ? "selected" : ""}>${esc(p.nome)}</option>`).join("")}</select></td>
         <td><select data-rot="${t.id}" title="Como a TV está instalada: o app gira a imagem para ficar certa">${POSICOES.map(([g, n]) => `<option value="${g}" ${g === (t.rotacao || 0) ? "selected" : ""}>${n}</option>`).join("")}</select></td>
@@ -278,12 +298,30 @@ function vPlaylists() {
         const info = m.tipo === "video" ? [m.codec, m.largura ? `${m.largura}×${m.altura}` : "", m.duracao_s ? durTxt(m.duracao_s) : ""].filter(Boolean).join(" · ") : m.tipo === "imagem" ? ["imagem", m.largura ? `${m.largura}×${m.altura}` : ""].filter(Boolean).join(" · ") : "";
         return `<div class="item ${bad ? "recusado" : ""}"><div class="pos">${bad ? "–" : okDe(p.id).indexOf(m) + 1}</div>
           <div class="mini ${bad ? "bad" : m.tipo === "imagem" ? "img" : ""}">${bad ? "✕" : m.tipo === "video" ? "▶" : "IMG"}</div>
-          <div><div class="nome">${esc(m.nome)}</div><div class="mut">${esc(info)}${info ? " · " : ""}${mbTxt(m.tamanho)}</div>
+          <div><div class="nome">${esc(m.nome)}</div><div class="mut">${esc(info)}${info ? " · " : ""}${mbTxt(m.tamanho)}${verBt(m, " · ")}</div>
             ${bad ? `<div class="mut" style="color:var(--crit)">Não vai para a TV: ${esc(m.motivo)}</div>` : ""}</div>
           <div class="lado">${!bad && m.tipo === "imagem" ? `<span class="tempo"><input type="number" min="3" max="300" data-tempo="${m.id}" value="${m.tempo_s || ""}" placeholder="${CONTA.tempo_imagem_s}"> s na tela</span>` : !bad ? `<span class="mut">${durTxt(m.duracao_s)}</span>` : ""}</div></div>`;
       }).join("") : '<div class="vazio">Subpasta vazia.</div>'}
       <p class="mut">Imagem sem tempo próprio fica ${CONTA.tempo_imagem_s} s (padrão da conta, na aba Pasta do Drive). Vídeo passa inteiro.</p>` : ""}</div></div>`;
 }
+
+// ---------------------------------------------------------------- Ver a mídia (pedido do Marco em 18/11/2026)
+// Abre o arquivo da pasta no player do próprio Google Drive (o mesmo arquivo que a TV baixa; não é imagem ao vivo da TV).
+// Sem custo da Nervia: o navegador busca direto no Drive (a pasta é "qualquer pessoa com o link").
+const verBt = (m, antes = "") => m && (m.tipo === "video" || m.tipo === "imagem") ? `${antes}<button class="lnk" data-acao="ver" data-id="${m.id}">▶ Ver</button>` : "";
+/** A mídia que a TV disse estar tocando (pelo nome, de preferência na playlist dela). */
+const midiaTocando = t => MIDIAS.find(m => m.playlist_id === t.playlist_id && m.nome === t.tocando) || MIDIAS.find(m => m.nome === t.tocando) || null;
+const urlDrive = (m, modo) => `https://drive.google.com/file/d/${encodeURIComponent(m.drive_id)}/${modo}${m.chave ? "?resourcekey=" + encodeURIComponent(m.chave) : ""}`;
+function dlgVer(m) {
+  if (!m) return;
+  const emPe = m.altura && m.largura && m.altura > m.largura;
+  $("dlg").classList.add("largo");
+  $("dlgf").innerHTML = `<h3>${esc(m.nome)}</h3><div class="mut">${m.tipo === "video" ? "Vídeo" : "Imagem"} da pasta do Google Drive: o mesmo arquivo que as TVs baixam.</div>
+    <div class="ver ${emPe ? "empe" : ""}"><iframe src="${urlDrive(m, "preview")}" allow="autoplay; fullscreen" allowfullscreen title="${esc(m.nome)}"></iframe></div>
+    <div class="fim"><a class="bt" href="${urlDrive(m, "view")}" target="_blank" rel="noopener">Abrir no Drive</a><button class="bt pri" value="x">Fechar</button></div>`;
+  $("dlg").showModal();
+}
+$("dlg").addEventListener("close", () => { if ($("dlg").classList.contains("largo")) { $("dlg").classList.remove("largo"); $("dlgf").innerHTML = ""; } });   // para o vídeo
 
 // ---------------------------------------------------------------- Pasta do Drive
 function vConfig() {
@@ -377,6 +415,7 @@ document.addEventListener("click", async e => {
   const id = b.dataset.id, a = b.dataset.acao;
   try {
     if (a === "addTv") dlgAddTv();
+    else if (a === "ver") dlgVer(MIDIAS.find(x => x.id === id));
     else if (a === "renomear") {
       const t = TELAS.find(x => x.id === id), nome = prompt("Nome da TV:", t.nome);
       if (nome && nome.trim()) { checar(await sb.rpc("mi_tela_salvar", { p_tela: id, p_nome: nome.trim(), p_playlist: t.playlist_id })); await carregar(); render(); msg("ok", "Nome salvo."); }

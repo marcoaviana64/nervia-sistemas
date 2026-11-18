@@ -207,6 +207,18 @@ Deno.test({ name: "Mídia Indoor de ponta a ponta", sanitizeOps: false, sanitize
     const sem = await arq({ acao: "arquivo", token: "x".repeat(64), id: "v1" });
     eq(sem.status, 401); await sem.body?.cancel();
   });
+  await t.step("tempo de tela: TV manda o lote, o painel lê o resumo; lote repetido não soma", async () => {
+    const agora = Date.now();
+    const lote = { acao: "exibicoes", token, lote: "lote-e2e-0001", itens: [
+      { id: "v1", nome: "01_promo.mp4", tipo: "video", inicio: agora - 60000, segundos: 2 },
+      { id: "i2", nome: "01_cardapio.jpg", tipo: "imagem", inicio: agora - 30000, segundos: 9 }] };
+    const r = await tv(lote);
+    eq([r.status, r.j.gravadas], [200, 2]);
+    eq((await tv(lote)).j.gravadas, 0, "repetido");
+    const linhas = await rest(T.cli, "/mi_exibicoes?select=nome,vezes,segundos&order=nome");
+    eq(linhas.map((l: { nome: string; vezes: number; segundos: number }) => [l.nome, l.vezes, Number(l.segundos)]), [["01_cardapio.jpg", 1, 9], ["01_promo.mp4", 1, 2]]);
+    eq((await tv({ acao: "exibicoes", token: "x".repeat(64), lote: "lote-e2e-0002", itens: [] })).status, 401);
+  });
   await t.step("conta suspensa: TV recebe playlist vazia (tela de espera)", async () => {
     await rest(T.admin, `/mi_contas?id=eq.${conta}`, { method: "PATCH", body: JSON.stringify({ ativo: false }) });
     const r = await tv({ acao: "playlist", token });

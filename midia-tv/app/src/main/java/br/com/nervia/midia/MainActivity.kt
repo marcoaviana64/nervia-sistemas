@@ -55,6 +55,7 @@ class MainActivity : Activity() {
     private val escopo = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val prefs by lazy { getSharedPreferences("midia", Context.MODE_PRIVATE) }
     private val baixador by lazy { Baixador(File(filesDir, "midia")) }
+    private val exibicoes by lazy { Exibicoes(File(filesDir, "exibicoes")) }   // tempo de tela (relatório do painel)
     private val handler = Handler(Looper.getMainLooper())
 
     private lateinit var raiz: FrameLayout
@@ -97,11 +98,13 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         telaCheia()
+        atual?.let { exibicoes.iniciar(it) }   // voltou à tela: o que está passando volta a contar
         Relancar.cancelar(this)
     }
 
     override fun onStop() {
         super.onStop()
+        exibicoes.fechar()   // fora da tela não conta como tempo de tela
         // saiu da tela (botão Home, outro app, economia de energia): volta sozinho em 3 minutos.
         // O técnico que precisa mexer na TV tem esse tempo; para parar de vez, desinstale ou force a parada.
         if (!saindoDeProposito && !isChangingConfigurations) Relancar.agendar(this, 3 * 60_000L)
@@ -178,6 +181,7 @@ class MainActivity : Activity() {
     }
 
     private fun pararReproducao() {
+        exibicoes.fechar()
         handler.removeCallbacks(proximaImagem)
         player?.stop()
         playerView.visibility = View.GONE
@@ -262,6 +266,7 @@ class MainActivity : Activity() {
         val sinal: Job = launch {
             while (isActive) {
                 enviarSinal(t)
+                enviarExibicoes(t)
                 delay(intervaloSinal * 1000L)
             }
         }
@@ -367,6 +372,7 @@ class MainActivity : Activity() {
 
     // ------------------------------------------------------------------ reprodução
     private fun tocarProximo() {
+        exibicoes.fechar()
         handler.removeCallbacks(proximaImagem)
         pendente?.let { lista = it; pendente = null; indice = 0 }
         val tocaveis = lista.filter { it.arquivo !in falharamAoTocar && baixador.pronto(it) }
@@ -377,6 +383,7 @@ class MainActivity : Activity() {
         val item = tocaveis[indice % tocaveis.size]
         indice = (indice % tocaveis.size) + 1
         atual = item
+        exibicoes.iniciar(item)
         painel.visibility = View.GONE
         esconderVitrine()
         val f = baixador.arquivo(item)
@@ -447,6 +454,19 @@ class MainActivity : Activity() {
     }.getOrNull()
 
     // ------------------------------------------------------------------ sinal de vida
+    /** Manda o tempo de tela anotado (lotes; o que falhar vai no próximo sinal). TV desvinculada: o erro sobe como no sinal. */
+    private suspend fun enviarExibicoes(t: String) {
+        try {
+            withContext(Dispatchers.IO) {
+                exibicoes.enviar { codigo, itens -> Api.comToken("exibicoes", t, JSONObject().put("lote", codigo).put("itens", itens)) }
+            }
+        } catch (e: Desvinculada) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "tempo de tela: ${e.message}")
+        }
+    }
+
     private suspend fun enviarSinal(t: String) {
         val corpo = JSONObject()
             .put("versao_app", BuildConfig.VERSION_NAME)
