@@ -63,7 +63,12 @@ class TelaTest {
                 """{"num":2,"name":"Canal Notícias 24h","stream_id":102,"category_id":"1"}""",
                 """{"num":3,"name":"Esporte Total","stream_id":103,"category_id":"2"}""",
                 """{"num":4,"name":"Canal Adulto","stream_id":104,"category_id":"9","is_adult":"1"}""",
-            ).joinToString(",") + "]"
+            ).plus(if (!muitos) emptyList() else listOf("RecordTV FHD H265", "Globo RJ FHD", "SBT HD Rio de Janeiro", "Band SP FHD",
+                "RedeTV! HD", "TV Cultura FHD", "CNN Brasil HD", "GloboNews FHD", "SporTV 2 FHD H265", "ESPN Brasil HD",
+                "Premiere Clubes FHD", "Discovery Channel HD", "Warner Channel FHD", "Telecine Action FHD", "HBO Family HD",
+                "Cartoon Network HD", "Multishow FHD", "Canal Brasil HD").mapIndexed { i, n ->
+                """{"num":${1040 + i * 7},"name":"$n","stream_id":${500 + i},"stream_icon":"$img/${1 + i % 5}.png","category_id":"1"}""" })
+            .joinToString(",") + "]"
             "get_short_epg" -> """{"epg_listings":[
                 {"title":"${b64("Jornal da Noite")}","description":"${b64("As principais notícias do dia.")}","start_timestamp":"${agora - 1800}","stop_timestamp":"${agora + 1800}"},
                 {"title":"${b64("Filme da Madrugada")}","description":"","start_timestamp":"${agora + 1800}","stop_timestamp":"${agora + 9000}"}]}"""
@@ -122,6 +127,9 @@ class TelaTest {
             }
         }.apply { isDaemon = true }.start()
     }
+
+    /** Lista grande de canais (só para a foto da tela cheia de canais). */
+    @Volatile private var muitos = false
 
     /** Conteúdo do nvplayer.json imitado (null = 404). */
     @Volatile private var publicados: String? = null
@@ -184,6 +192,26 @@ class TelaTest {
         .get(act) as Configurador).porta
 
     private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
+
+    /** Foto da lista de canais cheia (para conferir quantas linhas cabem sem rolar). */
+    @Test fun listaCheia() {
+        muitos = true
+        val ctl = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val act = ctl.get()
+        val raiz = act.window.decorView
+        ultimaRaiz = raiz
+        ocioso()
+        val base = "http://127.0.0.1:${servidor.localPort}"
+        assertTrue(enviar(porta(act), "tipo=xtream&servidor=${enc(base)}&usuario=marco&senha=segredo").contains("Pronto"))
+        esperar { textos(raiz).any { it.startsWith("TV ao vivo") } }
+        clicar(raiz, "Abertos")
+        act.dispatchKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_DPAD_RIGHT))
+        act.dispatchKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_DPAD_RIGHT))
+        ocioso()
+        acharTexto(raiz) { it == "Canal Notícias 24h" }!!.let { var v: View = it; while (!v.isFocusable) v = v.parent as View; v.isFocusableInTouchMode = true; v.requestFocus() }
+        esperar { textos(raiz).any { it.contains("Jornal da Noite") && it.contains("Agora") } }
+        foto(raiz, "tela-lista-cheia")
+    }
 
     @Test fun loginXtream() {
         val ctx = ApplicationProvider.getApplicationContext<Context>()

@@ -76,6 +76,10 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
   atualização em segundo plano mostra "⟳ Atualizando a lista…" no canto (`mostrarStatus`, com a etapa) e "✓ Lista
   atualizada" no fim; roda com prioridade baixa (`THREAD_PRIORITY_BACKGROUND`) e, se a pessoa estiver em tela cheia,
   a lista nova só entra quando ela abrir a lista (`catalogoPendente`), para o vídeo não engasgar.
+- **Listas compactas** (2.9, pedido do Marco em 18/11/2026 com a foto da 2.8 numa LG: "mais listas aparecendo na tela
+  sem rolar"): linhas, grupos, abas e busca mais baixos (nome 15sp, programação 12sp, logo 44×26dp), número do canal
+  numa linha só (50dp) e colunas da TV ao vivo 0,22 / 0,38 / 0,40 → cerca de 11 canais na tela em vez de 6. Foto:
+  teste `TelaTest.listaCheia` (22 canais, `app/build/tela-lista-cheia.png`).
 
 ## Ainda não tem (ideias)
 Grade de programação de todos os canais ao mesmo tempo, assistir programa que já passou (catch-up), gravação.
