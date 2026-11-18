@@ -3,9 +3,9 @@
     "http://p.urldata.gy"
   ],
   "versao": {
-    "codigo": 12,
-    "nome": "2.10",
+    "codigo": 13,
+    "nome": "2.11",
     "apk": "https://nervia.com.br/nvplayer.apk",
-    "novidades": "Quando o canal trava, o app percebe e reconecta sozinho em poucos segundos. Aviso discreto um dia antes de a lista vencer. Conexão mais rápida ao trocar de canal."
+    "novidades": "Vídeo em tela cheia mais leve e estável. Quando o canal trava, o app reconecta sozinho em poucos segundos. Aviso discreto um dia antes de a lista vencer."
   }
 }

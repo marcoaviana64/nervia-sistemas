@@ -260,20 +260,23 @@ class TelaTest {
 
         // 2.7: OK no canal = prévia à direita (lista continua aberta); OK de novo = tela cheia; Voltar = lista
         fun campo(n: String) = MainActivity::class.java.getDeclaredField(n).apply { isAccessible = true }.get(act) as View
-        val painel = campo("painel"); val video = campo("video"); val previa = campo("previa")
+        val painel = campo("painel"); val previa = campo("previa")
+        // 2.11: o player troca de PlayerView (prévia = TextureView, tela cheia = SurfaceView)
+        fun video() = campo("video") as androidx.media3.ui.PlayerView
         clicar(raiz, "TV Exemplo HD")
         ocioso()
         assertEquals(View.VISIBLE, painel.visibility)
-        assertTrue("vídeo na prévia", video.parent === previa)
+        assertTrue("vídeo na prévia", video().parent === previa && video().player != null && video().videoSurfaceView is android.view.TextureView)
         foto(raiz, "tela-tv-previa")
         clicar(raiz, "TV Exemplo HD")
         ocioso()
         assertEquals(View.GONE, painel.visibility)
-        assertTrue("vídeo em tela cheia", video.parent !== previa)
+        assertTrue("vídeo em tela cheia", video().parent !== previa && video().player != null && video().videoSurfaceView is android.view.SurfaceView)
+        assertTrue("prévia sem player", (campo("videoPrevia") as androidx.media3.ui.PlayerView).player == null)
         act.onBackPressedDispatcher.onBackPressed()
         ocioso()
         assertEquals(View.VISIBLE, painel.visibility)
-        assertTrue(video.parent === previa)
+        assertTrue(video().parent === previa && video().player != null)
 
         // Filmes: continuar assistindo e ficha
         clicar(raiz, "Filmes  3")
