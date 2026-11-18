@@ -3,9 +3,9 @@
     "http://p.urldata.gy"
   ],
   "versao": {
-    "codigo": 11,
-    "nome": "2.9",
+    "codigo": 12,
+    "nome": "2.10",
     "apk": "https://nervia.com.br/nvplayer.apk",
-    "novidades": "Listas mais compactas: cabem quase o dobro de canais na tela sem rolar, com os nomes inteiros e o número do canal numa linha só."
+    "novidades": "Quando o canal trava, o app percebe e reconecta sozinho em poucos segundos. Aviso discreto um dia antes de a lista vencer. Conexão mais rápida ao trocar de canal."
   }
 }

@@ -80,6 +80,14 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
   sem rolar"): linhas, grupos, abas e busca mais baixos (nome 15sp, programação 12sp, logo 44×26dp), número do canal
   numa linha só (50dp) e colunas da TV ao vivo 0,22 / 0,38 / 0,40 → cerca de 11 canais na tela em vez de 6. Foto:
   teste `TelaTest.listaCheia` (22 canais, `app/build/tela-lista-cheia.png`).
+- **Reconexão sozinha quando o canal trava** (2.10, o Marco: "trava, eu mudo de canal, volto e retorna o sinal"): o
+  servidor para de mandar o vídeo sem fechar a conexão. `Vigia.kt` confere a cada 2 s a posição e os quadros mostrados
+  (`videoDecoderCounters`); parados por 10 s (ou "Carregando…" por 15 s) = reconecta o canal e mostra "⟳ O sinal
+  parou · reconectando…". Problemas ficam registrados (últimos 30, preferências `diario`) e aparecem em Ajustes.
+- **DNS sem espera longa** (2.10): o DNS do local e o alternativo consultam ao mesmo tempo; com o do local respondendo,
+  o alternativo tem 1,5 s (antes a conexão esperava o alternativo até o fim; bloqueado, até ~24 s a cada minuto).
+- **Aviso de vencimento da lista** (2.10, pedido do Marco): a partir de 24 h antes da validade do login Xtream, texto
+  pequeno no canto de baixo à esquerda por 10 min a cada 2 h (`Vencimento.kt`); vencida, continua avisando.
 
 ## Ainda não tem (ideias)
 Grade de programação de todos os canais ao mesmo tempo, assistir programa que já passou (catch-up), gravação.

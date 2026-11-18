@@ -23,13 +23,21 @@ class DnsAlternativo(
     private val sistema: (String) -> List<InetAddress> = { Dns.SYSTEM.lookup(it) },
     private val alternativo: (String) -> List<InetAddress> = ::porHttps,
     private val agora: () -> Long = System::currentTimeMillis,
+    private val espera: Long = 1_500,
 ) : Dns {
+    private val fila = java.util.concurrent.Executors.newCachedThreadPool { r -> Thread(r, "dns-alternativo").apply { isDaemon = true } }
     private val cache = ConcurrentHashMap<String, Pair<Long, List<InetAddress>>>()
 
     override fun lookup(hostname: String): List<InetAddress> {
         if (local(hostname)) return sistema(hostname)
+        // 2.10: os dois DNS ao mesmo tempo. Se o do local achou, o alternativo tem só [espera] ms para responder
+        // (antes a conexão esperava o alternativo até o fim: com ele bloqueado, até ~24 s parada a cada minuto).
+        val guardado = guardado(hostname)
+        val futuro = if (guardado == null) fila.submit<List<InetAddress>> { alt(hostname) } else null
         val doSistema = try { sistema(hostname) } catch (_: UnknownHostException) { emptyList() }
-        val doAlternativo = alt(hostname)
+        val doAlternativo = guardado ?: try {
+            futuro!!.get(if (doSistema.isEmpty()) 15_000 else espera, TimeUnit.MILLISECONDS)
+        } catch (_: Exception) { emptyList() }
         if (doSistema.isEmpty() && doAlternativo.isEmpty())
             throw UnknownHostException("$hostname não foi encontrado (nem pelo DNS da internet deste local, nem pelo DNS alternativo)")
         // Se os dois concordam em algum endereço, vale a ordem do sistema (servidor mais próximo); se não concordam,
@@ -38,8 +46,12 @@ class DnsAlternativo(
         return (if (concordam || doAlternativo.isEmpty()) doSistema + doAlternativo else doAlternativo + doSistema).distinct()
     }
 
+    /** Resposta do alternativo ainda válida (10 min; a falha também fica guardada 10 min). */
+    private fun guardado(host: String): List<InetAddress>? =
+        cache[host]?.let { (quando, lista) -> lista.takeIf { agora() - quando < 600_000 } }
+
     private fun alt(host: String): List<InetAddress> {
-        cache[host]?.let { (quando, lista) -> if (agora() - quando < (if (lista.isEmpty()) 60_000 else 600_000)) return lista }
+        guardado(host)?.let { return it }
         val lista = try { alternativo(host) } catch (_: Exception) { emptyList() }
         cache[host] = agora() to lista
         return lista
