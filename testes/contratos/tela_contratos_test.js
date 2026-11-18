@@ -205,7 +205,7 @@ async function modeloFicticio() {
     p("CONTRATO entre ", campo("CTTNOME"), ", CNPJ ", campo("CTTCNPJ"), ", sede ", campo("CTTEND"), ", e ", campo("CTRANOME"), " (", campo("CTRACNPJ"), "), ", campo("CTRAEND"), ", Junta ", campo("CTRAJUNTA"), ".") +
     p("Responsável: ", campo("RESPFINAN"), ". Serviços ", campo("CTRASERVICOSESP"), "; prestação ", campo("CTRAPRESTACAO"), ".") +
     p("Vigência de ", campo("CTRAINI"), " a ", campo("CTRAFIM"), ". Honorários: ", campo("CTRAHONORARIOS"), ".") +
-    p("Assinam ", campo("CTTEMAIL"), " e ", campo("CTRAEMAIL"), ". ", `<w:fldSimple w:instr=" MERGEFIELD LOCALDATAASSINATURA "><w:r><w:t>«LOCALDATAASSINATURA»</w:t></w:r></w:fldSimple>`) +
+    p("Assinam pela CONTRATANTE ", campo("CTTASSINANTE"), " e pela CONTRATADA ", campo("CTRAASSINANTE"), " (", campo("CTTEMAIL"), " / ", campo("CTRAEMAIL"), "). ", `<w:fldSimple w:instr=" MERGEFIELD LOCALDATAASSINATURA "><w:r><w:t>«LOCALDATAASSINATURA»</w:t></w:r></w:fldSimple>`) +
     p("Testemunhas: ", campo("TESTE1"), " ", campo("TESTE1DOC"), " / ", campo("TESTE2"), " ", campo("TESTE2DOC")) +
     p("10.1.6. A sede da arbitragem será a ", campo("FOROLOCAL"), ". 10.6. As Partes elegem o ", campo("FORO"), " como competente.") + `</w:body></w:document>`;
   return ARQ.gravarZip([
@@ -332,7 +332,12 @@ const aba = (pg, v) => pg.click(`.orelhas .aba[data-v="${v}"]`);
     await pg.setInputFiles('input[accept=".docx"]', { name: "Modelo contrato.docx", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", buffer: Buffer.from(await modeloFicticio()) });
     await pg.click("text=Enviar modelo");
     await pg.waitForSelector("text=Em uso: Modelo contrato.docx");
-    ok((await um(pool, "select array_length(campos, 1) n, caminho from ctr_modelos where padrao and empresa_id = $1", [EMP])).n === 22, "modelo: guardado com os 22 campos (inclusive FORO e FOROLOCAL), na pasta da empresa");
+    ok((await um(pool, "select array_length(campos, 1) n, caminho from ctr_modelos where padrao and empresa_id = $1", [EMP])).n === 24, "modelo: guardado com os 24 campos (inclusive FORO, FOROLOCAL e quem assina), na pasta da empresa");
+    // quem assina pela empresa (Configuração)
+    await pg.fill("input[placeholder^='Ex.: Marco Viana']", "Marco Teste, CPF 222.222.222-22");
+    await pg.click(".painel:has-text('Dados da empresa (contratada)') button:text-is('Salvar')");
+    await pg.waitForTimeout(500);
+    ok((await um(pool, "select contratada_assinante a from ctr_empresas where id = $1", [EMP])).a === "Marco Teste, CPF 222.222.222-22", "Configuração: quem assina pela empresa gravado");
 
     // ---------- foro do cliente (Alfa em Niterói; Beta fica com o padrão do Rio)
     await aba(pg, "clientes");
@@ -347,6 +352,13 @@ const aba = (pg, v) => pg.click(`.orelhas .aba[data-v="${v}"]`);
     await aba(pg, "contratos");
     await pg.click("tr.clica:has-text('Alfa Center')");
     await pg.waitForSelector("#dlg[open] >> text=Gerar Word");
+    await pg.click("#dlg >> text=Gerar Word");
+    await pg.waitForSelector("#dlg .msg.erro:has-text('Quem assina pelo cliente')");
+    ok(true, "Word: sem quem assina pelo cliente, avisa e não gera");
+    await pg.fill("#dlg input[placeholder^='Ex.: Oscar']", "Ana Representante, CPF 111.111.111-11");
+    await pg.click("#dlg >> text=Salvar dados");
+    await pg.waitForTimeout(800); await pg.waitForSelector("#dlg[open] >> text=Gerar Word");
+    ok((await um(pool, "select k.assinante_cliente a from ctr_contratos k join ctr_clientes c on c.id = k.cliente_id where c.apelido = 'Alfa Center' and not k.historico")).a === "Ana Representante, CPF 111.111.111-11", "contrato: quem assina pelo cliente gravado");
     const [dl] = await Promise.all([pg.waitForEvent("download"), pg.click("#dlg >> text=Gerar Word")]);
     ok(dl.suggestedFilename() === "Contrato Alfa Center 2026.docx", "Word: nome do arquivo");
     const z = await ARQ.lerZip(fs.readFileSync(await dl.path())), doc = new TextDecoder().decode(z.get("word/document.xml"));
@@ -355,6 +367,7 @@ const aba = (pg, v) => pg.click(`.orelhas .aba[data-v="${v}"]`);
     ok(!doc.includes("MERGEFIELD") && !doc.includes("fldChar") && !z.has("word/recipientData.xml") && !new TextDecoder().decode(z.get("word/settings.xml")).includes("mailMerge")
       && !new TextDecoder().decode(z.get("word/_rels/settings.xml.rels")).includes("mailMergeSource"), "Word: sem campos e sem o vínculo com a planilha");
     ok(doc.includes("elegem o </w:t></w:r><w:r><w:rPr><w:b/></w:rPr><w:t xml:space=\"preserve\">Foro da Comarca de Niterói") && doc.includes("cidade de Niterói, Estado do Rio de Janeiro"), "Word: foro e sede da arbitragem do cliente");
+    ok(doc.includes("Ana Representante, CPF 111.111.111-11") && doc.includes("Marco Teste, CPF 222.222.222-22"), "Word: quem assina por cada parte");
     await pg.waitForSelector("#dlg[open] .etapas .atual:has-text('Gerado')");
     await pg.click("#dlg >> text=Marcar enviado"); await pg.click("#dlg2 >> text=Confirmar");
     await pg.waitForSelector("#dlg[open] .etapas .atual:has-text('Enviado')");

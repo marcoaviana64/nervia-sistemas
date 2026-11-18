@@ -457,9 +457,9 @@ function vContratos(c) {
 // valores dos campos de mala direta do modelo
 function valoresMala(k) {
   const cl = S.clientes.get(k.cliente_id) || {}, cf = S.cfg;
-  return { CTTNOME: cl.razao_social, CTTCNPJ: fmtDoc(cl.cnpj), CTTEND: cl.endereco, CTTEMAIL: k.assinantes, RESPFINAN: cl.resp_financeiro,
+  return { CTTNOME: cl.razao_social, CTTCNPJ: fmtDoc(cl.cnpj), CTTEND: cl.endereco, CTTEMAIL: k.assinantes, CTTASSINANTE: k.assinante_cliente || "", RESPFINAN: cl.resp_financeiro,
     CTRANOME: cf.contratada_nome, CTRACNPJ: fmtDoc(String(cf.contratada_cnpj || "").replace(/\D/g, "")) || cf.contratada_cnpj, CTRAEND: cf.contratada_endereco,
-    CTRAJUNTA: cf.contratada_junta, CTRAEMAIL: cf.contratada_email, CTRASERVICOSESP: k.servicos_esp || cf.servicos_esp, CTRAPRESTACAO: k.objeto, CTRAOBJ: k.objeto,
+    CTRAJUNTA: cf.contratada_junta, CTRAEMAIL: cf.contratada_email, CTRAASSINANTE: cf.contratada_assinante || "", CTRASERVICOSESP: k.servicos_esp || cf.servicos_esp, CTRAPRESTACAO: k.objeto, CTRAOBJ: k.objeto,
     CTRAINI: br(k.inicio), CTRAFIM: k.fim ? br(k.fim) : "prazo indeterminado", CTRAHONORARIOS: A.valorContrato(k.valor_mensal),
     TESTE1: k.testemunha1, TESTE1DOC: k.testemunha1_doc, TESTE2: k.testemunha2, TESTE2DOC: k.testemunha2_doc,
     LOCALDATAASSINATURA: k.local_assinatura + ", " + A.dataExtenso(k.data_assinatura || k.inicio),
@@ -481,6 +481,8 @@ async function gerarWord(ids, m) {
     const arqs = [], usados = new Set();
     for (const k of ks) {
       const r = await A.preencherDocx(await modeloBytes(k), valoresMala(k));
+      if (r.campos.includes("CTTASSINANTE") && !(k.assinante_cliente || "").trim()) throw new Error("Preencha \"Quem assina pelo cliente\" no contrato de " + cliNome(k.cliente_id) + " (o modelo tem o campo CTTASSINANTE).");
+      if (r.campos.includes("CTRAASSINANTE") && !(S.cfg.contratada_assinante || "").trim()) throw new Error("Preencha \"Quem assina pela empresa\" em Configuração (o modelo tem o campo CTRAASSINANTE).");
       let nome = nomeArq(k); while (usados.has(nome)) nome = nome.replace(/\.docx$/, " (" + k.id + ").docx"); usados.add(nome);
       arqs.push([nome, r.bytes]);
     }
@@ -495,7 +497,7 @@ async function gerarWord(ids, m) {
 function abrirContrato(id) {
   const k = id ? S.contratos.get(id) : null, novo = !k;
   const v = k || { cliente_id: "", inicio: "", fim: "", valor_mensal: "", dia_vencimento: 30, parcela_extra: true, objeto: (([...S.contratos.values()].filter(x => !x.historico).pop() || {}).objeto || ""), servicos_esp: "",
-    assinantes: "", testemunha1: "", testemunha1_doc: "", testemunha2: "", testemunha2_doc: "", local_assinatura: "Rio de Janeiro", data_assinatura: "", obs: "", situacao: "rascunho" };
+    assinantes: "", assinante_cliente: "", testemunha1: "", testemunha1_doc: "", testemunha2: "", testemunha2_doc: "", local_assinatura: "Rio de Janeiro", data_assinatura: "", obs: "", situacao: "rascunho" };
   const m = el("span", { class: "msg" }), corpo = el("div", {});
   const ent = {
     cliente_id: sel([["", "Escolha…"], ...[...S.clientes.values()].filter(x => x.ativo || x.id === v.cliente_id).map(x => [x.id, x.apelido])], v.cliente_id),
@@ -503,7 +505,8 @@ function abrirContrato(id) {
     valor_mensal: el("input", { type: "number", step: "0.01", min: "0", value: v.valor_mensal }), dia_vencimento: el("input", { type: "number", min: "1", max: "31", value: v.dia_vencimento }),
     parcela_extra: sel([["true", "Sim (cláusula 3.1)"], ["false", "Não"]], String(v.parcela_extra)),
     objeto: el("textarea", { value: v.objeto }), servicos_esp: el("input", { type: "text", value: v.servicos_esp, placeholder: S.cfg.servicos_esp || "" }),
-    assinantes: el("input", { type: "text", value: v.assinantes, placeholder: "e-mails de quem assina pelo cliente" }),
+    assinante_cliente: el("input", { type: "text", value: v.assinante_cliente || "", placeholder: "Ex.: Oscar Marçal Teixeira, CPF 000.000.000-00" }),
+    assinantes: el("input", { type: "text", value: v.assinantes, placeholder: "só para a assinatura eletrônica" }),
     testemunha1: el("input", { type: "text", value: v.testemunha1 }), testemunha1_doc: el("input", { type: "text", value: v.testemunha1_doc, placeholder: "RG: … ou CPF: …" }),
     testemunha2: el("input", { type: "text", value: v.testemunha2 }), testemunha2_doc: el("input", { type: "text", value: v.testemunha2_doc }),
     local_assinatura: el("input", { type: "text", value: v.local_assinatura }), data_assinatura: el("input", { type: "date", value: v.data_assinatura || "" }), obs: el("input", { type: "text", value: v.obs }) };
@@ -541,7 +544,8 @@ function abrirContrato(id) {
     campo("Cliente", ent.cliente_id), campo("Início", ent.inicio), campo("Fim (vazio = indeterminado)", ent.fim),
     campo("Valor mensal (R$)", ent.valor_mensal), campo("Dia do vencimento", ent.dia_vencimento), campo("Parcela extra em dezembro", ent.parcela_extra),
     campo("Objeto (\"prestação de serviços …\")", ent.objeto, "tudo"), campo("Serviços da contratada (vazio = o da configuração)", ent.servicos_esp, "dois"), campo("Local da assinatura", ent.local_assinatura),
-    campo("Quem assina pelo cliente (e-mails)", ent.assinantes, "dois"), campo("Data no contrato (vazio = início)", ent.data_assinatura),
+    campo("Quem assina pelo cliente (nome e CPF)", ent.assinante_cliente, "dois"), campo("Data no contrato (vazio = início)", ent.data_assinatura),
+    campo("E-mails de quem assina pelo cliente (plataforma de assinatura)", ent.assinantes, "tudo"),
     campo("Testemunha 1", ent.testemunha1), campo("Documento", ent.testemunha1_doc), el("div"), campo("Testemunha 2", ent.testemunha2), campo("Documento", ent.testemunha2_doc), el("div"),
     campo("Observação interna", ent.obs, "tudo")));
   if (gestor()) corpo.append(el("div", { class: "acoes", style: "margin-top:12px" }, el("button", { class: "btn", onclick: async () => {
@@ -720,12 +724,13 @@ function vConfig(c) {
   const cf = S.cfg, m = el("span", { class: "msg" });
   const e = { nome: el("input", { type: "text", value: cf.nome }), contratada_nome: el("input", { type: "text", value: cf.contratada_nome }), contratada_cnpj: el("input", { type: "text", value: cf.contratada_cnpj }),
     contratada_endereco: el("input", { type: "text", value: cf.contratada_endereco }), contratada_junta: el("input", { type: "text", value: cf.contratada_junta, placeholder: "Rio de Janeiro sob o número …" }),
-    contratada_email: el("input", { type: "text", value: cf.contratada_email }), servicos_esp: el("input", { type: "text", value: cf.servicos_esp }),
+    contratada_email: el("input", { type: "text", value: cf.contratada_email }), contratada_assinante: el("input", { type: "text", value: cf.contratada_assinante || "", placeholder: "Ex.: Marco Viana, CPF 000.000.000-00" }), servicos_esp: el("input", { type: "text", value: cf.servicos_esp }),
     dia_nf: el("input", { type: "number", min: "1", max: "28", value: cf.dia_nf }), tolerancia: el("input", { type: "number", step: "0.01", min: "0", value: cf.tolerancia }),
     foro_padrao: el("input", { type: "text", value: cf.foro_padrao || "" }), foro_local_padrao: el("input", { type: "text", value: cf.foro_local_padrao || "" }) };
   c.append(el("div", { class: "painel" }, el("h2", {}, "Dados da empresa (contratada) e regras"), el("div", { class: "form" },
     campo("Nome curto (seletor do topo)", e.nome), campo("Razão social (vai no contrato)", e.contratada_nome, "dois"), campo("CNPJ", e.contratada_cnpj), campo("Endereço", e.contratada_endereco, "tudo"), campo("Junta Comercial (texto do contrato)", e.contratada_junta, "dois"),
-    campo("E-mail de quem assina pela empresa", e.contratada_email), campo("Serviços da contratada (\"… especializada em prestação de serviços …\")", e.servicos_esp, "dois"),
+    campo("Quem assina pela empresa (nome e CPF)", e.contratada_assinante, "dois"), campo("E-mail de quem assina pela empresa", e.contratada_email),
+    campo("Serviços da contratada (\"… especializada em prestação de serviços …\")", e.servicos_esp, "tudo"),
     campo("NF até o dia", e.dia_nf), campo("Tolerância de diferença (R$)", e.tolerancia),
     campo("Foro padrão (cliente sem foro próprio)", e.foro_padrao, "dois"), campo("Sede da arbitragem padrão", e.foro_local_padrao)),
     el("div", { class: "acoes", style: "margin-top:12px" }, el("button", { class: "btn", onclick: () => salvar(() => rpc("ctr_empresa_salvar", { p: { id: S.emp, ...Object.fromEntries(Object.entries(e).map(([k, i]) => [k, i.value])) } }), m) }, "Salvar"), m)));
@@ -772,11 +777,12 @@ function vEmpresas(c) {
       el("td", {}, e.ativo ? el("span", { class: "pill ok" }, "ativa") : el("span", { class: "pill" }, "inativa"))))))));
 }
 async function dlgEmpresa(id) {
-  const x = id ? S.empresas.find(e => e.id === id) : { nome: "", contratada_nome: "", contratada_cnpj: "", contratada_endereco: "", contratada_junta: "", contratada_email: "", servicos_esp: "",
+  const x = id ? S.empresas.find(e => e.id === id) : { nome: "", contratada_nome: "", contratada_cnpj: "", contratada_endereco: "", contratada_junta: "", contratada_email: "", contratada_assinante: "", servicos_esp: "",
     dia_nf: 5, tolerancia: 0.05, foro_padrao: "", foro_local_padrao: "", ativo: true };
   const t = v => el("input", { type: "text", value: v ?? "" });
   const e = { nome: t(x.nome), contratada_nome: t(x.contratada_nome), contratada_cnpj: t(x.contratada_cnpj), contratada_endereco: t(x.contratada_endereco),
     contratada_junta: el("input", { type: "text", value: x.contratada_junta, placeholder: "Ex.: Rio de Janeiro sob o número …" }), contratada_email: t(x.contratada_email),
+    contratada_assinante: el("input", { type: "text", value: x.contratada_assinante || "", placeholder: "Ex.: Marco Viana, CPF 000.000.000-00" }),
     servicos_esp: el("input", { type: "text", value: x.servicos_esp, placeholder: "Ex.: de Tecnologia da Informação" }),
     dia_nf: el("input", { type: "number", min: "1", max: "28", value: x.dia_nf }), tolerancia: el("input", { type: "number", step: "0.01", min: "0", value: x.tolerancia }),
     foro_padrao: el("input", { type: "text", value: x.foro_padrao, placeholder: "Ex.: Foro da Comarca de São Paulo" }),
@@ -784,7 +790,7 @@ async function dlgEmpresa(id) {
     ativo: sel([["true", "Ativa"], ["false", "Inativa (ninguém da empresa entra)"]], String(x.ativo)) };
   const m = el("span", { class: "msg" }), corpo = el("div", {});
   corpo.append(el("div", { class: "form" }, campo("Nome curto", e.nome), campo("Razão social (vai no contrato)", e.contratada_nome, "dois"), campo("CNPJ", e.contratada_cnpj),
-    campo("Endereço", e.contratada_endereco, "dois"), campo("Junta Comercial (texto do contrato)", e.contratada_junta, "tudo"), campo("E-mail de quem assina pela empresa", e.contratada_email),
+    campo("Endereço", e.contratada_endereco, "dois"), campo("Junta Comercial (texto do contrato)", e.contratada_junta, "tudo"), campo("Quem assina pela empresa (nome e CPF)", e.contratada_assinante, "dois"), campo("E-mail de quem assina pela empresa", e.contratada_email),
     campo("Serviços (\"… especializada em prestação de serviços …\")", e.servicos_esp, "dois"), campo("NF até o dia", e.dia_nf), campo("Tolerância de diferença (R$)", e.tolerancia), campo("Situação", e.ativo),
     campo("Foro padrão", e.foro_padrao, "dois"), campo("Sede da arbitragem padrão", e.foro_local_padrao)),
     el("div", { class: "acoes", style: "margin-top:12px" }, el("button", { class: "btn", onclick: async () => {
