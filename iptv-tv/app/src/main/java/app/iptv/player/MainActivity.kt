@@ -42,7 +42,8 @@ import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
-import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.okhttp.OkHttpDataSource
+import java.util.concurrent.TimeUnit
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.AspectRatioFrameLayout
@@ -737,11 +738,8 @@ class MainActivity : ComponentActivity() {
 
     private fun iniciar(c: Item, inicio: Long = 0, tocar: Boolean = true) {
         h.removeCallbacks(tentarDeNovo)
-        val http = DefaultHttpDataSource.Factory()
+        val http = OkHttpDataSource.Factory(Rede.cliente.newBuilder().readTimeout(20, TimeUnit.SECONDS).build())
             .setUserAgent(c.userAgent ?: Http.USER_AGENT)
-            .setAllowCrossProtocolRedirects(true)
-            .setConnectTimeoutMs(15_000)
-            .setReadTimeoutMs(20_000)
         c.referer?.let { http.setDefaultRequestProperties(mapOf("Referer" to it)) }
         val item = MediaItem.Builder().setUri(c.url).apply { (mimeForcado ?: mimeDe(c.url))?.let { setMimeType(it) } }.build()
         val fonte = DefaultMediaSourceFactory(DefaultDataSource.Factory(this, http)).createMediaSource(item)

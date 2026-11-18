@@ -6,8 +6,8 @@ import android.os.Handler
 import android.os.Looper
 import android.util.LruCache
 import android.widget.ImageView
-import java.net.HttpURLConnection
-import java.net.URL
+import okhttp3.Request
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.Executors
 
 /** Carrega logos e capas (reduzidos ao tamanho de uso, em memória). Imagem que falha não é pedida de novo. */
@@ -34,21 +34,18 @@ object Logos {
     }
 
     private fun baixar(endereco: String, largura: Int): Bitmap? {
-        val c = URL(endereco).openConnection() as HttpURLConnection
-        c.connectTimeout = 8_000; c.readTimeout = 12_000
-        c.instanceFollowRedirects = true
-        c.setRequestProperty("User-Agent", Http.USER_AGENT)
-        return try {
-            if (c.responseCode != 200) return null
-            val bytes = c.inputStream.use { it.readBytes() }
+        val cli = Rede.cliente.newBuilder().connectTimeout(8, TimeUnit.SECONDS).readTimeout(12, TimeUnit.SECONDS).build()
+        cli.newCall(Request.Builder().url(endereco).header("User-Agent", Http.USER_AGENT).build()).execute().use { r ->
+            if (r.code != 200) return null
+            val bytes = r.body!!.bytes()
             val op = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size, op)
             var amostra = 1
             while (op.outWidth / (amostra * 2) >= largura) amostra *= 2
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply {
+            return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply {
                 inSampleSize = amostra
                 if (largura > 150) inPreferredConfig = Bitmap.Config.RGB_565
             })
-        } finally { c.disconnect() }
+        }
     }
 }

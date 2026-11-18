@@ -164,7 +164,8 @@ class Repositorio(ctx: Context) {
         if (baixar) {
             progresso("Conferindo o login…")
             val conta = try { x.loginTexto() } catch (e: java.io.IOException) {
-                error("Não foi possível conectar ao servidor ${x.endereco}. Os provedores trocam o endereço de tempos em tempos: " +
+                error("Não foi possível conectar ao servidor ${x.endereco}: ${Rede.explicar(e)}. " +
+                    "A internet deste local pode estar bloqueando o servidor, ou o provedor trocou o endereço: " +
                     "confira o endereço atual com o seu provedor e troque no campo Servidor.")
             }
             File(dir, "x_conta.json").writeText(conta)
