@@ -424,8 +424,18 @@ class MainActivity : Activity() {
         handler.postDelayed(proximaImagem, (item.tempoS ?: 10).coerceIn(3, 300) * 1000L)
     }
 
-    /** Lê a imagem já reduzida para o tamanho da tela (imagem grande demais estoura a memória de TV box). */
-    private fun decodificar(f: File): Bitmap? = runCatching {
+    /** Lê a imagem já reduzida para o tamanho da tela (imagem grande demais estoura a memória de TV box) e, se o formato
+     *  for diferente do da tela, põe a moldura desfocada no lugar das faixas pretas (Moldura). */
+    private fun decodificar(f: File): Bitmap? {
+        val b = lerReduzida(f) ?: return null
+        val larga = palco.width.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels
+        val alta = palco.height.takeIf { it > 0 } ?: resources.displayMetrics.heightPixels
+        val m = runCatching { Moldura.montar(b, larga, alta) }.getOrDefault(b)   // sem memória para a moldura: foto como antes
+        if (m !== b) b.recycle()
+        return m
+    }
+
+    private fun lerReduzida(f: File): Bitmap? = runCatching {
         val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(f.path, o)
         val larga = palco.width.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels
