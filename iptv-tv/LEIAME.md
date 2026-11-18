@@ -88,6 +88,10 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
   o alternativo tem 1,5 s (antes a conexão esperava o alternativo até o fim; bloqueado, até ~24 s a cada minuto).
 - **Aviso de vencimento da lista** (2.10, pedido do Marco): a partir de 24 h antes da validade do login Xtream, texto
   pequeno no canto de baixo à esquerda por 10 min a cada 2 h (`Vencimento.kt`); vencida, continua avisando.
+- **Tela cheia em SurfaceView** (2.11, o Marco: travava em tela cheia): dois PlayerView — `videoCheio`
+  (`res/layout/video_cheio.xml`, SurfaceView: o vídeo vai direto para a tela, mais leve e sem depender da tela do app)
+  e `videoPrevia` (TextureView, só na caixa da prévia, por causa dos cantos arredondados); `posicionarVideo` troca o
+  player de um para o outro com `PlayerView.switchTargetView`.
 
 ## Ainda não tem (ideias)
 Grade de programação de todos os canais ao mesmo tempo, assistir programa que já passou (catch-up), gravação.

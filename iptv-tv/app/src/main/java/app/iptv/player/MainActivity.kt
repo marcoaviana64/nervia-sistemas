@@ -65,7 +65,10 @@ class MainActivity : ComponentActivity() {
     private lateinit var repo: Repositorio
     private lateinit var guia: Guia
     private lateinit var player: ExoPlayer
+    /** O PlayerView em uso agora: [videoCheio] (tela cheia) ou [videoPrevia] (caixa da prévia). */
     private lateinit var video: PlayerView
+    private lateinit var videoCheio: PlayerView
+    private lateinit var videoPrevia: PlayerView
     private lateinit var raiz: FrameLayout
     private lateinit var painel: LinearLayout
     private lateinit var rvGrupos: RecyclerView
@@ -153,7 +156,7 @@ class MainActivity : ComponentActivity() {
         video.player = player
         h.postDelayed(vigiar, 2000)
         h.postDelayed(conferirVencimento, 5000)
-        video.resizeMode = FORMATOS[repo.formatoTela.coerceIn(0, FORMATOS.size - 1)].second
+        FORMATOS[repo.formatoTela.coerceIn(0, FORMATOS.size - 1)].second.let { videoCheio.resizeMode = it; videoPrevia.resizeMode = it }
         player.addListener(ouvinte)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -235,13 +238,17 @@ class MainActivity : ComponentActivity() {
 
     private fun montarTela() {
         raiz = FrameLayout(this).apply { background = Estilo.fundoTela() }
-        video = (layoutInflater.inflate(R.layout.video, raiz, false) as PlayerView).apply {
+        // 2.11 (o Marco: travava em tela cheia): tela cheia em SurfaceView, prévia em TextureView (cantos redondos)
+        fun pv(layout: Int) = (layoutInflater.inflate(layout, raiz, false) as PlayerView).apply {
             useController = false
             resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
             setShutterBackgroundColor(Color.BLACK)
             isFocusable = false
         }
-        raiz.addView(video, FrameLayout.LayoutParams(-1, -1))
+        videoCheio = pv(R.layout.video_cheio)
+        videoPrevia = pv(R.layout.video)
+        video = videoCheio
+        raiz.addView(videoCheio, FrameLayout.LayoutParams(-1, -1))
 
         painel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -338,6 +345,7 @@ class MainActivity : ComponentActivity() {
             text = "Escolha um canal: OK mostra aqui, OK de novo abre em tela cheia."
             setPadding(16.dp, 0, 16.dp, 0)
         }
+        previa.addView(videoPrevia, FrameLayout.LayoutParams(-1, -1))
         previa.addView(previaTexto, FrameLayout.LayoutParams(-1, -1))
         lado.addView(previa, LinearLayout.LayoutParams(-1, -2))
         guiaBox.textSize = 17f
@@ -674,10 +682,12 @@ class MainActivity : ComponentActivity() {
     private fun posicionarVideo() {
         val naPrevia = painel.visibility == View.VISIBLE && aba == Aba.TV && telaConfig == null && ficha == null
         val destino: FrameLayout = if (naPrevia) previa else raiz
-        if (video.parent !== destino) {
-            (video.parent as? ViewGroup)?.removeView(video)
-            destino.addView(video, 0, FrameLayout.LayoutParams(-1, -1))
+        val alvo = if (destino === previa) videoPrevia else videoCheio
+        if (video !== alvo && ::player.isInitialized) {
+            PlayerView.switchTargetView(player, video, alvo)
+            video = alvo
         }
+        videoCheio.visibility = if (alvo === videoCheio) View.VISIBLE else View.GONE
         painel.background = Estilo.fundoTela(if (naPrevia) 255 else 238)
         if (atual?.tipo != Tipo.AO_VIVO) previaTexto.text = "Escolha um canal: OK mostra aqui, OK de novo abre em tela cheia."
         previaTexto.visibility = if (atual?.tipo == Tipo.AO_VIVO) View.GONE else View.VISIBLE
@@ -1191,7 +1201,7 @@ class MainActivity : ComponentActivity() {
         ops += "Legenda: ${faixaAtual(C.TRACK_TYPE_TEXT) ?: "desligada"}" to { escolherFaixa(C.TRACK_TYPE_TEXT) }
         ops += "Tela: ${FORMATOS[repo.formatoTela.coerceIn(0, FORMATOS.size - 1)].first}" to {
             repo.formatoTela = (repo.formatoTela + 1) % FORMATOS.size
-            video.resizeMode = FORMATOS[repo.formatoTela].second
+            videoCheio.resizeMode = FORMATOS[repo.formatoTela].second; videoPrevia.resizeMode = videoCheio.resizeMode
             toast("Tela: ${FORMATOS[repo.formatoTela].first}")
         }
         if (c.tipo == Tipo.AO_VIVO) {
