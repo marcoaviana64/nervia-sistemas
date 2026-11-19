@@ -3681,4 +3681,103 @@ select pg_temp.ok(exists (select 1 from jsonb_array_elements(nf_avisos_pendentes
    where c ->> 'cnpj' = '77777777000177' and (c ->> 'etapa')::int = 0 and (c ->> 'faltam')::int = 0), 'avisos: vencido = etapa 0');
 reset role;
 reset request.jwt.claim.sub;
+
+-- ================================================================ Mídia Indoor: créditos de dias de uso por TV (2.5)
+reset role;
+insert into mi_contas (id, nome) values ('40000000-0000-0000-0000-0000000000c1', 'Créditos A');
+insert into mi_acessos values ('00000000-0000-0000-0000-00000000000b', '40000000-0000-0000-0000-0000000000c1');
+insert into mi_telas (id, conta_id, nome, token_hash) values
+  ('41000000-0000-0000-0000-0000000000c1', '40000000-0000-0000-0000-0000000000c1', 'TV 1', 'hc1'),
+  ('41000000-0000-0000-0000-0000000000c2', '40000000-0000-0000-0000-0000000000c1', 'TV 2', 'hc2'),
+  ('41000000-0000-0000-0000-0000000000c3', '40000000-0000-0000-0000-000000000002', 'TV de outra conta', 'hc3');
+select pg_temp.ok((select not isenta and valida_ate is null from mi_telas where id = '41000000-0000-0000-0000-0000000000c1'), 'creditos: TV nova começa sem dias e cobrada');
+select pg_temp.ok((select tolerancia_dias = 3 from mi_contas where id = '40000000-0000-0000-0000-0000000000c1'), 'creditos: tolerância padrão de 3 dias');
+set role service_role;
+select pg_temp.ok(mi_tela_pausada('41000000-0000-0000-0000-0000000000c1') and (mi_tv_liberacao('41000000-0000-0000-0000-0000000000c1') ->> 'pausada')::boolean,
+  'creditos: TV sem dias fica pausada');
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.erro2('select mi_creditos_adicionar(''{"telas":["41000000-0000-0000-0000-0000000000c1"],"dias":30}'')', 'equipe Nervia', 'creditos: cliente não põe dias');
+select pg_temp.erro2('select mi_tela_isenta(''41000000-0000-0000-0000-0000000000c1'', true, ''cortesia'')', 'equipe Nervia', 'creditos: cliente não isenta TV');
+select pg_temp.erro2('select mi_conta_tolerancia(''40000000-0000-0000-0000-0000000000c1'', 30)', 'equipe Nervia', 'creditos: cliente não muda a tolerância');
+select pg_temp.erro2('update mi_telas set valida_ate = ''2099-01-01''', 'permission', 'creditos: tela não grava a data direto');
+select pg_temp.erro2('select * from mi_creditos', 'permission', 'creditos: extrato só pela função');
+select pg_temp.erro2('select mi_tv_liberacao(''41000000-0000-0000-0000-0000000000c1'')', 'permission', 'creditos: tela não chama a função da TV');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select pg_temp.erro2('select mi_creditos_adicionar(''{"telas":["41000000-0000-0000-0000-0000000000c1","41000000-0000-0000-0000-0000000000c3"],"dias":30}'')', 'um cliente só', 'creditos: um lote é de um cliente só');
+select pg_temp.erro2('select mi_creditos_adicionar(''{"telas":["41000000-0000-0000-0000-0000000000c1"],"dias":0}'')', 'vai de 1', 'creditos: zero dias é recusado');
+select pg_temp.erro2('select mi_creditos_adicionar(''{"telas":["41000000-0000-0000-0000-0000000000c1"],"dias":-5,"obs":"erro de digitação"}'')', 'não tem dias', 'creditos: não tira dias de TV sem dias');
+select pg_temp.ok((mi_creditos_adicionar('{"telas":["41000000-0000-0000-0000-0000000000c1","41000000-0000-0000-0000-0000000000c2"],"dias":30,"valor":"99.80","obs":"Pix"}') ->> 'telas')::int = 2,
+  'creditos: Nervia põe 30 dias em duas TVs de uma vez');
+select pg_temp.ok((select bool_and(valida_ate = mi_hoje() + 29) from mi_telas where conta_id = '40000000-0000-0000-0000-0000000000c1'), 'creditos: TV sem dias conta a partir de hoje (30 dias com hoje)');
+reset role;
+select pg_temp.ok((select count(*) = 2 and count(distinct lote) = 1 and count(valor) = 1 from mi_creditos where conta_id = '40000000-0000-0000-0000-0000000000c1'),
+  'creditos: um lote, valor só no 1º registro');
+set role authenticated;
+select mi_creditos_adicionar('{"telas":["41000000-0000-0000-0000-0000000000c1"],"dias":30}');
+select pg_temp.ok((select valida_ate = mi_hoje() + 59 from mi_telas where id = '41000000-0000-0000-0000-0000000000c1'), 'creditos: TV em dia continua do último dia pago');
+select pg_temp.erro2('select mi_creditos_adicionar(''{"telas":["41000000-0000-0000-0000-0000000000c1"],"dias":-10}'')', 'motivo', 'creditos: tirar dias exige motivo');
+select mi_creditos_adicionar('{"telas":["41000000-0000-0000-0000-0000000000c1"],"dias":-10,"obs":"lançado a mais"}');
+select pg_temp.ok((select valida_ate = mi_hoje() + 49 from mi_telas where id = '41000000-0000-0000-0000-0000000000c1'), 'creditos: tira dias com motivo');
+reset role;
+set role service_role;
+select pg_temp.ok(not mi_tela_pausada('41000000-0000-0000-0000-0000000000c1') and (mi_tv_liberacao('41000000-0000-0000-0000-0000000000c1') ->> 'liberada_ate')::date = mi_hoje() + 52,
+  'creditos: com dias, passa; liberada até o último dia + tolerância');
+reset role;
+-- dias acabaram: tolerância e pausa
+update mi_telas set valida_ate = mi_hoje() - 3 where id = '41000000-0000-0000-0000-0000000000c2';
+set role service_role;
+select pg_temp.ok(not mi_tela_pausada('41000000-0000-0000-0000-0000000000c2'), 'creditos: dentro da tolerância continua passando');
+reset role;
+update mi_telas set valida_ate = mi_hoje() - 4 where id = '41000000-0000-0000-0000-0000000000c2';
+set role service_role;
+select pg_temp.ok(mi_tela_pausada('41000000-0000-0000-0000-0000000000c2'), 'creditos: passou da tolerância, pausa sozinha');
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select mi_conta_tolerancia('40000000-0000-0000-0000-0000000000c1', 10);
+reset role;
+set role service_role;
+select pg_temp.ok(not mi_tela_pausada('41000000-0000-0000-0000-0000000000c2'), 'creditos: tolerância maior do cliente libera de novo');
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select mi_conta_tolerancia('40000000-0000-0000-0000-0000000000c1', 0);
+select mi_creditos_adicionar('{"telas":["41000000-0000-0000-0000-0000000000c2"],"dias":30}');
+select pg_temp.ok((select valida_ate = mi_hoje() + 29 from mi_telas where id = '41000000-0000-0000-0000-0000000000c2'), 'creditos: TV pausada recebe os dias contando de hoje');
+select pg_temp.erro2('select mi_tela_isenta(''41000000-0000-0000-0000-0000000000c2'', true, '''')', 'motivo', 'creditos: isentar exige motivo');
+select mi_tela_isenta('41000000-0000-0000-0000-0000000000c3', true, 'TV de demonstração');
+reset role;
+update mi_telas set valida_ate = null where id = '41000000-0000-0000-0000-0000000000c3';
+set role service_role;
+select pg_temp.ok(not mi_tela_pausada('41000000-0000-0000-0000-0000000000c3') and mi_tv_liberacao('41000000-0000-0000-0000-0000000000c3') -> 'liberada_ate' = 'null'::jsonb,
+  'creditos: TV isenta passa sem dias e sem limite');
+reset role;
+-- extrato: cliente vê sem valor e sem quem; Nervia vê tudo
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok((select count(*) >= 4 and count(valor) = 0 and bool_and(user_nome = 'Nervia') from mi_creditos_extrato('40000000-0000-0000-0000-0000000000c1')),
+  'creditos: cliente vê o extrato da conta, sem valor');
+select pg_temp.ok((select count(*) = 0 from mi_creditos_extrato('40000000-0000-0000-0000-000000000002')), 'creditos: cliente não vê o extrato de outra conta');
+select pg_temp.ok((select valida_ate is not null from mi_telas where id = '41000000-0000-0000-0000-0000000000c1'), 'creditos: cliente lê a data dos dias da TV');
+-- trocar aparelho: mantém os dias; o aparelho antigo perde o token
+reset role;
+set role service_role;
+insert into mit select 'codc', mi_tv_codigo('aparelho-novo-c1', '1.2.3.9') ->> 'codigo';
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select mi_tela_trocar_aparelho('41000000-0000-0000-0000-0000000000c1', (select v from mit where k = 'codc'));
+reset role;
+select pg_temp.ok((select token_hash is null and aparelho = 'aparelho-novo-c1' and valida_ate = mi_hoje() + 49 from mi_telas where id = '41000000-0000-0000-0000-0000000000c1'),
+  'creditos: trocar aparelho mantém os dias e derruba o token antigo');
+set role service_role;
+select pg_temp.ok((mi_tv_aguardar('aparelho-novo-c1', (select v from mit where k = 'codc')) ->> 'situacao') = 'vinculado', 'creditos: aparelho novo recebe o token da mesma TV');
+reset role;
+select pg_temp.erro2('update mi_creditos set dias = 999', 'não se altera', 'creditos: extrato somente inclusão');
+select pg_temp.erro2('delete from mi_creditos', 'não se altera', 'creditos: extrato não se apaga');
+select pg_temp.ok((select count(*) from auditoria where acao in ('midia_creditos_adicionados', 'midia_creditos_retirados', 'midia_tolerancia_alterada', 'midia_tv_isenta', 'midia_aparelho_trocado')) >= 7,
+  'creditos: tudo auditado');
+reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'

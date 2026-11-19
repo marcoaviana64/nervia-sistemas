@@ -39,4 +39,20 @@ class ModelosTest {
         assertNotEquals(i.arquivo, i.copy(md5 = "outro").arquivo)
         assertEquals("F2_aa.jpeg", Playlist.deJson(JSONObject(json)).itens[1].arquivo)
     }
+
+    @Test fun creditosDeDias() {
+        val semCampos = Playlist.deJson(JSONObject(json))               // função antiga: sem pausa e sem limite
+        assertEquals(false, semCampos.pausada)
+        assertNull(semCampos.liberadaAte)
+        val p = Playlist.deJson(JSONObject(json).put("pausada", true).put("liberada_ate", "2026-11-22"))
+        assertEquals(true, p.pausada)
+        assertEquals("2026-11-22", p.liberadaAte)
+        assertNull(Playlist.deJson(JSONObject(json).put("liberada_ate", JSONObject.NULL)).liberadaAte)   // isenta
+        assertNull(Playlist.deJson(JSONObject(json).put("liberada_ate", "lixo")).liberadaAte)
+        assertEquals(false, Creditos.vencida(null, "2030-01-01"))
+        assertEquals(false, Creditos.vencida("2026-11-22", "2026-11-22"))   // o último dia ainda passa
+        assertEquals(true, Creditos.vencida("2026-11-22", "2026-11-23"))
+        // 23/11 às 02:30 UTC ainda é 22/11 em Brasília
+        assertEquals("2026-11-22", Creditos.hoje(java.util.Date(java.util.Date.UTC(126, 10, 23, 2, 30, 0))))
+    }
 }
