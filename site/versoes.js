@@ -36,6 +36,9 @@ window.NERVIA_VERSOES = {
     ["1.1", "O fornecedor envia a proposta sozinho, sem login, pelo link do convite (WhatsApp ou e-mail), com PDF opcional."],
     ["1.0", "Lançamento: requisição, propostas, mapa comparativo, aprovação por alçada (Gerente e Diretor), pedido e avaliação do fornecedor."],
   ],
+  "nvplayer": [
+    ["1.0", "Lançamento: painel de uso do NVPlayer, só para a equipe Nervia — aparelhos, o que está passando, lista e validade, canais, filmes e séries mais assistidos, horas por dia e problemas de vídeo de cada aparelho."],
+  ],
   "monitor": [
     ["1.3", "Menu novo no estilo fichário, igual ao dos outros apps da Nervia: as abas Painel, Quedas, Relatório mensal e Equipamentos viram orelhas de pasta com ícone; a aberta se junta à ficha embaixo. No celular, as abas fechadas mostram só o ícone."],
     ["1.2", "Aviso por e-mail quando um link cai ou o roteador fica sem contato por 5 minutos ou mais, e quando volta."],

@@ -1,5 +1,8 @@
 package app.iptv.player
 
+import android.os.Build
+import org.json.JSONArray
+import org.json.JSONObject
 import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.graphics.Color
@@ -90,6 +93,8 @@ class MainActivity : ComponentActivity() {
     /** 2.10: aviso pequeno de vencimento da lista, no canto de baixo à esquerda. */
     private lateinit var lembrete: TextView
     private var proximoLembrete = 0L
+    /** 2.12: resumo de uso para o painel da Nervia (somado aqui, enviado a cada 30 min). */
+    private val telemetria by lazy { Telemetria(this, Telemetria.destino ?: BuildConfig.SUPABASE_URL, BuildConfig.SUPABASE_CHAVE) }
     /** 2.10: vigia do canal ao vivo (reconecta quando a imagem para). */
     private val vigia = Vigia()
     /** Lista nova baixada em segundo plano enquanto a pessoa assiste em tela cheia: aplica ao abrir a lista. */
@@ -208,6 +213,8 @@ class MainActivity : ComponentActivity() {
         super.onStop()
         salvarProgresso()
         parado = true
+        telemetria.guardar()
+        enviarUso()
         h.removeCallbacks(tentarDeNovo)
         player.stop()
     }
@@ -434,6 +441,8 @@ class MainActivity : ComponentActivity() {
             h.postDelayed(this, 2000)
             val agora = System.currentTimeMillis()
             val c = atual
+            if (c != null && !parado && player.isPlaying) uso(c).let { (n, g) -> telemetria.tocando(c.tipo, n, g, 2) }
+            if (!parado && catalogo != null && telemetria.hora(forcar = false)) enviarUso()
             if (c == null || c.tipo != Tipo.AO_VIVO || parado || player.playerError != null) { vigia.reiniciar(agora); return }
             val q = player.videoDecoderCounters?.let {
                 it.ensureUpdated()
@@ -448,6 +457,47 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    /** Nome e grupo para o resumo de uso: episódio conta pela série. */
+    private fun uso(c: Item): Pair<String, String> {
+        val serie = c.pai?.let { porSerie[it] }
+        return if (serie != null) serie.nome to serie.grupo else c.nome to c.grupo
+    }
+
+    /** 2.12: manda o resumo de uso (fora da tela; falhou = vai no próximo). */
+    private fun enviarUso() {
+        val info = infoUso()
+        rede.execute { telemetria.enviar(info) }
+    }
+
+    private fun infoUso(): JSONObject {
+        val x = repo.xtream
+        val k = catalogo?.conta
+        val l = JSONObject().put("tipo", if (x != null) "xtream" else "m3u")
+            .put("servidor", x?.endereco ?: repo.urlLista?.substringBefore("?")?.substringAfter("://")?.substringBefore("/") ?: "")
+            .put("usuario", if (x != null) repo.usuario else "")
+            .put("canais", porAba[Aba.TV]?.size ?: 0).put("filmes", porAba[Aba.FILMES]?.size ?: 0).put("series", porAba[Aba.SERIES]?.size ?: 0)
+        k?.status?.let { l.put("status", it) }
+        k?.validade?.let { l.put("validade", it) }
+        k?.conexoes?.let { l.put("telas", it) }
+        k?.ativas?.let { l.put("telas_uso", it) }
+        val o = JSONObject().put("versao", versao()).put("codigo", codigoVersao()).put("lista", l)
+            .put("problemas", JSONArray(eventos().take(12)))
+        val c = atual
+        if (c != null && !parado && player.playWhenReady) {
+            val (n, g) = uso(c)
+            o.put("assistindo", JSONObject().put("nome", n).put("grupo", g).put("desde", inicioAtual)
+                .put("tipo", when (c.tipo) { Tipo.AO_VIVO -> "vivo"; Tipo.FILME -> "filme"; Tipo.SERIE -> "serie" }))
+        }
+        return o
+    }
+
+    private var inicioAtual = 0L
+
+    private fun codigoVersao(): Long = try {
+        val i = packageManager.getPackageInfo(packageName, 0)
+        if (Build.VERSION.SDK_INT >= 28) i.longVersionCode else @Suppress("DEPRECATION") i.versionCode.toLong()
+    } catch (_: Exception) { 0 }
 
     /** 2.10: registro dos problemas do vídeo (últimos 30), mostrado em Ajustes. */
     private fun anotar(msg: String) {
@@ -975,6 +1025,7 @@ class MainActivity : ComponentActivity() {
         sequencia = seq.ifEmpty { listOf(c) }
         voltarPara = null
         repo.ultimoCanal = c.url
+        if (anterior != c) { uso(c).let { (n, g) -> telemetria.abriu(c.tipo, n, g) }; inicioAtual = System.currentTimeMillis() }
         tentativas = 0
         mimeForcado = null
         iniciar(c)
@@ -996,6 +1047,7 @@ class MainActivity : ComponentActivity() {
         atual = c
         sequencia = seq.ifEmpty { listOf(c) }
         voltarPara = de
+        uso(c).let { (n, g) -> telemetria.abriu(c.tipo, n, g) }; inicioAtual = System.currentTimeMillis()
         tentativas = 0
         mimeForcado = null
         if (c.pai != null && c.id != null) repo.marcarSerie(c.pai, c.temporada, c.id)

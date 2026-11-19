@@ -6,6 +6,12 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+// 2.12: endereço do Supabase e chave publicável, os mesmos do site (site/config.js), para o resumo de uso (nv_sinal)
+val configJs = rootProject.file("../site/config.js").readText()
+fun lerConfig(nome: String): String =
+    Regex("""$nome\s*:\s*["']([^"']+)["']""").find(configJs)?.groupValues?.get(1)
+        ?: throw GradleException("$nome não encontrado em site/config.js")
+
 // Assinatura própria: iptv-tv/assinatura.properties (fora do git; mesmas chaves do midia-tv). Sem ele, chave de depuração.
 val assinatura = Properties().apply {
     val f = rootProject.file("assinatura.properties")
@@ -26,9 +32,12 @@ android {
         applicationId = "app.iptv.player"
         minSdk = 24          // Android 7.0
         targetSdk = 36
-        versionCode = 13
-        versionName = "2.11"
+        versionCode = 14
+        versionName = "2.12"
+        buildConfigField("String", "SUPABASE_URL", "\"${lerConfig("SUPABASE_URL")}\"")
+        buildConfigField("String", "SUPABASE_CHAVE", "\"${lerConfig("SUPABASE_ANON_KEY")}\"")
     }
+    buildFeatures { buildConfig = true }
 
     signingConfigs {
         if (assinatura.isNotEmpty()) {

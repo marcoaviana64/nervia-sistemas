@@ -141,7 +141,7 @@ end $$;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
 select pg_temp.ok((select count(*) = 0 from apps), 'login sem app liberado não vê apps');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
-select pg_temp.ok((select count(*) = 15 from apps), 'admin vê todos os apps, inclusive inativos');
+select pg_temp.ok((select count(*) = 16 from apps), 'admin vê todos os apps, inclusive inativos');
 insert into app_acessos values ('00000000-0000-0000-0000-00000000000c', 'chamados');
 update apps set ativo = false where id = 'chamados';
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
@@ -3535,7 +3535,7 @@ set role authenticated;
 select prop_acao((select v::bigint from prop_ids where k = 'p2'), 'novo_codigo');
 reset role;
 select pg_temp.ok((select prop_ler(c.link, c.codigo) ->> 'erro' like 'Código incorreto%' from prop_cred c), 'propostas: novo código invalida o anterior');
-update prop_propostas set valida_ate = current_date - 1 where id = (select v::bigint from prop_ids where k = 'p2');
+update prop_propostas set valida_ate = current_date - 2 where id = (select v::bigint from prop_ids where k = 'p2');
 select pg_temp.ok((select (prop_ler(link, codigo) -> 'proposta' ->> 'vencida')::boolean and prop_responder(link, codigo, 'aprovar', 'Ana') ->> 'erro' like '%venceu%'
   from prop_propostas where id = (select v::bigint from prop_ids where k = 'p2')), 'propostas: vencida abre só para leitura');
 -- vitrine pública
@@ -3544,5 +3544,48 @@ select pg_temp.ok((select count(*) > 0 from apps_vitrine_publica()) and not exis
   and exists (select 1 from apps_vitrine_publica() where id = 'site-negocios'), 'vitrine pública: anônimo vê os produtos fora de "oculto"');
 reset role;
 reset request.headers;
+reset request.jwt.claim.sub;
+-- ================================================================ NVPlayer (nv_): resumo de uso vindo do app
+set role anon;
+set request.headers = '{"x-forwarded-for":"200.1.2.3","cf-ipcountry":"BR"}';
+select pg_temp.ok((select (nv_sinal(jsonb_build_object('id', 'nao-e-uuid')) ->> 'ok')::boolean) = false, 'nvplayer: id inválido é recusado');
+select pg_temp.ok((select (nv_sinal(jsonb_build_object(
+  'id', '11111111-2222-3333-4444-555555555555', 'modelo', 'Amazon AFTKM', 'android', '11', 'versao', '2.12', 'codigo', 14,
+  'lista', jsonb_build_object('tipo', 'xtream', 'servidor', 'http://p.exemplo.gy', 'usuario', 'marco', 'status', 'Active',
+                              'validade', (extract(epoch from now() + interval '20 hours') * 1000)::bigint, 'telas', '2', 'canais', 1500),
+  'assistindo', jsonb_build_object('nome', 'Globo RJ', 'tipo', 'vivo', 'grupo', 'Abertos', 'desde', (extract(epoch from now()) * 1000)::bigint),
+  'problemas', jsonb_build_array('19/11 10:00  Globo RJ: a imagem parou; reconectado sozinho'),
+  'sessoes', jsonb_build_array(
+     jsonb_build_object('dia', (now() at time zone 'America/Sao_Paulo')::date, 'tipo', 'vivo', 'nome', 'Globo RJ', 'grupo', 'Abertos', 's', 1800, 'vezes', 2),
+     jsonb_build_object('dia', (now() at time zone 'America/Sao_Paulo')::date, 'tipo', 'filme', 'nome', 'Filme X', 's', 5400),
+     jsonb_build_object('dia', '2001-01-01', 'tipo', 'vivo', 'nome', 'Velho', 's', 100),
+     jsonb_build_object('dia', (now() at time zone 'America/Sao_Paulo')::date, 'tipo', 'outro', 'nome', 'X', 's', 100))
+)) ->> 'gravados')::int = 2), 'nvplayer: grava o resumo e ignora dia antigo e tipo estranho');
+select pg_temp.ok((select (nv_sinal(jsonb_build_object('id', '11111111-2222-3333-4444-555555555555')) ->> 'cedo')::boolean), 'nvplayer: 1 resumo a cada 20 s por aparelho');
+select pg_temp.ok(not exists (select 1 from information_schema.role_table_grants where grantee = 'anon' and table_name like 'nv\_%'), 'nvplayer: anônimo não lê nem grava as tabelas');
+reset role;
+reset request.headers;
+update nv_aparelhos set ultimo_sinal = now() - interval '1 minute';
+set role anon;
+set request.headers = '{"x-forwarded-for":"200.1.2.3"}';
+select nv_sinal(jsonb_build_object('id', '11111111-2222-3333-4444-555555555555',
+  'sessoes', jsonb_build_array(jsonb_build_object('dia', (now() at time zone 'America/Sao_Paulo')::date, 'tipo', 'vivo', 'nome', 'Globo RJ', 's', 600))));
+reset role;
+select pg_temp.ok((select segundos = 2400 and vezes = 3 from nv_assistido where nome = 'Globo RJ'), 'nvplayer: o mesmo canal no mesmo dia soma');
+reset request.headers;
+select pg_temp.ok((select ip = '200.1.2.3' and lista_usuario is null from nv_aparelhos), 'nvplayer: IP gravado; resumo sem lista limpa os dados da lista');
+-- leitura: só a equipe Nervia
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+set role authenticated;
+select pg_temp.ok((select count(*) = 0 from nv_aparelhos) and (select count(*) = 0 from nv_assistido), 'nvplayer: cliente não vê nada');
+select pg_temp.erro($$select nv_aparelho_apelido('11111111-2222-3333-4444-555555555555', 'TV sala')$$, 'Somente a equipe', 'nvplayer: cliente não renomeia');
+reset role;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+set role authenticated;
+select nv_aparelho_apelido('11111111-2222-3333-4444-555555555555', 'TV sala');
+select pg_temp.ok((select apelido = 'TV sala' from nv_aparelhos) and (select count(*) = 2 from nv_assistido), 'nvplayer: equipe Nervia lê e renomeia');
+select nv_aparelho_excluir('11111111-2222-3333-4444-555555555555');
+reset role;
+select pg_temp.ok(not exists (select 1 from nv_assistido) and exists (select 1 from auditoria where acao = 'nvplayer_aparelho_excluido'), 'nvplayer: excluir leva o histórico e fica na auditoria');
 reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'
