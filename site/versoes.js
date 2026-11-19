@@ -6,6 +6,7 @@
 // e o que mudou em linguagem do cliente; a mesma linha, com a data, no VERSOES.md. A chave é o id do app (tabela apps).
 window.NERVIA_VERSOES = {
   "notas": [
+    ["1.10", "Primeira carga das NFS-e mais rápida: empresa que emite muitas notas é baixada a cada 10 minutos até alcançar o dia de hoje, e não só de hora em hora."],
     ["1.9", "Avisos por e-mail: resumo diário das notas novas (você escolhe se quer receber) e aviso quando o certificado A1 está perto de vencer."],
     ["1.8", "Baixar XMLs (.zip): os XMLs das notas marcadas ou, sem marcação, de toda a lista filtrada (período, tipo, fornecedor), num arquivo só."],
     ["1.7", "Recuperar NF-e anteriores: traz as NF-e dos últimos 90 dias que outro sistema da empresa já tinha baixado."],

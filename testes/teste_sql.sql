@@ -3850,4 +3850,21 @@ reset role;
 select pg_temp.ok((select atualizar is null from mi_telas where id = '41000000-0000-0000-0000-0000000000c1')
   and (select count(*) = 2 from auditoria where acao in ('midia_app_atualizacao_pedida', 'midia_app_atualizacao_cancelada')), 'atualizar app: cancelar e auditoria');
 reset request.jwt.claim.sub;
+-- ---------------------------------------------------------------- Buscador 1.10: carga de NFS-e (nf_nfse_atrasadas)
+reset role;
+reset request.jwt.claim.sub;
+update nf_empresas set cert_secret_id = gen_random_uuid(), busca_automatica = true, ativo = true, cert_validade = now() + interval '1 year' where cnpj in ('77777777000177', '77777777000178');
+insert into nf_log (cnpj, origem, mensagem) values
+  ('77777777000177', 'NFSE', 'Baixado até o NSU 550; o restante continua na próxima busca. {}'),
+  ('77777777000178', 'NFSE', 'Baixado até o NSU 90; o restante continua na próxima busca. {}'),
+  ('77777777000178', 'NFSE', 'Sincronização concluída. {}');
+select pg_temp.ok('77777777000177' = any(nf_nfse_atrasadas()) and not '77777777000178' = any(nf_nfse_atrasadas()),
+  'carga NFS-e: só a empresa cuja última busca parou no meio');
+do $$ begin
+  set local role authenticated;
+  perform nf_nfse_atrasadas();
+  raise exception 'devia recusar';
+exception when insufficient_privilege then null;
+end $$;
+select pg_temp.ok(true, 'carga NFS-e: tela não chama a lista');
 \echo 'TODOS OS TESTES SQL OK'
