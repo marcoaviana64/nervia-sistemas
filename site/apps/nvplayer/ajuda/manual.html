@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manual · NVPlayer — uso | Nervia</title>
+<link rel="stylesheet" href="/ajuda/ajuda.css">
+</head>
+<body>
+<div class="pagina">
+  <div class="cab">
+    <img src="/img/nervia-logo.png" alt="Nervia">
+    <div><div class="t">NVPlayer — uso · Manual de utilização</div><div class="s">Painel só da equipe Nervia</div></div>
+    <div class="acoes"><a href="cartao.html">Cartão rápido</a><button onclick="print()">Imprimir</button></div>
+  </div>
+
+  <h2>Como os dados chegam</h2>
+  <p>O NVPlayer (a partir da versão 2.12) soma no próprio aparelho o tempo de cada canal, filme e série e manda um resumo pequeno (poucos KB) ao abrir o app, a cada 30 minutos enquanto está aberto e ao fechar. Se a internet falhar, o resumo fica guardado no aparelho e vai no próximo envio. Não há envio a cada troca de canal, para não pesar na Plataforma.</p>
+  <p>Chegam: modelo do aparelho e versão do Android, versão do app, IP e país, endereço do servidor e usuário da lista, situação, validade e telas da assinatura, quantidade de canais/filmes/séries, o que está passando, os últimos problemas de vídeo e o tempo assistido por item e por dia. <b>A senha da lista nunca é enviada.</b> O app avisa isso em Ajustes.</p>
+
+  <h2>Tarefas</h2>
+  <ol>
+    <li><b>Ver quem está usando agora:</b> aba Aparelhos, coluna "Agora". Verde = assistindo; amarelo = app aberto sem vídeo; cinza = fechado.</li>
+    <li><b>Dar nome aos aparelhos:</b> botão Apelido na linha do aparelho.</li>
+    <li><b>Conferir validades:</b> coluna Validade e o número "listas vencendo em 10 dias" no topo. O próprio app avisa a pessoa um dia antes.</li>
+    <li><b>Mais assistidos:</b> escolha o período (e, se quiser, um aparelho) e abra a aba Mais assistidos.</li>
+    <li><b>Investigar travamentos:</b> aba Problemas. O mesmo canal sempre = problema na lista; vários canais no mesmo horário = internet do local.</li>
+    <li><b>App desatualizado:</b> a pessoa abre o app (aparece o aviso de versão nova) ou vai em Ajustes → Procurar atualização.</li>
+  </ol>
+
+  <h2>Mensagens</h2>
+  <table>
+    <tr><td>Nenhum aparelho mandou resumo ainda</td><td>Os aparelhos aparecem quando abrirem o NVPlayer 2.12 ou mais novo.</td></tr>
+    <tr><td>Painel só da equipe Nervia</td><td>O login não é da equipe (admin).</td></tr>
+    <tr><td>Somente a equipe Nervia</td><td>Renomear e excluir são só da equipe.</td></tr>
+  </table>
+  <p>O histórico de uso fica guardado por um ano. Excluir um aparelho apaga o histórico dele e fica registrado na auditoria.</p>
+  <div class="rodape">Nervia Tecnologia · Manual do NVPlayer — uso · atualizado em 19/11/2026</div>
+</div>
+<script src="/marca-dagua.js" data-tipo="doc"></script>
+</body>
+</html>

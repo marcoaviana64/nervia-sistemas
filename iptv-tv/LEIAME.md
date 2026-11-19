@@ -92,6 +92,14 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
   (`res/layout/video_cheio.xml`, SurfaceView: o vídeo vai direto para a tela, mais leve e sem depender da tela do app)
   e `videoPrevia` (TextureView, só na caixa da prévia, por causa dos cantos arredondados); `posicionarVideo` troca o
   player de um para o outro com `PlayerView.switchTargetView`.
+- **Resumo de uso para o painel da Nervia** (2.12, pedido do Marco em 19/11/2026; painel em `site/apps/nvplayer/`,
+  tabelas `nv_`, migração `..._nvplayer.sql`): `Telemetria.kt` soma no aparelho o tempo de cada canal/filme/série por dia
+  (tique de 2 s do vigia, só com o vídeo tocando; episódio conta pela série) e manda UM POST pequeno para a rpc
+  `nv_sinal` (chave publicável de `site/config.js`, lida na compilação como no `midia-tv/`) ao fechar e a cada 30 min
+  com o app aberto (o 1º depois de a lista carregar). Vai: id do aparelho (uuid guardado), modelo, Android, versão,
+  servidor e usuário da lista (NUNCA a senha), situação/validade/telas, quantidades, o que está passando e os últimos
+  problemas de vídeo. Falhou = fica guardado (preferências `telemetria`) e vai no próximo. Aviso em Ajustes. Nos
+  testes, `Telemetria.destino` aponta para o servidor imitado (nunca o Supabase de verdade).
 
 ## Ainda não tem (ideias)
 Grade de programação de todos os canais ao mesmo tempo, assistir programa que já passou (catch-up), gravação.
