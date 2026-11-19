@@ -88,7 +88,12 @@ with sync_playwright() as p:
     k = fp.locator("#kpis").inner_text()
     assert "R$" in k and fp.locator("#tbForn tr").count() >= 9, k
     pg.screenshot(path=f"{SAIDA}/demo_painel.png")
-    assert fp.locator("#fPapel").is_hidden(), "visão Vendas desligada"
+    assert fp.locator("#fPapel").is_visible(), "visão Vendas / Compras × Vendas"
+    fp.locator('#fPapel button[data-v="emitida"]').click(); pg.wait_for_timeout(300)
+    assert "NFS-e (serviços) emitidas" in fp.locator("#aviso").inner_text() and "LOJA CENTRO VAREJO" in fp.locator("#tbForn").inner_text()
+    fp.locator('#fPapel button[data-v="resultado"]').click(); pg.wait_for_timeout(300)
+    assert "diferença" in fp.locator("#kpis").inner_text().lower() and fp.locator("#tbRes tr").count() >= 12
+    fp.locator('#fPapel button[data-v="recebida"]').click(); pg.wait_for_timeout(300)
     fp.locator("#fEmpresa").select_option("12345678000271"); pg.wait_for_timeout(500)
     assert "TEXTIL HORIZONTE" not in fp.locator("#tbForn").inner_text()  # filial não compra da têxtil
 

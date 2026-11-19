@@ -3610,4 +3610,75 @@ set role anon;
 select pg_temp.ok((nv_servidores_publicos() -> 'servidores' ->> 0) = 'http://servidor-a.gy:8080', 'nvplayer servidores: o app passa a ver a lista nova');
 reset role;
 reset request.jwt.claim.sub;
+-- ---------------------------------------------------------------- Buscador 1.9: avisos por e-mail (nf_avisos)
+reset role;
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000a0001', 'av-cliente@x.com'),
+  ('00000000-0000-0000-0000-0000000a0002', 'av-sem-app@x.com'),
+  ('00000000-0000-0000-0000-0000000a0003', 'av-desligou@x.com');
+insert into nf_empresas (cnpj, nome, cert_validade) values
+  ('77777777000177', 'Aviso Ltda', now() + interval '14 days'),
+  ('77777777000178', 'Aviso Longe', now() + interval '200 days');
+insert into nf_acessos values ('00000000-0000-0000-0000-0000000a0001', '77777777000177'),
+  ('00000000-0000-0000-0000-0000000a0002', '77777777000177'), ('00000000-0000-0000-0000-0000000a0003', '77777777000177');
+insert into app_acessos values ('00000000-0000-0000-0000-0000000a0001', 'notas'), ('00000000-0000-0000-0000-0000000a0003', 'painel-nf');
+
+set role authenticated;
+select pg_temp.como('00000000-0000-0000-0000-0000000a0001');
+select nf_avisos_salvar(null, true, true);
+select pg_temp.ok((select resumo and certificado and resumo_ate is not null from nf_avisos where user_id = '00000000-0000-0000-0000-0000000a0001'), 'avisos: cliente liga o próprio resumo');
+do $$ begin
+  perform nf_avisos_salvar('00000000-0000-0000-0000-0000000a0003', true, true);
+  raise exception 'devia recusar';
+exception when others then
+  if sqlerrm not like 'Somente a equipe Nervia%' then raise; end if;
+end $$;
+select pg_temp.ok(true, 'avisos: cliente não altera os avisos de outro login');
+select pg_temp.ok((select count(*) = 1 from nf_avisos), 'avisos: cliente lê só os próprios avisos');
+select pg_temp.como('00000000-0000-0000-0000-0000000a0003');
+select nf_avisos_salvar(null, false, false);
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+select nf_avisos_salvar('00000000-0000-0000-0000-0000000a0002', true, true);
+select pg_temp.ok((select count(*) >= 3 from nf_avisos), 'avisos: equipe Nervia lê e altera os de todos');
+reset role;
+select pg_temp.ok((select count(*) = 3 from auditoria where acao = 'nf_avisos_alterados'), 'avisos: cada mudança grava auditoria');
+do $$ begin
+  set local role authenticated;
+  perform nf_avisos_pendentes();
+  raise exception 'devia recusar';
+exception when insufficient_privilege then null;
+end $$;
+select pg_temp.ok(true, 'avisos: tela não lê a fila');
+
+-- notas novas depois de ligar o resumo
+set role service_role;
+select nf_gravar_nota('77777777000177', 'NFE', '{"chave":"AV1","emit_cnpj":"999","emit_nome":"FORN <A>","data_emissao":"2026-11-18T10:00:00-03:00","valor":100,"completo":false,"numero":"5"}', 1, null);
+select nf_gravar_nota('77777777000177', 'NFSE', '{"chave":"AV2","emit_cnpj":"77777777000177","emit_nome":"AVISO","dest_nome":"CLIENTE B","data_emissao":"2026-11-18T11:00:00-03:00","valor":50,"completo":true,"numero":"9"}', 2, null);
+select nf_gravar_nota('77777777000178', 'NFSE', '{"chave":"AV3","emit_cnpj":"1","emit_nome":"OUTRA","valor":7,"completo":true}', 3, null);
+create temp table av_p as select nf_avisos_pendentes(now() + interval '1 minute') j;
+grant select on av_p to service_role;
+select pg_temp.ok((select (r ->> 'total')::int = 2 and jsonb_array_length(r -> 'notas') = 2 and jsonb_array_length(r -> 'totais') = 2
+   from av_p, jsonb_array_elements(j -> 'resumos') r where r ->> 'email' = 'av-cliente@x.com'), 'avisos: resumo traz as notas novas da empresa do login (recebida e emitida)');
+select pg_temp.ok((select (x ->> 'parte') = 'CLIENTE B' from av_p, jsonb_array_elements(j -> 'resumos') r, jsonb_array_elements(r -> 'notas') x
+   where r ->> 'email' = 'av-cliente@x.com' and x ->> 'papel' = 'emitida'), 'avisos: na emitida, a outra parte é o cliente');
+select pg_temp.ok(not exists (select 1 from av_p, jsonb_array_elements(j -> 'resumos') r where r ->> 'email' in ('av-sem-app@x.com', 'av-desligou@x.com')),
+  'avisos: sem o Buscador/Painel liberado ou com o resumo desligado, não recebe');
+select pg_temp.ok(not exists (select 1 from av_p, jsonb_array_elements(j -> 'resumos') r, jsonb_array_elements(r -> 'notas') x
+   where r ->> 'email' = 'av-cliente@x.com' and x ->> 'cnpj' = '77777777000178'), 'avisos: empresa que o login não vê fica fora');
+select pg_temp.ok((select (c ->> 'etapa')::int = 15 and (c ->> 'faltam')::int = 14 and c -> 'emails' ? 'av-cliente@x.com' and c -> 'emails' ? 'marco@nervia.com.br'
+     and not c -> 'emails' ? 'av-desligou@x.com' and not c -> 'emails' ? 'av-sem-app@x.com'
+   from av_p, jsonb_array_elements(j -> 'certificados') c where c ->> 'cnpj' = '77777777000177'), 'avisos: certificado com 14 dias = etapa 15, para a Nervia e quem vê (menos quem desligou)');
+select pg_temp.ok(not exists (select 1 from av_p, jsonb_array_elements(j -> 'certificados') c where c ->> 'cnpj' = '77777777000178'), 'avisos: certificado longe do vencimento não avisa');
+select nf_resumo_marcar('00000000-0000-0000-0000-0000000a0001', now() + interval '1 minute');
+select nf_cert_aviso_marcar('77777777000177', (select cert_validade from nf_empresas where cnpj = '77777777000177'), 15);
+select pg_temp.ok(not exists (select 1 from jsonb_array_elements(nf_avisos_pendentes(now() + interval '1 minute') -> 'resumos') r where r ->> 'email' = 'av-cliente@x.com'),
+  'avisos: depois de marcado, o resumo não repete');
+select pg_temp.ok(not exists (select 1 from jsonb_array_elements(nf_avisos_pendentes(now() + interval '1 minute') -> 'certificados') c where c ->> 'cnpj' = '77777777000177'),
+  'avisos: etapa do certificado já avisada não repete');
+select pg_temp.ok(exists (select 1 from jsonb_array_elements(nf_avisos_pendentes(now() + interval '8 days') -> 'certificados') c
+   where c ->> 'cnpj' = '77777777000177' and (c ->> 'etapa')::int = 7), 'avisos: na semana do vencimento, nova etapa (7 dias)');
+select pg_temp.ok(exists (select 1 from jsonb_array_elements(nf_avisos_pendentes(now() + interval '15 days') -> 'certificados') c
+   where c ->> 'cnpj' = '77777777000177' and (c ->> 'etapa')::int = 0 and (c ->> 'faltam')::int = 0), 'avisos: vencido = etapa 0');
+reset role;
+reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'
