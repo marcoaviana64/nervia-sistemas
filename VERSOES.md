@@ -182,4 +182,5 @@ Ao publicar mudança num app: linha nova no topo do app aqui (com a data) e em `
 
 | Versão | Data | O que mudou |
 |---|---|---|
+| 1.1 | 19/11/2026 | Nova aba Servidores: a equipe Nervia escolhe por aqui o endereço de servidor que o NVPlayer usa (tabela `nv_servidores`, rpc `nv_servidores_salvar`); o app lê a lista do painel em vez do `nvplayer.json`, e a TV já ligada troca pelo failover quando o endereço salvo para de responder. |
 | 1.0 | 19/11/2026 | Lançamento: painel de uso do NVPlayer, só para a equipe Nervia — aparelhos, o que está passando, lista e validade, canais, filmes e séries mais assistidos, horas por dia e problemas de vídeo de cada aparelho. |

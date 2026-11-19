@@ -172,9 +172,9 @@ class MainActivity : ComponentActivity() {
             !repo.configurado() -> mostrarConfig()
             else -> carregarCatalogo(baixar = false, silencioso = false)
         }
-        // 2.6: confere no site se há versão nova (e o endereço atual do servidor)
+        // 2.6: confere a versão nova (nvplayer.json) e a lista de servidores (painel)
         rede.execute {
-            repo.atualizarServidores()
+            repo.atualizarDoSite()
             runOnUiThread { if (!isFinishing && !isDestroyed) procurarAtualizacao(automatico = true) }
         }
     }
@@ -1383,7 +1383,7 @@ class MainActivity : ComponentActivity() {
             "versao" -> {
                 avisar("Procurando atualização…")
                 rede.execute {
-                    repo.atualizarServidores()
+                    repo.atualizarDoSite()
                     runOnUiThread { avisar(null); procurarAtualizacao(automatico = false); montarEntradas() }
                 }
             }

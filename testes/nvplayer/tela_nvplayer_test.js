@@ -27,20 +27,22 @@ const TABELAS = `const H = new Date().toLocaleDateString("en-CA", { timeZone: "A
       { aparelho_id: "a1", dia: diaMenos(1), tipo: "vivo", nome: "SporTV FHD", grupo: "Esportes", segundos: 3600, vezes: 2 },
       { aparelho_id: "a2", dia: diaMenos(2), tipo: "filme", nome: "Corrida Final", grupo: "Ação", segundos: 6000, vezes: 1 },
       { aparelho_id: "a1", dia: diaMenos(3), tipo: "serie", nome: "A Família", grupo: "Drama", segundos: 5400, vezes: 4 },
-      { aparelho_id: "a1", dia: diaMenos(40), tipo: "vivo", nome: "Canal Antigo", grupo: "Abertos", segundos: 9999, vezes: 1 }],`;
+      { aparelho_id: "a1", dia: diaMenos(40), tipo: "vivo", nome: "Canal Antigo", grupo: "Abertos", segundos: 9999, vezes: 1 }],
+    nv_servidores: [{ ordem: 1, endereco: "http://p.urldata.gy" }],`;
 const RPC = `
   window.__rpc = async (nome, args) => {
     window.__chamadas.push(["rpc:" + nome, args]);
     if (papel !== "admin") return { data: null, error: { message: "Somente a equipe Nervia." } };
     if (nome === "nv_aparelho_apelido") { db.nv_aparelhos.find((a) => a.id === args.p_id).apelido = args.p_apelido; return { data: null, error: null }; }
     if (nome === "nv_aparelho_excluir") { db.nv_aparelhos = db.nv_aparelhos.filter((a) => a.id !== args.p_id); db.nv_assistido = db.nv_assistido.filter((a) => a.aparelho_id !== args.p_id); return { data: null, error: null }; }
+    if (nome === "nv_servidores_salvar") { const l = (args.p_lista || []).map((e) => e.trim()).filter(Boolean).map((e) => e.startsWith("http") ? e : "http://" + e).map((e) => e.replace(/[/]+$/, "")); const u = [...new Set(l)]; if (!u.length) return { data: null, error: { message: "Informe ao menos um endereço de servidor." } }; db.nv_servidores = u.map((e, i) => ({ ordem: i + 1, endereco: e })); return { data: u, error: null }; }
     return { data: null, error: { message: "rpc desconhecida " + nome } };
   };`;
 for (const t of ['const db = {', 'from: consulta,', 'window.__chamadas = [];', 'tel_arquivos: () => papel === "admin" };'])
   if (!FALSO.includes(t)) throw new Error('supabase_falso.js mudou: ' + t);
 FALSO = FALSO.replace('const db = {', TABELAS).replace('window.__chamadas = [];', 'window.__chamadas = [];' + RPC)
   .replace('from: consulta,', 'from: consulta, rpc: (n, a) => window.__rpc(n, a),')
-  .replace('tel_arquivos: () => papel === "admin" };', 'tel_arquivos: () => papel === "admin", nv_aparelhos: () => papel === "admin", nv_assistido: () => papel === "admin" };')
+  .replace('tel_arquivos: () => papel === "admin" };', 'tel_arquivos: () => papel === "admin", nv_aparelhos: () => papel === "admin", nv_assistido: () => papel === "admin", nv_servidores: () => papel === "admin" };')
   .replace('const t = db[tabela];', 'const t = db[tabela] || [];');
 const CONFIG = 'window.NERVIA_CONFIG={SUPABASE_URL:"https://teste.supabase.co",SUPABASE_ANON_KEY:"x"};';
 
@@ -99,6 +101,20 @@ const ok = (c, nome) => { console.log((c ? 'ok  ' : 'FALHOU ') + nome); if (!c) 
   await pg.click('button[data-exc="a2"]');
   await pg.waitForFunction(() => !document.querySelector('#tela').innerText.includes('TV do quarto'));
   ok(true, 'excluir aparelho');
+
+  // Servidores: editar, adicionar e salvar
+  await pg.click('.aba[data-v="servidores"]');
+  await pg.waitForSelector('[data-srv="0"]');
+  ok((await pg.inputValue('[data-srv="0"]')) === 'http://p.urldata.gy', 'mostra o servidor atual');
+  await pg.fill('[data-srv="0"]', 'http://p.urldata.gy');
+  await pg.click('#btAddSrv');
+  await pg.fill('[data-srv="1"]', 'reserva.exemplo.gy:8080');
+  await pg.click('#btSalvarSrv');
+  await pg.waitForFunction(() => /Servidores salvos/.test(document.querySelector('#msg').innerText));
+  ok(true, 'salva a lista de servidores');
+  await pg.click('.aba[data-v="servidores"]');
+  await pg.waitForSelector('[data-srv="1"]');
+  ok((await pg.inputValue('[data-srv="1"]')) === 'http://reserva.exemplo.gy:8080', 'completa o http:// ao salvar e guarda o 2º');
 
   // cliente: não vê o painel
   const pc = await nav.newPage();

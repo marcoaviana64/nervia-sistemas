@@ -117,6 +117,7 @@ class TelaTest {
                             caminho == "/lista.m3u" -> m3u.toByteArray()
                             caminho == "/nvplayer.json" -> publicados?.toByteArray()
                             caminho == "/rest/v1/rpc/nv_sinal" -> """{"ok":true}""".toByteArray()
+                            caminho == "/rest/v1/rpc/nv_servidores_publicos" -> publicados?.toByteArray()
                             caminho.startsWith("/img/") -> capa(caminho.removePrefix("/img/").substringBefore('.').toInt())
                             else -> null
                         }
@@ -136,8 +137,10 @@ class TelaTest {
     @Volatile private var publicados: String? = null
 
     @org.junit.Before fun site() {
-        Repositorio.urlServidores = "http://127.0.0.1:${servidor.localPort}/nvplayer.json"
-        Telemetria.destino = "http://127.0.0.1:${servidor.localPort}"   // nunca falar com o Supabase de verdade nos testes
+        val base = "http://127.0.0.1:${servidor.localPort}"
+        Repositorio.urlServidores = "$base/rest/v1/rpc/nv_servidores_publicos"   // 2.15: lista vem do painel (Supabase)
+        Repositorio.urlVersao = "$base/nvplayer.json"                            // versão nova continua no nvplayer.json
+        Telemetria.destino = base                                                // nunca falar com o Supabase de verdade nos testes
     }
 
     @After fun parar() = servidor.close()

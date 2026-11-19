@@ -3,9 +3,9 @@
     "http://p.urldata.gy"
   ],
   "versao": {
-    "codigo": 16,
-    "nome": "2.14",
+    "codigo": 17,
+    "nome": "2.15",
     "apk": "https://nervia.com.br/nvplayer.apk",
-    "novidades": "A tela de configuração pelo celular agora mostra sempre o endereço de servidor atual que você publica, caso o provedor troque."
+    "novidades": "O servidor do app agora é escolhido no painel: a Nervia troca o endereço por lá e os aparelhos pegam sozinhos."
   }
 }
