@@ -86,6 +86,7 @@ class MainActivity : Activity() {
     private var avisoDownload = ""   // aviso da última rodada com download falhando; continua na tela enquanto tenta de novo
     private var conteudo = ""
     private var nomeTela = ""
+    private var liberadaAte: String? = null   // último dia liberado pelos créditos (vem na playlist; vale também sem internet)
     private var saindoDeProposito = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -201,6 +202,9 @@ class MainActivity : Activity() {
         vitrine.mostrar(listOf(nomeTela, situacao, aviso, "app ${BuildConfig.VERSION_NAME}").filter { it.isNotBlank() }.joinToString(" · "), alerta)
     }
 
+    /** Sem créditos de dias: tela de espera com a mensagem neutra (sem falar em pagamento: a tela é vista pelo público). */
+    private fun mostrarPausada() = mostrarVitrine("pausada (sem dias liberados)", Creditos.MENSAGEM)
+
     private fun mostrarPainel(codigo: String, linha: String, baixo: String) {
         pararReproducao()
         esconderVitrine()
@@ -260,7 +264,9 @@ class MainActivity : Activity() {
     private suspend fun executar(t: String) = coroutineScope {
         val guardada = prefs.getString("playlist", null)?.let { runCatching { Playlist.deJson(JSONObject(it)) }.getOrNull() }
         var intervaloSinal = guardada?.intervaloSinalS ?: 180
-        if (guardada != null) { nomeTela = guardada.tela; atualizarLista(guardada.itens.filter { baixador.pronto(it) }) }
+        liberadaAte = guardada?.liberadaAte
+        if (guardada != null && (guardada.pausada || Creditos.vencida(liberadaAte))) { nomeTela = guardada.tela; mostrarPausada() }
+        else if (guardada != null) { nomeTela = guardada.tela; atualizarLista(guardada.itens.filter { baixador.pronto(it) }) }
         else mostrarVitrine("buscando a playlist…")
 
         val sinal: Job = launch {
@@ -276,13 +282,17 @@ class MainActivity : Activity() {
                     withContext(Dispatchers.IO) { Playlist.deJson(Api.comToken("playlist", t)) }
                 } catch (e: Desvinculada) { throw e } catch (e: Exception) {
                     Log.w(TAG, "playlist: ${e.message}")
-                    if (lista.isEmpty() && atual == null) mostrarVitrine("sem conexão, tentando de novo…")
+                    if (Creditos.vencida(liberadaAte)) mostrarPausada()   // sem internet e passou do último dia liberado
+                    else if (lista.isEmpty() && atual == null) mostrarVitrine("sem conexão, tentando de novo…")
                     delay(60_000); continue
                 }
-                nomeTela = p.tela; intervaloSinal = p.intervaloSinalS
+                nomeTela = p.tela; intervaloSinal = p.intervaloSinalS; liberadaAte = p.liberadaAte
                 if (p.rotacao != rotacao) { prefs.edit { putInt("rotacao", p.rotacao) }; aplicarRotacao(p.rotacao) }
                 prefs.edit { putString("playlist", playlistJson(p)) }
-                if (p.itens.isEmpty()) {
+                if (p.pausada) {
+                    lista = emptyList(); pendente = null
+                    mostrarPausada()
+                } else if (p.itens.isEmpty()) {
                     lista = emptyList(); pendente = null
                     mostrarVitrine(if (p.playlist.isEmpty()) "nenhuma playlist escolhida para esta TV" else "a playlist \"${p.playlist}\" está vazia")
                 } else {
@@ -375,6 +385,7 @@ class MainActivity : Activity() {
         exibicoes.fechar()
         handler.removeCallbacks(proximaImagem)
         pendente?.let { lista = it; pendente = null; indice = 0 }
+        if (Creditos.vencida(liberadaAte)) { mostrarPausada(); return }
         val tocaveis = lista.filter { it.arquivo !in falharamAoTocar && baixador.pronto(it) }
         if (tocaveis.isEmpty()) {
             mostrarVitrine(if (lista.isEmpty()) "aguardando conteúdo" else "nenhum arquivo desta playlist pôde ser exibido neste aparelho")
@@ -500,6 +511,7 @@ class MainActivity : Activity() {
     private fun playlistJson(p: Playlist) = JSONObject()
         .put("tela", p.tela).put("playlist", p.playlist).put("conteudo", p.conteudo).put("chave_api", p.chaveApi)
         .put("intervalo_playlist_s", p.intervaloPlaylistS).put("intervalo_sinal_s", p.intervaloSinalS).put("rotacao", p.rotacao)
+        .put("pausada", p.pausada).put("liberada_ate", p.liberadaAte ?: JSONObject.NULL)
         .put("itens", JSONArray(p.itens.map {
             JSONObject().put("id", it.id).put("nome", it.nome).put("tipo", it.tipo).put("md5", it.md5).put("tamanho", it.tamanho)
                 .put("tempo_s", it.tempoS ?: JSONObject.NULL).put("url", it.url).put("chave_recurso", it.chaveRecurso ?: JSONObject.NULL)

@@ -33,6 +33,8 @@ data class Playlist(
     val intervaloPlaylistS: Int,
     val intervaloSinalS: Int,
     val rotacao: Int,            // graus no sentido horário: 0, 90, 180, 270 (posição da TV, escolhida no painel)
+    val pausada: Boolean = false,       // sem créditos de dias: tela de espera com a mensagem neutra
+    val liberadaAte: String? = null,    // "AAAA-MM-DD": último dia em que pode passar sem falar com a Nervia (null = sem limite)
 ) {
     companion object {
         fun deJson(j: JSONObject): Playlist {
@@ -51,9 +53,20 @@ data class Playlist(
                 intervaloPlaylistS = j.optInt("intervalo_playlist_s", 300).coerceIn(20, 3600),
                 intervaloSinalS = j.optInt("intervalo_sinal_s", 180).coerceIn(60, 3600),
                 rotacao = j.optInt("rotacao", 0).let { if (it in listOf(0, 90, 180, 270)) it else 0 },
+                pausada = j.optBoolean("pausada", false),
+                liberadaAte = j.optString("liberada_ate").takeIf { it.matches(Regex("\\d{4}-\\d{2}-\\d{2}")) },
             )
         }
     }
+}
+
+/** Créditos de dias: a data de hoje em Brasília, no formato da liberada_ate (sem java.time: minSdk 24). */
+object Creditos {
+    const val MENSAGEM = "Esta TV está pausada no momento. Para voltar a exibir, fale com a Nervia."
+    fun hoje(agora: java.util.Date = java.util.Date()): String =
+        java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).apply { timeZone = java.util.TimeZone.getTimeZone("America/Sao_Paulo") }.format(agora)
+    /** Passou do último dia liberado? (sem data = sem limite) */
+    fun vencida(liberadaAte: String?, hoje: String = hoje()): Boolean = liberadaAte != null && hoje > liberadaAte
 }
 
 /** A TV foi desvinculada no painel (o token deixou de valer). */
