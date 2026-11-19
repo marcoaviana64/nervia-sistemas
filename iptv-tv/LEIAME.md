@@ -115,6 +115,16 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
   configuração sempre relê o `nvplayer.json` ao abrir — então o portal mostra o endereço atual se o provedor trocou
   (antes ficava fixo no embutido). A TV já ligada continua trocando sozinha pelo failover (2.5): quando o servidor
   salvo não responde, relê o `nvplayer.json` e passa para o 1º que faz login. Teste `TelaTest.portalMostraServidorDoSite`.
+- **Aba Agenda com aviso de "vai começar"** (2.17, pedido do Marco em 19/11/2026: "um local onde mostra a agenda
+  do dia/semana da programação e que eu possa marcar uma programação para o app avisar que vai começar e, se eu
+  clicar, já me leva para o canal"): nova 4ª orelha **Agenda** (`Aba.AGENDA`) com pílulas por dia (Hoje, Amanhã,
+  data), lista de canais com EPG à esquerda (busca) e a grade do canal escolhido à direita (horário de início +
+  "AGORA" + título). Num programa futuro, "Avisar quando começar" grava um lembrete (`Repositorio.lembretes`,
+  `Lembrete`); a cada 20 s o app confere (`conferirLembretes`) e, 1 min antes, mostra na tela "📺 Vai começar
+  agora" com **Assistir agora** que abre o canal (`avisarLembrete` → `abrirCanalAgenda`). A grade completa vem do
+  XMLTV: login Xtream pelo `xmltv.php` (`Xtream.urlXmltv`, baixado 1×/6 h; nem todo provedor fornece); lista M3U
+  pelo mesmo XMLTV da lista, janela mais larga (`Guia.agenda`/`Guia.cheia`). Só tem os dias que o provedor manda
+  (em geral 1 a 7; mês não existe no dado). Teste `TelaTest.agenda` (xmltv.php imitado, marca o aviso pelo menu).
 - **Guia do canal mais compacto** (2.16, pedido do Marco em 19/11/2026: "na lista de programação abaixo da janela só
   aparece um horário; reduzir para aparecer o máximo possível de programação"): o guia embaixo da prévia (`guiaRica`)
   passou a mostrar uma linha por programa (só o horário de início + título, sem o fim nem a sinopse comprida) e o

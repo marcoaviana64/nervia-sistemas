@@ -2,6 +2,8 @@ package app.iptv.player
 
 import android.content.Context
 import android.util.JsonReader
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 
 /** Configuração da lista, cópia local, favoritos, posição dos filmes e preferências (tudo só no aparelho). */
@@ -135,6 +137,66 @@ class Repositorio(ctx: Context) {
         val agora = if (k in f) { f.remove(k); false } else { f.add(k); true }
         favoritos = f
         return agora
+    }
+
+    // ---------------------------------------------------------------- lembretes da Agenda (2.17)
+
+    private fun chaveLembrete(canal: String, inicio: Long) = "$canal|$inicio"
+
+    /** Lembretes guardados (ordenados por horário de início). */
+    fun lembretes(): List<Lembrete> {
+        val txt = str("lembretes") ?: return emptyList()
+        return try {
+            val a = JSONArray(txt)
+            (0 until a.length()).map { a.getJSONObject(it) }.map {
+                Lembrete(it.optString("canal"), it.optString("nome"), it.optString("url"),
+                    it.optString("titulo"), it.optLong("inicio"), it.optLong("fim"))
+            }.sortedBy { it.inicio }
+        } catch (_: Exception) { emptyList() }
+    }
+
+    private fun salvarLembretes(l: List<Lembrete>) {
+        val a = JSONArray()
+        l.forEach { a.put(JSONObject().put("canal", it.canal).put("nome", it.canalNome).put("url", it.url)
+            .put("titulo", it.titulo).put("inicio", it.inicio).put("fim", it.fim)) }
+        put("lembretes", a.toString())
+    }
+
+    fun temLembrete(canal: String, inicio: Long) = lembretes().any { it.canal == canal && it.inicio == inicio }
+
+    /** Marca/desmarca; devolve true se ficou marcado. */
+    fun alternarLembrete(l: Lembrete): Boolean {
+        val atuais = lembretes().toMutableList()
+        val i = atuais.indexOfFirst { it.canal == l.canal && it.inicio == l.inicio }
+        return if (i >= 0) { atuais.removeAt(i); salvarLembretes(atuais); false }
+        else { atuais.add(l); salvarLembretes(atuais); true }
+    }
+
+    fun removerLembrete(canal: String, inicio: Long) {
+        salvarLembretes(lembretes().filterNot { it.canal == canal && it.inicio == inicio })
+    }
+
+    /** Tira os lembretes já vencidos (fim passou há mais de 1 h). */
+    fun limparLembretesVelhos(agora: Long) {
+        val vivos = lembretes().filter { it.fim > agora - 3_600_000L }
+        if (vivos.size != lembretes().size) salvarLembretes(vivos)
+    }
+
+    fun lembreteAvisado(canal: String, inicio: Long) =
+        prefs.getStringSet("lembretes_avisados", emptySet())!!.contains(chaveLembrete(canal, inicio))
+
+    fun marcarLembreteAvisado(canal: String, inicio: Long) {
+        val s = prefs.getStringSet("lembretes_avisados", emptySet())!!.toMutableSet()
+        s.add(chaveLembrete(canal, inicio))
+        // não deixa crescer sem limite
+        val limpo = if (s.size > 200) s.toList().takeLast(150).toMutableSet() else s
+        prefs.edit().putStringSet("lembretes_avisados", limpo).apply()
+    }
+
+    /** Ao remarcar um lembrete, esquece que já avisou (para poder avisar de novo). */
+    fun limparAvisado(canal: String, inicio: Long) {
+        val s = prefs.getStringSet("lembretes_avisados", emptySet())!!.toMutableSet()
+        if (s.remove(chaveLembrete(canal, inicio))) prefs.edit().putStringSet("lembretes_avisados", s).apply()
     }
 
     // ---------------------------------------------------------------- continuar assistindo

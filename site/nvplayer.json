@@ -3,9 +3,9 @@
     "http://p.urldata.gy"
   ],
   "versao": {
-    "codigo": 18,
-    "nome": "2.16",
+    "codigo": 19,
+    "nome": "2.17",
     "apk": "https://nervia.com.br/nvplayer.apk",
-    "novidades": "A programação do canal embaixo da janela agora mostra vários programas ao mesmo tempo, não só um."
+    "novidades": "Nova aba Agenda: veja a programação por dia, marque um programa para o app avisar quando vai começar e abra o canal direto do aviso."
   }
 }
