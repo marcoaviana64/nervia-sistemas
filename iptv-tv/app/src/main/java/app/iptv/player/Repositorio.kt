@@ -48,15 +48,25 @@ class Repositorio(ctx: Context) {
     /** Servidor que vem preenchido no login: o 1º da lista do site, ou o embutido no app. */
     val servidorPadrao: String get() = servidoresPublicados.firstOrNull() ?: SERVIDOR_PADRAO
 
-    /** Bloqueante. Lê a lista do site; sem internet ou arquivo inválido, devolve a última guardada. */
+    /**
+     * Bloqueante. Lê a lista de servidores que o Marco mantém no painel (Supabase), para o app pegar o endereço
+     * válido sem editar arquivo (2.15). Sem internet ou resposta inválida, devolve a última guardada.
+     */
     fun atualizarServidores(endereco: String = urlServidores): List<String> {
-        val texto = try { Http.texto(endereco) } catch (_: Exception) { null }
+        val texto = try { Http.texto(endereco, mapOf("apikey" to chaveServidores)) } catch (_: Exception) { null }
         val lista = texto?.let { try { lerServidores(it) } catch (_: Exception) { null } }.orEmpty()
         if (lista.isNotEmpty()) put("srv_publicados", lista.joinToString("\n"))
-        // 2.6: o mesmo arquivo diz qual é a versão nova do app (bloco "versao")
-        if (texto != null) try { put("site_versao", org.json.JSONObject(texto).optJSONObject("versao")?.toString()) } catch (_: Exception) {}
         return lista.ifEmpty { servidoresPublicados }
     }
+
+    /** 2.6: a versão nova do app continua no nvplayer.json (bloco "versao"), que a Nervia publica a cada APK. */
+    fun atualizarVersao() {
+        val texto = try { Http.texto(urlVersao) } catch (_: Exception) { return }
+        try { put("site_versao", org.json.JSONObject(texto).optJSONObject("versao")?.toString()) } catch (_: Exception) {}
+    }
+
+    /** Lista de servidores (Supabase) e versão (nvplayer.json) numa chamada só; devolve a lista. */
+    fun atualizarDoSite(): List<String> { val l = atualizarServidores(); atualizarVersao(); return l }
 
     /** Versão do app publicada no site (última lida). */
     val versaoPublicada: Versao?
@@ -250,10 +260,11 @@ class Repositorio(ctx: Context) {
         const val PIN_PADRAO = "0000"
         /** Servidor que já vem preenchido no login (pedido do Marco em 17/11/2026; o provedor troca de tempos em tempos). */
         const val SERVIDOR_PADRAO = "http://p.urldata.gy"
-        /** Arquivo que o Marco atualiza (site/nvplayer.json): {"servidores": ["http://…", "http://…"]}. */
-        const val URL_SERVIDORES = "https://nervia.com.br/nvplayer.json"
-        /** Só os testes trocam. */
-        @JvmStatic var urlServidores = URL_SERVIDORES
+        /** 2.15: a lista de servidores vem do painel (Supabase), que o Marco edita sem mexer em arquivo. */
+        @JvmStatic var urlServidores = "${BuildConfig.SUPABASE_URL}/rest/v1/rpc/nv_servidores_publicos"
+        @JvmStatic var chaveServidores = BuildConfig.SUPABASE_CHAVE
+        /** A versão nova do app continua no nvplayer.json (a Nervia publica a cada APK). Só os testes trocam. */
+        @JvmStatic var urlVersao = "https://nervia.com.br/nvplayer.json"
 
         /** {"servidores": [...]} ou {"servidor": "..."}; só endereços válidos, sem repetir. */
         fun lerServidores(json: String): List<String> {

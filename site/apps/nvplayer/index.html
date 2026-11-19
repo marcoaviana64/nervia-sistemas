@@ -70,6 +70,7 @@ td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-n
         <button class="aba on" data-v="aparelhos" title="Aparelhos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="12" rx="1.5"/><path d="M8 21h8M12 17v4"/></svg><span>Aparelhos</span><span class="n" id="nAp"></span></button>
         <button class="aba" data-v="mais" title="Mais assistidos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M4 20V4M4 20h16"/><path d="M8 16v-4M12 16V8M16 16v-6"/></svg><span>Mais assistidos</span></button>
         <button class="aba" data-v="problemas" title="Problemas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17v.5"/></svg><span>Problemas</span><span class="n" id="nPb"></span></button>
+        <button class="aba" data-v="servidores" title="Servidores"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.5M7 16.5h.5"/></svg><span>Servidores</span></button>
       </div>
       <div class="ficha"><div class="dir">
         <select id="selPer" title="Período"><option value="1">Hoje</option><option value="7" selected>7 dias</option><option value="30">30 dias</option><option value="90">90 dias</option></select>
@@ -102,7 +103,7 @@ const TIPO = { vivo: "Canal", filme: "Filme", serie: "Série" };
 // O app manda a cada 30 min: sem resumo há mais de 40 min = app fechado ou aparelho desligado
 const ATIVO_MIN = 40;
 
-let APS = [], USO = [], VISTA = "aparelhos", VERSAO = null;
+let APS = [], USO = [], SERVS = [], VISTA = "aparelhos", VERSAO = null;
 
 async function iniciar() {
   const { data: { session } } = await sb.auth.getSession();
@@ -119,6 +120,7 @@ async function iniciar() {
 
 async function carregar() {
   APS = checar(await sb.from("nv_aparelhos").select("*").order("ultimo_sinal", { ascending: false }));
+  SERVS = checar(await sb.from("nv_servidores").select("*").order("ordem"));
   const de = diaMenos(Number($("selPer").value) - 1);
   USO = [];
   for (let i = 0; ; i += 1000) {
@@ -146,7 +148,7 @@ function render() {
   document.querySelectorAll(".aba").forEach(b => b.classList.toggle("on", b.dataset.v === VISTA));
   $("nAp").textContent = APS.length || "";
   const pb = APS.filter(a => (a.problemas || []).length).length; $("nPb").textContent = pb || "";
-  $("tela").innerHTML = ({ aparelhos: vAparelhos, mais: vMais, problemas: vProblemas })[VISTA]();
+  $("tela").innerHTML = ({ aparelhos: vAparelhos, mais: vMais, problemas: vProblemas, servidores: vServidores })[VISTA]();
 }
 
 // ---------------------------------------------------------------- Aparelhos
@@ -228,12 +230,42 @@ function vProblemas() {
     '<p class="mut">Os últimos problemas que cada aparelho registrou (a mesma lista de Ajustes no app): imagem parada e reconectada sozinha, canal que não abriu… O mesmo canal sempre = problema na lista; vários canais no mesmo horário = internet do local.</p>';
 }
 
+// ---------------------------------------------------------------- Servidores
+function vServidores() {
+  const linhas = SERVS.length ? SERVS.map((x, i) => `<tr><td class="num">${i + 1}</td>
+      <td><input data-srv="${i}" value="${esc(x.endereco)}" style="width:100%"></td>
+      <td style="white-space:nowrap">
+        <button class="bt peq" data-mv="${i}" data-dir="-1" ${i === 0 ? "disabled" : ""}>↑</button>
+        <button class="bt peq" data-mv="${i}" data-dir="1" ${i === SERVS.length - 1 ? "disabled" : ""}>↓</button>
+        <button class="bt peq perigo" data-del="${i}">Remover</button></td></tr>`).join("")
+    : '<tr><td colspan="3" class="vazio">Nenhum servidor. Adicione pelo menos um.</td></tr>';
+  return `<div class="card"><h2>Endereços do servidor</h2>
+    <p class="mut">O app usa o <b>primeiro endereço que fizer login</b>, na ordem abaixo. O 1º vem preenchido ao configurar uma TV nova. Troque aqui quando o provedor mudar o endereço — os aparelhos pegam sozinhos (a TV já ligada troca quando o endereço salvo parar de responder).</p>
+    <div class="tw"><table><tr><th>#</th><th>Endereço (com http:// e porta, se houver)</th><th></th></tr>${linhas}</table></div>
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="bt" id="btAddSrv">+ Adicionar endereço</button>
+      <button class="bt pri" id="btSalvarSrv" style="background:var(--accent);border-color:var(--accent);color:#fff">Salvar</button>
+    </div>
+    <p class="mut" style="margin-top:8px">A versão nova do app continua sendo publicada pela Nervia (não é editada aqui).</p></div>`;
+}
+function lerServsTela() { return [...document.querySelectorAll("[data-srv]")].map(i => i.value.trim()).filter(Boolean); }
+
 // ---------------------------------------------------------------- ações
 document.addEventListener("click", async e => {
   const b = e.target.closest("button"); if (!b) return;
   try {
     if (b.dataset.v) { VISTA = b.dataset.v; render(); }
     else if (b.id === "btAtualizar") { await carregar(); render(); }
+    else if (b.id === "btAddSrv") { SERVS = lerServsTela().map((e, i) => ({ ordem: i + 1, endereco: e })); SERVS.push({ ordem: SERVS.length + 1, endereco: "http://" }); render(); setTimeout(() => { const c = document.querySelectorAll("[data-srv]"); c[c.length - 1]?.focus(); }, 0); }
+    else if (b.dataset.mv != null) { const i = +b.dataset.mv, j = i + +b.dataset.dir; const l = lerServsTela(); [l[i], l[j]] = [l[j], l[i]]; SERVS = l.map((e, k) => ({ ordem: k + 1, endereco: e })); render(); }
+    else if (b.dataset.del != null) { const l = lerServsTela(); l.splice(+b.dataset.del, 1); SERVS = l.map((e, k) => ({ ordem: k + 1, endereco: e })); render(); }
+    else if (b.id === "btSalvarSrv") {
+      const lista = lerServsTela();
+      if (!lista.length) { const m = $("msg"); m.className = "msg err"; m.textContent = "Informe ao menos um endereço de servidor."; return; }
+      checar(await sb.rpc("nv_servidores_salvar", { p_lista: lista }));
+      await carregar(); render();
+      const m = $("msg"); m.className = "msg ok"; m.textContent = "Servidores salvos. Os aparelhos vão pegar a lista nova."; m.classList.remove("oculto"); setTimeout(() => m.classList.add("oculto"), 6000);
+    }
     else if (b.dataset.ren) {
       const a = APS.find(x => x.id === b.dataset.ren);
       const n = prompt("Apelido do aparelho (ex.: TV da sala do Marco):", a.apelido || "");

@@ -103,6 +103,13 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
 - **Reconexão volta ao vivo** (2.13, pergunta do Marco: "a transmissão volta no tempo normal?"): o canal ao vivo
   começa sempre na borda ao vivo (`C.TIME_UNSET` em `iniciar`), nunca no começo da janela DVR; assim a reconexão
   automática (`Vigia`) e a nova tentativa após erro voltam no horário atual da transmissão, não minutos atrás.
+- **Servidor escolhido no painel** (2.15, pedido do Marco: "tenho uma área para alterar ou tenho que editar o
+  nvplayer.json?"): a lista de servidores saiu do `nvplayer.json` e passou para o Supabase (`nv_servidores`), editável
+  na aba **Servidores** do painel NVPlayer; o app lê por `nv_servidores_publicos()` (anon, GET com `apikey`, de
+  `Repositorio.urlServidores`). A VERSÃO nova do app continua no `nvplayer.json` (`Repositorio.urlVersao`), que a
+  Nervia publica a cada APK. `atualizarServidores()` = servidores (Supabase); `atualizarVersao()` = versão
+  (nvplayer.json); `atualizarDoSite()` = os dois (chamado ao abrir e em Ajustes → Procurar atualização). Nos testes,
+  o servidor imitado serve os dois caminhos e `Repositorio.urlServidores`/`urlVersao` apontam para ele.
 - **Portal pega o servidor do painel** (2.14, pedido do Marco: "o app pegar qual o servidor válido que eu coloco no
   painel"): o endereço preenchido na página do celular (Configurador) é lido a CADA abertura da página, e a tela de
   configuração sempre relê o `nvplayer.json` ao abrir — então o portal mostra o endereço atual se o provedor trocou

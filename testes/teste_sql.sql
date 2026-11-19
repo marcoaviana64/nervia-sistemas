@@ -3588,4 +3588,26 @@ select nv_aparelho_excluir('11111111-2222-3333-4444-555555555555');
 reset role;
 select pg_temp.ok(not exists (select 1 from nv_assistido) and exists (select 1 from auditoria where acao = 'nvplayer_aparelho_excluido'), 'nvplayer: excluir leva o histórico e fica na auditoria');
 reset request.jwt.claim.sub;
+-- ================================================================ NVPlayer servidores (nv_servidores, lista do painel)
+set role anon;
+select pg_temp.ok((nv_servidores_publicos() -> 'servidores' ->> 0) = 'http://p.urldata.gy', 'nvplayer servidores: app (anon) lê a lista; começa com o endereço do nvplayer.json');
+select pg_temp.ok(not exists (select 1 from information_schema.role_table_grants where grantee = 'anon' and table_name = 'nv_servidores'), 'nvplayer servidores: anon não lê a tabela direto');
+reset role;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+set role authenticated;
+select pg_temp.ok((select count(*) = 0 from nv_servidores), 'nvplayer servidores: cliente não vê a tabela');
+select pg_temp.erro($$select nv_servidores_salvar('["http://x.gy"]'::jsonb)$$, 'Somente a equipe', 'nvplayer servidores: cliente não salva');
+reset role;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+set role authenticated;
+select nv_servidores_salvar('["servidor-a.gy:8080/", "http://servidor-a.gy:8080", "http://servidor-b.gy", ""]'::jsonb);
+select pg_temp.ok((select count(*) = 2 from nv_servidores) and (select endereco = 'http://servidor-a.gy:8080' from nv_servidores where ordem = 1)
+  and (select endereco = 'http://servidor-b.gy' from nv_servidores where ordem = 2), 'nvplayer servidores: equipe salva, completa http://, tira / final e repetido, mantém a ordem');
+select pg_temp.ok((select count(*) = 1 from auditoria where acao = 'nvplayer_servidores'), 'nvplayer servidores: salvar grava auditoria');
+select pg_temp.erro($$select nv_servidores_salvar('[]'::jsonb)$$, 'ao menos um', 'nvplayer servidores: lista vazia recusada');
+reset role;
+set role anon;
+select pg_temp.ok((nv_servidores_publicos() -> 'servidores' ->> 0) = 'http://servidor-a.gy:8080', 'nvplayer servidores: o app passa a ver a lista nova');
+reset role;
+reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'
