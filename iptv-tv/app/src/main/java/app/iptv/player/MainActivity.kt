@@ -1361,8 +1361,6 @@ class MainActivity : ComponentActivity() {
         sb.append("\nProblemas no vídeo (os mais recentes primeiro): ")
         if (ev.isEmpty()) sb.append("nenhum registrado\n")
         else { sb.append("${ev.size}\n"); ev.take(12).forEach { sb.append("   ").append(it).append('\n') } }
-        sb.append("\nEste aparelho manda à Nervia, a cada 30 min, um resumo de uso para suporte: modelo do aparelho, ")
-        sb.append("endereço e usuário da lista (nunca a senha), validade e o que foi assistido.\n")
         sb.append("\nNVPlayer ${versao()}")
         infoAjustes.text = sb
     }
