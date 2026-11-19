@@ -32,6 +32,10 @@ verify_jwt = false
 [functions.nf-aviso]
 verify_jwt = false
 
+# Mídia Indoor: aviso por e-mail antes de acabarem os dias de uso das TVs (pg_cron, com x-cron-secret)
+[functions.midia-aviso]
+verify_jwt = false
+
 # Mídia Indoor: painel ("Atualizar agora", admin ou cliente com a conta liberada)
 [functions.midia]
 verify_jwt = false
