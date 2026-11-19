@@ -8,6 +8,8 @@
     <!-- Android 10+: só abre a tela vindo do segundo plano (boot, reinício após falha) com "Sobrepor a outros apps"
          concedido. Em TV box a opção costuma não aparecer: a Nervia concede por ADB na instalação (IMPLANTACAO.md §10). -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!-- atualização pedida pelo painel (2.7): abrir a tela de instalação do APK baixado -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- TV: sem tela de toque e sem exigir controle; também roda em TV box e celular/tablet (para testes) -->
     <uses-feature android:name="android.software.leanback" android:required="false" />
@@ -43,5 +45,12 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.arquivos"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/arquivos" />
+        </provider>
     </application>
 </manifest>

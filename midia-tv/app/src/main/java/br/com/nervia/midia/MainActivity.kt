@@ -86,6 +86,7 @@ class MainActivity : Activity() {
     private var avisoDownload = ""   // aviso da última rodada com download falhando; continua na tela enquanto tenta de novo
     private var conteudo = ""
     private var nomeTela = ""
+    private val atualizador by lazy { Atualizador(this) }
     private var liberadaAte: String? = null   // último dia liberado pelos créditos (vem na playlist; vale também sem internet)
     private var saindoDeProposito = false
 
@@ -287,6 +288,11 @@ class MainActivity : Activity() {
                     delay(60_000); continue
                 }
                 nomeTela = p.tela; intervaloSinal = p.intervaloSinalS; liberadaAte = p.liberadaAte
+                // atualização pedida pelo painel: baixa e abre a instalação (fora da thread da tela)
+                withContext(Dispatchers.IO) {
+                    val sit = atualizador.tratar(p.atualizar, System.currentTimeMillis()) { i -> handler.post { runCatching { startActivity(i) } } }
+                    if (sit == null) erros.remove(Atualizador.CHAVE) else erros[Atualizador.CHAVE] = sit
+                }
                 if (p.rotacao != rotacao) { prefs.edit { putInt("rotacao", p.rotacao) }; aplicarRotacao(p.rotacao) }
                 prefs.edit { putString("playlist", playlistJson(p)) }
                 if (p.pausada) {
@@ -512,6 +518,7 @@ class MainActivity : Activity() {
         .put("tela", p.tela).put("playlist", p.playlist).put("conteudo", p.conteudo).put("chave_api", p.chaveApi)
         .put("intervalo_playlist_s", p.intervaloPlaylistS).put("intervalo_sinal_s", p.intervaloSinalS).put("rotacao", p.rotacao)
         .put("pausada", p.pausada).put("liberada_ate", p.liberadaAte ?: JSONObject.NULL)
+        .put("atualizar", p.atualizar?.let { JSONObject().put("codigo", it.codigo).put("nome", it.nome).put("sha256", it.sha256).put("url", it.url) } ?: JSONObject.NULL)
         .put("itens", JSONArray(p.itens.map {
             JSONObject().put("id", it.id).put("nome", it.nome).put("tipo", it.tipo).put("md5", it.md5).put("tamanho", it.tamanho)
                 .put("tempo_s", it.tempoS ?: JSONObject.NULL).put("url", it.url).put("chave_recurso", it.chaveRecurso ?: JSONObject.NULL)

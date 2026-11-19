@@ -31,7 +31,7 @@ O `VitrineTest` (Robolectric) desenha a tela de espera em 1920×1080 e 1080×192
 O APK sai em `app/build/outputs/apk/release/app-release.apk`. A URL do Supabase e a chave publicável vêm de `../site/config.js`.
 
 ## Publicar para as instalações
-Copiar `app/build/outputs/apk/release/app-release.apk` para `site/tv.apk` (https://nervia.com.br/tv.apk, o endereço que se digita no Downloader da TV). O APK sobe a cada versão nova (subir `versionCode` antes).
+Copiar `app/build/outputs/apk/release/app-release.apk` para `site/tv.apk` (https://nervia.com.br/tv.apk, o endereço que se digita no Downloader da TV). O APK sobe a cada versão nova (subir `versionCode` antes). No mesmo commit, atualizar `site/tv.json` (`codigo` = versionCode, `nome` = versionName, `sha256` = `sha256sum site/tv.apk`): é o que o painel usa para mostrar "app desatualizado" e pedir a atualização das TVs (app 1.11+).
 
 ## Tela de espera (vitrine)
 TV vinculada sem nada para passar mostra a propaganda do Mídia Indoor (`Vitrine.kt`), com QR code para o WhatsApp da Nervia. Mudou o número ou o texto: `python3 gerar_qr.py` (precisa de `pip install qrcode pillow`) e o `CONTATO` em `Vitrine.kt`.

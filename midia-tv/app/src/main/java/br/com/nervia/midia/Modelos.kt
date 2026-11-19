@@ -35,6 +35,7 @@ data class Playlist(
     val rotacao: Int,            // graus no sentido horário: 0, 90, 180, 270 (posição da TV, escolhida no painel)
     val pausada: Boolean = false,       // sem créditos de dias: tela de espera com a mensagem neutra
     val liberadaAte: String? = null,    // "AAAA-MM-DD": último dia em que pode passar sem falar com a Nervia (null = sem limite)
+    val atualizar: PedidoApp? = null,   // atualização do app pedida pelo painel (2.7)
 ) {
     companion object {
         fun deJson(j: JSONObject): Playlist {
@@ -54,6 +55,7 @@ data class Playlist(
                 intervaloSinalS = j.optInt("intervalo_sinal_s", 180).coerceIn(60, 3600),
                 rotacao = j.optInt("rotacao", 0).let { if (it in listOf(0, 90, 180, 270)) it else 0 },
                 pausada = j.optBoolean("pausada", false),
+                atualizar = PedidoApp.deJson(j.optJSONObject("atualizar")),
                 liberadaAte = j.optString("liberada_ate").takeIf { it.matches(Regex("\\d{4}-\\d{2}-\\d{2}")) },
             )
         }
