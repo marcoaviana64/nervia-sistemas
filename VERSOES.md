@@ -8,6 +8,7 @@ Ao publicar mudança num app: linha nova no topo do app aqui (com a data) e em `
 
 | Versão | Data | O que mudou |
 |---|---|---|
+| 1.10 | 19/11/2026 | Primeira carga das NFS-e mais rápida: empresa que emite muitas notas é baixada a cada 10 minutos até alcançar o dia de hoje, e não só de hora em hora. (Itaipu: ~800 NFS-e emitidas por dia, estacionamento; notas do lote gravadas 10 de cada vez; pg_cron nf-carga a cada 10 min só para quem parou no meio; HTTP 429 do ADN = pausa sem erro; migração nf_carga_nfse; funções v12-carga-nfse) |
 | 1.9 | 19/11/2026 | Avisos por e-mail: resumo diário das notas novas (você escolhe se quer receber) e aviso quando o certificado A1 está perto de vencer. (pedido do Marco; migração nf_avisos, função nf-aviso, pg_cron nf-avisos 10h40 UTC; resumo padrão desligado, certificado padrão ligado; etapas 30/15/7/1/0) |
 | 1.8 | 22/10/2026 | Baixar XMLs (.zip): os XMLs das notas marcadas ou, sem marcação, de toda a lista filtrada (período, tipo, fornecedor), num arquivo só. |
 | 1.7 | 14/10/2026 | Recuperar NF-e anteriores: traz as NF-e dos últimos 90 dias que outro sistema da empresa já tinha baixado. |

@@ -282,6 +282,25 @@ Deno.test("NFS-e (ADN): baixa, lê valores, trata 404 e erro", async () => {
   await assertRejects(() => adn.sincronizar(b, httpFalso([() => new Response(erro, { status: 403 })]).http, CNPJ), Error, "Certificado sem permissão");
 });
 
+Deno.test("NFS-e (ADN): lote grande gravado em paralelo, cancelamento depois da nota, 429 = pausa sem erro", async () => {
+  const { b, e, notas } = bancoFalso();
+  const ch = (i: number) => "3304557" + String(i).padStart(43, "0");
+  const xmlN = (i: number) => `<NFSe xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.00"><infNFSe Id="NFS${ch(i)}"><nNFSe>${i}</nNFSe><emit><CNPJ>${CNPJ}</CNPJ><xNome>EMPRESA TESTE</xNome></emit><DPS><infDPS Id="DPS${i}"><dhEmi>2026-01-02T10:00:00-03:00</dhEmi><prest><CNPJ>${CNPJ}</CNPJ></prest><valores><vServPrest><vServ>16.50</vServ></vServPrest></valores></infDPS></DPS></infNFSe></NFSe>`;
+  const itens = [];
+  // o evento de cancelamento da nota 1 vem ANTES dela no lote: tem de ser aplicado depois
+  const ev = `<evento xmlns="http://www.sped.fazenda.gov.br/nfse"><infEvento><chNFSe>${ch(1)}</chNFSe><pedRegEvento><infPedReg><e101101><xDesc>Cancelamento de NFS-e</xDesc></e101101></infPedReg></pedRegEvento></infEvento></evento>`;
+  itens.push({ NSU: 1, ChaveAcesso: ch(1), TipoDocumento: "EVENTO", ArquivoXml: await gzB64(ev) });
+  for (let i = 1; i <= 60; i++) itens.push({ NSU: i + 1, ChaveAcesso: ch(i), TipoDocumento: "NFSE", ArquivoXml: await gzB64(xmlN(i)) });
+  const lote = JSON.stringify({ StatusProcessamento: "DOCUMENTOS_LOCALIZADOS", LoteDFe: itens });
+  const { http } = httpFalso([() => new Response(lote), () => new Response("muitas requisicoes", { status: 429 })]);
+  const r = await adn.sincronizar(b, http, CNPJ, { pausaMs: 0 });
+  assertEquals([r.resumo!.nova, r.resumo!.evento], [60, 1]);
+  assert(r.parcial && r.mensagem.includes("pediu uma pausa"), r.mensagem);
+  assertEquals(e.ult_nsu_nfse, 61);
+  assertEquals(notas.get("NFSE" + ch(1))!.situacao, "Cancelada");
+  assertEquals(notas.get("NFSE" + ch(60))!.papel, "emitida");
+});
+
 Deno.test("Ponte SEFAZ (OpenSSL): funções → ponte → servidor que exige certificado", async () => {
   const PS = 18444, PP = 18445, PR = 18446;
   const ac = Deno.readTextFileSync(new URL("ac.pem", DIR));
