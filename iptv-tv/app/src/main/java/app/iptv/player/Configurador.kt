@@ -19,7 +19,9 @@ import kotlin.concurrent.thread
  * [aoReceber] recebe os campos do formulário e devolve null (aceito) ou a mensagem de erro.
  */
 class Configurador(
-    private val servidorPadrao: String = Repositorio.SERVIDOR_PADRAO,
+    // 2.14: endereço do servidor lido a CADA vez que o celular abre a página (não fixado na abertura da tela),
+    // para o portal mostrar sempre o endereço atual do site (nvplayer.json) se o provedor trocar.
+    private val servidorPadrao: () -> String = { Repositorio.SERVIDOR_PADRAO },
     private val aoReceber: (Map<String, String>) -> String?,
 ) {
     private var servidor: ServerSocket? = null
@@ -66,7 +68,7 @@ class Configurador(
                 <form method="post" action="/salvar">
                   <input type="hidden" name="tipo" value="xtream">
                   <label>Servidor (com a porta)</label>
-                  <input name="servidor" value="${servidorPadrao.replace("\"", "&quot;")}" placeholder="http://servidor.com:8080" required autocapitalize="off" autocorrect="off">
+                  <input name="servidor" value="${servidorPadrao().replace("\"", "&quot;")}" placeholder="http://servidor.com:8080" required autocapitalize="off" autocorrect="off">
                   <label>Usuário</label><input name="usuario" required autocapitalize="off" autocorrect="off">
                   <label>Senha</label><input name="senha" type="password" required>
                   <button type="submit">Enviar para a TV</button>

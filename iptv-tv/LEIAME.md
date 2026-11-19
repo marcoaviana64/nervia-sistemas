@@ -103,6 +103,11 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
 - **Reconexão volta ao vivo** (2.13, pergunta do Marco: "a transmissão volta no tempo normal?"): o canal ao vivo
   começa sempre na borda ao vivo (`C.TIME_UNSET` em `iniciar`), nunca no começo da janela DVR; assim a reconexão
   automática (`Vigia`) e a nova tentativa após erro voltam no horário atual da transmissão, não minutos atrás.
+- **Portal pega o servidor do painel** (2.14, pedido do Marco: "o app pegar qual o servidor válido que eu coloco no
+  painel"): o endereço preenchido na página do celular (Configurador) é lido a CADA abertura da página, e a tela de
+  configuração sempre relê o `nvplayer.json` ao abrir — então o portal mostra o endereço atual se o provedor trocou
+  (antes ficava fixo no embutido). A TV já ligada continua trocando sozinha pelo failover (2.5): quando o servidor
+  salvo não responde, relê o `nvplayer.json` e passa para o 1º que faz login. Teste `TelaTest.portalMostraServidorDoSite`.
 
 ## Ainda não tem (ideias)
 Grade de programação de todos os canais ao mesmo tempo, assistir programa que já passou (catch-up), gravação.
