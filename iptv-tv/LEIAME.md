@@ -115,6 +115,11 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
   configuração sempre relê o `nvplayer.json` ao abrir — então o portal mostra o endereço atual se o provedor trocou
   (antes ficava fixo no embutido). A TV já ligada continua trocando sozinha pelo failover (2.5): quando o servidor
   salvo não responde, relê o `nvplayer.json` e passa para o 1º que faz login. Teste `TelaTest.portalMostraServidorDoSite`.
+- **Guia do canal mais compacto** (2.16, pedido do Marco em 19/11/2026: "na lista de programação abaixo da janela só
+  aparece um horário; reduzir para aparecer o máximo possível de programação"): o guia embaixo da prévia (`guiaRica`)
+  passou a mostrar uma linha por programa (só o horário de início + título, sem o fim nem a sinopse comprida) e o
+  cabeçalho do canal numa linha só (nome + grupo lado a lado); fonte 14sp, menos espaçamento e até 12 programas
+  (`guiaBox` 18 linhas). Antes mostrava só ~1 programa porque o nome grande e a descrição de 180 caracteres enchiam a caixa.
 
 ## Ainda não tem (ideias)
 Grade de programação de todos os canais ao mesmo tempo, assistir programa que já passou (catch-up), gravação.

@@ -3,9 +3,9 @@
     "http://p.urldata.gy"
   ],
   "versao": {
-    "codigo": 17,
-    "nome": "2.15",
+    "codigo": 18,
+    "nome": "2.16",
     "apk": "https://nervia.com.br/nvplayer.apk",
-    "novidades": "O servidor do app agora é escolhido no painel: a Nervia troca o endereço por lá e os aparelhos pegam sozinhos."
+    "novidades": "A programação do canal embaixo da janela agora mostra vários programas ao mesmo tempo, não só um."
   }
 }

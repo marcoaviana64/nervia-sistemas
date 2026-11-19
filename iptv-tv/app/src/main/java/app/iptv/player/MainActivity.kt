@@ -335,8 +335,8 @@ class MainActivity : ComponentActivity() {
         coluna.addView(rvItens, LinearLayout.LayoutParams(-1, 0, 1f))
         guiaBox = texto(15f, Estilo.TEXTO).apply {
             background = Estilo.cartao(this@MainActivity, Color.argb(16, 255, 255, 255), 18f)
-            setPadding(22.dp, 18.dp, 22.dp, 18.dp)
-            setLineSpacing(4.dp.toFloat(), 1f)
+            setPadding(18.dp, 14.dp, 18.dp, 14.dp)
+            setLineSpacing(2.dp.toFloat(), 1f)
             maxLines = 6; ellipsize = TextUtils.TruncateAt.END
         }
         lado = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(20.dp, 0, 0, 0); visibility = View.GONE }
@@ -355,8 +355,8 @@ class MainActivity : ComponentActivity() {
         previa.addView(videoPrevia, FrameLayout.LayoutParams(-1, -1))
         previa.addView(previaTexto, FrameLayout.LayoutParams(-1, -1))
         lado.addView(previa, LinearLayout.LayoutParams(-1, -2))
-        guiaBox.textSize = 17f
-        guiaBox.maxLines = 12
+        guiaBox.textSize = 14f
+        guiaBox.maxLines = 18
         lado.addView(guiaBox, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = 10.dp })
         infoAjustes = texto(17f, Estilo.TEXTO).apply {
             background = Estilo.cartao(this@MainActivity, Color.argb(16, 255, 255, 255), 18f)
@@ -813,24 +813,19 @@ class MainActivity : ComponentActivity() {
     private fun guiaRica(i: Item, l: List<Programa>): CharSequence {
         val sb = android.text.SpannableStringBuilder()
         fun span(t: String, vararg sp: Any) { val a = sb.length; sb.append(t); sp.forEach { sb.setSpan(it, a, sb.length, 0) } }
-        span(i.nome, android.text.style.StyleSpan(Typeface.BOLD), android.text.style.RelativeSizeSpan(1.35f))
-        if (i.grupo.isNotBlank()) { sb.append("\n"); span(i.grupo, android.text.style.ForegroundColorSpan(Estilo.TEXTO_3), android.text.style.RelativeSizeSpan(0.85f)) }
-        sb.append("\n\n")
+        span(i.nome, android.text.style.StyleSpan(Typeface.BOLD), android.text.style.RelativeSizeSpan(1.15f))
+        if (i.grupo.isNotBlank()) span("   " + i.grupo, android.text.style.ForegroundColorSpan(Estilo.TEXTO_3), android.text.style.RelativeSizeSpan(0.8f))
+        sb.append("\n")
         if (l.isEmpty()) { span("Sem guia de programação para este canal.", android.text.style.ForegroundColorSpan(Estilo.TEXTO_2)); return sb }
         val n = System.currentTimeMillis()
-        l.take(5).forEachIndexed { k, p ->
+        l.take(12).forEach { p ->
             val agora = n >= p.inicio && n < p.fim
-            span(hhmm.format(Date(p.inicio)) + " – " + hhmm.format(Date(p.fim)) + "   ",
+            span(hhmm.format(Date(p.inicio)) + "  ",
                 android.text.style.ForegroundColorSpan(if (agora) Estilo.AZUL_CLARO else Estilo.TEXTO_2))
-            if (agora) span(" AGORA ", android.text.style.BackgroundColorSpan(Estilo.VERMELHO), android.text.style.ForegroundColorSpan(Color.WHITE),
-                android.text.style.StyleSpan(Typeface.BOLD), android.text.style.RelativeSizeSpan(0.7f))
-            if (agora) sb.append("  ")
+            if (agora) { span(" AGORA ", android.text.style.BackgroundColorSpan(Estilo.VERMELHO), android.text.style.ForegroundColorSpan(Color.WHITE),
+                android.text.style.StyleSpan(Typeface.BOLD), android.text.style.RelativeSizeSpan(0.66f)); sb.append("  ") }
             span(p.titulo, android.text.style.StyleSpan(if (agora) Typeface.BOLD else Typeface.NORMAL))
-            if (k == 0 && p.descricao.isNotBlank()) {
-                sb.append("\n")
-                span(p.descricao.replace('\n', ' ').take(180), android.text.style.ForegroundColorSpan(Estilo.TEXTO_2), android.text.style.RelativeSizeSpan(0.88f))
-            }
-            sb.append("\n\n")
+            sb.append("\n")
         }
         return sb.trimEnd() as CharSequence
     }
