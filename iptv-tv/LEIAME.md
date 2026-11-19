@@ -100,6 +100,9 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
   servidor e usuário da lista (NUNCA a senha), situação/validade/telas, quantidades, o que está passando e os últimos
   problemas de vídeo. Falhou = fica guardado (preferências `telemetria`) e vai no próximo. Nos
   testes, `Telemetria.destino` aponta para o servidor imitado (nunca o Supabase de verdade).
+- **Reconexão volta ao vivo** (2.13, pergunta do Marco: "a transmissão volta no tempo normal?"): o canal ao vivo
+  começa sempre na borda ao vivo (`C.TIME_UNSET` em `iniciar`), nunca no começo da janela DVR; assim a reconexão
+  automática (`Vigia`) e a nova tentativa após erro voltam no horário atual da transmissão, não minutos atrás.
 
 ## Ainda não tem (ideias)
 Grade de programação de todos os canais ao mesmo tempo, assistir programa que já passou (catch-up), gravação.
