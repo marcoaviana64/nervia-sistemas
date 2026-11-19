@@ -1448,7 +1448,7 @@ class MainActivity : ComponentActivity() {
         fecharFicha(mostrar = false)
         painel.visibility = View.GONE
         player.pause()
-        val conf = Configurador(repo.servidorPadrao) { campos -> validar(campos)?.let { return@Configurador it }; runOnUiThread { receber(campos) }; null }
+        val conf = Configurador({ repo.servidorPadrao }) { campos -> validar(campos)?.let { return@Configurador it }; runOnUiThread { receber(campos) }; null }
         conf.iniciar()
         configurador = conf
         val ip = Configurador.ipLocal()
@@ -1484,13 +1484,12 @@ class MainActivity : ComponentActivity() {
             layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 10.dp }
         }
         val fServ = campo("Servidor com a porta — ex.: http://servidor.com:8080", repo.servidor ?: repo.servidorPadrao)
-        if (repo.servidor == null) {
-            // primeira vez: busca no site o endereço atual e troca o preenchido, se ninguém mexeu no campo
-            val antes = fServ.text.toString()
-            rede.execute {
-                val novo = repo.atualizarServidores().firstOrNull()
-                if (novo != null) runOnUiThread { if (fServ.text.toString() == antes && novo != antes) fServ.setText(novo) }
-            }
+        // 2.14: sempre busca no site o endereço atual ao abrir a configuração, para o portal (celular) mostrar o
+        // servidor novo se o provedor trocou. No campo da TV só troca o preenchido na 1ª vez, se ninguém mexeu nele.
+        val antes = fServ.text.toString()
+        rede.execute {
+            val novo = repo.atualizarServidores().firstOrNull()
+            if (novo != null && repo.servidor == null) runOnUiThread { if (fServ.text.toString() == antes && novo != antes) fServ.setText(novo) }
         }
         val fUser = campo("Usuário", repo.usuario)
         val fSenha = campo("Senha", repo.senha, senha = true)

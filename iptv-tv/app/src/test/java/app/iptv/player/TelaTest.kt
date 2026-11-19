@@ -375,6 +375,22 @@ class TelaTest {
         ctl.pause().stop().destroy()
     }
 
+    @Test fun portalMostraServidorDoSite() {
+        // o painel (nvplayer.json) aponta um endereço novo; o portal do celular tem de mostrá-lo (não o embutido)
+        publicados = """{"servidores": ["http://servidor-novo.gy"]}"""
+        val ctl = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val act = ctl.get()
+        val raiz = act.window.decorView
+        esperar { textos(raiz).contains("http://servidor-novo.gy") }   // a lista do site já foi lida
+        val pag = Socket("127.0.0.1", porta(act)).use { s ->
+            s.getOutputStream().write("GET / HTTP/1.1\r\nHost: tv\r\n\r\n".toByteArray())
+            s.getInputStream().readBytes().decodeToString()
+        }
+        assertTrue(pag, pag.contains("value=\"http://servidor-novo.gy\""))
+        assertTrue("não mostra o embutido antigo", !pag.contains("http://p.urldata.gy"))
+        ctl.pause().stop().destroy()
+    }
+
     @Test fun lerArquivoDoSite() {
         assertEquals(listOf("http://a.com:8080", "http://b.net"),
             Repositorio.lerServidores("""{"servidores": ["a.com:8080/", "http://b.net", "http://b.net", ""]}"""))

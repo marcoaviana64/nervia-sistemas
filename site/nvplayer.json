@@ -3,9 +3,9 @@
     "http://p.urldata.gy"
   ],
   "versao": {
-    "codigo": 15,
-    "nome": "2.13",
+    "codigo": 16,
+    "nome": "2.14",
     "apk": "https://nervia.com.br/nvplayer.apk",
-    "novidades": "Quando o canal trava e reconecta sozinho, a transmissão volta no horário atual, ao vivo."
+    "novidades": "A tela de configuração pelo celular agora mostra sempre o endereço de servidor atual que você publica, caso o provedor troque."
   }
 }
