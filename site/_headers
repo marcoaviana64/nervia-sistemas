@@ -5,6 +5,12 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
 
+# versão publicada do app da TV (Mídia Indoor 2.7: o painel pede a atualização com estes dados)
+/tv.json
+  Content-Type: application/json; charset=utf-8
+  X-Robots-Tag: noindex, nofollow
+  Cache-Control: no-cache
+
 # App da TV do Mídia Indoor (APK para o Downloader / navegador da TV): tipo certo e fora dos buscadores
 /tv.apk
   Content-Type: application/vnd.android.package-archive

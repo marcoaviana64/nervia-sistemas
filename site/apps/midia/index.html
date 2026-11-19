@@ -128,7 +128,8 @@ tr.tot td{font-weight:700;border-top:2px solid var(--border)}
 </div>
 <dialog id="dlg"><form method="dialog" id="dlgf"></form></dialog>
 <script src="/moeda.js"></script>
-<script src="creditos.js"></script>   <!-- dias de uso por TV (créditos) -->
+<script src="creditos.js"></script>
+<script src="atualizar.js"></script>   <!-- atualização do app da TV pelo painel -->   <!-- dias de uso por TV (créditos) -->
 <script src="relatorio.js"></script>   <!-- aba Relatório (tempo de tela); antes do script principal, que já desenha a tela -->
 
 <script>
@@ -187,10 +188,11 @@ async function carregarContas() {
 }
 async function carregar() {
   if (!CONTA) { PLS = MIDIAS = TELAS = []; return; }
+  if (!APP_PUB) await carregarAppPub();
   const [c, p, t] = await Promise.all([
     sb.from("mi_contas").select("*").eq("id", CONTA.id).single().then(checar),
     sb.from("mi_playlists").select("*").eq("conta_id", CONTA.id).order("raiz", { ascending: false }).order("nome").then(checar),
-    sb.from("mi_telas").select("id, conta_id, nome, playlist_id, rotacao, aparelho, vinculada_em, ultimo_sinal, versao_app, modelo, android, tocando, conteudo, espaco_livre_mb, baixando, erros, tela_largura, tela_altura, valida_ate, isenta").eq("conta_id", CONTA.id).order("nome").then(checar)]);
+    sb.from("mi_telas").select("id, conta_id, nome, playlist_id, rotacao, aparelho, vinculada_em, ultimo_sinal, versao_app, modelo, android, tocando, conteudo, espaco_livre_mb, baixando, erros, tela_largura, tela_altura, valida_ate, isenta, atualizar").eq("conta_id", CONTA.id).order("nome").then(checar)]);
   CONTA = c; PLS = p; TELAS = t;
   MIDIAS = PLS.length ? checar(await sb.from("mi_midias").select("*").in("playlist_id", PLS.map(x => x.id)).order("posicao")) : [];
   if (!PLS.some(x => x.id === PLSEL)) PLSEL = (PLS[0] || {}).id || null;
@@ -230,7 +232,7 @@ function vTelas() {
     ${travadas.length ? `<div class="aviso crit">${travadas.map(t => `<b>${esc(t.nome)}</b>`).join(", ")} ${travadas.length > 1 ? "não estão conseguindo baixar os arquivos e ficam" : "não está conseguindo baixar os arquivos da playlist e fica"} na tela de espera. ${dicaDownload(travadas.flatMap(t => t.erros))} Não adianta esperar: a TV tenta de novo a cada 5 minutos.</div>` : ""}
     ${avisoCreditos()}
     ${off.length ? `<div class="aviso warn">${off.map(t => `<b>${esc(t.nome)}</b> sem sinal ${desde(t.ultimo_sinal)}`).join(" · ")}. A TV continua tocando o que já baixou, mas não recebe alterações. Confira se está ligada e com internet.</div>` : ""}
-    <div class="card"><h2>TVs<span class="dir">${botoesCreditos()}<button class="bt pri" data-acao="addTv">+ Adicionar TV</button></span></h2>
+    <div class="card"><h2>TVs<span class="dir">${botaoAtualizarTodas()}${botoesCreditos()}<button class="bt pri" data-acao="addTv">+ Adicionar TV</button></span></h2>
     ${TELAS.length ? `<div class="tw"><table><tr><th>TV</th><th>Status</th><th>Dias de uso</th><th>Playlist</th><th>Posição da TV</th><th class="esc-m">Aparelho</th><th class="esc-m">Situação</th><th></th></tr>
     ${TELAS.map(t => {
       const erros = Array.isArray(t.erros) ? t.erros : [];
@@ -240,10 +242,10 @@ function vTelas() {
         ${colCredito(t)}
         <td><select data-pl="${t.id}"><option value="">— nenhuma (tela de espera) —</option>${PLS.map(p => `<option value="${p.id}" ${p.id === t.playlist_id ? "selected" : ""}>${esc(p.nome)}</option>`).join("")}</select></td>
         <td><select data-rot="${t.id}" title="Como a TV está instalada: o app gira a imagem para ficar certa">${POSICOES.map(([g, n]) => `<option value="${g}" ${g === (t.rotacao || 0) ? "selected" : ""}>${n}</option>`).join("")}</select></td>
-        <td class="esc-m">${esc(t.modelo || "—")}<div class="mut">${t.android ? "Android " + esc(t.android) : ""}${t.versao_app ? " · app " + esc(t.versao_app) : ""}${t.espaco_livre_mb != null ? ` · ${(t.espaco_livre_mb / 1024).toFixed(1).replace(".", ",")} GB livres` : ""}</div></td>
+        <td class="esc-m">${esc(t.modelo || "—")}<div class="mut">${t.android ? "Android " + esc(t.android) : ""}${t.versao_app ? " · app " + esc(t.versao_app) : ""}${t.espaco_livre_mb != null ? ` · ${(t.espaco_livre_mb / 1024).toFixed(1).replace(".", ",")} GB livres` : ""}</div>${colApp(t)}</td>
         <td class="esc-m">${t.baixando && errosDownload(t).length ? tag(`não consegue baixar ${errosDownload(t).length} arquivo(s)`, "t-crit") : t.baixando ? tag(`baixando ${t.baixando} arquivo(s)`, "t-info") : t.ultimo_sinal ? tag("em dia", "t-ok") : ""}
           ${t.espaco_livre_mb != null && t.espaco_livre_mb * 1048576 < usado() + 524288000 ? tag(`pouco espaço: ${(t.espaco_livre_mb / 1024).toFixed(1).replace(".", ",")} GB livres`, "t-warn") : ""}
-          ${erros.map(e => `<div class="mut" style="color:var(--crit)">${esc(e.nome)}: ${esc(e.erro)}</div>`).join("")}</td>
+          ${erros.filter(e => e.nome !== "Atualização do app").map(e => `<div class="mut" style="color:var(--crit)">${esc(e.nome)}: ${esc(e.erro)}</div>`).join("")}</td>
         <td style="white-space:nowrap"><button class="bt peq" data-acao="renomear" data-id="${t.id}">Renomear</button> <button class="bt peq" data-acao="trocarAparelho" data-id="${t.id}" title="Aparelho novo no lugar deste: mantém nome, playlist, posição e dias de uso">Trocar aparelho</button> <button class="bt peq perigo" data-acao="desvincular" data-id="${t.id}">Desvincular</button></td></tr>`;
     }).join("")}</table></div>` : `<div class="vazio">Nenhuma TV ainda. Instale o app <b>Mídia Indoor Nervia</b> na TV ou no TV box: ele mostra um código de 6 caracteres. Depois clique em <b>+ Adicionar TV</b>.</div>`}
     <p class="mut">A troca de playlist e de posição chega à TV em até 5 minutos (TV sem nada para passar: em até 30 segundos). A playlist troca no fim do item que está passando. <b>Posição da TV:</b> para TV instalada em pé, escolha para que lado ela foi girada; o app gira a imagem, sem precisar de vídeo rotacionado. <b>Dias de uso:</b> cada TV tem os seus dias; quando acabam, a TV continua passando por mais ${crTol()} dia(s) e então pausa sozinha (mostra a tela de espera da Nervia, sem falar em pagamento) até receber mais dias. <b>Trocar aparelho:</b> TV box ou TV substituída, mantendo nome, playlist e dias.</p></div>`;
@@ -465,6 +467,9 @@ document.addEventListener("click", async e => {
     if (a === "addTv") dlgAddTv();
     else if (a === "porDias") dlgPorDias(id || null);
     else if (a === "extrato") await dlgExtrato();
+    else if (a === "appAtualizar") await pedirAtualizacao([id]);
+    else if (a === "appAtualizarTodas") await pedirAtualizacao(TELAS.filter(t => appVelho(t) && appSeAtualiza(t) && !t.atualizar).map(t => t.id));
+    else if (a === "appCancelar") await cancelarAtualizacao(id);
     else if (a === "trocarAparelho") dlgTrocarAparelho(TELAS.find(x => x.id === id));
     else if (a === "ver") dlgVer(MIDIAS.find(x => x.id === id));
     else if (a === "copiarFormato") {

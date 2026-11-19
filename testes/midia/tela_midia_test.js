@@ -115,6 +115,10 @@ const FALSO = `(() => {
     mi_conta_tolerancia(p) { if (!admin()) return erro('Somente a equipe Nervia muda a tolerância.'); conta(p.p_conta).tolerancia_dias = p.p_dias; db.log.push('tolerancia:' + p.p_dias); return ok(null); },
     mi_creditos_extrato(p) { if (!pode(p.p_conta)) return ok([]);
       return ok(db.mi_creditos.filter(e => e.conta_id === p.p_conta).reverse().map(e => ({ ...e, valor: admin() ? e.valor : null, user_nome: admin() ? e.user_nome : 'Nervia' }))); },
+    mi_tela_atualizar(p) { if (!admin()) return erro('Somente a equipe Nervia pede a atualização do app da TV.');
+      let n = 0; p.p_telas.forEach(id => { const t = db.mi_telas.find(x => x.id === id); if (p.p_versao && t.versao_app === p.p_versao.nome) return;
+        t.atualizar = p.p_versao ? { ...p.p_versao, pedido_em: new Date().toISOString() } : null; n++; });
+      db.log.push('atualizar:' + p.p_telas.join(',') + ':' + (p.p_versao ? p.p_versao.nome : 'cancelar')); return ok(n); },
     mi_avisos_destinos(p) { if (!pode(p.p_conta)) return ok([]);
       return ok([...new Set(db.perfis.filter(x => x.admin || db.mi_acessos.some(a => a.user_id === x.user_id && a.conta_id === p.p_conta)).map(x => x.email))]); },
     mi_tela_trocar_aparelho(p) { const t = db.mi_telas.find(x => x.id === p.p_tela); if (!t || !pode(t.conta_id)) return erro('TV não encontrada.');
@@ -366,6 +370,26 @@ const db = pg => pg.evaluate(() => window.__db);
     await adm.pg.click('[data-acao=trocarAparelho][data-id=t1]'); await adm.pg.fill('#tCod', 'nov234'); await adm.pg.click('#tOk'); await adm.pg.waitForTimeout(250);
     ok((await db(adm.pg)).log.includes('trocar:t1') && (await adm.pg.locator('#msg').innerText()).includes('trocado'), 'trocar aparelho pelo código, mantendo a TV');
     await print(adm.pg, 'midia_creditos');
+    // ---------------- atualização do app pelo painel
+    const adm2 = await pagina(b, 'admin');
+    await adm2.ctx.route('**/tv.json', r => r.fulfill({ body: JSON.stringify({ codigo: 13, nome: '1.12', sha256: 'c'.repeat(64) }), contentType: 'application/json' }));
+    await adm2.pg.evaluate(() => { const d = window.__db; d.mi_telas[0].versao_app = '1.11'; d.mi_telas[2].versao_app = '1.12'; localStorage.setItem('db_teste', JSON.stringify(d)); });
+    await adm2.pg.reload(); await adm2.pg.waitForTimeout(500);
+    const lApp = t => adm2.pg.locator('tr', { has: adm2.pg.locator(`select[data-pl=${t}]`) }).innerText();
+    ok((await lApp('t1')).includes('app desatualizado (1.12 disponível)') && (await lApp('t1')).includes('atualizar app'), 'app: TV 1.11 desatualizada com o botão');
+    ok((await lApp('t2')).includes('instale à mão'), 'app: TV antiga (sem atualizador) pede a instalação à mão');
+    ok(!(await lApp('t3')).includes('desatualizado'), 'app: TV já na versão publicada não mostra aviso');
+    ok((await adm2.pg.locator('[data-acao=appAtualizarTodas]').innerText()).includes('1 TV'), 'app: "Atualizar app" conta só as TVs que se atualizam');
+    adm2.pg.removeAllListeners('dialog'); adm2.pg.on('dialog', d => d.accept());
+    await adm2.pg.click('[data-acao=appAtualizar][data-id=t1]'); await adm2.pg.waitForTimeout(300);
+    ok((await db(adm2.pg)).log.includes('atualizar:t1:1.12') && (await lApp('t1')).includes('atualização para 1.12 pedida'), 'app: pedido gravado e mostrado na TV');
+    await adm2.pg.evaluate(() => { const d = window.__db; d.mi_telas[0].erros = [{ nome: 'Atualização do app', erro: 'versão 1.12: tela de instalação aberta na TV, falta apertar Instalar' }]; localStorage.setItem('db_teste', JSON.stringify(d)); });
+    await adm2.pg.reload(); await adm2.pg.waitForTimeout(500);
+    ok((await lApp('t1')).includes('falta apertar Instalar') && !(await lApp('t1')).includes('Atualização do app:'), 'app: situação da TV na coluna Aparelho, fora dos erros');
+    await adm2.pg.click('[data-acao=appCancelar][data-id=t1]'); await adm2.pg.waitForTimeout(300);
+    ok((await db(adm2.pg)).log.includes('atualizar:t1:cancelar'), 'app: cancelar o pedido');
+    await print(adm2.pg, 'midia_atualizar');
+    ok(adm2.erros.length === 0, 'app: sem erros de JavaScript ' + adm2.erros.join(' | '));
     await adm.pg.click('#abaAdmin'); await adm.pg.waitForTimeout(250);
     await adm.pg.click('[data-acao=editConta][data-id=c1]'); await adm.pg.fill('#aTol', '7'); await adm.pg.click('#aOk'); await adm.pg.waitForTimeout(300);
     ok((await db(adm.pg)).log.includes('tolerancia:7'), 'conta: tolerância dos dias de uso');

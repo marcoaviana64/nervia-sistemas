@@ -3825,4 +3825,29 @@ select pg_temp.ok('financeiro@linum.com.br' = any (mi_avisos_destinos('40000000-
 select pg_temp.ok(cardinality(mi_avisos_destinos('40000000-0000-0000-0000-000000000002')) = 0, 'avisos midia: e não os de outra conta');
 reset role;
 reset request.jwt.claim.sub;
+
+-- ================================================================ Mídia Indoor: atualização do app pelo painel (2.7)
+reset role;
+update mi_telas set versao_app = '1.10' where id = '41000000-0000-0000-0000-0000000000c1';
+update mi_telas set versao_app = '1.11' where id = '41000000-0000-0000-0000-0000000000c2';
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.erro2('select mi_tela_atualizar(array[''41000000-0000-0000-0000-0000000000c1''::uuid], ''{"codigo":12,"nome":"1.11","sha256":"' || repeat('a', 64) || '"}'')', 'equipe Nervia', 'atualizar app: cliente não pede');
+select pg_temp.erro2('update mi_telas set atualizar = ''{}''', 'permission', 'atualizar app: tela não grava direto');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select pg_temp.erro2('select mi_tela_atualizar(array[''41000000-0000-0000-0000-0000000000c1''::uuid], ''{"codigo":12,"nome":"1.11","sha256":"x"}'')', 'inválida', 'atualizar app: versão inválida recusada');
+select pg_temp.ok(mi_tela_atualizar(array['41000000-0000-0000-0000-0000000000c1'::uuid, '41000000-0000-0000-0000-0000000000c2'::uuid],
+  ('{"codigo":12,"nome":"1.11","sha256":"' || repeat('a', 64) || '"}')::jsonb) = 1, 'atualizar app: pede só para a TV que não está na versão');
+reset role;
+select pg_temp.ok((select atualizar->>'nome' = '1.11' and (atualizar->>'codigo')::int = 12 and atualizar ? 'pedido_em' from mi_telas where id = '41000000-0000-0000-0000-0000000000c1')
+  and (select atualizar is null from mi_telas where id = '41000000-0000-0000-0000-0000000000c2'), 'atualizar app: pedido gravado na TV');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok((select atualizar is not null from mi_telas where id = '41000000-0000-0000-0000-0000000000c1'), 'atualizar app: cliente vê que a atualização foi pedida');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select mi_tela_atualizar(array['41000000-0000-0000-0000-0000000000c1'::uuid], null);
+reset role;
+select pg_temp.ok((select atualizar is null from mi_telas where id = '41000000-0000-0000-0000-0000000000c1')
+  and (select count(*) = 2 from auditoria where acao in ('midia_app_atualizacao_pedida', 'midia_app_atualizacao_cancelada')), 'atualizar app: cancelar e auditoria');
+reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'
