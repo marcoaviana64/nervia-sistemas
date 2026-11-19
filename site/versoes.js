@@ -57,6 +57,7 @@ window.NERVIA_VERSOES = {
     ["1.0", "Lançamento: contas e licenças de cada unidade, mudanças entre exportações e licenças pagas sem uso."],
   ],
   "midia": [
+    ["2.6", "Aviso por e-mail dos dias de uso: 7, 3 e 1 dia antes de acabarem os dias de uma TV, quando acabam e quando a TV pausa, a Nervia e quem acompanha o Mídia Indoor da empresa recebem um e-mail com a situação de cada TV e como renovar. Quem recebe aparece em Dias de uso: extrato."],
     ["2.5", "Dias de uso por TV: cada TV tem os seus dias liberados, com a data até quando vale. Quando os dias acabam, a TV continua passando por alguns dias de tolerância e depois pausa sozinha, mostrando a tela de espera da Nervia com uma mensagem neutra, até receber mais dias (também sem internet). Avisos no alto da aba TVs quando os dias estão acabando ou a TV está pausada, e extrato dos dias de cada TV. Novo: Trocar aparelho, para substituir o TV box ou a TV sem perder o nome, a playlist e os dias. (app da TV 1.10)"],
     ["2.4", "Relatório de tempo de tela: Imprimir / PDF abre uma página só com o relatório, sem o topo do site e sem o cabeçalho do navegador, pronta para salvar em PDF e mandar ao cliente."],
     ["2.3", "Formato ideal das mídias para cada TV: a TV informa a resolução da tela e o painel mostra, junto com a posição (deitada ou em pé), o tamanho de vídeo e de foto que ocupa a tela toda, com a mensagem pronta para mandar ao cliente. Na playlist, aviso quando uma mídia tem formato diferente da TV que a toca. (app da TV 1.9)"],

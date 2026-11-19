@@ -3780,4 +3780,49 @@ select pg_temp.erro2('delete from mi_creditos', 'não se altera', 'creditos: ext
 select pg_temp.ok((select count(*) from auditoria where acao in ('midia_creditos_adicionados', 'midia_creditos_retirados', 'midia_tolerancia_alterada', 'midia_tv_isenta', 'midia_aparelho_trocado')) >= 7,
   'creditos: tudo auditado');
 reset request.jwt.claim.sub;
+
+-- ================================================================ Mídia Indoor: aviso de dias de uso por e-mail (2.6)
+reset role;
+insert into app_acessos (user_id, app_id) values ('00000000-0000-0000-0000-00000000000b', 'midia') on conflict do nothing;
+update mi_contas set tolerancia_dias = 3 where id = '40000000-0000-0000-0000-0000000000c1';
+update mi_telas set valida_ate = mi_hoje() + 6 where id = '41000000-0000-0000-0000-0000000000c1';   -- faltam 7
+update mi_telas set valida_ate = mi_hoje() + 40 where id = '41000000-0000-0000-0000-0000000000c2';  -- longe
+select pg_temp.ok(_mi_cred_etapa(mi_hoje() + 6, 3, mi_hoje()) = 7 and _mi_cred_etapa(mi_hoje() + 2, 3, mi_hoje()) = 3
+  and _mi_cred_etapa(mi_hoje(), 3, mi_hoje()) = 1 and _mi_cred_etapa(mi_hoje() - 1, 3, mi_hoje()) = 0
+  and _mi_cred_etapa(mi_hoje() - 4, 3, mi_hoje()) = -1 and _mi_cred_etapa(mi_hoje() - 12, 3, mi_hoje()) is null
+  and _mi_cred_etapa(mi_hoje() + 7, 3, mi_hoje()) is null and _mi_cred_etapa(mi_hoje() - 1, 0, mi_hoje()) = -1,
+  'avisos midia: etapas 7, 3, 1, acabou (tolerância), pausada e fim dos avisos');
+set role service_role;
+create temp table mav as select mi_avisos_pendentes() as j;
+reset role;
+select pg_temp.ok((select jsonb_array_length(j) = 1 and j->0->>'conta' = 'Créditos A'
+   and jsonb_array_length(j->0->'telas') = 1 and (j->0->'telas'->0->>'etapa')::int = 7 and (j->0->'telas'->0->>'faltam')::int = 7
+   and j->0->'emails' ? 'marco@nervia.com.br' and j->0->'emails' ? 'financeiro@linum.com.br' and not (j->0->'emails' ? 'outro@x.com') from mav),
+  'avisos midia: TV com 7 dias entra, para a Nervia e para quem vê a conta com o app; TV com dias sobrando e isenta ficam fora');
+set role service_role;
+select mi_cred_aviso_marcar('41000000-0000-0000-0000-0000000000c1', mi_hoje() + 6, 7);
+select pg_temp.ok(jsonb_array_length(mi_avisos_pendentes()) = 0, 'avisos midia: etapa já avisada não repete');
+select pg_temp.ok((mi_avisos_pendentes(mi_hoje() + 4) -> 0 -> 'telas' -> 0 ->> 'etapa')::int = 3, 'avisos midia: 3 dias antes, nova etapa');
+select pg_temp.ok((mi_avisos_pendentes(mi_hoje() + 8) -> 0 -> 'telas' -> 0 ->> 'etapa')::int = 0, 'avisos midia: acabou os dias (tolerância)');
+select pg_temp.ok((mi_avisos_pendentes(mi_hoje() + 12) -> 0 -> 'telas' -> 0 ->> 'etapa')::int = -1, 'avisos midia: TV pausada');
+select pg_temp.ok(jsonb_array_length(mi_avisos_pendentes(mi_hoje() + 30)) = 0 or (mi_avisos_pendentes(mi_hoje() + 30) -> 0 -> 'telas' -> 0 ->> 'tela') <> 'TV 1',
+  'avisos midia: pausada há mais de uma semana para de avisar');
+reset role;
+update mi_telas set valida_ate = mi_hoje() + 4 where id = '41000000-0000-0000-0000-0000000000c1';   -- outra data: recomeça
+set role service_role;
+select pg_temp.ok((mi_avisos_pendentes() -> 0 -> 'telas' -> 0 ->> 'etapa')::int = 7, 'avisos midia: data nova (pôr dias) recomeça as etapas');
+reset role;
+update mi_contas set ativo = false where id = '40000000-0000-0000-0000-0000000000c1';
+set role service_role;
+select pg_temp.ok(jsonb_array_length(mi_avisos_pendentes()) = 0, 'avisos midia: conta inativa não avisa');
+reset role;
+update mi_contas set ativo = true where id = '40000000-0000-0000-0000-0000000000c1';
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.erro2('select mi_avisos_pendentes()', 'permission', 'avisos midia: tela não lê os pendentes');
+select pg_temp.erro2('select * from mi_cred_avisos', 'permission', 'avisos midia: tela não lê os avisos marcados');
+select pg_temp.ok('financeiro@linum.com.br' = any (mi_avisos_destinos('40000000-0000-0000-0000-0000000000c1')), 'avisos midia: cliente vê quem recebe os avisos da conta dele');
+select pg_temp.ok(cardinality(mi_avisos_destinos('40000000-0000-0000-0000-000000000002')) = 0, 'avisos midia: e não os de outra conta');
+reset role;
+reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'

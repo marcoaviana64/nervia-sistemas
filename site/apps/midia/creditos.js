@@ -113,6 +113,8 @@ async function mudarIsenta(t) {
 const CR_TIPO = { dias: "dias", isenta: "ficou isenta", cobrada: "passou a ser cobrada", aparelho: "aparelho trocado" };
 async function dlgExtrato() {
   const l = checar(await sb.rpc("mi_creditos_extrato", { p_conta: CONTA.id }));
+  // quem recebe o aviso por e-mail (2.6); se falhar, o extrato abre assim mesmo
+  const dest = await sb.rpc("mi_avisos_destinos", { p_conta: CONTA.id }).then(r => r.error ? null : r.data || [], () => null);
   const brl = v => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   $("dlg").classList.add("largo");
   $("dlgf").innerHTML = `<h3>Dias de uso: extrato</h3><div class="mut">${esc(CONTA.nome)} · cada TV tem os seus dias; acabaram os dias, a TV continua passando por ${crTol()} dia(s) e depois pausa.</div>
@@ -121,6 +123,7 @@ async function dlgExtrato() {
       <td class="num">${e.tipo === "dias" ? (e.dias > 0 ? "+" : "") + e.dias : ""}</td><td>${e.tipo === "dias" ? `${crData(e.antes)} → <b>${crData(e.depois)}</b>` : crData(e.depois)}</td>
       ${ADMIN ? `<td class="num">${e.valor != null ? brl(e.valor) : ""}</td><td>${esc(e.user_nome)}</td>` : ""}<td>${esc(e.obs)}</td></tr>`).join("") ||
       `<tr><td colspan="8" class="mut">Nenhum registro ainda.</td></tr>`}</table></div>
+    ${dest ? `<p class="mut" id="avDest"><b>Aviso por e-mail</b> 7, 3 e 1 dia antes de acabarem os dias de cada TV, quando acabam e quando a TV pausa: ${dest.length ? dest.map(esc).join(", ") : "ninguém (libere o app Mídia Indoor e a conta para um login)"}.</p>` : ""}
     <div class="fim"><button class="bt" value="x">Fechar</button></div>`;
   $("dlg").showModal();
   $("dlg").addEventListener("close", () => $("dlg").classList.remove("largo"), { once: true });

@@ -115,6 +115,8 @@ const FALSO = `(() => {
     mi_conta_tolerancia(p) { if (!admin()) return erro('Somente a equipe Nervia muda a tolerância.'); conta(p.p_conta).tolerancia_dias = p.p_dias; db.log.push('tolerancia:' + p.p_dias); return ok(null); },
     mi_creditos_extrato(p) { if (!pode(p.p_conta)) return ok([]);
       return ok(db.mi_creditos.filter(e => e.conta_id === p.p_conta).reverse().map(e => ({ ...e, valor: admin() ? e.valor : null, user_nome: admin() ? e.user_nome : 'Nervia' }))); },
+    mi_avisos_destinos(p) { if (!pode(p.p_conta)) return ok([]);
+      return ok([...new Set(db.perfis.filter(x => x.admin || db.mi_acessos.some(a => a.user_id === x.user_id && a.conta_id === p.p_conta)).map(x => x.email))]); },
     mi_tela_trocar_aparelho(p) { const t = db.mi_telas.find(x => x.id === p.p_tela); if (!t || !pode(t.conta_id)) return erro('TV não encontrada.');
       if (db.codigos[p.p_codigo] !== 'livre') return erro('Código não encontrado. Confira o que aparece na TV nova.');
       db.codigos[p.p_codigo] = 'usado'; Object.assign(t, { modelo: '', ultimo_sinal: null, versao_app: '' }); db.log.push('trocar:' + t.id); return ok(null); },
@@ -357,6 +359,8 @@ const db = pg => pg.evaluate(() => window.__db);
     ok((await adm.pg.locator('.aviso.crit', { hasText: 'dias de uso' }).count()) === 0 && (await adm.pg.locator('#msg').innerText()).includes('2 TVs'), 'pôr dias: TV volta a ficar em dia');
     await adm.pg.click('[data-acao=extrato]'); await adm.pg.waitForTimeout(200);
     const ext = await adm.pg.locator('#dlgf').innerText();
+    ok((await adm.pg.locator('#avDest').innerText()).includes('mkt@lojaexemplo.com.br') && (await adm.pg.locator('#avDest').innerText()).includes('7, 3 e 1 dia'),
+      'extrato: mostra quem recebe o aviso por e-mail');
     ok(ext.includes('+90') && /R\$\s149,70/.test(ext) && ext.includes('Pix 19/11'), 'extrato: Nervia vê dias, valor e observação');
     await adm.pg.click('#dlg button[value=x]'); await adm.pg.waitForTimeout(100);
     await adm.pg.click('[data-acao=trocarAparelho][data-id=t1]'); await adm.pg.fill('#tCod', 'nov234'); await adm.pg.click('#tOk'); await adm.pg.waitForTimeout(250);
