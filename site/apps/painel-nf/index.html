@@ -39,6 +39,8 @@ body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 'Inter',syste
 h1,h2,.kpi-val,.card-title,.titulo{font-family:'Manrope','Inter',system-ui,sans-serif}
 .tab-n{font-variant-numeric:tabular-nums}
 .oculto{display:none!important}
+.info{background:var(--info-soft);color:var(--info);border-radius:var(--radius-sm);padding:10px 14px;font-weight:600;margin-bottom:12px}
+.neg{color:var(--negative)}.pos{color:var(--positive)}
 button,select,input{font:inherit;color:inherit}
 
 /* topo próprio (some quando o app está dentro da Área do Cliente) */
@@ -55,7 +57,8 @@ button,select,input{font:inherit;color:inherit}
 /* filtros */
 .filtros{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius);padding:12px 14px;box-shadow:var(--shadow-sm);margin-bottom:14px}
 .filtros label{display:block;font-size:.66rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-faint);margin-bottom:4px}
-.filtros select,.filtros input{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface)}
+.filtros>div{min-width:0}.fVisao{grid-column:span 2}.seg button{white-space:nowrap}
+.filtros select,.filtros input{width:100%;min-width:0;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface)}
 .filtros select:focus,.filtros input:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
 .seg{display:flex;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden}
 .seg button{flex:1;border:0;background:var(--surface);padding:8px 6px;cursor:pointer;font-weight:700;font-size:.8rem;color:var(--ink-soft)}
@@ -111,7 +114,7 @@ tbody tr:hover td{background:var(--surface-2)}
 </style>
 </head>
 <body>
-<div class="topo"><div class="marca">PN</div><div><b>Painel de Notas</b><br><span>Compras pelas notas fiscais</span><br><span data-versao="painel-nf"></span></div></div>
+<div class="topo"><div class="marca">PN</div><div><b>Painel de Notas</b><br><span>Compras e vendas pelas notas fiscais</span><br><span data-versao="painel-nf"></span></div></div>
 
 <div class="conteudo" id="app">
   <div class="carregando" id="carregando">Carregando as notas…</div>
@@ -123,8 +126,9 @@ tbody tr:hover td{background:var(--surface-2)}
 
     <div class="filtros">
       <div><label for="fEmpresa">Empresa</label><select id="fEmpresa"></select></div>
-      <!-- Vendas desligado (decisão do Marco, 2026-10-14): a SEFAZ não entrega ao emitente as próprias NF-e. Para religar, tirar o display:none. -->
-      <div style="display:none"><label>Visão</label><div class="seg" id="fPapel"><button data-v="recebida" class="on">Compras</button><button data-v="emitida">Vendas</button></div></div>
+      <!-- Vendas = NFS-e emitidas (o ADN entrega ao prestador). NF-e de venda NÃO chega: a SEFAZ não entrega ao emitente as próprias NF-e
+           (decisão do Marco, 19/11/2026: religar Vendas só com NFS-e, com aviso). "Compras × Vendas" junta as duas por mês. -->
+      <div class="fVisao"><label>Visão</label><div class="seg" id="fPapel"><button data-v="recebida" class="on">Compras</button><button data-v="emitida">Vendas</button><button data-v="resultado" title="Compras e vendas lado a lado, por mês">Compras × Vendas</button></div></div>
       <div><label for="fTipo">Tipo</label><select id="fTipo"><option value="">NF-e e NFS-e</option><option value="NFE">NF-e (produtos)</option><option value="NFSE">NFS-e (serviços)</option></select></div>
       <div><label for="fAno">Ano</label><select id="fAno"></select></div>
       <div><label for="fMes">Mês</label><select id="fMes"></select></div>
@@ -138,6 +142,18 @@ tbody tr:hover td{background:var(--surface-2)}
 
     <div class="kpis" id="kpis"></div>
 
+    <div id="vRes" class="oculto">
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-head"><div class="card-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 15l3-4 3 3 6-8"/></svg>Compras e vendas por mês</div><span class="card-hint">clique num mês para filtrar</span></div>
+        <div class="grafico"><canvas id="gRes" aria-label="Compras e vendas por mês"></canvas></div>
+      </div>
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-head"><div class="card-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Mês a mês</div><span class="card-hint">diferença = vendas − compras</span></div>
+        <div class="tab"><table><thead><tr><th>Mês</th><th class="dir">Vendas</th><th class="dir">Notas</th><th class="dir">Compras</th><th class="dir">Notas</th><th class="dir">Diferença</th><th class="dir">Compras ÷ vendas</th></tr></thead><tbody id="tbRes"></tbody></table></div>
+      </div>
+    </div>
+
+    <div id="vPapel">
     <div class="grade2">
       <div class="card">
         <div class="card-head"><div class="card-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 15l3-4 3 3 6-8"/></svg><span id="tMes">Total por mês</span></div><span class="card-hint">clique numa barra para filtrar o mês</span></div>
@@ -158,7 +174,8 @@ tbody tr:hover td{background:var(--surface-2)}
       <div class="card-head"><div class="card-title"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6l1 3H8l1-3Z"/><rect x="5" y="6" width="14" height="15" rx="2"/><path d="M9 12h6M9 16h6"/></svg>Notas do filtro</div><span class="card-hint" id="hNotas"></span></div>
       <div class="tab"><table><thead><tr><th>Emissão</th><th>Tipo</th><th>Nº</th><th id="hPart">Fornecedor</th><th class="dir">Valor</th><th>Situação</th><th>Espelho</th></tr></thead><tbody id="tbNotas"></tbody></table></div>
     </div>
-    <div class="rodape">Dados das notas baixadas pelo Buscador de NF (atualizado de hora em hora). NF-e só ficam disponíveis por cerca de 90 dias na SEFAZ: notas anteriores à adesão podem não aparecer.</div>
+    </div>
+    <div class="rodape">Dados das notas baixadas pelo Buscador de NF (atualizado de hora em hora). NF-e só ficam disponíveis por cerca de 90 dias na SEFAZ: notas anteriores à adesão podem não aparecer. Vendas = NFS-e emitidas pela empresa (a SEFAZ não entrega ao emitente as NF-e de produtos que ele emite).</div>
   </div>
 </div>
 
@@ -170,7 +187,7 @@ const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const brl = v => (+v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-const brlCurto = v => v >= 1e6 ? "R$ " + (v / 1e6).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + " mi" : v >= 1e3 ? "R$ " + (v / 1e3).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + " mil" : brl(v);
+const brlCurto = v => v < 0 ? "−" + brlCurto(-v) : v >= 1e6 ? "R$ " + (v / 1e6).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + " mi" : v >= 1e3 ? "R$ " + (v / 1e3).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + " mil" : brl(v);
 const docFmt = d => d && d.length === 14 ? `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8,12)}-${d.slice(12)}` : d && d.length === 11 ? `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6,9)}-${d.slice(9)}` : (d || "");
 const MESES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 const MESES_LONGOS = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
@@ -178,7 +195,7 @@ const dataLocal = iso => iso ? new Date(iso).toLocaleDateString("sv-SE", { timeZ
 const dataBR = d => d ? d.slice(8, 10) + "/" + d.slice(5, 7) + "/" + d.slice(0, 4) : "";
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
-let empresas = [], notas = [], papel = "recebida", ordem = { col: "total", desc: true }, gMes = null, gTop = null;
+let empresas = [], notas = [], papel = "recebida", ordem = { col: "total", desc: true }, gMes = null, gTop = null, gRes = null;
 
 // ---------------------------------------------------------------- carga
 async function iniciar() {
@@ -238,10 +255,10 @@ function periodo() {
   if (mes) return { de: "0000-01-01", ate: "9999-12-31", rotulo: `${MESES_LONGOS[+mes - 1]} de todos os anos`, mesSo: mes };
   return { de: "0000-01-01", ate: "9999-12-31", rotulo: "todo o período" };
 }
-function base(semFornecedor = false, per = periodo()) {
+function base(semFornecedor = false, per = periodo(), pap = papel) {
   const emp = $("fEmpresa").value, tipo = $("fTipo").value, canc = $("fCanc").value === "dentro";
-  const forn = semFornecedor ? "" : fornSel();
-  return notas.filter(n => n.papel === papel && (!emp || n.cnpj_consulta === emp) && (!tipo || n.tipo === tipo)
+  const forn = semFornecedor || pap === "resultado" ? "" : fornSel();
+  return notas.filter(n => (pap === "resultado" || n.papel === pap) && (!emp || n.cnpj_consulta === emp) && (!tipo || n.tipo === tipo)
     && (canc || n.situacao !== "Cancelada") && n.dia >= per.de && n.dia <= per.ate && (!per.mesSo || n.dia.slice(5, 7) === per.mesSo)
     && (!forn || chaveParte(n) === forn));
 }
@@ -257,6 +274,10 @@ function fornSel() {
 // ---------------------------------------------------------------- desenho
 let ultimoForn = [];
 function desenhar() {
+  const res = papel === "resultado";
+  $("vRes").classList.toggle("oculto", !res); $("vPapel").classList.toggle("oculto", res);
+  $("fForn").disabled = res;
+  if (res) return desenharResultado();
   const vendas = papel === "emitida", rotParte = vendas ? "Cliente" : "Fornecedor";
   document.body.classList.toggle("vendas", vendas);
   $("titulo").textContent = vendas ? "Vendas por cliente" : "Compras por fornecedor";
@@ -274,7 +295,7 @@ function desenhar() {
   const emp = empresas.find(e => e.cnpj === $("fEmpresa").value);
   $("subtitulo").textContent = `${emp ? emp.nome : empresas.length > 1 ? "Todas as empresas" : empresas[0].nome} · ${per.rotulo} · ${lista.length} nota(s)`;
   chips(per);
-  $("aviso").innerHTML = !notas.some(n => n.papel === papel) ? `<div class="aviso">Ainda não há notas de ${vendas ? "venda (emitidas)" : "compra (recebidas)"} baixadas para as suas empresas.</div>` : "";
+  $("aviso").innerHTML = (!notas.some(n => n.papel === papel) ? `<div class="aviso">Ainda não há notas de ${vendas ? "venda (NFS-e emitidas)" : "compra (recebidas)"} baixadas para as suas empresas.</div>` : "") + (vendas ? avisoVendas() : "");
 
   // indicadores
   const grupos = agrupar(lista), maior = grupos[0];
@@ -297,6 +318,72 @@ function desenhar() {
   desenharForn(grupos, total);
   desenharNotas(lista);
 }
+// Vendas = NFS-e emitidas: a SEFAZ não entrega ao emitente as NF-e de produtos que ele mesmo emite.
+const avisoVendas = () => `<div class="info">Vendas mostra as NFS-e (serviços) emitidas pela empresa. As NF-e de produtos que a empresa emite não chegam ao Buscador: a SEFAZ não as entrega ao próprio emitente.${$("fTipo").value === "NFE" ? " Com o filtro NF-e, a visão fica vazia." : ""}</div>`;
+
+// ---------------------------------------------------------------- compras × vendas
+function porMes(lista) {
+  const m = new Map();
+  for (const n of lista) {
+    const ch = n.dia.slice(0, 7); if (!ch) continue;
+    const g = m.get(ch) || m.set(ch, { mes: ch, vendas: 0, nv: 0, compras: 0, nc: 0 }).get(ch);
+    if (n.papel === "emitida") { g.vendas += n.v; g.nv++; } else { g.compras += n.v; g.nc++; }
+  }
+  return m;
+}
+function mesesDoPeriodo(per, chavesComNota) {
+  if (per.tipo === "ano") return Array.from({ length: 12 }, (_, i) => `${per.ano}-${String(i + 1).padStart(2, "0")}`);
+  const ms = [...chavesComNota].sort(); if (!ms.length) return [];
+  const out = []; let [a, m] = ms[0].split("-").map(Number); const [a2, m2] = ms.at(-1).split("-").map(Number);
+  while ((a < a2 || (a === a2 && m <= m2)) && out.length < 36) { out.push(`${a}-${String(m).padStart(2, "0")}`); m++; if (m > 12) { m = 1; a++; } }
+  return out.length === 36 ? ms.slice(-36) : out;
+}
+function desenharResultado() {
+  $("titulo").textContent = "Compras × Vendas";
+  $("fForn").value = ""; $("fForn").placeholder = "—"; $("lForn").textContent = "Fornecedor / cliente";
+  const per = periodo(), lista = base(false, per, "resultado");
+  const vend = lista.filter(n => n.papel === "emitida"), comp = lista.filter(n => n.papel !== "emitida");
+  const tv = soma(vend), tc = soma(comp), dif = tv - tc;
+  const emp = empresas.find(e => e.cnpj === $("fEmpresa").value);
+  $("subtitulo").textContent = `${emp ? emp.nome : empresas.length > 1 ? "Todas as empresas" : empresas[0].nome} · ${per.rotulo} · ${vend.length} venda(s) · ${comp.length} compra(s)`;
+  chips(per);
+  $("aviso").innerHTML = (!notas.some(n => n.papel === "emitida") ? `<div class="aviso">Ainda não há notas de venda (NFS-e emitidas) baixadas para as suas empresas: a comparação mostra só as compras.</div>` : "") + avisoVendas();
+  const ant = anterior(per), lAnt = ant ? base(false, ant, "resultado") : null;
+  const difAnt = lAnt ? soma(lAnt.filter(n => n.papel === "emitida")) - soma(lAnt.filter(n => n.papel !== "emitida")) : null;
+  const k = (cls, rot, val, sub, extra = "") => `<div class="kpi ${cls}"><div class="kpi-top"><div class="kpi-label">${rot}</div>${extra}</div><div class="kpi-val tab-n" title="${esc(val.replace(/<[^>]+>/g, ""))}">${val}</div><div class="kpi-sub" title="${esc(sub)}">${sub}</div></div>`;
+  const mapa = porMes(lista), meses = mesesDoPeriodo(per, mapa.keys());
+  const linhas = meses.map(ch => mapa.get(ch) || { mes: ch, vendas: 0, nv: 0, compras: 0, nc: 0 });
+  const nMeses = linhas.filter(l => l.nv || l.nc).length || 1;
+  const positivos = linhas.filter(l => (l.nv || l.nc) && l.vendas >= l.compras).length;
+  $("kpis").innerHTML =
+    k("", "Total vendido", brl(tv), `${vend.length} NFS-e emitida(s)`) +
+    k("b", "Total comprado", brl(tc), `${comp.length} nota(s) recebida(s)`) +
+    k("c", "Diferença", `<span class="${dif < 0 ? "neg" : "pos"}">${brl(dif)}</span>`, difAnt != null ? `vs. ${ant.rotulo}: ${brl(difAnt)}` : "vendas − compras") +
+    k("d", "Compras ÷ vendas", tv ? pct(tc, tv) : "—", tv ? "quanto das vendas foi gasto em compras" : "sem vendas no período") +
+    k("e", "Média mensal", brl(tv / nMeses), `vendas · compras ${brl(tc / nMeses)}`) +
+    k("", "Meses no azul", `${positivos} de ${linhas.filter(l => l.nv || l.nc).length}`, "vendas maiores ou iguais às compras");
+  $("tbRes").innerHTML = linhas.length ? [...linhas].reverse().map(l => { const d = l.vendas - l.compras; return `<tr style="cursor:pointer" onclick="filtrarMes('${l.mes}')">
+    <td class="tab-n">${MESES_LONGOS[+l.mes.slice(5) - 1]}/${l.mes.slice(0, 4)}</td><td class="dir tab-n"><b>${brl(l.vendas)}</b></td><td class="dir tab-n">${l.nv}</td>
+    <td class="dir tab-n"><b>${brl(l.compras)}</b></td><td class="dir tab-n">${l.nc}</td><td class="dir tab-n ${d < 0 ? "neg" : "pos"}"><b>${brl(d)}</b></td>
+    <td class="dir tab-n">${l.vendas ? pct(l.compras, l.vendas) : "—"}</td></tr>`; }).join("") +
+    `<tr><td><b>Total</b></td><td class="dir tab-n"><b>${brl(tv)}</b></td><td class="dir tab-n">${vend.length}</td><td class="dir tab-n"><b>${brl(tc)}</b></td><td class="dir tab-n">${comp.length}</td><td class="dir tab-n ${dif < 0 ? "neg" : "pos"}"><b>${brl(dif)}</b></td><td class="dir tab-n">${tv ? pct(tc, tv) : "—"}</td></tr>`
+    : `<tr><td colspan="7"><div class="vazio">Nenhuma nota com esses filtros.</div></td></tr>`;
+  if (!window.Chart) { if ($("gRes")) $("gRes").parentElement.innerHTML = '<div class="vazio">Gráfico indisponível (sem conexão com a biblioteca de gráficos).</div>'; return; }
+  const rot = meses.map(ch => MESES[+ch.slice(5) - 1] + "/" + ch.slice(2, 4));
+  const dados = { labels: rot, datasets: [
+    { type: "bar", label: "Vendas", data: linhas.map(l => l.vendas), backgroundColor: css("--positive"), borderRadius: 5, maxBarThickness: 22, order: 2 },
+    { type: "bar", label: "Compras", data: linhas.map(l => l.compras), backgroundColor: css("--accent"), borderRadius: 5, maxBarThickness: 22, order: 2 },
+    { type: "line", label: "Diferença", data: linhas.map(l => l.vendas - l.compras), borderColor: css("--ink-soft"), backgroundColor: css("--ink-soft"), pointRadius: 3, tension: .25, order: 1 } ] };
+  const opcoes = { responsive: true, maintainAspectRatio: false, animation: false,
+    onClick: (e, el) => { if (el.length) filtrarMes(meses[el[0].index]); },
+    plugins: { legend: { position: "top", labels: { color: css("--ink-soft"), boxWidth: 10, usePointStyle: true, pointStyle: "circle", font: { size: 11, weight: "600" } } },
+      tooltip: { callbacks: { label: c => `${c.dataset.label}: ${brl(c.parsed.y)}` } } },
+    scales: { x: { grid: { display: false }, ticks: { color: css("--ink-faint"), font: { size: 10.5 } } },
+      y: { grid: { color: css("--border-soft") }, ticks: { color: css("--ink-faint"), font: { size: 10.5 }, callback: v => brlCurto(v) } } } };
+  try { if (gRes) { gRes.data = dados; gRes.options = opcoes; gRes.update(); } else gRes = new Chart($("gRes"), { type: "bar", data: dados, options: opcoes }); } catch (e) { console.error(e); }
+}
+function filtrarMes(ch) { $("fAno").value = ch.slice(0, 4); $("fMes").value = ch.slice(5, 7); $("fDe").value = $("fAte").value = ""; desenhar(); }
+
 const soma = l => l.reduce((s, n) => s + n.v, 0);
 const pct = (a, t) => t ? (a / t * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + "%" : "0%";
 const mesesCom = l => new Set(l.map(n => n.dia.slice(0, 7))).size;
@@ -400,13 +487,21 @@ function desenharNotas(lista) {
 
 // ---------------------------------------------------------------- exportar
 function exportar() {
-  const lista = base(), vendas = papel === "emitida";
-  const linhas = [["Data emissão", "Tipo", "Número", vendas ? "CNPJ cliente" : "CNPJ fornecedor", vendas ? "Cliente" : "Fornecedor", "Empresa (CNPJ)", "Valor", "Situação", "Chave"]];
-  for (const n of lista) { const p = parte(n); linhas.push([dataBR(n.dia), n.tipo === "NFE" ? "NF-e" : "NFS-e", n.numero || "", p.doc || "", p.nome || "", n.cnpj_consulta, n.v.toFixed(2).replace(".", ","), n.situacao, "'" + n.chave]); }
+  const lista = base(), vendas = papel === "emitida", res = papel === "resultado";
+  const r$ = v => v.toFixed(2).replace(".", ",");
+  let linhas;
+  if (res) {
+    const per = periodo(), mapa = porMes(lista);
+    linhas = [["Mês", "Vendas", "Notas de venda", "Compras", "Notas de compra", "Diferença (vendas − compras)"]];
+    for (const ch of mesesDoPeriodo(per, mapa.keys())) { const l = mapa.get(ch) || { vendas: 0, nv: 0, compras: 0, nc: 0 }; linhas.push([ch.slice(5) + "/" + ch.slice(0, 4), r$(l.vendas), l.nv, r$(l.compras), l.nc, r$(l.vendas - l.compras)]); }
+  } else {
+    linhas = [["Data emissão", "Tipo", "Número", vendas ? "CNPJ cliente" : "CNPJ fornecedor", vendas ? "Cliente" : "Fornecedor", "Empresa (CNPJ)", "Valor", "Situação", "Chave"]];
+    for (const n of lista) { const p = parte(n); linhas.push([dataBR(n.dia), n.tipo === "NFE" ? "NF-e" : "NFS-e", n.numero || "", p.doc || "", p.nome || "", n.cnpj_consulta, r$(n.v), n.situacao, "'" + n.chave]); }
+  }
   const csv = "﻿" + linhas.map(l => l.map(c => /[;"\n]/.test(String(c)) ? `"${String(c).replace(/"/g, '""')}"` : c).join(";")).join("\r\n");
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-  a.download = `painel-notas-${vendas ? "vendas" : "compras"}.csv`; a.click(); URL.revokeObjectURL(a.href);
+  a.download = `painel-notas-${res ? "compras-x-vendas" : vendas ? "vendas" : "compras"}.csv`; a.click(); URL.revokeObjectURL(a.href);
 }
 
 iniciar().catch(e => falha(e.message));

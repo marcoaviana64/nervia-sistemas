@@ -8,6 +8,7 @@ Ao publicar mudança num app: linha nova no topo do app aqui (com a data) e em `
 
 | Versão | Data | O que mudou |
 |---|---|---|
+| 1.9 | 19/11/2026 | Avisos por e-mail: resumo diário das notas novas (você escolhe se quer receber) e aviso quando o certificado A1 está perto de vencer. (pedido do Marco; migração nf_avisos, função nf-aviso, pg_cron nf-avisos 10h40 UTC; resumo padrão desligado, certificado padrão ligado; etapas 30/15/7/1/0) |
 | 1.8 | 22/10/2026 | Baixar XMLs (.zip): os XMLs das notas marcadas ou, sem marcação, de toda a lista filtrada (período, tipo, fornecedor), num arquivo só. |
 | 1.7 | 14/10/2026 | Recuperar NF-e anteriores: traz as NF-e dos últimos 90 dias que outro sistema da empresa já tinha baixado. |
 | 1.6 | 14/10/2026 | Registro de auditoria das ações sensíveis (ciência, confirmação, certificado, termo, acessos), com comprovante para imprimir. |
@@ -22,6 +23,7 @@ Ao publicar mudança num app: linha nova no topo do app aqui (com a data) e em `
 
 | Versão | Data | O que mudou |
 |---|---|---|
+| 1.2 | 19/11/2026 | Vendas: as NFS-e (serviços) emitidas pela empresa, por cliente. Nova visão Compras × Vendas, mês a mês, com a diferença e o gráfico lado a lado. (pedido do Marco: "no painel preciso ver também as notas emitidas"; NF-e de venda continua fora: a SEFAZ não entrega ao emitente) |
 | 1.1 | 14/10/2026 | O painel passa a mostrar só as compras (notas recebidas). |
 | 1.0 | 14/10/2026 | Lançamento: compras por fornecedor, mês e período, com comparação ao mês e ao ano anterior, gráficos e CSV. |
 

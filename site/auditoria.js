@@ -32,6 +32,7 @@
     preco_criado: "Preço de app criado",
     preco_alterado: "Preço de app alterado",
     salario_minimo_cadastrado: "Salário mínimo cadastrado",
+    nf_avisos_alterados: "Avisos por e-mail do Buscador alterados",
   };
   const SENSIVEL = new Set(["manifestacao_ciencia", "manifestacao_confirmacao", "certificado_cadastrado", "termo_registrado"]);
   const dataHora = (v) => v ? new Date(v).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "";
@@ -52,6 +53,10 @@
       return `${d.nome || d.item}${"valor" in n ? ` · ${r.acao === "preco_alterado" ? r$(a.valor) + " → " : ""}${r$(n.valor)}` : ""}${"percentual" in n && r.acao === "preco_alterado" ? ` · ${a.percentual ?? "—"}% → ${n.percentual ?? "—"}%` : ""}${d.motivo ? " · " + d.motivo : ""}`;
     }
     if (r.acao === "salario_minimo_cadastrado") return `R$ ${Number(d.valor).toFixed(2).replace(".", ",")} a partir de ${new Date(d.vigencia + "T12:00:00").toLocaleDateString("pt-BR")}${d.fonte ? " · " + d.fonte : ""}`;
+    if (r.acao === "nf_avisos_alterados") {
+      const t = (o) => `resumo diário ${o && o.resumo ? "ligado" : "desligado"}, certificado ${o && o.certificado ? "ligado" : "desligado"}`;
+      return `${d.login || ""} · ${t(d.depois)}`;
+    }
     if (r.acao === "empresa_alterada") return `${d.nome_anterior} → ${d.nome}`;
     return "";
   }

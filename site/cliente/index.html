@@ -667,7 +667,7 @@ async function propostaCliente(id) {
 }
 
 // E-mails automáticos pelo Microsoft 365 (função email): situação, teste e os últimos envios (tabela email_envios)
-const TIPOS_EMAIL = { teste: "Teste", auth_recovery: "Senha nova", auth_invite: "Convite", auth_magiclink: "Link de acesso", auth_signup: "Confirmação de e-mail", auth_email_change: "Troca de e-mail", auth_reauthentication: "Código" };
+const TIPOS_EMAIL = { teste: "Teste", auth_recovery: "Senha nova", auth_invite: "Convite", auth_magiclink: "Link de acesso", auth_signup: "Confirmação de e-mail", auth_email_change: "Troca de e-mail", auth_reauthentication: "Código", monitor_aviso: "Aviso do Monitor", nf_resumo: "Resumo de notas", nf_certificado: "Certificado vencendo" };
 async function admEmails() {
   $("admConteudo").innerHTML = '<div class="cartao"><h2>E-mails</h2><div class="small">Carregando…</div></div>';
   let sit = null, erroSit = "";

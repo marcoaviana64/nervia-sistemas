@@ -397,7 +397,7 @@ with sync_playwright() as p:
     pg.select_option("#fEmpresa", ""); pg.select_option("#fCanc", "fora")
     pg.fill("#fDe", "2026-09-01"); pg.dispatch_event("#fDe", "change"); pg.fill("#fAte", "2026-09-30"); pg.dispatch_event("#fAte", "change"); pg.wait_for_timeout(100)
     assert pg.input_value("#fAno") == "" and "11.640,00" in pg.inner_text("#kpis"), pg.inner_text("#kpis")
-    assert pg.locator("#fPapel").is_hidden() and "vendas" not in pg.inner_text(".topo").lower(), "visão Vendas desligada"
+    assert pg.locator("#fPapel").is_visible() and "vendas" in pg.inner_text(".topo").lower(), "visões Vendas e Compras × Vendas"
     with pg.expect_download() as d:
         pg.click("text=Exportar CSV")
     csv = open(d.value.path(), encoding="utf-8-sig").read()
