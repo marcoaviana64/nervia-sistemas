@@ -1075,13 +1075,15 @@ class MainActivity : ComponentActivity() {
         c.referer?.let { http.setDefaultRequestProperties(mapOf("Referer" to it)) }
         val item = MediaItem.Builder().setUri(c.url).apply { (mimeForcado ?: mimeDe(c.url))?.let { setMimeType(it) } }.build()
         val fonte = DefaultMediaSourceFactory(DefaultDataSource.Factory(this, http)).createMediaSource(item)
-        player.setMediaSource(fonte, inicio)
+        // 2.13: canal ao vivo sempre começa na borda ao vivo (C.TIME_UNSET), nunca no começo da janela DVR,
+        // para a reconexão voltar no horário atual da transmissão e não alguns minutos atrás.
+        player.setMediaSource(fonte, if (c.tipo == Tipo.AO_VIVO) C.TIME_UNSET else inicio)
         player.prepare()
         player.playWhenReady = tocar
     }
 
     private val tentarDeNovo = Runnable {
-        atual?.let { iniciar(it, if (it.tipo == Tipo.AO_VIVO) 0 else player.currentPosition.coerceAtLeast(0)) }
+        atual?.let { iniciar(it, if (it.tipo == Tipo.AO_VIVO) C.TIME_UNSET else player.currentPosition.coerceAtLeast(0)) }
     }
 
     private val ouvinte = object : Player.Listener {

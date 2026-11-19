@@ -3,9 +3,9 @@
     "http://p.urldata.gy"
   ],
   "versao": {
-    "codigo": 14,
-    "nome": "2.12",
+    "codigo": 15,
+    "nome": "2.13",
     "apk": "https://nervia.com.br/nvplayer.apk",
-    "novidades": "Mais estabilidade: quando o canal trava, o app reconecta sozinho. Aviso um dia antes de a lista vencer. O app passa a mandar à Nervia um resumo de uso para suporte (sem a senha da lista)."
+    "novidades": "Quando o canal trava e reconecta sozinho, a transmissão volta no horário atual, ao vivo."
   }
 }
