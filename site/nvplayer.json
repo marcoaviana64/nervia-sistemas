@@ -3,9 +3,9 @@
     "http://p.urldata.gy"
   ],
   "versao": {
-    "codigo": 21,
-    "nome": "2.19",
+    "codigo": 22,
+    "nome": "2.20",
     "apk": "https://nervia.com.br/nvplayer.apk",
-    "novidades": "Canais bloqueados: agora você libera digitando a senha em Ajustes → \"Liberar canais bloqueados\"; antes disso eles ficam escondidos na lista."
+    "novidades": "Agenda mais fácil: agora com coluna de grupos (como na TV ao vivo) — escolha o grupo e depois o canal, sem rolar uma lista enorme."
   }
 }

@@ -134,11 +134,15 @@ class MainActivity : ComponentActivity() {
     private lateinit var agCorpo: LinearLayout
     private lateinit var agDias: LinearLayout
     private lateinit var agBusca: EditText
+    private lateinit var agRvGrupos: RecyclerView   // 2.20: coluna de grupos
     private lateinit var agRvCanais: RecyclerView
     private lateinit var agTitulo: TextView
     private lateinit var agRvProgs: RecyclerView
     private var agDiasList: List<Long> = emptyList()
     private var agDiaSel = 0
+    private var agCanaisDia: List<Item> = emptyList()   // 2.20: canais do dia (antes do grupo/busca)
+    private var agGrupos: List<String> = emptyList()
+    private var agGrupoSel: String? = null              // null = Todos
     private var agCanais: List<Item> = emptyList()
     private var agCanalSel: Item? = null
     private var agProgs: List<Programa> = emptyList()
@@ -871,14 +875,24 @@ class MainActivity : ComponentActivity() {
     // ---------------------------------------------------------------- Agenda (2.17)
 
     private val AG_CANAL = Any()
+    private val AG_GRUPO = Any()
 
     private fun montarAgenda(parent: LinearLayout) {
-        agCorpo = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; visibility = View.GONE }
-        val esq = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(4.dp, 0, 8.dp, 0) }
+        // 2.20: dias em cima; embaixo três colunas — grupos · canais do grupo · programação do canal.
+        agCorpo = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
         val rolaDias = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; isFocusable = false }
         agDias = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(4.dp, 2.dp, 4.dp, 6.dp) }
         rolaDias.addView(agDias)
-        esq.addView(rolaDias, LinearLayout.LayoutParams(-1, -2))
+        agCorpo.addView(rolaDias, LinearLayout.LayoutParams(-1, -2))
+
+        val linha = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        agRvGrupos = RecyclerView(this).apply {
+            clipChildren = false; clipToPadding = false; setPadding(4.dp, 4.dp, 8.dp, 4.dp)
+            layoutManager = LinearLayoutManager(this@MainActivity); adapter = AdAgGrupos(); itemAnimator = null
+        }
+        linha.addView(agRvGrupos, LinearLayout.LayoutParams(0, -1, 0.24f))
+
+        val colCanais = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(10.dp, 0, 6.dp, 0) }
         agBusca = EditText(this).apply {
             hint = "Buscar canal…"; setHintTextColor(Estilo.TEXTO_3); setTextColor(Color.WHITE); textSize = 15f
             Estilo.campo(this); setPadding(14.dp, 7.dp, 14.dp, 7.dp); isSingleLine = true
@@ -889,13 +903,15 @@ class MainActivity : ComponentActivity() {
                 override fun afterTextChanged(s: Editable?) { h.removeCallbacks(filtrarAgenda); h.postDelayed(filtrarAgenda, 300) }
             })
         }
-        esq.addView(agBusca, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 6.dp; marginStart = 4.dp; marginEnd = 8.dp })
+        colCanais.addView(agBusca, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 6.dp; marginStart = 4.dp; marginEnd = 8.dp })
         agRvCanais = RecyclerView(this).apply {
             clipChildren = false; clipToPadding = false; setPadding(4.dp, 4.dp, 8.dp, 4.dp)
             layoutManager = LinearLayoutManager(this@MainActivity); adapter = AdAgCanais(); itemAnimator = null
         }
-        esq.addView(agRvCanais, LinearLayout.LayoutParams(-1, 0, 1f))
-        val dir = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(16.dp, 0, 0, 0) }
+        colCanais.addView(agRvCanais, LinearLayout.LayoutParams(-1, 0, 1f))
+        linha.addView(colCanais, LinearLayout.LayoutParams(0, -1, 0.34f))
+
+        val dir = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(12.dp, 0, 0, 0) }
         agTitulo = texto(16f, Estilo.TEXTO_2).apply { setPadding(8.dp, 0, 0, 8.dp); typeface = Estilo.MEDIO }
         dir.addView(agTitulo)
         agRvProgs = RecyclerView(this).apply {
@@ -903,8 +919,9 @@ class MainActivity : ComponentActivity() {
             layoutManager = LinearLayoutManager(this@MainActivity); adapter = AdAgProgs(); itemAnimator = null
         }
         dir.addView(agRvProgs, LinearLayout.LayoutParams(-1, 0, 1f))
-        agCorpo.addView(esq, LinearLayout.LayoutParams(0, -1, 0.42f))
-        agCorpo.addView(dir, LinearLayout.LayoutParams(0, -1, 0.58f))
+        linha.addView(dir, LinearLayout.LayoutParams(0, -1, 0.42f))
+
+        agCorpo.addView(linha, LinearLayout.LayoutParams(-1, 0, 1f))
         parent.addView(agCorpo, LinearLayout.LayoutParams(0, -1, 1f))
     }
 
@@ -931,8 +948,8 @@ class MainActivity : ComponentActivity() {
             if (err != null) {
                 agTitulo.text = "Agenda: $err"
                 agDiasList = emptyList(); agDias.removeAllViews()
-                agCanais = emptyList(); agProgs = emptyList()
-                agRvCanais.adapter?.notifyDataSetChanged(); agRvProgs.adapter?.notifyDataSetChanged()
+                agGrupos = emptyList(); agCanaisDia = emptyList(); agCanais = emptyList(); agProgs = emptyList()
+                agRvGrupos.adapter?.notifyDataSetChanged(); agRvCanais.adapter?.notifyDataSetChanged(); agRvProgs.adapter?.notifyDataSetChanged()
                 return@agenda
             }
             montarDias()
@@ -958,7 +975,7 @@ class MainActivity : ComponentActivity() {
             pintar(pil, false, i == agDiaSel)
             agDias.addView(pil, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = 6.dp })
         }
-        montarCanais()
+        montarGrupos()
     }
 
     private fun selecionarDia(i: Int) {
@@ -968,18 +985,40 @@ class MainActivity : ComponentActivity() {
             (agDias.getChildAt(antes))?.let { pintar(it, it.hasFocus(), false) }
             (agDias.getChildAt(i))?.let { pintar(it, it.hasFocus(), true) }
         }
+        montarGrupos()
+    }
+
+    /** 2.20: canais do dia agrupados; os grupos viram a 1ª coluna, "Todos" no topo. */
+    private fun montarGrupos() {
+        if (agDiasList.isEmpty()) return
+        val dia = agDiasList[agDiaSel]; val fim = dia + 86_400_000L
+        agCanaisDia = semTravados(porAba[Aba.TV].orEmpty()).filter { c ->
+            guia.cheia[guia.chaveEpg(c)].orEmpty().any { it.inicio < fim && it.fim > dia }
+        }
+        agGrupos = agCanaisDia.map { it.grupo }.distinct()
+        if (agGrupoSel != null && agGrupoSel !in agGrupos) agGrupoSel = null
+        agRvGrupos.adapter?.notifyDataSetChanged(); agRvGrupos.scrollToPosition(0)
+        montarCanais()
+    }
+
+    private fun posGrupoAgenda(g: String?) = if (g == null) 0 else agGrupos.indexOf(g).let { if (it < 0) 0 else it + 1 }
+
+    private fun selecionarGrupoAgenda(g: String?) {
+        if (agGrupoSel == g) return
+        val antes = posGrupoAgenda(agGrupoSel)
+        agGrupoSel = g
+        val agora = posGrupoAgenda(g)
+        agRvGrupos.adapter?.notifyItemChanged(antes)
+        agRvGrupos.adapter?.notifyItemChanged(agora)
         montarCanais()
     }
 
     private fun montarCanais() {
         if (agDiasList.isEmpty()) return
-        val dia = agDiasList[agDiaSel]; val fim = dia + 86_400_000L
         val q = semAcento(agBusca.text.toString().trim())
-        val vivos = semTravados(porAba[Aba.TV].orEmpty())
-        agCanais = vivos.filter { c ->
-            (q.isEmpty() || c.chave.contains(q)) &&
-                guia.cheia[guia.chaveEpg(c)].orEmpty().any { it.inicio < fim && it.fim > dia }
-        }
+        // com busca, procura em todos os canais do dia; sem busca, só o grupo escolhido ("Todos" = todos).
+        val base = if (q.isNotEmpty() || agGrupoSel == null) agCanaisDia else agCanaisDia.filter { it.grupo == agGrupoSel }
+        agCanais = if (q.isEmpty()) base else base.filter { it.chave.contains(q) }
         if (agCanalSel == null || agCanalSel !in agCanais) agCanalSel = agCanais.firstOrNull()
         agRvCanais.adapter?.notifyDataSetChanged(); agRvCanais.scrollToPosition(0)
         montarProgs()
@@ -1077,6 +1116,38 @@ class MainActivity : ComponentActivity() {
         inicioDia(agora) -> "Hoje"
         inicioDia(agora + 86_400_000L) -> "Amanhã"
         else -> diaCurto.format(Date(d)).replaceFirstChar { it.uppercase() }
+    }
+
+    private inner class AdAgGrupos : RecyclerView.Adapter<VH>() {
+        override fun getItemCount() = agGrupos.size + 1   // +1 = "Todos" no topo
+        private fun grupoDe(pos: Int): String? = if (pos == 0) null else agGrupos.getOrNull(pos - 1)
+        override fun onCreateViewHolder(p: ViewGroup, t: Int): VH = VH(texto(15f).apply {
+            setPadding(14.dp, 7.dp, 14.dp, 7.dp); typeface = Estilo.MEDIO
+            isSingleLine = true; ellipsize = TextUtils.TruncateAt.END
+            isFocusable = true; isClickable = true
+            layoutParams = RecyclerView.LayoutParams(-1, -2).apply { bottomMargin = 2.dp }
+        })
+        override fun onBindViewHolder(vh: VH, pos: Int) {
+            val tv = vh.itemView as TextView
+            val g = grupoDe(pos)
+            val n = if (g == null) agCanaisDia.size else agCanaisDia.count { it.grupo == g }
+            tv.text = (g ?: "Todos") + "  ($n)"
+            pintar(tv, tv.hasFocus(), g == agGrupoSel)
+            tv.setOnFocusChangeListener { v, f ->
+                val q = vh.bindingAdapterPosition
+                pintar(v, f, q >= 0 && grupoDe(q) == agGrupoSel)
+                if (f && q >= 0) {
+                    h.removeCallbacksAndMessages(AG_GRUPO)
+                    HandlerCompat.postDelayed(h, { if (v.hasFocus()) selecionarGrupoAgenda(grupoDe(q)) }, AG_GRUPO, 220)
+                }
+            }
+            tv.setOnClickListener {
+                vh.bindingAdapterPosition.takeIf { it >= 0 }?.let {
+                    selecionarGrupoAgenda(grupoDe(it))
+                    agRvCanais.post { agRvCanais.findViewHolderForAdapterPosition(0)?.itemView?.requestFocus() }
+                }
+            }
+        }
     }
 
     private inner class AdAgCanais : RecyclerView.Adapter<VH>() {
