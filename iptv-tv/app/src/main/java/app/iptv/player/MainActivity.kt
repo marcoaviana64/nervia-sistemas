@@ -982,8 +982,13 @@ class MainActivity : ComponentActivity() {
 
     private fun selecionarCanal(c: Item) {
         if (agCanalSel == c) return
+        // 2.18: repinta SÓ as duas linhas que mudaram (como na aba TV). notifyDataSetChanged aqui,
+        // com a lista em foco, fazia o foco escapar para o menu de cima ("volta para o menu").
+        val antes = agCanais.indexOf(agCanalSel)
         agCanalSel = c
-        agRvCanais.adapter?.notifyDataSetChanged()
+        val agora = agCanais.indexOf(c)
+        if (antes >= 0) agRvCanais.adapter?.notifyItemChanged(antes)
+        if (agora >= 0) agRvCanais.adapter?.notifyItemChanged(agora)
         montarProgs()
     }
 

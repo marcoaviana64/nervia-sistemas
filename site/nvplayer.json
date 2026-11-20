@@ -3,9 +3,9 @@
     "http://p.urldata.gy"
   ],
   "versao": {
-    "codigo": 19,
-    "nome": "2.17",
+    "codigo": 20,
+    "nome": "2.18",
     "apk": "https://nervia.com.br/nvplayer.apk",
-    "novidades": "Nova aba Agenda: veja a programação por dia, marque um programa para o app avisar quando vai começar e abra o canal direto do aviso."
+    "novidades": "Correção na aba Agenda: ao descer para escolher o canal o foco não volta mais sozinho para o menu de cima."
   }
 }
