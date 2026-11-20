@@ -115,6 +115,10 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
   configuração sempre relê o `nvplayer.json` ao abrir — então o portal mostra o endereço atual se o provedor trocou
   (antes ficava fixo no embutido). A TV já ligada continua trocando sozinha pelo failover (2.5): quando o servidor
   salvo não responde, relê o `nvplayer.json` e passa para o 1º que faz login. Teste `TelaTest.portalMostraServidorDoSite`.
+- **Correção do foco na Agenda** (2.18, o Marco em 19/11/2026: "quando desço para escolher o canal ele volta para o
+  menu"): ao focar um canal, `selecionarCanal` repinta SÓ as duas linhas que mudaram (`notifyItemChanged`), em vez
+  de `notifyDataSetChanged` na lista inteira — redesenhar a lista com o foco nela fazia o foco escapar para o menu
+  de cima. Mesmo padrão da lista de grupos da aba TV.
 - **Aba Agenda com aviso de "vai começar"** (2.17, pedido do Marco em 19/11/2026: "um local onde mostra a agenda
   do dia/semana da programação e que eu possa marcar uma programação para o app avisar que vai começar e, se eu
   clicar, já me leva para o canal"): nova 4ª orelha **Agenda** (`Aba.AGENDA`) com pílulas por dia (Hoje, Amanhã,
