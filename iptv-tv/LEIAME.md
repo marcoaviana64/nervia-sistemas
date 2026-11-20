@@ -115,6 +115,11 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
   configuração sempre relê o `nvplayer.json` ao abrir — então o portal mostra o endereço atual se o provedor trocou
   (antes ficava fixo no embutido). A TV já ligada continua trocando sozinha pelo failover (2.5): quando o servidor
   salvo não responde, relê o `nvplayer.json` e passa para o 1º que faz login. Teste `TelaTest.portalMostraServidorDoSite`.
+- **Agenda com coluna de grupos** (2.20, o Marco em 19/11/2026: "na agenda não mostra os grupos e depois os canais
+  do grupo, fica difícil achar o canal certo"): a aba Agenda passou a 3 colunas (grupos · canais do grupo ·
+  programação), como a TV ao vivo — dias em cima, "Todos" no topo dos grupos (`AdAgGrupos`, `montarGrupos`,
+  `selecionarGrupoAgenda` com repintura só das 2 linhas). A busca procura em todos os canais do dia; sem busca,
+  mostra só o grupo escolhido. Teste `TelaTest.agenda` reforçado (grupos Abertos/Esportes, troca de grupo).
 - **Liberar bloqueados pelos Ajustes** (2.19, o Marco em 19/11/2026: "a lista só deve mostrar os bloqueados depois
   que o usuário digitar a senha numa liberação nos Ajustes"): nova opção em Ajustes **"🔓 Liberar canais bloqueados
   (digitar senha)"** (acao `liberar`/`bloquear`) que pede a senha e marca `desbloqueado` na sessão; enquanto não

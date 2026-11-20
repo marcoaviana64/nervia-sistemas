@@ -61,7 +61,7 @@ class TelaTest {
             "get_live_streams" -> "[" + listOf(
                 """{"num":1,"name":"TV Exemplo HD","stream_id":101,"epg_channel_id":"ex.br","category_id":"1"}""",
                 """{"num":2,"name":"Canal Notícias 24h","stream_id":102,"category_id":"1"}""",
-                """{"num":3,"name":"Esporte Total","stream_id":103,"category_id":"2"}""",
+                """{"num":3,"name":"Esporte Total","stream_id":103,"epg_channel_id":"esp.br","category_id":"2"}""",
                 """{"num":4,"name":"Canal Adulto","stream_id":104,"category_id":"9","is_adult":"1"}""",
             ).plus(if (!muitos) emptyList() else listOf("RecordTV FHD H265", "Globo RJ FHD", "SBT HD Rio de Janeiro", "Band SP FHD",
                 "RedeTV! HD", "TV Cultura FHD", "CNN Brasil HD", "GloboNews FHD", "SporTV 2 FHD H265", "ESPN Brasil HD",
@@ -98,9 +98,11 @@ class TelaTest {
     private fun xmltvFalso() = """<?xml version="1.0" encoding="UTF-8"?>
         <tv>
           <channel id="ex.br"><display-name>TV Exemplo HD</display-name></channel>
+          <channel id="esp.br"><display-name>Esporte Total</display-name></channel>
           <programme channel="ex.br" start="${utc(agora - 600)}" stop="${utc(agora + 1200)}"><title>Jornal Agora</title><desc>Notícias ao vivo</desc></programme>
           <programme channel="ex.br" start="${utc(agora + 1800)}" stop="${utc(agora + 5400)}"><title>Show Futuro</title><desc>Programa de auditório</desc></programme>
           <programme channel="ex.br" start="${utc(agora + 90000)}" stop="${utc(agora + 93600)}"><title>Amanha Cedo</title></programme>
+          <programme channel="esp.br" start="${utc(agora - 600)}" stop="${utc(agora + 2400)}"><title>Jogo Agora</title><desc>Futebol ao vivo</desc></programme>
         </tv>""".trimIndent()
 
     private val m3u = buildString {
@@ -366,7 +368,20 @@ class TelaTest {
         assertTrue("programa de agora", t.any { it.contains("Jornal Agora") })
         assertTrue("programa futuro", t.any { it.contains("Show Futuro") })
         assertTrue(synchronized(pedidos) { pedidos.any { it.startsWith("/xmltv.php") } })
+        // coluna de grupos: "Todos" + os grupos dos canais com programação
+        assertTrue("grupo Todos", t.any { it.startsWith("Todos") })
+        assertTrue("grupos por categoria", t.any { it.startsWith("Abertos") } && t.any { it.startsWith("Esportes") })
         foto(raiz, "tela-agenda")
+
+        // escolhe o grupo Esportes: só o canal do grupo aparece
+        clicar(raiz, "Esportes")
+        esperar { textos(raiz).any { it.contains("Esporte Total") } && textos(raiz).none { it.contains("TV Exemplo HD") } }
+        assertTrue("programa do canal de esportes", textos(raiz).any { it.contains("Jogo Agora") })
+        clicar(raiz, "Todos")
+        esperar { textos(raiz).any { it.contains("TV Exemplo HD") } }
+        // escolhe o canal para ver a programação dele
+        clicar(raiz, "TV Exemplo HD")
+        esperar { textos(raiz).any { it.contains("Show Futuro") } }
 
         // marca o aviso do programa futuro pelo menu e confere que foi guardado
         acharTexto(raiz) { it.contains("Show Futuro") }!!.performClick()
