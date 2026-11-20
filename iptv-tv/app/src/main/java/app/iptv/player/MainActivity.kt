@@ -317,7 +317,7 @@ class MainActivity : ComponentActivity() {
         }
         barraAbas.addView(pilulas)
         barraAbas.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
-        relogio = texto(20f, Estilo.TEXTO_2).apply { typeface = Estilo.LEVE; isSingleLine = true }
+        relogio = texto(18f, Estilo.TEXTO_2).apply { typeface = Estilo.LEVE; gravity = Gravity.END; setLineSpacing(0f, 0.95f) }
         barraAbas.addView(relogio, LinearLayout.LayoutParams(-2, -2).apply { marginStart = 16.dp })
         painel.addView(barraAbas)
 
@@ -434,7 +434,7 @@ class MainActivity : ComponentActivity() {
 
     private val atualizarRelogio = object : Runnable {
         override fun run() {
-            relogio.text = SimpleDateFormat("dd/MM/yyyy   HH:mm", Locale.forLanguageTag("pt-BR")).format(Date())
+            relogio.text = SimpleDateFormat("dd/MM/yyyy\nHH:mm", Locale.forLanguageTag("pt-BR")).format(Date())
             h.postDelayed(this, 20_000)
         }
     }

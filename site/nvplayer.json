@@ -3,9 +3,9 @@
     "http://p.urldata.gy"
   ],
   "versao": {
-    "codigo": 23,
-    "nome": "2.21",
+    "codigo": 24,
+    "nome": "2.22",
     "apk": "https://nervia.com.br/nvplayer.apk",
-    "novidades": "A data e a hora no topo agora aparecem curtas (dd/mm/aaaa e hh:mm) e não saem mais da tela."
+    "novidades": "No topo, a data fica em cima e a hora embaixo, para caber melhor na tela."
   }
 }
