@@ -678,6 +678,11 @@ class MainActivity : ComponentActivity() {
             add(Entrada("↻  Atualizar lista agora", TE.ACAO, acao = "atualizar"))
             add(Entrada("⚙  Trocar lista / login", TE.ACAO, acao = "trocar"))
             add(Entrada("🔒  Controle dos pais: ${if (repo.pin == null) "desligado" else "ligado"}", TE.ACAO, acao = "pin"))
+            // 2.19: liberar os canais bloqueados é feito AQUI (digitando a senha), não clicando no grupo.
+            if (repo.pin != null) add(Entrada(
+                if (desbloqueado) "🔓  Canais bloqueados liberados — tocar para esconder de novo"
+                else "🔓  Liberar canais bloqueados (digitar senha)",
+                TE.ACAO, acao = if (desbloqueado) "bloquear" else "liberar"))
             if (repo.xtream != null) add(Entrada("📺  Canais ao vivo em: ${if (repo.formatoAoVivo == "m3u8") "HLS" else "TS"}", TE.ACAO, acao = "formato"))
             add(Entrada("🗑  Limpar \"Continuar assistindo\"", TE.ACAO, acao = "limpar"))
             val nova = repo.versaoPublicada?.takeIf { it.codigo > atualizador.versaoAtual() }
@@ -718,7 +723,7 @@ class MainActivity : ComponentActivity() {
         if (busca.text.isNotEmpty()) busca.setText("")
         visiveis = itensDe(e)
         titulo.text = when {
-            e.bloqueado -> "Grupo protegido: aperte OK no grupo e digite a senha do controle dos pais."
+            e.bloqueado -> "Grupo protegido. Para ver, vá em Ajustes → \"Liberar canais bloqueados\" e digite a senha."
             e.tipo == TE.FAVORITOS && visiveis.isEmpty() -> "Favoritos: nenhum ainda. Segure OK (ou aperte Menu) num item para marcar."
             e.tipo == TE.CONTINUAR && visiveis.isEmpty() -> "Nada começado ainda."
             else -> "${e.rotulo.substringBeforeLast("  (").removePrefix("🔒 ")} · ${visiveis.size}"
@@ -1668,6 +1673,11 @@ class MainActivity : ComponentActivity() {
             "atualizar" -> { repo.limparCacheGuia(); carregarCatalogo(baixar = true, silencioso = false) }
             "trocar" -> mostrarConfig()
             "pin" -> acaoPin()
+            "liberar" -> pedirSenha("Senha do controle dos pais") {
+                if (it == repo.pin) { desbloqueado = true; toast("Canais bloqueados liberados nesta sessão."); trocarAba(Aba.AJUSTES, focar = true) }
+                else toast("Senha errada.")
+            }
+            "bloquear" -> { desbloqueado = false; toast("Canais bloqueados escondidos de novo."); trocarAba(Aba.AJUSTES, focar = true) }
             "formato" -> {
                 repo.formatoAoVivo = if (repo.formatoAoVivo == "m3u8") "ts" else "m3u8"
                 toast("Canais ao vivo em ${if (repo.formatoAoVivo == "m3u8") "HLS" else "TS"}. Se um canal travar, experimente o outro formato.")
@@ -1682,7 +1692,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
             "sair" -> finish()
-            else -> if (e.bloqueado) desbloquear { focarItem(0) } else selecionarGrupo(pos, focar = true)
+            else -> if (e.bloqueado) toast("Para ver os canais bloqueados, vá em Ajustes e toque em \"Liberar canais bloqueados\".") else selecionarGrupo(pos, focar = true)
         }
     }
 

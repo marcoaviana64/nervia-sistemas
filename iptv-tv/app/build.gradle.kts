@@ -32,8 +32,8 @@ android {
         applicationId = "app.iptv.player"
         minSdk = 24          // Android 7.0
         targetSdk = 36
-        versionCode = 20
-        versionName = "2.18"
+        versionCode = 21
+        versionName = "2.19"
         buildConfigField("String", "SUPABASE_URL", "\"${lerConfig("SUPABASE_URL")}\"")
         buildConfigField("String", "SUPABASE_CHAVE", "\"${lerConfig("SUPABASE_ANON_KEY")}\"")
     }
