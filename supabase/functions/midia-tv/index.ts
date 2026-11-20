@@ -7,6 +7,13 @@
 //                                            do local recusa o Google Drive; ver _shared/midia_arquivo.ts)
 //   {acao:"exibicoes", token, lote, itens:[{id, nome, tipo, inicio, segundos}]} → tempo de tela (relatório do painel);
 //                                            lote repetido não conta duas vezes (mi_tv_exibicoes)
+// TV sem créditos de dias (mi_tv_liberacao, migração midia_creditos) → playlist vazia com pausada:true (o app 1.10 mostra a
+// tela de espera com a mensagem neutra; o 1.9 mostra a tela de espera) e o download pela Nervia é recusado.
+// liberada_ate = último dia em que a TV pode passar sem falar com a Nervia (null = isenta): o app 1.10 para sozinho
+// depois dessa data mesmo sem internet.
+// Atualização do app pedida pelo painel (mi_telas.atualizar, migração midia_atualizar_app): a playlist leva
+// atualizar = {codigo, nome, sha256, url}; o app 1.11+ baixa, confere e abre a instalação. Quando a TV já manda o sinal
+// com a versão pedida, o pedido é apagado aqui.
 // Token inválido (TV desvinculada) → 401 {situacao:"desvinculada"}: o app apaga o token e volta à tela do código.
 import { admin } from "../_shared/banco.ts";
 import { VERSAO } from "../_shared/http.ts";
@@ -19,7 +26,9 @@ const sb = admin();
 const CHAVE = Deno.env.get("GOOGLE_DRIVE_CHAVE") ?? "";
 export const INTERVALO_PLAYLIST_S = 300;   // a TV pergunta a playlist a cada 5 min
 export const INTERVALO_SEM_CONTEUDO_S = 30; // sem nada para passar (recém-vinculada, sem playlist): a cada 30 s
-export const INTERVALO_SINAL_S = 180;      // e manda o sinal de vida a cada 3 min
+export const INTERVALO_PAUSADA_S = 60;     // pausada (sem créditos): a cada 1 min, para voltar logo depois de pôr os dias
+export const INTERVALO_SINAL_S = 180;
+export const APK_URL = "https://nervia.com.br/tv.apk";      // e manda o sinal de vida a cada 3 min
 
 const resp = (corpo: unknown, status = 200) => new Response(JSON.stringify(corpo), { status, headers: { "Content-Type": "application/json" } });
 const falha = (mensagem: string, status = 400) => resp({ ok: false, mensagem }, status);
@@ -30,6 +39,7 @@ async function acharMidia(telaId: string, driveId: string): Promise<MidiaDaTv | 
   const tela = ok(await sb.from("mi_telas").select("conta_id").eq("id", telaId).single()) as { conta_id: string };
   const conta = ok(await sb.from("mi_contas").select("ativo").eq("id", tela.conta_id).single()) as { ativo: boolean };
   if (!conta.ativo) return null;
+  if ((ok(await sb.rpc("mi_tv_liberacao", { p_tela: telaId })) as { pausada: boolean } | null)?.pausada !== false) return null;
   const pls = (ok(await sb.from("mi_playlists").select("id").eq("conta_id", tela.conta_id)) as { id: string }[]).map((p) => p.id);
   if (!pls.length) return null;
   const ms = ok(await sb.from("mi_midias").select("drive_id, chave, tamanho, mime")
@@ -52,13 +62,21 @@ Deno.serve(async (req) => {
       case "playlist": {
         const telaId = ok(await sb.rpc("mi_tv_tela", { p_token: String(c.token ?? "") })) as string | null;
         if (!telaId) return resp({ ok: false, situacao: "desvinculada" }, 401);
-        const tela = ok(await sb.from("mi_telas").select("nome, conta_id, playlist_id, rotacao").eq("id", telaId).single()) as
-          { nome: string; conta_id: string; playlist_id: string | null; rotacao: number };
+        const tela = ok(await sb.from("mi_telas").select("nome, conta_id, playlist_id, rotacao, versao_app, atualizar").eq("id", telaId).single()) as
+          { nome: string; conta_id: string; playlist_id: string | null; rotacao: number; versao_app: string;
+            atualizar: { codigo: number; nome: string; sha256: string } | null };
+        let atualizar: Record<string, unknown> | null = null;
+        if (tela.atualizar) {
+          if (tela.versao_app === tela.atualizar.nome) ok(await sb.from("mi_telas").update({ atualizar: null }).eq("id", telaId));
+          else atualizar = { codigo: tela.atualizar.codigo, nome: tela.atualizar.nome, sha256: tela.atualizar.sha256, url: APK_URL };
+        }
         // lê a pasta do Drive se a última leitura tem mais de 5 min (uma leitura por conta, não por TV)
         await sincronizarConta(bancoMidia(sb), tela.conta_id, CHAVE, false).catch((e) => console.error(VERSAO, "sinc", e));
         const conta = ok(await sb.from("mi_contas").select("ativo, tempo_imagem_s").eq("id", tela.conta_id).single()) as { ativo: boolean; tempo_imagem_s: number };
+        const lib = (ok(await sb.rpc("mi_tv_liberacao", { p_tela: telaId })) ?? { pausada: true, liberada_ate: null }) as
+          { pausada: boolean; liberada_ate: string | null };
         let playlist = "", itens: Record<string, unknown>[] = [];
-        if (conta.ativo && tela.playlist_id) {
+        if (conta.ativo && tela.playlist_id && !lib.pausada) {
           playlist = (ok(await sb.from("mi_playlists").select("nome").eq("id", tela.playlist_id).maybeSingle()) as { nome: string } | null)?.nome ?? "";
           const ms = ok(await sb.from("mi_midias").select("drive_id, chave, nome, tipo, md5, tamanho, tempo_s, duracao_s")
             .eq("playlist_id", tela.playlist_id).eq("situacao", "ok").order("posicao")) as Record<string, unknown>[];
@@ -68,9 +86,10 @@ Deno.serve(async (req) => {
         }
         return resp({
           ok: true, situacao: "ok", tela: tela.nome, playlist, conta_ativa: conta.ativo, itens,
-          rotacao: tela.rotacao ?? 0,
+          rotacao: tela.rotacao ?? 0, pausada: lib.pausada, liberada_ate: lib.liberada_ate, atualizar,
           conteudo: await versaoConteudo(itens), chave_api: CHAVE,
-          intervalo_playlist_s: itens.length ? INTERVALO_PLAYLIST_S : INTERVALO_SEM_CONTEUDO_S, intervalo_sinal_s: INTERVALO_SINAL_S,
+          intervalo_playlist_s: lib.pausada ? INTERVALO_PAUSADA_S : itens.length ? INTERVALO_PLAYLIST_S : INTERVALO_SEM_CONTEUDO_S,
+          intervalo_sinal_s: INTERVALO_SINAL_S,
         });
       }
       case "arquivo": {

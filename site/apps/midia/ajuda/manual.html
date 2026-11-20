@@ -63,6 +63,8 @@
     <li>No painel, aba <b>TVs</b>, clique em <b>+ Adicionar TV</b>, digite o código, dê um nome (ex.: <i>Hall de entrada</i>) e escolha a playlist. Clique em <b>Vincular</b>.</li>
     <li>Em poucos segundos a TV recebe a playlist e começa a passar assim que o primeiro arquivo termina de baixar; os outros entram na sequência. Se vinculou sem playlist, escolha uma na aba TVs: a TV sem nada para passar confere a cada 30 segundos.</li>
     <li>TV instalada em pé: escolha a <b>Posição da TV</b> na mesma linha.</li>
+    <li>A TV nova começa <b>sem dias de uso</b> e fica na tela de espera até a Nervia liberar os dias dela (veja a seção 6b).</li>
+    <li><b>Trocou o TV box ou a TV?</b> Não desvincule: instale o app no aparelho novo, clique em <b>Trocar aparelho</b> na linha da TV e digite o código do aparelho novo. A TV continua com o mesmo nome, playlist, posição e dias; o aparelho antigo volta para a tela do código.</li>
   </ol>
 
   <h2 id="mudar">5. Mudar o conteúdo, a ordem e o tempo das imagens</h2>
@@ -102,15 +104,29 @@
   </ol>
   <p>Como é contado: a própria TV anota o tempo em que cada mídia ficou de fato na tela (TV ligada, com o app aberto), também sem internet, e manda <b>uma vez por dia</b>, depois da meia-noite, os números do dia anterior (sem internet, manda quando a conexão volta). Por isso <b>o dia de hoje só aparece amanhã</b>. Exibições de menos de 1 segundo não contam. A média por dia divide o tempo pelos dias do mês (no mês atual, até ontem). A contagem começa quando a TV recebe o app 1.6 ou mais novo. A TV desvinculada continua no relatório dos meses em que exibiu.</p>
 
+  <h2 id="dias">6b. Dias de uso de cada TV</h2>
+  <ol>
+    <li>O Mídia Indoor é contratado <b>por TV</b>, em dias de uso. Cada TV tem os seus dias e a data até quando eles valem (coluna <b>Dias de uso</b> da aba TVs). Conta dia de calendário, com a TV ligada ou não.</li>
+    <li><b>Com dias</b>: tudo certo. <b>Acabando</b>: 7 dias ou menos (aviso amarelo no alto da aba). <b>Dias acabaram</b>: a TV continua passando por alguns dias de tolerância (normalmente 3) e mostra a data em que vai pausar. <b>Pausada</b>: a TV mostra a tela de espera da Nervia com a mensagem "Esta TV está pausada no momento. Para voltar a exibir, fale com a Nervia." (sem falar em pagamento, porque a tela é vista pelo público). <b>Isenta</b>: TV sem cobrança por dias.</li>
+    <li>Para renovar, fale com a Nervia. Assim que os dias são liberados, a TV pausada volta a passar em até 1 minuto (se estiver com internet).</li>
+    <li>A TV também pausa sem internet: ela guarda até quando pode passar e para sozinha depois dessa data.</li>
+    <li><b>Dias de uso: extrato</b> mostra quando cada TV recebeu dias, quantos e até quando valem.</li>
+    <li><b>Aviso por e-mail:</b> todo dia às 07h45, quem acompanha o Mídia Indoor da empresa (os logins com a conta e o app liberados) e a Nervia recebem um e-mail quando faltam 7, 3 e 1 dia para acabarem os dias de uma TV, no dia em que acabam (com a data em que ela vai pausar) e quando ela pausa. Um e-mail só por empresa, com todas as TVs da rodada. A lista de quem recebe aparece embaixo do extrato.</li>
+  </ol>
+
   <h2 id="nervia">7. Tarefas da equipe Nervia</h2>
   <ol>
     <li><b>Conta:</b> aba <b>Contas</b> → <b>+ Nova conta</b> (nome do cliente e limite de espaço). O limite é a soma das mídias que cada TV guarda: escolha um valor que caiba no TV box do cliente.</li>
     <li><b>Quem vê:</b> marque os logins do cliente (o app Mídia Indoor é liberado junto). Os logins são criados em Administração → Logins.</li>
     <li><b>Instalação na TV:</b> siga o <a href="instalacao.html">roteiro de instalação na TV</a> (para imprimir, com a ficha da instalação): ADB pela rede, permissão "Sobrepor a outros apps", protetor de tela desligado e a conferência antes de sair.</li>
     <li><b>Suspender:</b> editar a conta e desmarcar "Conta ativa": as TVs ficam na tela de espera.</li>
+    <li><b>Pôr dias:</b> na aba TVs, <b>pôr dias</b> na linha da TV ou o botão <b>Pôr dias</b> no alto (várias TVs do cliente de uma vez: vêm todas marcadas, desmarque as que não entram). Escolha os dias (30, 90, 180, 365 ou outro número), o valor recebido (opcional, só a equipe Nervia vê) e uma observação (ex.: Pix de 19/11). A coluna <b>Depois</b> mostra até quando vai valer antes de salvar. TV pausada conta a partir de hoje; TV com dias (ou na tolerância) continua do último dia já pago. Número negativo tira dias (exige motivo).</li>
+    <li><b>Isenta:</b> no mesmo diálogo, <b>tornar isenta</b> (TV da Nervia, piloto, cortesia) ou <b>passar a cobrar</b>, sempre com motivo. As TVs que já existiam antes da versão 2.5 ficaram isentas; toda TV vinculada depois começa sem dias.</li>
+    <li><b>Atualizar o app das TVs:</b> quando sai uma versão nova do app, a coluna <b>Aparelho</b> mostra "app desatualizado". Clique em <b>atualizar app</b> na linha da TV (ou em <b>Atualizar app (N TVs)</b> no alto). Em até 5 minutos a TV baixa a versão nova, confere o arquivo e abre a tela de instalação do Android: <b>combine com o local para alguém apertar "Instalar" com o controle</b> (o Android não instala sem essa confirmação). Depois o app abre sozinho e o pedido some do painel. A situação aparece embaixo do aparelho ("tela de instalação aberta", "falta liberar Instalar apps desconhecidos", "download falhou"). Vale a partir do app 1.11; TVs com versão anterior precisam ser atualizadas à mão uma vez pelo Downloader (nervia.com.br/tv.apk).</li>
+    <li><b>Tolerância:</b> em Contas → editar, "Tolerância dos dias de uso" (0 a 60 dias; padrão 3): quantos dias a TV continua passando depois que os dias acabam.</li>
     <li><b>Tela de espera:</b> quando a TV não tem o que passar (sem playlist, playlist vazia, baixando os primeiros arquivos ou sem internet antes do primeiro download), ela mostra uma propaganda do Mídia Indoor com QR code para o WhatsApp da Nervia. A linha pequena no pé da tela traz o nome da TV e o motivo, para a equipe saber o que falta. Se os downloads falham, aparece um <b>aviso amarelo em destaque</b> com o motivo e o que fazer: não adianta esperar, a TV tenta de novo a cada 5 minutos.</li>
   </ol>
-  <p>Toda ação fica no registro de auditoria: conta criada/alterada, acesso liberado, pasta trocada, TV vinculada/desvinculada e playlist trocada.</p>
+  <p>Toda ação fica no registro de auditoria: conta criada/alterada, acesso liberado, pasta trocada, TV vinculada/desvinculada, playlist trocada, dias postos/tirados, TV isenta/cobrada, tolerância alterada e aparelho trocado.</p>
 
   <h2 id="problemas">8. Mensagens e o que fazer</h2>
   <table>
@@ -122,11 +138,15 @@
     <tr><td>passa do limite de espaço da conta</td><td>Tire arquivos que não estão mais em uso ou fale com a Nervia para aumentar o limite.</td></tr>
     <tr><td>Código não encontrado / Este código venceu</td><td>Digite o código que está na TV agora (ele muda a cada 10 minutos).</td></tr>
     <tr><td>Este código já foi usado</td><td>Aguarde a TV mostrar um código novo.</td></tr>
+    <tr><td>"Esta TV está pausada no momento" (na TV)</td><td>Os dias de uso da TV acabaram (e a tolerância também). Fale com a Nervia para liberar mais dias; a TV volta sozinha.</td></tr>
+    <tr><td>Escolha TVs de um cliente só por vez</td><td>Pôr dias vale para as TVs de uma conta: troque a conta no alto e repita.</td></tr>
+    <tr><td>"falta liberar Instalar apps desconhecidos" (atualização do app)</td><td>Na TV, libere "Instalar apps desconhecidos" para o Mídia Indoor, ou pelo ADB: <code>adb shell appops set br.com.nervia.midia REQUEST_INSTALL_PACKAGES allow</code>. A TV tenta de novo a cada 30 minutos.</td></tr>
+    <tr><td>Para tirar dias, escreva o motivo</td><td>Número negativo de dias exige observação com o motivo.</td></tr>
     <tr><td>TV Offline</td><td>Confira se a TV/box está ligada e com internet. Se ficou desligada da tomada, ao ligar o app abre sozinho.</td></tr>
     <tr><td>"este aparelho não toca o vídeo" (na Situação da TV)</td><td>O aparelho não conseguiu decodificar o arquivo. Converta de novo pelo HandBrake (Fast 1080p30) ou fale com a Nervia.</td></tr>
     <tr><td>Pouco espaço livre na TV</td><td>Tire arquivos grandes da playlist ou use um TV box com mais memória.</td></tr>
   </table>
-  <div class="rodape">Nervia Tecnologia · Manual de utilização do app Mídia Indoor · atualizado em 04/11/2026</div>
+  <div class="rodape">Nervia Tecnologia · Manual de utilização do app Mídia Indoor · atualizado em 19/11/2026</div>
 </div>
 <script src="/marca-dagua.js" data-tipo="doc"></script>
 </body>

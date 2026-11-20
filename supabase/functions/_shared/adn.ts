@@ -9,6 +9,10 @@ import * as X from "./xml.ts";
 export const URL_ADN = "https://adn.nfse.gov.br/contribuintes/DFe/";
 
 export class ErroADN extends Error {}
+/** HTTP 429: o ADN pede para esperar (limite de consumo). */
+export class ErroLimiteADN extends ErroADN {}
+/** Quantas notas do mesmo lote são gravadas ao mesmo tempo. */
+export const PARALELO = 10;
 
 // deno-lint-ignore no-explicit-any
 function campo(d: any, nome: string): any {
@@ -47,6 +51,7 @@ async function consultarLote(http: Http, cnpj: string, nsu: number): Promise<Doc
     method: "GET", headers: { Accept: "application/json" },
   });
   const texto = await r.text();
+  if (r.status === 429) throw new ErroLimiteADN(`ADN HTTP 429: ${texto.slice(0, 200)}`);
   let corpo;
   try {
     corpo = JSON.parse(texto);
@@ -83,10 +88,23 @@ export async function sincronizar(
   let mensagem = "Nenhum documento novo.";
   let parcial = false;
   while (true) {
-    const docs = await consultarLote(http, cnpj, nsu);
+    let docs: DocADN[];
+    try {
+      docs = await consultarLote(http, cnpj, nsu);
+    } catch (e) {
+      // 429 = limite de consumo do ADN: para esta rodada sem erro; a próxima busca continua do mesmo NSU
+      if (e instanceof ErroLimiteADN) { parcial = true; mensagem = `O Ambiente Nacional pediu uma pausa (limite de consumo); continua na próxima busca, do NSU ${nsu}.`; break; }
+      throw e;
+    }
     const novos = docs.filter((d) => d.nsu > nsu);
     if (!novos.length) break;
-    for (const d of novos) resumo[await processar(b, cnpj, d)]++;
+    // notas do lote em paralelo (até 10 de cada vez: o tempo vai quase todo em gravar o XML e a nota);
+    // eventos (cancelamentos) depois, em ordem, para encontrarem a nota já gravada
+    const notas = novos.filter((d) => !d.tipo.includes("EVENTO")), eventos = novos.filter((d) => d.tipo.includes("EVENTO"));
+    for (let i = 0; i < notas.length; i += PARALELO) {
+      for (const r of await Promise.all(notas.slice(i, i + PARALELO).map((d) => processar(b, cnpj, d)))) resumo[r]++;
+    }
+    for (const d of eventos) resumo[await processar(b, cnpj, d)]++;
     nsu = Math.max(...novos.map((d) => d.nsu));
     await b.atualizarEmpresa(cnpj, { ult_nsu_nfse: nsu, ultima_sinc_nfse: new Date(agora()).toISOString() });
     mensagem = "Sincronização concluída.";

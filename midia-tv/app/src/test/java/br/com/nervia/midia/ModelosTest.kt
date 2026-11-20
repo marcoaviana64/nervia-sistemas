@@ -39,4 +39,34 @@ class ModelosTest {
         assertNotEquals(i.arquivo, i.copy(md5 = "outro").arquivo)
         assertEquals("F2_aa.jpeg", Playlist.deJson(JSONObject(json)).itens[1].arquivo)
     }
+
+    @Test fun creditosDeDias() {
+        val semCampos = Playlist.deJson(JSONObject(json))               // função antiga: sem pausa e sem limite
+        assertEquals(false, semCampos.pausada)
+        assertNull(semCampos.liberadaAte)
+        val p = Playlist.deJson(JSONObject(json).put("pausada", true).put("liberada_ate", "2026-11-22"))
+        assertEquals(true, p.pausada)
+        assertEquals("2026-11-22", p.liberadaAte)
+        assertNull(Playlist.deJson(JSONObject(json).put("liberada_ate", JSONObject.NULL)).liberadaAte)   // isenta
+        assertNull(Playlist.deJson(JSONObject(json).put("liberada_ate", "lixo")).liberadaAte)
+        assertEquals(false, Creditos.vencida(null, "2030-01-01"))
+        assertEquals(false, Creditos.vencida("2026-11-22", "2026-11-22"))   // o último dia ainda passa
+        assertEquals(true, Creditos.vencida("2026-11-22", "2026-11-23"))
+        // 23/11 às 02:30 UTC ainda é 22/11 em Brasília
+        assertEquals("2026-11-22", Creditos.hoje(java.util.Date(java.util.Date.UTC(126, 10, 23, 2, 30, 0))))
+    }
+
+    @Test fun atualizacaoPedidaPeloPainel() {
+        assertNull(Playlist.deJson(JSONObject(json)).atualizar)                              // função antiga: nada
+        val sha = "a".repeat(64)
+        val p = Playlist.deJson(JSONObject(json).put("atualizar", JSONObject().put("codigo", 12).put("nome", "1.11")
+            .put("sha256", sha.uppercase()).put("url", "https://nervia.com.br/tv.apk"))).atualizar!!
+        assertEquals(12, p.codigo); assertEquals("1.11", p.nome); assertEquals(sha, p.sha256)
+        assertNull(PedidoApp.deJson(JSONObject().put("codigo", 12).put("sha256", "x").put("url", "https://a")))   // sha inválido
+        assertNull(PedidoApp.deJson(JSONObject().put("codigo", 12).put("sha256", sha).put("url", "http://a")))    // sem https
+        assertEquals(true, Atualizador.precisa(12, 11)); assertEquals(false, Atualizador.precisa(11, 11))
+        val f = java.io.File.createTempFile("sha", ".bin").apply { writeText("abc") }
+        assertEquals("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", Atualizador.sha256(f))
+        f.delete()
+    }
 }

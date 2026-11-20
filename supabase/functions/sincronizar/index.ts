@@ -68,8 +68,24 @@ async function rodarTodas() {
   }
 }
 
+/** Carga inicial de NFS-e (cron "nf-carga", a cada 10 min): só as empresas cuja última busca de NFS-e parou no meio. */
+async function rodarCarga() {
+  const inicio = Date.now(), LIMITE = 120_000;
+  const { data } = await sb.rpc("nf_nfse_atrasadas");
+  for (const cnpj of (data ?? []) as string[]) {
+    const resta = LIMITE - (Date.now() - inicio);
+    if (resta < 15_000) break;
+    await rodar(cnpj, "nfse", resta - 10_000);
+  }
+}
+
 servir(async (req, quem) => {
   const corpo = await req.json().catch(() => ({}));
+  if (quem.tipo === "cron" && corpo.modo === "carga") {
+    // @ts-ignore EdgeRuntime existe no runtime do Supabase
+    EdgeRuntime.waitUntil(rodarCarga());
+    return json({ ok: true, mensagem: "Carga de NFS-e iniciada." }, 202);
+  }
   if (quem.tipo === "cron") {
     // @ts-ignore EdgeRuntime existe no runtime do Supabase
     EdgeRuntime.waitUntil(rodarTodas());

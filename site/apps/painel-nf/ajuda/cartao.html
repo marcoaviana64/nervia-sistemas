@@ -19,6 +19,7 @@
   <h2>Filtros</h2>
   <table>
     <tr><td>Empresa</td><td>Qual CNPJ mostrar. "Todas" soma as empresas liberadas para o seu login.</td></tr>
+    <tr><td>Visão</td><td><b>Compras</b> (notas recebidas, por fornecedor) · <b>Vendas</b> (NFS-e emitidas pela empresa, por cliente) · <b>Compras × Vendas</b> (as duas, mês a mês).</td></tr>
     <tr><td>Tipo</td><td>NF-e e NFS-e juntas, só NF-e (produtos) ou só NFS-e (serviços).</td></tr>
     <tr><td>Ano · Mês</td><td>Escolha um ano, um mês ou os dois. Mês sem ano = aquele mês em todos os anos.</td></tr>
     <tr><td>De · Até</td><td>Período livre por data de emissão. Ao usar De/Até, Ano e Mês são limpos (e vice-versa).</td></tr>
@@ -46,9 +47,18 @@
     <tr><td>Exportar CSV</td><td>Baixa para o Excel todas as notas do filtro atual.</td></tr>
   </table>
 
+  <h2>Compras × Vendas</h2>
+  <table>
+    <tr><td>Indicadores</td><td>Total vendido, total comprado, diferença (vendas − compras; vermelho = comprou mais do que vendeu), compras ÷ vendas, média mensal e meses no azul.</td></tr>
+    <tr><td>Gráfico</td><td>Barras de vendas e compras de cada mês e a linha da diferença. Clique num mês para filtrar.</td></tr>
+    <tr><td>Mês a mês</td><td>Vendas, compras, notas, diferença e % de cada mês, com o total. Clique na linha para filtrar o mês.</td></tr>
+    <tr><td>Exportar CSV</td><td>Nesta visão, baixa a tabela mês a mês.</td></tr>
+  </table>
+
   <h2>Bom saber</h2>
   <table>
     <tr><td>De onde vêm os dados</td><td>Das notas baixadas pelo app Notas Fiscais. Nota que não aparece lá também não aparece aqui.</td></tr>
+    <tr><td>Vendas = NFS-e</td><td>A SEFAZ não entrega à empresa as NF-e (produtos) que ela mesma emite. Por isso as vendas são só as NFS-e (serviços) emitidas.</td></tr>
     <tr><td>NF-e antigas</td><td>A SEFAZ só entrega NF-e dos últimos ~90 dias; o histórico cresce a partir da adesão.</td></tr>
     <tr><td>Ajuda</td><td>WhatsApp (21) 96686-9374 · atendimento@nervia.com.br</td></tr>
   </table>

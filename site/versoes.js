@@ -6,6 +6,8 @@
 // e o que mudou em linguagem do cliente; a mesma linha, com a data, no VERSOES.md. A chave é o id do app (tabela apps).
 window.NERVIA_VERSOES = {
   "notas": [
+    ["1.10", "Primeira carga das NFS-e mais rápida: empresa que emite muitas notas é baixada a cada 10 minutos até alcançar o dia de hoje, e não só de hora em hora."],
+    ["1.9", "Avisos por e-mail: resumo diário das notas novas (você escolhe se quer receber) e aviso quando o certificado A1 está perto de vencer."],
     ["1.8", "Baixar XMLs (.zip): os XMLs das notas marcadas ou, sem marcação, de toda a lista filtrada (período, tipo, fornecedor), num arquivo só."],
     ["1.7", "Recuperar NF-e anteriores: traz as NF-e dos últimos 90 dias que outro sistema da empresa já tinha baixado."],
     ["1.6", "Registro de auditoria das ações sensíveis (ciência, confirmação, certificado, termo, acessos), com comprovante para imprimir."],
@@ -17,6 +19,7 @@ window.NERVIA_VERSOES = {
     ["1.0", "Lançamento: busca de hora em hora das NF-e (SEFAZ) e NFS-e (padrão nacional) recebidas pelos CNPJs da empresa."],
   ],
   "painel-nf": [
+    ["1.2", "Vendas: as NFS-e (serviços) emitidas pela empresa, por cliente. Nova visão Compras × Vendas, mês a mês, com a diferença e o gráfico lado a lado."],
     ["1.1", "O painel passa a mostrar só as compras (notas recebidas)."],
     ["1.0", "Lançamento: compras por fornecedor, mês e período, com comparação ao mês e ao ano anterior, gráficos e CSV."],
   ],
@@ -55,6 +58,9 @@ window.NERVIA_VERSOES = {
     ["1.0", "Lançamento: contas e licenças de cada unidade, mudanças entre exportações e licenças pagas sem uso."],
   ],
   "midia": [
+    ["2.7", "Atualização do app da TV pelo painel: a coluna Aparelho mostra quando a TV está com o app desatualizado, e a equipe Nervia pede a atualização de uma TV ou de todas. A TV baixa a versão nova sozinha e abre a tela de instalação; basta alguém no local apertar \"Instalar\" com o controle e o app volta a abrir sozinho. Vale a partir do app da TV 1.11 (as TVs com versão anterior são atualizadas à mão uma vez). (app da TV 1.11)"],
+    ["2.6", "Aviso por e-mail dos dias de uso: 7, 3 e 1 dia antes de acabarem os dias de uma TV, quando acabam e quando a TV pausa, a Nervia e quem acompanha o Mídia Indoor da empresa recebem um e-mail com a situação de cada TV e como renovar. Quem recebe aparece em Dias de uso: extrato."],
+    ["2.5", "Dias de uso por TV: cada TV tem os seus dias liberados, com a data até quando vale. Quando os dias acabam, a TV continua passando por alguns dias de tolerância e depois pausa sozinha, mostrando a tela de espera da Nervia com uma mensagem neutra, até receber mais dias (também sem internet). Avisos no alto da aba TVs quando os dias estão acabando ou a TV está pausada, e extrato dos dias de cada TV. Novo: Trocar aparelho, para substituir o TV box ou a TV sem perder o nome, a playlist e os dias. (app da TV 1.10)"],
     ["2.4", "Relatório de tempo de tela: Imprimir / PDF abre uma página só com o relatório, sem o topo do site e sem o cabeçalho do navegador, pronta para salvar em PDF e mandar ao cliente."],
     ["2.3", "Formato ideal das mídias para cada TV: a TV informa a resolução da tela e o painel mostra, junto com a posição (deitada ou em pé), o tamanho de vídeo e de foto que ocupa a tela toda, com a mensagem pronta para mandar ao cliente. Na playlist, aviso quando uma mídia tem formato diferente da TV que a toca. (app da TV 1.9)"],
     ["2.2", "TV ligada pelo controle (saindo do modo de espera) volta sozinha para o Mídia Indoor em poucos segundos, em vez de ficar na tela inicial da TV ou cair no modo ambiente. Precisa da permissão \"Sobrepor a outros apps\". (app da TV 1.8)"],

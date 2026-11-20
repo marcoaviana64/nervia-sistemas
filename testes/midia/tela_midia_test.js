@@ -18,7 +18,7 @@ const FALSO = `(() => {
              { user_id: 'u-cli', email: 'mkt@lojaexemplo.com.br', nome: 'Marketing', admin: false },
              { user_id: 'u-sem', email: 'outro@x.com', nome: 'Outro', admin: false }],
     app_acessos: [],
-    mi_contas: [{ id: 'c1', nome: 'Loja Exemplo', pasta_url: 'https://drive.google.com/drive/folders/PASTA1', pasta_id: 'PASTA1', pasta_chave: '', tempo_imagem_s: 10, limite_mb: 5000, ativo: true, sincronizado_em: min(3), sinc_erro: '' }],
+    mi_contas: [{ id: 'c1', nome: 'Loja Exemplo', pasta_url: 'https://drive.google.com/drive/folders/PASTA1', pasta_id: 'PASTA1', pasta_chave: '', tempo_imagem_s: 10, limite_mb: 5000, tolerancia_dias: 3, ativo: true, sincronizado_em: min(3), sinc_erro: '' }],
     mi_acessos: [{ user_id: 'u-cli', conta_id: 'c1' }],
     mi_playlists: [{ id: 'p1', conta_id: 'c1', drive_id: 'S1', nome: 'Hall', raiz: false }, { id: 'p2', conta_id: 'c1', drive_id: 'S2', nome: 'Praça de alimentação', raiz: false }],
     mi_midias: [
@@ -27,10 +27,11 @@ const FALSO = `(() => {
       { id: 'm3', playlist_id: 'p1', drive_id: 'F3', nome: '03_iphone.mp4', tipo: 'video', situacao: 'recusado', motivo: 'vídeo em H.265 (HEVC): exporte em MP4 com H.264', tamanho: 9000000, codec: 'H.265 (HEVC)', largura: 1920, altura: 1080, duracao_s: 15, posicao: 3, tempo_s: null },
       { id: 'm4', playlist_id: 'p2', drive_id: 'F4', nome: '01_cardapio.jpg', tipo: 'imagem', situacao: 'ok', motivo: '', tamanho: 2202009, largura: 1920, altura: 1080, posicao: 1, tempo_s: 12 }],
     mi_telas: [
-      { id: 't1', conta_id: 'c1', nome: 'Hall de entrada', playlist_id: 'p1', tela_largura: 3840, tela_altura: 2160, ultimo_sinal: min(1), versao_app: '1.0', modelo: 'TV box X96', android: '9', tocando: '01_black-friday.mp4', espaco_livre_mb: 6200, baixando: 0, erros: [] },
-      { id: 't2', conta_id: 'c1', nome: 'Estacionamento', playlist_id: 'p2', ultimo_sinal: min(190), versao_app: '1.0', modelo: 'Google TV', android: '12', tocando: '', espaco_livre_mb: 300, baixando: 0, erros: [{ nome: 'promo.mp4', erro: 'este aparelho não toca o vídeo' }] },
-      { id: 't3', conta_id: 'c1', nome: 'Vitrine da loja', playlist_id: 'p1', ultimo_sinal: min(2), versao_app: '1.3', modelo: 'TCL Smart TV', android: '14', tocando: '', espaco_livre_mb: 2400, baixando: 2, erros: [{ nome: '01_black-friday.mp4', erro: 'não baixou: Google Drive respondeu 403' }, { nome: '02_cardapio.jpg', erro: 'não baixou: Google Drive respondeu 403' }] }],
-    codigos: { 'ABC234': 'livre' },
+      { id: 't1', conta_id: 'c1', isenta: true, nome: 'Hall de entrada', playlist_id: 'p1', tela_largura: 3840, tela_altura: 2160, ultimo_sinal: min(1), versao_app: '1.0', modelo: 'TV box X96', android: '9', tocando: '01_black-friday.mp4', espaco_livre_mb: 6200, baixando: 0, erros: [] },
+      { id: 't2', conta_id: 'c1', isenta: true, nome: 'Estacionamento', playlist_id: 'p2', ultimo_sinal: min(190), versao_app: '1.0', modelo: 'Google TV', android: '12', tocando: '', espaco_livre_mb: 300, baixando: 0, erros: [{ nome: 'promo.mp4', erro: 'este aparelho não toca o vídeo' }] },
+      { id: 't3', conta_id: 'c1', isenta: true, nome: 'Vitrine da loja', playlist_id: 'p1', ultimo_sinal: min(2), versao_app: '1.3', modelo: 'TCL Smart TV', android: '14', tocando: '', espaco_livre_mb: 2400, baixando: 2, erros: [{ nome: '01_black-friday.mp4', erro: 'não baixou: Google Drive respondeu 403' }, { nome: '02_cardapio.jpg', erro: 'não baixou: Google Drive respondeu 403' }] }],
+    codigos: { 'ABC234': 'livre', 'NOV234': 'livre' },
+    mi_creditos: [],
     mi_exibicoes: (() => {
       const mes = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }).slice(0, 7);
       return [
@@ -89,12 +90,40 @@ const FALSO = `(() => {
       if (s === 'usado') return erro('Este código já foi usado. Aguarde a TV mostrar um código novo.');
       db.codigos[p.p_codigo] = 'usado';
       const id = 't' + (db.mi_telas.length + 1);
-      db.mi_telas.push({ id, conta_id: p.p_conta, nome: p.p_nome, playlist_id: p.p_playlist, ultimo_sinal: null, versao_app: '', modelo: '', android: '', tocando: '', espaco_livre_mb: null, baixando: 0, erros: [] });
+      db.mi_telas.push({ id, conta_id: p.p_conta, isenta: false, valida_ate: null, nome: p.p_nome, playlist_id: p.p_playlist, ultimo_sinal: null, versao_app: '', modelo: '', android: '', tocando: '', espaco_livre_mb: null, baixando: 0, erros: [] });
       db.log.push('vincular'); return ok(id);
     },
     mi_tela_salvar(p) { const t = db.mi_telas.find(x => x.id === p.p_tela); if (!t || !pode(t.conta_id)) return erro('TV não encontrada.'); t.nome = p.p_nome; t.playlist_id = p.p_playlist; db.log.push('tela'); return ok(null); },
     mi_tela_girar(p) { const t = db.mi_telas.find(x => x.id === p.p_tela); if (!t || !pode(t.conta_id)) return erro('TV não encontrada.'); t.rotacao = p.p_rotacao; return ok(null); },
     mi_desvincular(p) { const t = db.mi_telas.find(x => x.id === p.p_tela); if (!t || !pode(t.conta_id)) return erro('TV não encontrada.'); db.mi_telas = db.mi_telas.filter(x => x !== t); return ok(null); },
+    mi_creditos_adicionar(p) {
+      if (!admin()) return erro('Somente a equipe Nervia põe ou tira dias das TVs.');
+      const hoje = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+      const soma = (d, n) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+      const lote = 'L' + db.mi_creditos.length;
+      p.p.telas.forEach((id, i) => {
+        const t = db.mi_telas.find(x => x.id === id), tol = conta(t.conta_id).tolerancia_dias;
+        const base = !t.valida_ate || hoje > soma(t.valida_ate, tol) ? soma(hoje, -1) : t.valida_ate, antes = t.valida_ate;
+        t.valida_ate = p.p.dias < 0 ? soma(t.valida_ate, p.p.dias) : soma(base, p.p.dias);
+        db.mi_creditos.push({ id: db.mi_creditos.length + 1, lote, conta_id: t.conta_id, tela_id: id, tela_nome: t.nome, tipo: 'dias', dias: p.p.dias, antes, depois: t.valida_ate,
+          valor: i === 0 && p.p.valor !== '' ? Number(p.p.valor) : null, obs: p.p.obs, user_nome: 'Marco', criado_em: new Date().toISOString() });
+      });
+      db.log.push('creditos:' + JSON.stringify(p.p)); return ok({ lote, telas: p.p.telas.length });
+    },
+    mi_tela_isenta(p) { if (!admin()) return erro('Somente a equipe Nervia muda a cobrança da TV.'); if ((p.p_motivo || '').trim().length < 5) return erro('Escreva o motivo.');
+      db.mi_telas.find(x => x.id === p.p_tela).isenta = p.p_isenta; db.log.push('isenta:' + p.p_isenta); return ok(null); },
+    mi_conta_tolerancia(p) { if (!admin()) return erro('Somente a equipe Nervia muda a tolerância.'); conta(p.p_conta).tolerancia_dias = p.p_dias; db.log.push('tolerancia:' + p.p_dias); return ok(null); },
+    mi_creditos_extrato(p) { if (!pode(p.p_conta)) return ok([]);
+      return ok(db.mi_creditos.filter(e => e.conta_id === p.p_conta).reverse().map(e => ({ ...e, valor: admin() ? e.valor : null, user_nome: admin() ? e.user_nome : 'Nervia' }))); },
+    mi_tela_atualizar(p) { if (!admin()) return erro('Somente a equipe Nervia pede a atualização do app da TV.');
+      let n = 0; p.p_telas.forEach(id => { const t = db.mi_telas.find(x => x.id === id); if (p.p_versao && t.versao_app === p.p_versao.nome) return;
+        t.atualizar = p.p_versao ? { ...p.p_versao, pedido_em: new Date().toISOString() } : null; n++; });
+      db.log.push('atualizar:' + p.p_telas.join(',') + ':' + (p.p_versao ? p.p_versao.nome : 'cancelar')); return ok(n); },
+    mi_avisos_destinos(p) { if (!pode(p.p_conta)) return ok([]);
+      return ok([...new Set(db.perfis.filter(x => x.admin || db.mi_acessos.some(a => a.user_id === x.user_id && a.conta_id === p.p_conta)).map(x => x.email))]); },
+    mi_tela_trocar_aparelho(p) { const t = db.mi_telas.find(x => x.id === p.p_tela); if (!t || !pode(t.conta_id)) return erro('TV não encontrada.');
+      if (db.codigos[p.p_codigo] !== 'livre') return erro('Código não encontrado. Confira o que aparece na TV nova.');
+      db.codigos[p.p_codigo] = 'usado'; Object.assign(t, { modelo: '', ultimo_sinal: null, versao_app: '' }); db.log.push('trocar:' + t.id); return ok(null); },
     mi_midia_tempo(p) { const m = db.mi_midias.find(x => x.id === p.p_midia); m.tempo_s = p.p_tempo; return ok(null); },
     mi_conta_salvar(p) {
       if (!pode(p.p_conta)) return erro('Sem acesso a esta conta.');
@@ -275,7 +304,7 @@ const db = pg => pg.evaluate(() => window.__db);
     await pg.evaluate(() => { const d = JSON.parse(localStorage.getItem('db_teste')); d.mi_contas[0].pasta_id = 'PRIVADA'; localStorage.setItem('db_teste', JSON.stringify(d)); });
     await pg.reload(); await pg.waitForTimeout(400);
     await pg.click('.aba[data-v=playlists]'); await pg.click('[data-acao=sinc]'); await pg.waitForTimeout(300);
-    ok((await pg.locator('#msg').innerText()).includes('qualquer pessoa com o link') && (await pg.locator('.aviso.crit').count()) === 1, 'pasta não compartilhada: erro claro no painel');
+    ok((await pg.locator('#msg').innerText()).includes('qualquer pessoa com o link') && (await pg.locator('.aviso.crit', { hasText: 'Não foi possível ler a pasta' }).count()) === 1, 'pasta não compartilhada: erro claro no painel');
 
     // ---------------- celular
     const cel = await pagina(b, 'cliente', 390);
@@ -304,6 +333,78 @@ const db = pg => pg.evaluate(() => window.__db);
     const d4 = await db(adm.pg);
     ok(d4.mi_acessos.some(a => a.user_id === 'u-sem' && a.conta_id === nova.id) && d4.app_acessos.some(a => a.user_id === 'u-sem' && a.app_id === 'midia'), 'admin: quem vê libera a conta e o app');
     await print(adm.pg, 'midia_contas');
+
+    // ---------------- dias de uso (créditos por TV)
+    await adm.pg.evaluate(() => {
+      const d = JSON.parse(localStorage.getItem('db_teste')), hoje = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+      const soma = n => { const x = new Date(hoje + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+      const t = id => d.mi_telas.find(x => x.id === id);
+      Object.assign(t('t1'), { isenta: false, valida_ate: soma(4) });     // acabando (5 dias com hoje)
+      Object.assign(t('t3'), { isenta: false, valida_ate: soma(-10) });   // pausada (tolerância de 3)
+      localStorage.setItem('db_teste', JSON.stringify(d)); localStorage.setItem('midia-conta', 'c1');
+    });
+    await adm.pg.reload(); await adm.pg.waitForTimeout(400);
+    const avCrit = await adm.pg.locator('.aviso.crit', { hasText: 'dias de uso' }).innerText(), avWarn = await adm.pg.locator('.aviso.warn', { hasText: 'Dias de uso acabando' }).innerText();
+    ok(avCrit.includes('Vitrine da loja') && avCrit.includes('pausada') && avWarn.includes('Hall de entrada') && avWarn.includes('5 dias'), 'dias de uso: avisos de TV pausada e de dias acabando');
+    const linhaCr = await adm.pg.locator('tr', { has: adm.pg.locator('select[data-pl=t1]') }).innerText();
+    ok(linhaCr.includes("acabando") && linhaCr.includes('pôr dias'), 'dias de uso: coluna na TV com o botão da Nervia');
+    ok((await adm.pg.locator('tr', { has: adm.pg.locator('select[data-pl=t2]') }).innerText()).includes('isenta'), 'dias de uso: TV isenta');
+    await adm.pg.click('[data-acao=porDias]:not([data-id])'); await adm.pg.waitForTimeout(150);
+    ok((await adm.pg.locator('#dlgf .pTv:checked').count()) === 3, 'pôr dias: sem TV escolhida, todas vêm marcadas');
+    await adm.pg.uncheck('#dlgf .pTv[value=t2]');
+    await adm.pg.click('#dlgf [data-pd="90"]');
+    await print(adm.pg, 'midia_por_dias');
+    ok((await adm.pg.locator('#pDep-t3').innerText()).includes('até ' + (() => { const x = new Date(new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }) + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + 89); return x.toISOString().slice(0, 10).split('-').reverse().join('/'); })()),
+      'pôr dias: prévia — TV pausada conta a partir de hoje');
+    await adm.pg.fill('#pValor', '149,70'); await adm.pg.fill('#pObs', 'Pix 19/11');
+    await adm.pg.click('#pOk'); await adm.pg.waitForTimeout(300);
+    const dc = await db(adm.pg), lg = dc.log.find(l => l.startsWith('creditos:'));
+    ok(lg && JSON.parse(lg.slice(9)).telas.join() === 't1,t3' && JSON.parse(lg.slice(9)).dias === 90 && JSON.parse(lg.slice(9)).valor === '149.70', 'pôr dias: 90 dias em duas TVs de uma vez, valor em reais lido certo');
+    ok((await adm.pg.locator('.aviso.crit', { hasText: 'dias de uso' }).count()) === 0 && (await adm.pg.locator('#msg').innerText()).includes('2 TVs'), 'pôr dias: TV volta a ficar em dia');
+    await adm.pg.click('[data-acao=extrato]'); await adm.pg.waitForTimeout(200);
+    const ext = await adm.pg.locator('#dlgf').innerText();
+    ok((await adm.pg.locator('#avDest').innerText()).includes('mkt@lojaexemplo.com.br') && (await adm.pg.locator('#avDest').innerText()).includes('7, 3 e 1 dia'),
+      'extrato: mostra quem recebe o aviso por e-mail');
+    ok(ext.includes('+90') && /R\$\s149,70/.test(ext) && ext.includes('Pix 19/11'), 'extrato: Nervia vê dias, valor e observação');
+    await adm.pg.click('#dlg button[value=x]'); await adm.pg.waitForTimeout(100);
+    await adm.pg.click('[data-acao=trocarAparelho][data-id=t1]'); await adm.pg.fill('#tCod', 'nov234'); await adm.pg.click('#tOk'); await adm.pg.waitForTimeout(250);
+    ok((await db(adm.pg)).log.includes('trocar:t1') && (await adm.pg.locator('#msg').innerText()).includes('trocado'), 'trocar aparelho pelo código, mantendo a TV');
+    await print(adm.pg, 'midia_creditos');
+    // ---------------- atualização do app pelo painel
+    const adm2 = await pagina(b, 'admin');
+    await adm2.ctx.route('**/tv.json', r => r.fulfill({ body: JSON.stringify({ codigo: 13, nome: '1.12', sha256: 'c'.repeat(64) }), contentType: 'application/json' }));
+    await adm2.pg.evaluate(() => { const d = window.__db; d.mi_telas[0].versao_app = '1.11'; d.mi_telas[2].versao_app = '1.12'; localStorage.setItem('db_teste', JSON.stringify(d)); });
+    await adm2.pg.reload(); await adm2.pg.waitForTimeout(500);
+    const lApp = t => adm2.pg.locator('tr', { has: adm2.pg.locator(`select[data-pl=${t}]`) }).innerText();
+    ok((await lApp('t1')).includes('app desatualizado (1.12 disponível)') && (await lApp('t1')).includes('atualizar app'), 'app: TV 1.11 desatualizada com o botão');
+    ok((await lApp('t2')).includes('instale à mão'), 'app: TV antiga (sem atualizador) pede a instalação à mão');
+    ok(!(await lApp('t3')).includes('desatualizado'), 'app: TV já na versão publicada não mostra aviso');
+    ok((await adm2.pg.locator('[data-acao=appAtualizarTodas]').innerText()).includes('1 TV'), 'app: "Atualizar app" conta só as TVs que se atualizam');
+    adm2.pg.removeAllListeners('dialog'); adm2.pg.on('dialog', d => d.accept());
+    await adm2.pg.click('[data-acao=appAtualizar][data-id=t1]'); await adm2.pg.waitForTimeout(300);
+    ok((await db(adm2.pg)).log.includes('atualizar:t1:1.12') && (await lApp('t1')).includes('atualização para 1.12 pedida'), 'app: pedido gravado e mostrado na TV');
+    await adm2.pg.evaluate(() => { const d = window.__db; d.mi_telas[0].erros = [{ nome: 'Atualização do app', erro: 'versão 1.12: tela de instalação aberta na TV, falta apertar Instalar' }]; localStorage.setItem('db_teste', JSON.stringify(d)); });
+    await adm2.pg.reload(); await adm2.pg.waitForTimeout(500);
+    ok((await lApp('t1')).includes('falta apertar Instalar') && !(await lApp('t1')).includes('Atualização do app:'), 'app: situação da TV na coluna Aparelho, fora dos erros');
+    await adm2.pg.click('[data-acao=appCancelar][data-id=t1]'); await adm2.pg.waitForTimeout(300);
+    ok((await db(adm2.pg)).log.includes('atualizar:t1:cancelar'), 'app: cancelar o pedido');
+    await print(adm2.pg, 'midia_atualizar');
+    ok(adm2.erros.length === 0, 'app: sem erros de JavaScript ' + adm2.erros.join(' | '));
+    await adm.pg.click('#abaAdmin'); await adm.pg.waitForTimeout(250);
+    await adm.pg.click('[data-acao=editConta][data-id=c1]'); await adm.pg.fill('#aTol', '7'); await adm.pg.click('#aOk'); await adm.pg.waitForTimeout(300);
+    ok((await db(adm.pg)).log.includes('tolerancia:7'), 'conta: tolerância dos dias de uso');
+    // cliente vê os dias e o extrato, sem valor e sem o botão
+    const cli2 = await pagina(b, 'cliente');
+    await cli2.pg.evaluate(() => { const d = window.__db; d.mi_telas[0].isenta = false; d.mi_telas[0].valida_ate = '2000-01-01';
+      d.mi_creditos.push({ id: 1, lote: 'L', conta_id: 'c1', tela_id: 't1', tela_nome: 'Hall de entrada', tipo: 'dias', dias: 30, antes: null, depois: '2000-01-01', valor: 99, obs: 'Pix', user_nome: 'Marco', criado_em: new Date().toISOString() });
+      localStorage.setItem('db_teste', JSON.stringify(d)); });
+    await cli2.pg.reload(); await cli2.pg.waitForTimeout(400);
+    ok((await cli2.pg.locator('.aviso.crit', { hasText: 'dias de uso' }).innerText()).includes('Fale com a Nervia') && (await cli2.pg.locator('[data-acao=porDias]').count()) === 0,
+      'cliente: vê a TV pausada e não põe dias');
+    await cli2.pg.click('[data-acao=extrato]'); await cli2.pg.waitForTimeout(200);
+    const ext2 = await cli2.pg.locator('#dlgf').innerText();
+    ok(ext2.includes('+30') && !ext2.includes('R$') && !ext2.includes('Marco'), 'cliente: extrato sem valor e sem quem lançou');
+    ok(cli2.erros.length === 0, 'cliente (dias de uso): sem erros de JavaScript ' + cli2.erros.join(' | '));
     ok(adm.erros.length === 0, 'admin: sem erros de JavaScript ' + adm.erros.join(' | '));
 
     // ---------------- ajuda

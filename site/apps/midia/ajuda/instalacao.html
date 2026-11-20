@@ -83,6 +83,8 @@ pre.cmd{font:12.5px/1.45 ui-monospace,Consolas,monospace;background:#f3f5f8;bord
   <pre class="cmd">adb shell appops set br.com.nervia.midia SYSTEM_ALERT_WINDOW allow</pre>
   <p>Conferir (tem de responder <code>allow</code>):</p>
   <pre class="cmd">adb shell appops get br.com.nervia.midia SYSTEM_ALERT_WINDOW</pre>
+  <p>E libere a atualização do app pelo painel (a TV baixa a versão nova e abre a tela de instalação):</p>
+  <pre class="cmd">adb shell appops set br.com.nervia.midia REQUEST_INSTALL_PACKAGES allow</pre>
   <p><b>Abrir o app:</b></p>
   <pre class="cmd">adb shell am start -n br.com.nervia.midia/.MainActivity</pre>
 

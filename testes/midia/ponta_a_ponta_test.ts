@@ -142,6 +142,18 @@ Deno.test({ name: "Mídia Indoor de ponta a ponta", sanitizeOps: false, sanitize
     eq(a.j.situacao, "vinculado"); token = a.j.token; eq(a.j.tela, "Hall de entrada");
     eq((await tv({ acao: "aguardar", aparelho: APARELHO, codigo })).j.situacao, "usado");
   });
+  await t.step("TV nova sem dias de uso: pausada (playlist vazia, sem download pela Nervia); a Nervia põe os dias", async () => {
+    const p = await tv({ acao: "playlist", token });
+    eq([p.status, p.j.pausada, p.j.itens.length, p.j.intervalo_playlist_s, p.j.liberada_ate], [200, true, 0, 60, "2000-01-01"]);
+    eq((await tv({ acao: "arquivo", token, id: "F1" })).status >= 400, true, "TV pausada não baixa pela Nervia");
+    const [tela] = await rest(T.cli, "/mi_telas?select=id");
+    const recusa = await fetch(`${PGRST}/rpc/mi_creditos_adicionar`, { method: "POST", headers: { Authorization: `Bearer ${T.cli}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ p: { telas: [tela.id], dias: 30 } }) });
+    eq(recusa.status >= 400, true, "cliente não põe dias"); await recusa.body?.cancel();
+    await rpc(T.admin, "mi_creditos_adicionar", { p: { telas: [tela.id], dias: 30, valor: "49.90", obs: "teste" } });
+    const q = await tv({ acao: "playlist", token });
+    eq([q.j.pausada, q.j.itens.length > 0, typeof q.j.liberada_ate], [false, true, "string"]);
+  });
   let conteudo1 = "";
   await t.step("TV recebe a playlist: só os arquivos aceitos, na ordem, com a chave de download", async () => {
     const r = await tv({ acao: "playlist", token });
@@ -219,6 +231,17 @@ Deno.test({ name: "Mídia Indoor de ponta a ponta", sanitizeOps: false, sanitize
     eq(linhas.map((l: { nome: string; vezes: number; segundos: number }) => [l.nome, l.vezes, Number(l.segundos)]), [["01_cardapio.jpg", 1, 9], ["01_promo.mp4", 1, 2]]);
     eq((await tv({ acao: "exibicoes", token: "x".repeat(64), lote: "lote-e2e-0002", itens: [] })).status, 401);
   });
+  await t.step("atualização do app pedida pelo painel chega à TV e some quando a TV já está na versão", async () => {
+    const [tela] = await rest(T.cli, "/mi_telas?select=id");
+    const sha = "b".repeat(64);
+    await rpc(T.admin, "mi_tela_atualizar", { p_telas: [tela.id], p_versao: { codigo: 99, nome: "9.9", sha256: sha } });
+    const r = await tv({ acao: "playlist", token });
+    eq(r.j.atualizar, { codigo: 99, nome: "9.9", sha256: sha, url: "https://nervia.com.br/tv.apk" });
+    await psql("update mi_telas set ultimo_sinal = null");   // o sinal vale 1 a cada 20 s
+    await tv({ acao: "sinal", token, versao_app: "9.9" });
+    eq((await tv({ acao: "playlist", token })).j.atualizar, null);
+    eq((await rest(T.cli, "/mi_telas?select=atualizar"))[0].atualizar, null, "pedido apagado");
+  });
   await t.step("conta suspensa: TV recebe playlist vazia (tela de espera)", async () => {
     await rest(T.admin, `/mi_contas?id=eq.${conta}`, { method: "PATCH", body: JSON.stringify({ ativo: false }) });
     const r = await tv({ acao: "playlist", token });
@@ -233,7 +256,7 @@ Deno.test({ name: "Mídia Indoor de ponta a ponta", sanitizeOps: false, sanitize
   });
   await t.step("tudo ficou na auditoria", async () => {
     const acoes = (await rest(T.admin, "/auditoria?select=acao&acao=like.midia_*")).map((a: { acao: string }) => a.acao);
-    for (const a of ["midia_conta_criada", "midia_acesso_liberado", "midia_pasta_alterada", "midia_tempo_alterado", "midia_tv_vinculada", "midia_playlist_trocada", "midia_conta_alterada", "midia_tv_desvinculada"]) {
+    for (const a of ["midia_conta_criada", "midia_acesso_liberado", "midia_pasta_alterada", "midia_tempo_alterado", "midia_tv_vinculada", "midia_playlist_trocada", "midia_conta_alterada", "midia_tv_desvinculada", "midia_creditos_adicionados", "midia_app_atualizacao_pedida"]) {
       assert(acoes.includes(a), `falta ${a}`);
     }
   });

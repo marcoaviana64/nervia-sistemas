@@ -126,6 +126,16 @@ details summary{cursor:pointer;color:var(--teal);font-weight:600;margin-top:6px}
       <button class="sec" style="width:100%" onclick="abrirUsuarios()">Quem vê cada empresa</button>
       <div class="small" style="margin-top:8px">Logins, senhas e quais apps cada cliente usa ficam na Administração da Área do Cliente.</div>
     </div>
+    <div class="card" style="margin-top:14px" id="avisosBox">
+      <h2>Avisos por e-mail</h2>
+      <div class="chips" style="flex-direction:column;gap:6px">
+        <label title="Um e-mail por dia (de manhã), só nos dias em que chega nota nova das suas empresas"><input type="checkbox" id="avResumo" onchange="salvarMeusAvisos()">Resumo diário das notas novas</label>
+        <label title="Aviso 30, 15, 7 e 1 dia antes de o certificado A1 vencer, e no dia em que vence"><input type="checkbox" id="avCert" onchange="salvarMeusAvisos()">Certificado vencendo</label>
+      </div>
+      <div class="small" style="margin-top:6px" id="avPara"></div>
+      <div id="msgAv" class="msg"></div>
+      <button class="sec soAdmin" style="width:100%;margin-top:8px" onclick="abrirAvisos()">Quem recebe avisos</button>
+    </div>
   </aside>
   <main><div class="card" id="painel"><div class="vazio">Carregando…</div></div></main>
 </div>
@@ -179,6 +189,7 @@ async function iniciar() {
   $("quem").textContent = (perfil?.nome || eu.email) + (ehAdmin ? " · admin" : "");
   $("telaLogin").classList.add("oculto"); $("telaApp").classList.remove("oculto");
   await carregarEmpresas();
+  carregarMeusAvisos();
 }
 function mostrarLogin() { $("telaApp").classList.add("oculto"); $("telaLogin").classList.remove("oculto"); }
 async function entrar(ev) {
@@ -574,6 +585,46 @@ async function alterarAcesso(uid, cnpj, marcar) {
     else checar(await sb.from("nf_acessos").delete().eq("user_id", uid).eq("cnpj", cnpj));
     msg($("msgU"), "ok", "Acesso atualizado.");
   } catch (e) { msg($("msgU"), "err", e.message); }
+}
+
+// ------------------------------------------------------------ avisos por e-mail
+// Resumo diário (padrão: desligado) e certificado vencendo (padrão: ligado). Gravação só pela rpc nf_avisos_salvar (auditada).
+async function carregarMeusAvisos() {
+  try {
+    const a = checar(await sb.from("nf_avisos").select("resumo, certificado").eq("user_id", eu.id).maybeSingle());
+    $("avResumo").checked = !!a?.resumo; $("avCert").checked = a ? a.certificado : true;
+    $("avPara").textContent = "Enviados para " + eu.email + ".";
+  } catch (e) { msg($("msgAv"), "err", e.message); }
+}
+async function salvarMeusAvisos() {
+  try {
+    checar(await sb.rpc("nf_avisos_salvar", { p_user: null, p_resumo: $("avResumo").checked, p_certificado: $("avCert").checked }));
+    msg($("msgAv"), "ok", "Avisos atualizados.");
+  } catch (e) { msg($("msgAv"), "err", e.message); carregarMeusAvisos(); }
+}
+async function abrirAvisos() {
+  tela = "avisos"; await carregarEmpresas();
+  const perfis = checar(await sb.from("perfis").select("user_id, nome, email, admin").order("nome"));
+  const av = new Map(checar(await sb.from("nf_avisos").select("*")).map(a => [a.user_id, a]));
+  const acessos = checar(await sb.from("nf_acessos").select("*"));
+  const nomeEmp = new Map(empresas.map(e => [e.cnpj, e.nome]));
+  painel.innerHTML = `<div class="topo"><div><h1>Quem recebe avisos por e-mail</h1>
+      <div class="meta">Resumo diário: um e-mail de manhã, só nos dias com nota nova das empresas que o login vê (padrão: desligado).</div>
+      <div class="meta">Certificado vencendo: 30, 15, 7 e 1 dia antes e no dia em que vence, para quem vê a empresa (padrão: ligado). Cliente sem o Buscador ou o Painel liberado não recebe.</div></div></div>
+    <div id="msgAvs" class="msg"></div>
+    <div style="margin-top:14px">${perfis.map(p => { const a = av.get(p.user_id), emps = p.admin ? "todas as empresas (equipe Nervia)" : acessos.filter(x => x.user_id === p.user_id).map(x => nomeEmp.get(x.cnpj) || x.cnpj).join(", ") || "nenhuma empresa";
+      return `<div class="usu"><b>${esc(p.nome || p.email)}</b> <span class="small">${esc(p.email)} · ${esc(emps)}</span>
+      <div class="chips"><label><input type="checkbox" ${a?.resumo ? "checked" : ""} data-u="${p.user_id}" data-k="resumo" onchange="salvarAvisoDe(this)">Resumo diário</label>
+      <label><input type="checkbox" ${a ? (a.certificado ? "checked" : "") : "checked"} data-u="${p.user_id}" data-k="cert" onchange="salvarAvisoDe(this)">Certificado vencendo</label></div></div>`; }).join("")}</div>`;
+}
+async function salvarAvisoDe(el) {
+  const u = el.dataset.u, box = el.closest(".usu");
+  const r = box.querySelector('[data-k="resumo"]').checked, c = box.querySelector('[data-k="cert"]').checked;
+  try {
+    checar(await sb.rpc("nf_avisos_salvar", { p_user: u, p_resumo: r, p_certificado: c }));
+    msg($("msgAvs"), "ok", "Avisos atualizados.");
+    if (u === eu.id) carregarMeusAvisos();
+  } catch (e) { msg($("msgAvs"), "err", e.message); el.checked = !el.checked; }
 }
 
 sb.auth.onAuthStateChange((ev) => { if (ev === "SIGNED_OUT") mostrarLogin(); });

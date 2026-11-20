@@ -69,4 +69,12 @@ class VitrineTest {
         v.mostrar("TV Recepção · app 1.4")
         assertEquals(View.GONE, v.view.getChildAt(1).visibility)
     }
+
+    /** Sem créditos de dias: mensagem neutra em destaque (nada de "pagamento" na tela vista pelo público). */
+    @Test fun pausada() {
+        val v = desenhar(false, 1920, 1080, "vitrine-pausada", Creditos.MENSAGEM)
+        assertTrue(textos(v.view).contains(Creditos.MENSAGEM))
+        assertTrue(!Creditos.MENSAGEM.contains("pag", true) && !Creditos.MENSAGEM.contains("débito", true))
+        assertTrue(v.view.getChildAt(1).visibility == View.VISIBLE && v.view.getChildAt(1).bottom <= 1080)
+    }
 }
