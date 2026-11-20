@@ -115,6 +115,11 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
   configuração sempre relê o `nvplayer.json` ao abrir — então o portal mostra o endereço atual se o provedor trocou
   (antes ficava fixo no embutido). A TV já ligada continua trocando sozinha pelo failover (2.5): quando o servidor
   salvo não responde, relê o `nvplayer.json` e passa para o 1º que faz login. Teste `TelaTest.portalMostraServidorDoSite`.
+- **Liberar bloqueados pelos Ajustes** (2.19, o Marco em 19/11/2026: "a lista só deve mostrar os bloqueados depois
+  que o usuário digitar a senha numa liberação nos Ajustes"): nova opção em Ajustes **"🔓 Liberar canais bloqueados
+  (digitar senha)"** (acao `liberar`/`bloquear`) que pede a senha e marca `desbloqueado` na sessão; enquanto não
+  liberar, os canais adultos ficam escondidos em todas as listas (TV, Todos, busca, Agenda — `semTravados`). O grupo
+  bloqueado não pede mais a senha ali: só avisa para liberar nos Ajustes. Teste `TelaTest.liberarBloqueados`.
 - **Correção do foco na Agenda** (2.18, o Marco em 19/11/2026: "quando desço para escolher o canal ele volta para o
   menu"): ao focar um canal, `selecionarCanal` repinta SÓ as duas linhas que mudaram (`notifyItemChanged`), em vez
   de `notifyDataSetChanged` na lista inteira — redesenhar a lista com o foco nela fazia o foco escapar para o menu

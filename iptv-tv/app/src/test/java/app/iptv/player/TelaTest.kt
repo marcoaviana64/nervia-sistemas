@@ -174,6 +174,12 @@ class TelaTest {
         else -> null
     }
 
+    private fun acharEdit(v: View): android.widget.EditText? = when {
+        v is android.widget.EditText -> v
+        v is ViewGroup -> (0 until v.childCount).firstNotNullOfOrNull { acharEdit(v.getChildAt(it)) }
+        else -> null
+    }
+
     /** Clica no primeiro texto que começa com [prefixo] (sobe até o elemento clicável, como o OK do controle). */
     private fun clicar(raiz: View, prefixo: String) {
         var v: View? = acharTexto(raiz) { it.startsWith(prefixo) } ?: throw AssertionError("não achei \"$prefixo\" em ${textos(raiz)}")
@@ -370,6 +376,42 @@ class TelaTest {
         d.getButton(android.content.DialogInterface.BUTTON_NEUTRAL).performClick()
         ocioso()
         assertTrue("lembrete gravado", Repositorio(act).lembretes().any { it.titulo == "Show Futuro" })
+        ctl.pause().stop().destroy()
+    }
+
+    @Test fun liberarBloqueados() {
+        val ctx = ApplicationProvider.getApplicationContext<Context>()
+        ctx.getSharedPreferences("iptv", Context.MODE_PRIVATE).edit().putString("pin", "1234").apply()
+        val base = "http://127.0.0.1:${servidor.localPort}"
+        val ctl = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val act = ctl.get()
+        val raiz = act.window.decorView
+        ultimaRaiz = raiz
+        ocioso()
+        assertTrue(enviar(porta(act), "tipo=xtream&servidor=${enc(base)}&usuario=marco&senha=segredo").contains("Pronto"))
+        esperar { textos(raiz).any { it.startsWith("TV ao vivo") } }
+
+        // com o controle ligado, o canal adulto não aparece em "Todos"
+        clicar(raiz, "Todos")
+        assertTrue("adulto escondido", textos(raiz).none { it == "Canal Adulto" })
+
+        // a liberação é pelos Ajustes
+        clicar(raiz, "Ajustes")
+        assertTrue(textos(raiz).any { it.startsWith("🔓") && it.contains("Liberar canais bloqueados") })
+        clicar(raiz, "🔓")
+        ocioso()
+        val d = org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog()!!
+        acharEdit(d.window!!.decorView)!!.setText("1234")
+        d.getButton(android.content.DialogInterface.BUTTON_POSITIVE).performClick()
+        ocioso()
+
+        // agora o canal adulto aparece em "Todos"
+        clicar(raiz, "TV ao vivo")
+        clicar(raiz, "Todos")
+        assertTrue("adulto liberado", textos(raiz).any { it == "Canal Adulto" })
+        // e os Ajustes mostram que dá para esconder de novo
+        clicar(raiz, "Ajustes")
+        assertTrue(textos(raiz).any { it.contains("liberados") && it.contains("esconder") })
         ctl.pause().stop().destroy()
     }
 

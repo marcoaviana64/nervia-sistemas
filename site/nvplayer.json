@@ -3,9 +3,9 @@
     "http://p.urldata.gy"
   ],
   "versao": {
-    "codigo": 20,
-    "nome": "2.18",
+    "codigo": 21,
+    "nome": "2.19",
     "apk": "https://nervia.com.br/nvplayer.apk",
-    "novidades": "Correção na aba Agenda: ao descer para escolher o canal o foco não volta mais sozinho para o menu de cima."
+    "novidades": "Canais bloqueados: agora você libera digitando a senha em Ajustes → \"Liberar canais bloqueados\"; antes disso eles ficam escondidos na lista."
   }
 }
