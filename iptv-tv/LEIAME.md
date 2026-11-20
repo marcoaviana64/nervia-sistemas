@@ -115,6 +115,9 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
   configuração sempre relê o `nvplayer.json` ao abrir — então o portal mostra o endereço atual se o provedor trocou
   (antes ficava fixo no embutido). A TV já ligada continua trocando sozinha pelo failover (2.5): quando o servidor
   salvo não responde, relê o `nvplayer.json` e passa para o 1º que faz login. Teste `TelaTest.portalMostraServidorDoSite`.
+- **Relógio do topo curto** (2.21, o Marco em 20/11/2026, com foto: a data saía da tela): o relógio (`atualizarRelogio`)
+  passou de "EEE, d 'de' MMM HH:mm" para `dd/MM/yyyy   HH:mm` (só números) e ficou numa linha só com margem à esquerda,
+  então não corta mais na borda.
 - **Agenda com coluna de grupos** (2.20, o Marco em 19/11/2026: "na agenda não mostra os grupos e depois os canais
   do grupo, fica difícil achar o canal certo"): a aba Agenda passou a 3 colunas (grupos · canais do grupo ·
   programação), como a TV ao vivo — dias em cima, "Todos" no topo dos grupos (`AdAgGrupos`, `montarGrupos`,
