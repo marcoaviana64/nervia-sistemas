@@ -3,9 +3,9 @@
     "http://p.urldata.gy"
   ],
   "versao": {
-    "codigo": 22,
-    "nome": "2.20",
+    "codigo": 23,
+    "nome": "2.21",
     "apk": "https://nervia.com.br/nvplayer.apk",
-    "novidades": "Agenda mais fácil: agora com coluna de grupos (como na TV ao vivo) — escolha o grupo e depois o canal, sem rolar uma lista enorme."
+    "novidades": "A data e a hora no topo agora aparecem curtas (dd/mm/aaaa e hh:mm) e não saem mais da tela."
   }
 }
