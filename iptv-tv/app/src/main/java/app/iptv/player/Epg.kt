@@ -126,4 +126,47 @@ class Guia(private val repo: Repositorio) {
             tela.post { cb(futuros(l)) }
         }
     }
+
+    // ---------------------------------------------------------------- Agenda (2.17): guia completo de vários dias
+
+    /** Grade completa por canal (chaveEpg → programas), vários dias. Só depois de [agenda]. */
+    @Volatile var cheia: Map<String, List<Programa>> = emptyMap(); private set
+    @Volatile var agendaSituacao = ""; private set
+
+    /** Programas (em andamento e futuros) de um canal, da grade completa. */
+    fun daAgenda(i: Item): List<Programa> = if (i.tipo == Tipo.AO_VIVO) cheia[chaveEpg(i)].orEmpty() else emptyList()
+
+    /**
+     * Carrega a grade completa para a aba Agenda. Login Xtream: baixa o XMLTV de toda a grade (xmltv.php,
+     * uma vez a cada 6 h; nem todo provedor fornece). Lista M3U: usa o mesmo XMLTV da lista, janela mais larga.
+     * Devolve cb(null) quando deu certo, ou cb(texto do problema) quando não há grade.
+     */
+    fun agenda(c: Catalogo, forcar: Boolean, cb: (String?) -> Unit) {
+        xtream = repo.xtream
+        val ids = c.itens.filter { it.tipo == Tipo.AO_VIVO }.mapTo(HashSet()) { chaveEpg(it) }
+        agendaSituacao = "carregando…"
+        rede.execute {
+            try {
+                val x = xtream
+                val arq = if (x != null) File(repo.dir, "agenda.xml") else File(repo.dir, "guia.dat")
+                val precisa = forcar || !arq.exists() || agoraMs() - arq.lastModified() > 6 * 3_600_000L
+                if (x != null) {
+                    if (precisa) Http.salvar(x.urlXmltv(), arq)
+                } else if (!arq.exists()) {
+                    val urls = c.epgUrls
+                    if (urls.isEmpty()) { cheia = emptyMap(); agendaSituacao = "a lista não informa guia"; tela.post { cb(agendaSituacao) }; return@execute }
+                    if (!urls.any { u -> try { Http.salvar(u, arq); true } catch (_: Exception) { false } })
+                        throw IllegalStateException("guia indisponível")
+                }
+                val m = Xmltv.abrir(arq).use { Xmltv.ler(it, ids, agoraMs() - 6 * 3_600_000L, agoraMs() + 9 * 24 * 3_600_000L) }
+                cheia = m
+                val vazio = m.values.all { it.isEmpty() }
+                agendaSituacao = if (vazio) "o seu provedor não forneceu a grade de programação" else "ok"
+                tela.post { cb(if (vazio) agendaSituacao else null) }
+            } catch (e: Exception) {
+                agendaSituacao = "não carregou (${e.message ?: e.javaClass.simpleName})"
+                tela.post { cb(agendaSituacao) }
+            }
+        }
+    }
 }

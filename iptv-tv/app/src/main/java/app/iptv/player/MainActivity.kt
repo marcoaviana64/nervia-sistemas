@@ -54,6 +54,7 @@ import androidx.media3.ui.PlayerView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.Executors
@@ -61,7 +62,7 @@ import java.util.concurrent.Executors
 @OptIn(UnstableApi::class)
 class MainActivity : ComponentActivity() {
 
-    enum class Aba(val rotulo: String) { TV("TV ao vivo"), FILMES("Filmes"), SERIES("Séries"), AJUSTES("Ajustes") }
+    enum class Aba(val rotulo: String) { TV("TV ao vivo"), FILMES("Filmes"), SERIES("Séries"), AGENDA("Agenda"), AJUSTES("Ajustes") }
     private enum class TE { FAVORITOS, CONTINUAR, TODOS, GRUPO, ACAO }
     private data class Entrada(val rotulo: String, val tipo: TE, val grupo: String? = null, val acao: String? = null, val bloqueado: Boolean = false)
 
@@ -129,8 +130,24 @@ class MainActivity : ComponentActivity() {
     private var focadoGuia: Item? = null
     private var algumLogo = false
 
+    // 2.17 (pedido do Marco em 19/11/2026): aba Agenda — grade por dia com aviso de "vai começar".
+    private lateinit var agCorpo: LinearLayout
+    private lateinit var agDias: LinearLayout
+    private lateinit var agBusca: EditText
+    private lateinit var agRvCanais: RecyclerView
+    private lateinit var agTitulo: TextView
+    private lateinit var agRvProgs: RecyclerView
+    private var agDiasList: List<Long> = emptyList()
+    private var agDiaSel = 0
+    private var agCanais: List<Item> = emptyList()
+    private var agCanalSel: Item? = null
+    private var agProgs: List<Programa> = emptyList()
+
     private val Int.dp get() = (this * resources.displayMetrics.density).toInt()
     private val hhmm = SimpleDateFormat("HH:mm", Locale.US)
+    private val ptBR = Locale.forLanguageTag("pt-BR")
+    private val diaCurto = SimpleDateFormat("EEE dd/MM", ptBR)
+    private val diaLongo = SimpleDateFormat("EEEE, dd/MM", ptBR)
 
     // ---------------------------------------------------------------- ciclo de vida
 
@@ -161,6 +178,7 @@ class MainActivity : ComponentActivity() {
         video.player = player
         h.postDelayed(vigiar, 2000)
         h.postDelayed(conferirVencimento, 5000)
+        h.postDelayed(conferirLembretes, 10000)
         FORMATOS[repo.formatoTela.coerceIn(0, FORMATOS.size - 1)].second.let { videoCheio.resizeMode = it; videoPrevia.resizeMode = it }
         player.addListener(ouvinte)
 
@@ -365,6 +383,7 @@ class MainActivity : ComponentActivity() {
         coluna.addView(infoAjustes, LinearLayout.LayoutParams(-1, 0, 1f))
         corpo.addView(coluna, LinearLayout.LayoutParams(0, -1, 0.7f))
         corpo.addView(lado, LinearLayout.LayoutParams(0, -1, 0.42f))
+        montarAgenda(corpo)
         painel.addView(corpo, LinearLayout.LayoutParams(-1, 0, 1f))
         painel.visibility = View.GONE
         raiz.addView(painel, FrameLayout.LayoutParams(-1, -1))
@@ -593,7 +612,7 @@ class MainActivity : ComponentActivity() {
         guia.preparar(c)
         abas.forEach { (a, t) ->
             val n = porAba[a]?.size ?: 0
-            t.text = if (a == Aba.AJUSTES) a.rotulo else "${a.rotulo}  ${"%,d".format(Locale.forLanguageTag("pt-BR"), n)}"
+            t.text = if (a == Aba.AJUSTES || a == Aba.AGENDA) a.rotulo else "${a.rotulo}  ${"%,d".format(Locale.forLanguageTag("pt-BR"), n)}"
         }
         atual = atual?.let { a -> porUrl[a.url] ?: a }
         if (primeiraCarga) {
@@ -621,6 +640,10 @@ class MainActivity : ComponentActivity() {
     private fun trocarAba(a: Aba, focar: Boolean) {
         aba = a
         abas.forEach { (k, v) -> pintar(v, v.hasFocus(), k == a) }
+        if (a == Aba.AGENDA) { mostrarAgenda(focar); return }
+        agCorpo.visibility = View.GONE
+        rvGrupos.visibility = View.VISIBLE
+        coluna.visibility = View.VISIBLE
         montarEntradas()
         val ajustes = a == Aba.AJUSTES
         busca.visibility = if (ajustes) View.GONE else View.VISIBLE
@@ -837,6 +860,277 @@ class MainActivity : ComponentActivity() {
             if (focadoGuia != i) return@programas
             guiaBox.text = guiaRica(i, l)
             visiveis.indexOf(i).takeIf { it >= 0 }?.let { rvItens.adapter?.notifyItemChanged(it) }
+        }
+    }
+
+    // ---------------------------------------------------------------- Agenda (2.17)
+
+    private val AG_CANAL = Any()
+
+    private fun montarAgenda(parent: LinearLayout) {
+        agCorpo = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; visibility = View.GONE }
+        val esq = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(4.dp, 0, 8.dp, 0) }
+        val rolaDias = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; isFocusable = false }
+        agDias = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(4.dp, 2.dp, 4.dp, 6.dp) }
+        rolaDias.addView(agDias)
+        esq.addView(rolaDias, LinearLayout.LayoutParams(-1, -2))
+        agBusca = EditText(this).apply {
+            hint = "Buscar canal…"; setHintTextColor(Estilo.TEXTO_3); setTextColor(Color.WHITE); textSize = 15f
+            Estilo.campo(this); setPadding(14.dp, 7.dp, 14.dp, 7.dp); isSingleLine = true
+            imeOptions = EditorInfo.IME_ACTION_SEARCH; inputType = InputType.TYPE_CLASS_TEXT
+            addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+                override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+                override fun afterTextChanged(s: Editable?) { h.removeCallbacks(filtrarAgenda); h.postDelayed(filtrarAgenda, 300) }
+            })
+        }
+        esq.addView(agBusca, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 6.dp; marginStart = 4.dp; marginEnd = 8.dp })
+        agRvCanais = RecyclerView(this).apply {
+            clipChildren = false; clipToPadding = false; setPadding(4.dp, 4.dp, 8.dp, 4.dp)
+            layoutManager = LinearLayoutManager(this@MainActivity); adapter = AdAgCanais(); itemAnimator = null
+        }
+        esq.addView(agRvCanais, LinearLayout.LayoutParams(-1, 0, 1f))
+        val dir = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(16.dp, 0, 0, 0) }
+        agTitulo = texto(16f, Estilo.TEXTO_2).apply { setPadding(8.dp, 0, 0, 8.dp); typeface = Estilo.MEDIO }
+        dir.addView(agTitulo)
+        agRvProgs = RecyclerView(this).apply {
+            clipChildren = false; clipToPadding = false; setPadding(4.dp, 4.dp, 8.dp, 4.dp)
+            layoutManager = LinearLayoutManager(this@MainActivity); adapter = AdAgProgs(); itemAnimator = null
+        }
+        dir.addView(agRvProgs, LinearLayout.LayoutParams(-1, 0, 1f))
+        agCorpo.addView(esq, LinearLayout.LayoutParams(0, -1, 0.42f))
+        agCorpo.addView(dir, LinearLayout.LayoutParams(0, -1, 0.58f))
+        parent.addView(agCorpo, LinearLayout.LayoutParams(0, -1, 1f))
+    }
+
+    private val filtrarAgenda = Runnable { if (aba == Aba.AGENDA) montarCanais() }
+
+    private fun mostrarAgenda(focar: Boolean) {
+        rvGrupos.visibility = View.GONE
+        coluna.visibility = View.GONE
+        lado.visibility = View.GONE
+        agCorpo.visibility = View.VISIBLE
+        rvGrupos.layoutParams = (rvGrupos.layoutParams as LinearLayout.LayoutParams).apply { weight = 0.0001f }
+        coluna.layoutParams = (coluna.layoutParams as LinearLayout.LayoutParams).apply { weight = 0.0001f }
+        posicionarVideo()
+        carregarAgenda(focar)
+    }
+
+    private fun carregarAgenda(focar: Boolean) {
+        val c = catalogo
+        if (c == null) { agTitulo.text = "Carregue uma lista primeiro."; return }
+        if (porAba[Aba.TV].orEmpty().isEmpty()) { agTitulo.text = "Esta lista não tem canais ao vivo."; return }
+        agTitulo.text = "Carregando a programação…"
+        guia.agenda(c, forcar = false) { err ->
+            if (aba != Aba.AGENDA) return@agenda
+            if (err != null) {
+                agTitulo.text = "Agenda: $err"
+                agDiasList = emptyList(); agDias.removeAllViews()
+                agCanais = emptyList(); agProgs = emptyList()
+                agRvCanais.adapter?.notifyDataSetChanged(); agRvProgs.adapter?.notifyDataSetChanged()
+                return@agenda
+            }
+            montarDias()
+            if (focar) (agDias.getChildAt(agDiaSel) ?: agDias.getChildAt(0))?.requestFocus()
+        }
+    }
+
+    private fun montarDias() {
+        val agora = System.currentTimeMillis()
+        val hoje = inicioDia(agora)
+        val dias = guia.cheia.values.flatten().map { inicioDia(it.inicio) }.filter { it >= hoje }.toSortedSet().take(8).toList()
+        agDiasList = if (dias.isEmpty()) listOf(hoje) else dias
+        if (agDiaSel >= agDiasList.size) agDiaSel = 0
+        agDias.removeAllViews()
+        agDiasList.forEachIndexed { i, d ->
+            val pil = texto(15f).apply {
+                text = rotuloDia(d, agora); typeface = Estilo.MEDIO
+                setPadding(16.dp, 6.dp, 16.dp, 6.dp); isFocusable = true; isClickable = true; isSingleLine = true
+                setOnFocusChangeListener { v, f -> pintar(v, f, (v.tag as? Int) == agDiaSel); if (f) selecionarDia(v.tag as Int) }
+                setOnClickListener { selecionarDia(tag as Int) }
+                tag = i
+            }
+            pintar(pil, false, i == agDiaSel)
+            agDias.addView(pil, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = 6.dp })
+        }
+        montarCanais()
+    }
+
+    private fun selecionarDia(i: Int) {
+        if (i < 0 || i >= agDiasList.size) return
+        if (i != agDiaSel) {
+            val antes = agDiaSel; agDiaSel = i
+            (agDias.getChildAt(antes))?.let { pintar(it, it.hasFocus(), false) }
+            (agDias.getChildAt(i))?.let { pintar(it, it.hasFocus(), true) }
+        }
+        montarCanais()
+    }
+
+    private fun montarCanais() {
+        if (agDiasList.isEmpty()) return
+        val dia = agDiasList[agDiaSel]; val fim = dia + 86_400_000L
+        val q = semAcento(agBusca.text.toString().trim())
+        val vivos = semTravados(porAba[Aba.TV].orEmpty())
+        agCanais = vivos.filter { c ->
+            (q.isEmpty() || c.chave.contains(q)) &&
+                guia.cheia[guia.chaveEpg(c)].orEmpty().any { it.inicio < fim && it.fim > dia }
+        }
+        if (agCanalSel == null || agCanalSel !in agCanais) agCanalSel = agCanais.firstOrNull()
+        agRvCanais.adapter?.notifyDataSetChanged(); agRvCanais.scrollToPosition(0)
+        montarProgs()
+    }
+
+    private fun selecionarCanal(c: Item) {
+        if (agCanalSel == c) return
+        agCanalSel = c
+        agRvCanais.adapter?.notifyDataSetChanged()
+        montarProgs()
+    }
+
+    private fun programaAgora(c: Item): Programa? {
+        val n = System.currentTimeMillis()
+        return guia.cheia[guia.chaveEpg(c)]?.firstOrNull { n >= it.inicio && n < it.fim }
+    }
+
+    private fun montarProgs() {
+        val canal = agCanalSel
+        if (canal == null) {
+            agTitulo.text = if (agCanais.isEmpty()) "Sem programação para este dia." else "Escolha um canal."
+            agProgs = emptyList(); agRvProgs.adapter?.notifyDataSetChanged(); return
+        }
+        val dia = agDiasList[agDiaSel]; val fim = dia + 86_400_000L
+        agTitulo.text = "${canal.nome} · ${diaLongo.format(Date(dia)).replaceFirstChar { it.uppercase() }}"
+        agProgs = guia.cheia[guia.chaveEpg(canal)].orEmpty().filter { it.inicio < fim && it.fim > dia }.sortedBy { it.inicio }
+        agRvProgs.adapter?.notifyDataSetChanged(); agRvProgs.scrollToPosition(0)
+    }
+
+    private fun menuPrograma(canal: Item, p: Programa) {
+        val agora = System.currentTimeMillis()
+        val futuro = p.inicio > agora
+        val marcado = repo.temLembrete(guia.chaveEpg(canal), p.inicio)
+        val quando = "${diaCurto.format(Date(p.inicio)).replaceFirstChar { it.uppercase() }}  ${hhmm.format(Date(p.inicio))}–${hhmm.format(Date(p.fim))}"
+        val b = AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+            .setTitle(p.titulo)
+            .setMessage(canal.nome + "\n" + quando + (if (p.descricao.isNotBlank()) "\n\n" + p.descricao.take(300) else ""))
+            .setPositiveButton("Assistir o canal") { _, _ -> abrirCanalAgenda(canal) }
+            .setNegativeButton("Fechar", null)
+        if (futuro) b.setNeutralButton(if (marcado) "Cancelar aviso" else "Avisar quando começar") { _, _ ->
+            val ligado = repo.alternarLembrete(Lembrete(guia.chaveEpg(canal), canal.nome, canal.url, p.titulo, p.inicio, p.fim))
+            if (ligado) repo.limparAvisado(guia.chaveEpg(canal), p.inicio)
+            toast(if (ligado) "Vou avisar quando \"${p.titulo}\" começar." else "Aviso cancelado.")
+            agRvProgs.adapter?.notifyDataSetChanged()
+        }
+        b.show()
+    }
+
+    private fun abrirCanalAgenda(c: Item) {
+        if (travado(c)) { desbloquear { abrirCanalAgenda(c) }; return }
+        val seq = porAba[Aba.TV].orEmpty().filter { it.tipo == Tipo.AO_VIVO }.ifEmpty { listOf(c) }
+        tocar(c, seq)
+    }
+
+    /** 2.17: a cada 20 s confere se algum programa marcado vai começar e avisa na tela. */
+    private val conferirLembretes = object : Runnable {
+        override fun run() {
+            h.postDelayed(this, 20_000)
+            val agora = System.currentTimeMillis()
+            repo.limparLembretesVelhos(agora)
+            for (l in repo.lembretes()) {
+                if (agora >= l.inicio - 60_000 && agora < l.inicio + 120_000 && !repo.lembreteAvisado(l.canal, l.inicio)) {
+                    repo.marcarLembreteAvisado(l.canal, l.inicio)
+                    avisarLembrete(l)
+                    break
+                }
+            }
+        }
+    }
+
+    private fun avisarLembrete(l: Lembrete) {
+        AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+            .setTitle("📺  Vai começar agora")
+            .setMessage("${l.titulo}\n${l.canalNome} · ${hhmm.format(Date(l.inicio))}")
+            .setPositiveButton("Assistir agora") { _, _ ->
+                val it = porUrl[l.url]
+                if (it != null) abrirCanalAgenda(it) else toast("O canal \"${l.canalNome}\" não está na lista atual.")
+            }
+            .setNegativeButton("Agora não", null)
+            .show()
+    }
+
+    private fun inicioDia(t: Long): Long {
+        val c = Calendar.getInstance(); c.timeInMillis = t
+        c.set(Calendar.HOUR_OF_DAY, 0); c.set(Calendar.MINUTE, 0); c.set(Calendar.SECOND, 0); c.set(Calendar.MILLISECOND, 0)
+        return c.timeInMillis
+    }
+
+    private fun rotuloDia(d: Long, agora: Long): String = when (inicioDia(d)) {
+        inicioDia(agora) -> "Hoje"
+        inicioDia(agora + 86_400_000L) -> "Amanhã"
+        else -> diaCurto.format(Date(d)).replaceFirstChar { it.uppercase() }
+    }
+
+    private inner class AdAgCanais : RecyclerView.Adapter<VH>() {
+        override fun getItemCount() = agCanais.size
+        override fun onCreateViewHolder(p: ViewGroup, t: Int): VH {
+            val col = LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(12.dp, 5.dp, 12.dp, 5.dp)
+                isFocusable = true; isClickable = true
+                layoutParams = RecyclerView.LayoutParams(-1, -2).apply { bottomMargin = 2.dp }
+            }
+            col.addView(texto(15f).apply { typeface = Estilo.MEDIO; isSingleLine = true; ellipsize = TextUtils.TruncateAt.END })
+            col.addView(texto(12f, Estilo.TEXTO_2).apply { isSingleLine = true; ellipsize = TextUtils.TruncateAt.END })
+            return VH(col)
+        }
+        override fun onBindViewHolder(vh: VH, pos: Int) {
+            val col = vh.itemView as LinearLayout
+            val c = agCanais[pos]
+            (col.getChildAt(0) as TextView).text = c.nome
+            val ag = programaAgora(c)
+            (col.getChildAt(1) as TextView).apply {
+                text = ag?.let { "agora: ${it.titulo}" } ?: " "
+                visibility = if (ag != null) View.VISIBLE else View.GONE
+            }
+            pintar(col, col.hasFocus(), c == agCanalSel)
+            col.setOnFocusChangeListener { v, f ->
+                val q = vh.bindingAdapterPosition
+                pintar(v, f, q >= 0 && agCanais.getOrNull(q) == agCanalSel)
+                if (f && q >= 0) {
+                    h.removeCallbacksAndMessages(AG_CANAL)
+                    HandlerCompat.postDelayed(h, { if (v.hasFocus()) agCanais.getOrNull(q)?.let { selecionarCanal(it) } }, AG_CANAL, 220)
+                }
+            }
+            col.setOnClickListener { vh.bindingAdapterPosition.takeIf { it >= 0 }?.let { agCanais.getOrNull(it)?.let { c2 -> selecionarCanal(c2); agRvProgs.post { agRvProgs.findViewHolderForAdapterPosition(0)?.itemView?.requestFocus() } } } }
+        }
+    }
+
+    private inner class AdAgProgs : RecyclerView.Adapter<VH>() {
+        override fun getItemCount() = agProgs.size
+        override fun onCreateViewHolder(p: ViewGroup, t: Int): VH = VH(texto(15f).apply {
+            setPadding(14.dp, 7.dp, 14.dp, 7.dp); typeface = Estilo.MEDIO
+            isFocusable = true; isClickable = true
+            setLineSpacing(2.dp.toFloat(), 1f); maxLines = 2; ellipsize = TextUtils.TruncateAt.END
+            layoutParams = RecyclerView.LayoutParams(-1, -2).apply { bottomMargin = 2.dp }
+        })
+        override fun onBindViewHolder(vh: VH, pos: Int) {
+            val tv = vh.itemView as TextView
+            val canal = agCanalSel ?: return
+            val p = agProgs[pos]
+            val n = System.currentTimeMillis()
+            val agora = n >= p.inicio && n < p.fim
+            val passou = p.fim <= n
+            val marcado = repo.temLembrete(guia.chaveEpg(canal), p.inicio)
+            val sb = android.text.SpannableStringBuilder()
+            fun span(s: String, vararg sp: Any) { val a = sb.length; sb.append(s); sp.forEach { sb.setSpan(it, a, sb.length, 0) } }
+            span(hhmm.format(Date(p.inicio)) + "  ", android.text.style.ForegroundColorSpan(if (agora) Estilo.AZUL_CLARO else Estilo.TEXTO_2))
+            if (agora) { span(" AGORA ", android.text.style.BackgroundColorSpan(Estilo.VERMELHO), android.text.style.ForegroundColorSpan(Color.WHITE), android.text.style.StyleSpan(Typeface.BOLD), android.text.style.RelativeSizeSpan(0.66f)); sb.append("  ") }
+            span(p.titulo, android.text.style.StyleSpan(if (agora) Typeface.BOLD else Typeface.NORMAL))
+            if (marcado) span("   🔔", android.text.style.RelativeSizeSpan(0.9f))
+            tv.text = sb
+            tv.alpha = if (passou) 0.45f else 1f
+            pintar(tv, tv.hasFocus(), false)
+            tv.setOnFocusChangeListener { v, f -> pintar(v, f, false) }
+            tv.setOnClickListener { vh.bindingAdapterPosition.takeIf { it >= 0 }?.let { menuPrograma(canal, agProgs[it]) } }
         }
     }
 

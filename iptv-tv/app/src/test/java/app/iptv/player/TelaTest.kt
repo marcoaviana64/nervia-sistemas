@@ -89,6 +89,20 @@ class TelaTest {
         }
     }
 
+    /** Horário em UTC no formato do XMLTV, a partir de epoch em segundos. */
+    private fun utc(s: Long): String =
+        java.text.SimpleDateFormat("yyyyMMddHHmmss", java.util.Locale.US).apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
+            .format(java.util.Date(s * 1000)) + " +0000"
+
+    /** XMLTV de toda a grade (o que xmltv.php devolve), só para o canal "ex.br" (TV Exemplo HD). */
+    private fun xmltvFalso() = """<?xml version="1.0" encoding="UTF-8"?>
+        <tv>
+          <channel id="ex.br"><display-name>TV Exemplo HD</display-name></channel>
+          <programme channel="ex.br" start="${utc(agora - 600)}" stop="${utc(agora + 1200)}"><title>Jornal Agora</title><desc>Notícias ao vivo</desc></programme>
+          <programme channel="ex.br" start="${utc(agora + 1800)}" stop="${utc(agora + 5400)}"><title>Show Futuro</title><desc>Programa de auditório</desc></programme>
+          <programme channel="ex.br" start="${utc(agora + 90000)}" stop="${utc(agora + 93600)}"><title>Amanha Cedo</title></programme>
+        </tv>""".trimIndent()
+
     private val m3u = buildString {
         append("#EXTM3U\n")
         listOf("Abertos" to 6, "Esportes" to 9, "Notícias" to 4).forEach { (g, n) ->
@@ -115,6 +129,7 @@ class TelaTest {
                         val corpo: ByteArray? = when {
                             caminho == "/player_api.php" -> xtream(q["action"], q)?.toByteArray()
                             caminho == "/lista.m3u" -> m3u.toByteArray()
+                            caminho == "/xmltv.php" -> xmltvFalso().toByteArray()
                             caminho == "/nvplayer.json" -> publicados?.toByteArray()
                             caminho == "/rest/v1/rpc/nv_sinal" -> """{"ok":true}""".toByteArray()
                             caminho == "/rest/v1/rpc/nv_servidores_publicos" -> publicados?.toByteArray()
@@ -324,6 +339,37 @@ class TelaTest {
         assertEquals("xtream", prefs.getString("tipo", null))
         assertTrue(File(act.filesDir, "x_vod.json").length() > 0)
         assertTrue(synchronized(pedidos) { pedidos.any { it.contains("action=get_short_epg") && it.contains("stream_id=101") } })
+        ctl.pause().stop().destroy()
+    }
+
+    @Test fun agenda() {
+        val base = "http://127.0.0.1:${servidor.localPort}"
+        val ctl = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val act = ctl.get()
+        val raiz = act.window.decorView
+        ultimaRaiz = raiz
+        ocioso()
+        assertTrue(enviar(porta(act), "tipo=xtream&servidor=${enc(base)}&usuario=marco&senha=segredo").contains("Pronto"))
+        esperar { textos(raiz).any { it.startsWith("TV ao vivo") } }
+
+        // abre a aba Agenda e espera a grade (vem do xmltv.php)
+        clicar(raiz, "Agenda")
+        esperar { val t = textos(raiz); t.any { it.contains("TV Exemplo HD") } && t.any { it.contains("Show Futuro") } }
+        val t = textos(raiz)
+        assertTrue(t.toString(), t.any { it == "Hoje" })
+        assertTrue("programa de agora", t.any { it.contains("Jornal Agora") })
+        assertTrue("programa futuro", t.any { it.contains("Show Futuro") })
+        assertTrue(synchronized(pedidos) { pedidos.any { it.startsWith("/xmltv.php") } })
+        foto(raiz, "tela-agenda")
+
+        // marca o aviso do programa futuro pelo menu e confere que foi guardado
+        acharTexto(raiz) { it.contains("Show Futuro") }!!.performClick()
+        ocioso()
+        val d = org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog()!!
+        assertTrue(shadowOf(d).title.toString().contains("Show Futuro"))
+        d.getButton(android.content.DialogInterface.BUTTON_NEUTRAL).performClick()
+        ocioso()
+        assertTrue("lembrete gravado", Repositorio(act).lembretes().any { it.titulo == "Show Futuro" })
         ctl.pause().stop().destroy()
     }
 

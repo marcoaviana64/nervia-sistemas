@@ -32,6 +32,16 @@ data class Item(
 
 data class Programa(val inicio: Long, val fim: Long, val titulo: String, val descricao: String)
 
+/** Lembrete marcado na Agenda: avisa na tela quando o programa vai começar e abre o canal ao clicar. */
+data class Lembrete(
+    val canal: String,      // chave da EPG do canal (Guia.chaveEpg)
+    val canalNome: String,
+    val url: String,        // Item.url do canal (para abrir)
+    val titulo: String,
+    val inicio: Long,
+    val fim: Long,
+)
+
 data class Episodio(
     val id: String, val temporada: Int, val numero: Int, val titulo: String, val url: String,
     val duracao: String?, val sinopse: String?, val imagem: String?,

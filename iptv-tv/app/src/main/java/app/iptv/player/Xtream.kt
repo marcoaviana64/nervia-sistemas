@@ -22,6 +22,9 @@ class Xtream(servidor: String, private val usuario: String, private val senha: S
     fun api(acao: String? = null, extra: String = "") =
         "$base/player_api.php?username=${q(usuario)}&password=${q(senha)}" + (acao?.let { "&action=$it" } ?: "") + extra
 
+    /** Guia completo (XMLTV) de toda a grade, para a Agenda. Nem todo provedor fornece. */
+    fun urlXmltv() = "$base/xmltv.php?username=${q(usuario)}&password=${q(senha)}"
+
     fun urlAoVivo(id: String, ext: String) = "$base/live/${p(usuario)}/${p(senha)}/$id.$ext"
     fun urlFilme(id: String, ext: String) = "$base/movie/${p(usuario)}/${p(senha)}/$id.$ext"
     fun urlEpisodio(id: String, ext: String) = "$base/series/${p(usuario)}/${p(senha)}/$id.$ext"
