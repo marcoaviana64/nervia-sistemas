@@ -3,9 +3,9 @@
     "http://p.urldata.gy"
   ],
   "versao": {
-    "codigo": 27,
-    "nome": "2.25",
+    "codigo": 28,
+    "nome": "2.26",
     "apk": "https://nervia.com.br/nvplayer.apk",
-    "novidades": "Visual mais bonito: fundo com um brilho suave e a aba onde você está em destaque colorido, em todas as telas."
+    "novidades": "Filmes e Séries agora em capas (pôster + nome, ano e nota), prévia maior na TV ao vivo e o foco não pula mais ao descer a lista de canais."
   }
 }
