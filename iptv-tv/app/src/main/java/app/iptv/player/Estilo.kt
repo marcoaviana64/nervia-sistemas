@@ -43,9 +43,9 @@ object Estilo {
     fun aplicar(nome: String) {
         tema = if (nome == "premium") "premium" else "classico"
         if (tema == "premium") {
-            AZUL = Color.rgb(0x3B, 0x82, 0xF6)       // azul
-            AZUL_CLARO = Color.rgb(0x22, 0xD3, 0xEE) // ciano (marca, "AGORA", barrinha, relógio)
-            FOCO_A = Color.rgb(0x3B, 0x82, 0xF6)     // foco: degradê azul → ciano
+            AZUL = Color.rgb(0x0E, 0xA5, 0xE9)       // azul-ciano (pílulas, acentos)
+            AZUL_CLARO = Color.rgb(0x34, 0xE0, 0xF2) // ciano forte (marca, "AGORA", barrinha, relógio)
+            FOCO_A = Color.rgb(0x0E, 0xA5, 0xE9)     // foco: degradê azul-ciano → ciano (bem diferente do azul do Clássico)
             FOCO_B = Color.rgb(0x22, 0xD3, 0xEE)
             VERMELHO = Color.rgb(0xF4, 0x3F, 0x6B)   // "AO VIVO" em magenta
         } else {

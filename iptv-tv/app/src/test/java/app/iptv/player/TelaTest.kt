@@ -467,7 +467,7 @@ class TelaTest {
         ocioso()
         // o tema é aplicado na abertura: destaque em ciano
         assertEquals("premium", Estilo.tema)
-        assertEquals(android.graphics.Color.rgb(0x22, 0xD3, 0xEE), Estilo.AZUL_CLARO)
+        assertEquals(android.graphics.Color.rgb(0x34, 0xE0, 0xF2), Estilo.AZUL_CLARO)
         assertTrue(enviar(porta(act), "tipo=xtream&servidor=${enc(base)}&usuario=marco&senha=segredo").contains("Pronto"))
         esperar { textos(raiz).any { it.startsWith("TV ao vivo") } }
         clicar(raiz, "Abertos  (2)")
