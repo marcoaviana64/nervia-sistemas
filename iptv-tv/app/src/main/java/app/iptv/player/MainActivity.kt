@@ -51,6 +51,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import java.text.SimpleDateFormat
@@ -675,6 +676,9 @@ class MainActivity : ComponentActivity() {
         lado.visibility = if (tv3) View.VISIBLE else View.GONE
         rvGrupos.layoutParams = (rvGrupos.layoutParams as LinearLayout.LayoutParams).apply { weight = if (tv3) 0.18f else 0.26f }
         coluna.layoutParams = (coluna.layoutParams as LinearLayout.LayoutParams).apply { weight = if (tv3) 0.34f else 0.74f }
+        // Filmes e Séries em grade de cartões com pôster (pedido do Marco: dá para analisar melhor); TV continua em lista.
+        val grade = a == Aba.FILMES || a == Aba.SERIES
+        rvItens.layoutManager = if (grade) GridLayoutManager(this, 3) else LinearLayoutManager(this)
         posicionarVideo()
         busca.hint = when (a) { Aba.TV -> "Buscar canal…"; Aba.FILMES -> "Buscar filme…"; else -> "Buscar série…" }
         algumLogo = porAba[a].orEmpty().any { it.logo != null }
@@ -2022,22 +2026,23 @@ class MainActivity : ComponentActivity() {
         override fun getItemViewType(position: Int) = if (aba == Aba.TV) 0 else 1
 
         override fun onCreateViewHolder(p: ViewGroup, t: Int): VH {
+            if (t == 1) return criarCartao()
             val linha = LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                if (t == 0) setPadding(8.dp, 3.dp, 12.dp, 3.dp) else setPadding(12.dp, 4.dp, 16.dp, 4.dp)
+                setPadding(8.dp, 3.dp, 12.dp, 3.dp)
                 isFocusable = true; isClickable = true; isLongClickable = true
                 layoutParams = RecyclerView.LayoutParams(-1, -2).apply { bottomMargin = 2.dp }
             }
             linha.addView(texto(12f, Estilo.TEXTO_3).apply { gravity = Gravity.END; typeface = Estilo.MEDIO; setPadding(0, 0, 10.dp, 0); isSingleLine = true },
-                LinearLayout.LayoutParams(if (t == 0) 50.dp else 0, -2))
+                LinearLayout.LayoutParams(50.dp, -2))
             // logo numa "plaquinha" arredondada
             linha.addView(ImageView(this@MainActivity).apply {
                 scaleType = ImageView.ScaleType.FIT_CENTER
                 background = Estilo.cartao(this@MainActivity, Color.argb(26, 255, 255, 255), 10f)
-                if (t == 0) setPadding(4.dp, 2.dp, 4.dp, 2.dp)
+                setPadding(4.dp, 2.dp, 4.dp, 2.dp)
                 Estilo.arredondar(this, 8f)
-            }, if (t == 0) LinearLayout.LayoutParams(44.dp, 26.dp) else LinearLayout.LayoutParams(36.dp, 52.dp))
+            }, LinearLayout.LayoutParams(44.dp, 26.dp))
             val col = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL; setPadding(12.dp, 0, 6.dp, 0) }
             col.addView(texto(15f).apply { typeface = Estilo.MEDIO; isSingleLine = true; ellipsize = TextUtils.TruncateAt.END })
             col.addView(texto(12f, Estilo.TEXTO_2).apply { isSingleLine = true; ellipsize = TextUtils.TruncateAt.END })
@@ -2047,7 +2052,39 @@ class MainActivity : ComponentActivity() {
             return VH(linha)
         }
 
+        /** Cartão de Filme/Série: pôster 2:3 em cima, nome e dados (ano · nota · situação) embaixo. */
+        private fun criarCartao(): VH {
+            val ctx = this@MainActivity
+            val card = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                isFocusable = true; isClickable = true; isLongClickable = true
+                clipChildren = false; clipToPadding = false
+                setPadding(5.dp, 5.dp, 5.dp, 8.dp)
+                layoutParams = RecyclerView.LayoutParams(-1, -2).apply { setMargins(6.dp, 6.dp, 6.dp, 6.dp) }
+            }
+            val fl = FrameLayout(ctx).apply { clipChildren = false }
+            val poster = object : ImageView(ctx) {
+                override fun onMeasure(w: Int, h: Int) {
+                    val l = MeasureSpec.getSize(w)
+                    super.onMeasure(w, MeasureSpec.makeMeasureSpec(l * 3 / 2, MeasureSpec.EXACTLY))
+                }
+            }.apply {
+                scaleType = ImageView.ScaleType.CENTER_CROP
+                background = Estilo.cartao(ctx, Color.argb(26, 255, 255, 255), 12f)
+                Estilo.arredondar(this, 12f)
+            }
+            fl.addView(poster, FrameLayout.LayoutParams(-1, -2))
+            fl.addView(texto(14f, Color.rgb(0xFF, 0xCC, 0x4D)).apply {
+                text = "★"; background = Estilo.cartao(ctx, Color.argb(150, 0, 0, 0), 9f); setPadding(6.dp, 1.dp, 6.dp, 1.dp)
+            }, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.END).apply { setMargins(6.dp, 6.dp, 6.dp, 0) })
+            card.addView(fl, LinearLayout.LayoutParams(-1, -2))
+            card.addView(texto(14f).apply { typeface = Estilo.MEDIO; maxLines = 2; ellipsize = TextUtils.TruncateAt.END; setLineSpacing(0f, 0.95f); setPadding(3.dp, 7.dp, 3.dp, 0) })
+            card.addView(texto(12f, Estilo.TEXTO_2).apply { isSingleLine = true; ellipsize = TextUtils.TruncateAt.END; setPadding(3.dp, 2.dp, 3.dp, 0) })
+            return VH(card)
+        }
+
         override fun onBindViewHolder(vh: VH, pos: Int) {
+            if (getItemViewType(pos) == 1) { bindCartao(vh, pos); return }
             val linha = vh.itemView as LinearLayout
             val c = visiveis[pos]
             val tv = aba == Aba.TV
@@ -2096,6 +2133,32 @@ class MainActivity : ComponentActivity() {
             linha.setOnClickListener { vh.bindingAdapterPosition.takeIf { it >= 0 }?.let { abrirItem(visiveis[it]) } }
             linha.setOnLongClickListener { vh.bindingAdapterPosition.takeIf { it >= 0 }?.let { alternarFavorito(visiveis[it]) }; true }
             linha.setOnKeyListener { _, k, ev ->
+                if (k == KeyEvent.KEYCODE_MENU && ev.action == KeyEvent.ACTION_UP) {
+                    vh.bindingAdapterPosition.takeIf { it >= 0 }?.let { alternarFavorito(visiveis[it]) }; true
+                } else k == KeyEvent.KEYCODE_MENU
+            }
+        }
+
+        private fun bindCartao(vh: VH, pos: Int) {
+            val card = vh.itemView as LinearLayout
+            val c = visiveis[pos]
+            val fl = card.getChildAt(0) as FrameLayout
+            Logos.mostrar(fl.getChildAt(0) as ImageView, c.logo, 320)
+            (fl.getChildAt(1) as TextView).visibility = if (repo.chave(c) in repo.favoritos) View.VISIBLE else View.GONE
+            (card.getChildAt(1) as TextView).apply { text = c.nome; setTextColor(Estilo.TEXTO) }
+            val prog = if (c.url.isNotBlank()) repo.posicao(c.url)?.let { (a, d) ->
+                if (d > 0 && a >= d * 95 / 100) "✓ assistido" else if (a > 60_000) "◐ ${tempo(a)}" else null
+            } else null
+            val emBusca = busca.text.isNotEmpty() || entradas.getOrNull(grupoSel)?.tipo in setOf(TE.FAVORITOS, TE.CONTINUAR, TE.TODOS)
+            (card.getChildAt(2) as TextView).apply {
+                text = listOfNotNull(c.ano, c.nota?.let { "★ $it" }, prog, if (emBusca) c.grupo else null).joinToString("  ·  ")
+                visibility = if (text.isEmpty()) View.GONE else View.VISIBLE
+            }
+            pintar(card, card.hasFocus(), false)
+            card.setOnFocusChangeListener { v, f -> pintar(v, f, false) }
+            card.setOnClickListener { vh.bindingAdapterPosition.takeIf { it >= 0 }?.let { abrirItem(visiveis[it]) } }
+            card.setOnLongClickListener { vh.bindingAdapterPosition.takeIf { it >= 0 }?.let { alternarFavorito(visiveis[it]) }; true }
+            card.setOnKeyListener { _, k, ev ->
                 if (k == KeyEvent.KEYCODE_MENU && ev.action == KeyEvent.ACTION_UP) {
                     vh.bindingAdapterPosition.takeIf { it >= 0 }?.let { alternarFavorito(visiveis[it]) }; true
                 } else k == KeyEvent.KEYCODE_MENU
