@@ -115,12 +115,15 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
   configuração sempre relê o `nvplayer.json` ao abrir — então o portal mostra o endereço atual se o provedor trocou
   (antes ficava fixo no embutido). A TV já ligada continua trocando sozinha pelo failover (2.5): quando o servidor
   salvo não responde, relê o `nvplayer.json` e passa para o 1º que faz login. Teste `TelaTest.portalMostraServidorDoSite`.
-- **Escolha de aparência** (2.23, pedido do Marco em 22/11/2026, depois de aprovar os conceitos de visual premium):
-  Ajustes → "🎨 Aparência" abre um seletor com **Clássico (azul)** (padrão) e **Premium (ciano)**. O tema só muda as
-  cores do destaque em `Estilo` (var `AZUL`, `AZUL_CLARO`, `FOCO_A`/`FOCO_B` do foco e `VERMELHO` do "AO VIVO"):
-  `Estilo.aplicar(nome)` roda no início de cada `onCreate`, a escolha fica em `Repositorio.tema`, e trocar chama
-  `recreate()`. Sem biblioteca nem imagem nova — o APK praticamente não muda de tamanho. Testes `TelaTest.aparencia`
-  (o seletor guarda a escolha) e `TelaTest.temaPremium` (abre em ciano; grava `tema-premium.png`).
+- **Escolha de aparência** (2.23, pedido do Marco em 22/11/2026, depois de aprovar os conceitos de visual premium;
+  **2.24** no mesmo dia: o Marco trocou o tema e "nada mudou" — as cores do Premium estavam sutis demais, quase iguais
+  ao Clássico; o ciano foi reforçado, principalmente no **foco** (degradê azul-ciano → ciano, bem diferente do azul do
+  Clássico, e visível em toda tela), além de marca/"AGORA"/barrinha): Ajustes → "🎨 Aparência" abre um seletor com
+  **Clássico (azul)** (padrão) e **Premium (ciano)**. O tema só muda as cores do destaque em `Estilo` (var `AZUL`,
+  `AZUL_CLARO`, `FOCO_A`/`FOCO_B` do foco e `VERMELHO` do "AO VIVO"): `Estilo.aplicar(nome)` roda no início de cada
+  `onCreate`, a escolha fica em `Repositorio.tema`, e trocar chama `recreate()`. Sem biblioteca nem imagem nova — o APK
+  praticamente não muda de tamanho. Testes `TelaTest.aparencia` (o seletor guarda a escolha) e `TelaTest.temaPremium`
+  (abre em ciano; grava `tema-premium.png`).
 - **Relógio do topo curto** (2.21, o Marco em 20/11/2026, com foto: a data saía da tela): o relógio (`atualizarRelogio`)
   passou de "EEE, d 'de' MMM HH:mm" para só números e deixou de cortar na borda. **2.22** (o Marco: "pode ser data em
   cima, hora embaixo se economizar espaço"): `dd/MM/yyyy\nHH:mm` em duas linhas, alinhado à direita (`Gravity.END`).
