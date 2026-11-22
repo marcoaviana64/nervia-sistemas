@@ -101,6 +101,8 @@ class MainActivity : ComponentActivity() {
     /** Lista nova baixada em segundo plano enquanto a pessoa assiste em tela cheia: aplica ao abrir a lista. */
     private var catalogoPendente: Catalogo? = null
     private val abas = LinkedHashMap<Aba, TextView>()
+    /** EPG chegou enquanto a lista de canais estava com o foco: redesenha só quando o foco sair (senão o foco pula). */
+    private var guiaPendente = false
     private var telaConfig: View? = null
     private var ficha: View? = null
     private var configurador: Configurador? = null
@@ -166,7 +168,8 @@ class MainActivity : ComponentActivity() {
         Estilo.aplicar(repo.tema)
         guia = Guia(repo)
         guia.aoAtualizar = {
-            if (aba == Aba.TV) rvItens.adapter?.notifyDataSetChanged()
+            // Se a lista está com o foco, só marca: redesenhar agora faria o foco pular (pedido do Marco).
+            if (aba == Aba.TV) { if (rvItens.hasFocus()) guiaPendente = true else rvItens.adapter?.notifyDataSetChanged() }
             if (aba == Aba.AJUSTES) atualizarInfoAjustes()
         }
         montarTela()
@@ -266,6 +269,13 @@ class MainActivity : ComponentActivity() {
 
     private fun pintar(v: View, focado: Boolean, marcado: Boolean) = Estilo.pintar(v, focado, marcado)
 
+    /** true se [filho] está dentro de [pai] (usado para saber se o foco saiu da lista). */
+    private fun ehDescendente(pai: View, filho: View): Boolean {
+        var v: android.view.ViewParent? = filho.parent
+        while (v != null) { if (v === pai) return true; v = v.parent }
+        return false
+    }
+
     private fun montarTela() {
         raiz = FrameLayout(this).apply { background = Estilo.fundoTela() }
         // 2.11 (o Marco: travava em tela cheia): tela cheia em SurfaceView, prévia em TextureView (cantos redondos)
@@ -356,6 +366,11 @@ class MainActivity : ComponentActivity() {
             itemAnimator = null
         }
         coluna.addView(rvItens, LinearLayout.LayoutParams(-1, 0, 1f))
+        // Quando o foco sai da lista de canais, aplica o redesenho do EPG que ficou pendente (sem roubar o foco).
+        rvItens.viewTreeObserver.addOnGlobalFocusChangeListener { velho, novo ->
+            val saiu = velho != null && ehDescendente(rvItens, velho) && (novo == null || !ehDescendente(rvItens, novo))
+            if (saiu && guiaPendente) { guiaPendente = false; rvItens.adapter?.notifyDataSetChanged() }
+        }
         guiaBox = texto(15f, Estilo.TEXTO).apply {
             background = Estilo.cartao(this@MainActivity, Color.argb(16, 255, 255, 255), 18f)
             setPadding(18.dp, 14.dp, 18.dp, 14.dp)
