@@ -10,6 +10,7 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.LayerDrawable
 import android.graphics.drawable.StateListDrawable
 import android.view.View
 import android.view.ViewOutlineProvider
@@ -63,8 +64,31 @@ object Estilo {
 
     private fun dp(c: Context, v: Float) = v * c.resources.displayMetrics.density
 
-    fun fundoTela(alfa: Int = 255): Drawable = GradientDrawable(GradientDrawable.Orientation.TL_BR,
-        intArrayOf(Color.argb(alfa, 0x0B, 0x10, 0x1C), Color.argb(alfa, 0x10, 0x17, 0x2A), Color.argb(alfa, 0x07, 0x0A, 0x12)))
+    /** Brilho radial (clareia um canto da tela); usado no fundo para o ar "premium" do conceito. */
+    private fun brilho(cor: Int, cx: Float, cy: Float, raio: Float, alfaBase: Int, alfaTela: Int): GradientDrawable =
+        GradientDrawable().apply {
+            gradientType = GradientDrawable.RADIAL_GRADIENT
+            gradientRadius = raio
+            setGradientCenter(cx, cy)
+            val a = alfaBase * alfaTela / 255
+            colors = intArrayOf(Color.argb(a, Color.red(cor), Color.green(cor), Color.blue(cor)), Color.TRANSPARENT)
+        }
+
+    /**
+     * Fundo da tela: base escura em degradê + brilhos radiais (ciano em cima à direita, azul embaixo à esquerda,
+     * um toque de magenta no canto) — dá a profundidade do conceito premium. As cores seguem o tema (no Clássico
+     * os brilhos ficam azuis; no Premium, cianos).
+     */
+    fun fundoTela(alfa: Int = 255): Drawable {
+        val base = GradientDrawable(GradientDrawable.Orientation.TL_BR,
+            intArrayOf(Color.argb(alfa, 0x0A, 0x0F, 0x1E), Color.argb(alfa, 0x0B, 0x10, 0x1E), Color.argb(alfa, 0x05, 0x07, 0x0E)))
+        return LayerDrawable(arrayOf(
+            base,
+            brilho(AZUL_CLARO, 0.82f, -0.06f, 1500f, 42, alfa),
+            brilho(AZUL, 0.05f, 1.06f, 1500f, 52, alfa),
+            brilho(VERMELHO, 1.04f, 1.04f, 1100f, 20, alfa),
+        ))
+    }
 
     fun cartao(c: Context, cor: Int = CARTAO, raio: Float = 16f): GradientDrawable =
         GradientDrawable().apply { setColor(cor); cornerRadius = dp(c, raio) }
@@ -83,6 +107,22 @@ object Estilo {
         val e = if (focado) 1.035f else 1f
         if (v.scaleX != e) v.animate().scaleX(e).scaleY(e).setDuration(140).start()
         v.translationZ = if (focado) dp(v.context, 6f) else 0f
+    }
+
+    /**
+     * Aba do topo: a ATIVA (e a focada) ganham o degradê azul→ciano com letra escura, como as pílulas do conceito
+     * premium; as demais ficam só com o texto apagado. Assim a aba onde você está salta aos olhos.
+     */
+    fun pintarAba(v: TextView, focado: Boolean, ativo: Boolean) {
+        v.background = if (focado || ativo) foco(v.context, 22f) else null
+        v.setTextColor(when {
+            !(focado || ativo) -> TEXTO_2
+            tema == "premium" -> Color.rgb(0x05, 0x12, 0x20)  // letra escura sobre o ciano claro
+            else -> Color.WHITE                                // no Clássico o azul é mais escuro: letra branca
+        })
+        val e = if (focado) 1.06f else 1f
+        if (v.scaleX != e) v.animate().scaleX(e).scaleY(e).setDuration(140).start()
+        v.translationZ = if (focado) dp(v.context, 7f) else if (ativo) dp(v.context, 2f) else 0f
     }
 
     /** Botão em forma de pílula: claro normal, branco com letra escura quando focado. */

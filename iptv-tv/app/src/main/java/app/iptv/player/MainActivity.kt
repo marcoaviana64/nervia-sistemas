@@ -311,7 +311,7 @@ class MainActivity : ComponentActivity() {
                 setPadding(20.dp, 7.dp, 20.dp, 7.dp)
                 isFocusable = true; isClickable = true
                 setOnClickListener { trocarAba(a, focar = true) }
-                setOnFocusChangeListener { v, f -> Estilo.pintar(v, f, a == aba, 22f) }
+                setOnFocusChangeListener { v, f -> Estilo.pintarAba(v as TextView, f, a == aba) }
             }
             abas[a] = t
             pilulas.addView(t)
@@ -644,7 +644,7 @@ class MainActivity : ComponentActivity() {
 
     private fun trocarAba(a: Aba, focar: Boolean) {
         aba = a
-        abas.forEach { (k, v) -> pintar(v, v.hasFocus(), k == a) }
+        abas.forEach { (k, v) -> Estilo.pintarAba(v, v.hasFocus(), k == a) }
         if (a == Aba.AGENDA) { mostrarAgenda(focar); return }
         agCorpo.visibility = View.GONE
         rvGrupos.visibility = View.VISIBLE
