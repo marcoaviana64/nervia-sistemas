@@ -125,6 +125,11 @@ class Repositorio(ctx: Context) {
         get() = prefs.getInt("formato_tela", 0)
         set(v) = prefs.edit().putInt("formato_tela", v).apply()
 
+    /** Tema do visual: "classico" (azul, padrão) ou "premium" (ciano). Só muda as cores do destaque. */
+    var tema: String
+        get() = str("tema") ?: "classico"
+        set(v) = put("tema", v)
+
     fun chave(i: Item) = i.url.ifBlank { "serie:${i.id}" }
 
     var favoritos: Set<String>
