@@ -387,7 +387,7 @@ class MainActivity : ComponentActivity() {
         }
         coluna.addView(infoAjustes, LinearLayout.LayoutParams(-1, 0, 1f))
         corpo.addView(coluna, LinearLayout.LayoutParams(0, -1, 0.7f))
-        corpo.addView(lado, LinearLayout.LayoutParams(0, -1, 0.42f))
+        corpo.addView(lado, LinearLayout.LayoutParams(0, -1, 0.52f))
         montarAgenda(corpo)
         painel.addView(corpo, LinearLayout.LayoutParams(-1, 0, 1f))
         painel.visibility = View.GONE
@@ -658,8 +658,8 @@ class MainActivity : ComponentActivity() {
         guiaBox.text = "Escolha um canal para ver a programação."
         val tv3 = a == Aba.TV
         lado.visibility = if (tv3) View.VISIBLE else View.GONE
-        rvGrupos.layoutParams = (rvGrupos.layoutParams as LinearLayout.LayoutParams).apply { weight = if (tv3) 0.22f else 0.26f }
-        coluna.layoutParams = (coluna.layoutParams as LinearLayout.LayoutParams).apply { weight = if (tv3) 0.38f else 0.74f }
+        rvGrupos.layoutParams = (rvGrupos.layoutParams as LinearLayout.LayoutParams).apply { weight = if (tv3) 0.18f else 0.26f }
+        coluna.layoutParams = (coluna.layoutParams as LinearLayout.LayoutParams).apply { weight = if (tv3) 0.34f else 0.74f }
         posicionarVideo()
         busca.hint = when (a) { Aba.TV -> "Buscar canal…"; Aba.FILMES -> "Buscar filme…"; else -> "Buscar série…" }
         algumLogo = porAba[a].orEmpty().any { it.logo != null }
