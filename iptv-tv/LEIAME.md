@@ -115,6 +115,13 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
   configuração sempre relê o `nvplayer.json` ao abrir — então o portal mostra o endereço atual se o provedor trocou
   (antes ficava fixo no embutido). A TV já ligada continua trocando sozinha pelo failover (2.5): quando o servidor
   salvo não responde, relê o `nvplayer.json` e passa para o 1º que faz login. Teste `TelaTest.portalMostraServidorDoSite`.
+- **Visual premium: fundo e abas** (2.25, 22/11/2026: o Marco mostrou fotos do app real e disse que o conceito que ele
+  tinha aprovado "não está assim" — a 2.23/2.24 só trocava cores. Primeiro passo do visual de verdade, aprovado por
+  print): `Estilo.fundoTela` agora é um `LayerDrawable` com brilhos radiais (`brilho()`: ciano em cima à direita, azul
+  embaixo à esquerda, um toque de magenta no canto; cores pelo tema) em cima da base escura; e a **aba ativa do topo**
+  usa o degradê azul→ciano com letra escura (`Estilo.pintarAba`, no lugar do `pintar` genérico), em `trocarAba` e no
+  `onFocusChange`. Muda o visual COMUM, então vale para todas as telas. Próximos passos possíveis (quando o Marco pedir):
+  prévia maior, cartões com mais "vidro", tela de Início tipo hero.
 - **Escolha de aparência** (2.23, pedido do Marco em 22/11/2026, depois de aprovar os conceitos de visual premium;
   **2.24** no mesmo dia: o Marco trocou o tema e "nada mudou" — as cores do Premium estavam sutis demais, quase iguais
   ao Clássico; o ciano foi reforçado, principalmente no **foco** (degradê azul-ciano → ciano, bem diferente do azul do

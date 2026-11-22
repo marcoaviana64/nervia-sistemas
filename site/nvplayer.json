@@ -3,9 +3,9 @@
     "http://p.urldata.gy"
   ],
   "versao": {
-    "codigo": 26,
-    "nome": "2.24",
+    "codigo": 27,
+    "nome": "2.25",
     "apk": "https://nervia.com.br/nvplayer.apk",
-    "novidades": "O tema Premium (Ajustes → Aparência) ficou bem mais ciano, com o destaque e os detalhes fáceis de diferenciar do Clássico."
+    "novidades": "Visual mais bonito: fundo com um brilho suave e a aba onde você está em destaque colorido, em todas as telas."
   }
 }
