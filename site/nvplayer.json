@@ -3,9 +3,9 @@
     "http://p.urldata.gy"
   ],
   "versao": {
-    "codigo": 24,
-    "nome": "2.22",
+    "codigo": 25,
+    "nome": "2.23",
     "apk": "https://nervia.com.br/nvplayer.apk",
-    "novidades": "No topo, a data fica em cima e a hora embaixo, para caber melhor na tela."
+    "novidades": "Em Ajustes, você escolhe a aparência do app: Clássico (azul) ou Premium (ciano)."
   }
 }

@@ -163,6 +163,7 @@ class MainActivity : ComponentActivity() {
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
         repo = Repositorio(this)
+        Estilo.aplicar(repo.tema)
         guia = Guia(repo)
         guia.aoAtualizar = {
             if (aba == Aba.TV) rvItens.adapter?.notifyDataSetChanged()
@@ -687,6 +688,7 @@ class MainActivity : ComponentActivity() {
                 if (desbloqueado) "🔓  Canais bloqueados liberados — tocar para esconder de novo"
                 else "🔓  Liberar canais bloqueados (digitar senha)",
                 TE.ACAO, acao = if (desbloqueado) "bloquear" else "liberar"))
+            add(Entrada("🎨  Aparência: ${if (repo.tema == "premium") "Premium (ciano)" else "Clássico (azul)"}", TE.ACAO, acao = "aparencia"))
             if (repo.xtream != null) add(Entrada("📺  Canais ao vivo em: ${if (repo.formatoAoVivo == "m3u8") "HLS" else "TS"}", TE.ACAO, acao = "formato"))
             add(Entrada("🗑  Limpar \"Continuar assistindo\"", TE.ACAO, acao = "limpar"))
             val nova = repo.versaoPublicada?.takeIf { it.codigo > atualizador.versaoAtual() }
@@ -1694,6 +1696,13 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** Troca o tema do visual e reabre a tela para aplicar as cores novas (barato: só recria as views). */
+    private fun trocarTema(nome: String) {
+        if (repo.tema == nome) { trocarAba(Aba.AJUSTES, focar = true); return }
+        repo.tema = nome
+        recreate()
+    }
+
     // ---------------------------------------------------------------- ajustes
 
     private fun atualizarInfoAjustes() {
@@ -1754,6 +1763,10 @@ class MainActivity : ComponentActivity() {
                 toast("Canais ao vivo em ${if (repo.formatoAoVivo == "m3u8") "HLS" else "TS"}. Se um canal travar, experimente o outro formato.")
                 carregarCatalogo(baixar = false, silencioso = false)
             }
+            "aparencia" -> dialogo("Aparência", listOf(
+                ("Clássico (azul)" + (if (repo.tema != "premium") "  ✓" else "")) to { trocarTema("classico") },
+                ("Premium (ciano)" + (if (repo.tema == "premium") "  ✓" else "")) to { trocarTema("premium") },
+            ))
             "limpar" -> { repo.limparContinuar(); toast("\"Continuar assistindo\" limpo.") }
             "versao" -> {
                 avisar("Procurando atualização…")

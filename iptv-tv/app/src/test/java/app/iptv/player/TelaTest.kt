@@ -430,6 +430,56 @@ class TelaTest {
         ctl.pause().stop().destroy()
     }
 
+    @Test fun aparencia() {
+        val ctx = ApplicationProvider.getApplicationContext<Context>()
+        val base = "http://127.0.0.1:${servidor.localPort}"
+        val ctl = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val act = ctl.get()
+        val raiz = act.window.decorView
+        ultimaRaiz = raiz
+        ocioso()
+        assertTrue(enviar(porta(act), "tipo=xtream&servidor=${enc(base)}&usuario=marco&senha=segredo").contains("Pronto"))
+        esperar { textos(raiz).any { it.startsWith("TV ao vivo") } }
+
+        // começa no Clássico (azul)
+        assertEquals("classico", Estilo.tema)
+        clicar(raiz, "Ajustes")
+        assertTrue(textos(raiz).any { it.startsWith("🎨") && it.contains("Clássico (azul)") })
+
+        // escolhe o Premium (ciano) no seletor; a escolha fica guardada no aparelho
+        clicar(raiz, "🎨")
+        ocioso()
+        val d = org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog()!!
+        org.robolectric.Shadows.shadowOf(d).clickOnItem(1)
+        ocioso()
+        assertEquals("premium", ctx.getSharedPreferences("iptv", Context.MODE_PRIVATE).getString("tema", null))
+        try { ctl.pause().stop().destroy() } catch (_: Exception) {}
+    }
+
+    @Test fun temaPremium() {
+        val ctx = ApplicationProvider.getApplicationContext<Context>()
+        ctx.getSharedPreferences("iptv", Context.MODE_PRIVATE).edit().putString("tema", "premium").apply()
+        val base = "http://127.0.0.1:${servidor.localPort}"
+        val ctl = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val act = ctl.get()
+        val raiz = act.window.decorView
+        ultimaRaiz = raiz
+        ocioso()
+        // o tema é aplicado na abertura: destaque em ciano
+        assertEquals("premium", Estilo.tema)
+        assertEquals(android.graphics.Color.rgb(0x22, 0xD3, 0xEE), Estilo.AZUL_CLARO)
+        assertTrue(enviar(porta(act), "tipo=xtream&servidor=${enc(base)}&usuario=marco&senha=segredo").contains("Pronto"))
+        esperar { textos(raiz).any { it.startsWith("TV ao vivo") } }
+        clicar(raiz, "Abertos  (2)")
+        act.dispatchKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_DPAD_RIGHT))
+        act.dispatchKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_DPAD_RIGHT))
+        ocioso()
+        acharTexto(raiz) { it == "TV Exemplo HD" }!!.let { var v: View = it; while (!v.isFocusable) v = v.parent as View; v.isFocusableInTouchMode = true; v.requestFocus() }
+        esperar { textos(raiz).any { it.contains("Jornal da Noite") && it.contains("Agora") } }
+        foto(raiz, "tema-premium")
+        try { ctl.pause().stop().destroy() } catch (_: Exception) {}
+    }
+
     @Test fun linkM3u() {
         val ctl = Robolectric.buildActivity(MainActivity::class.java).setup()
         val act = ctl.get()

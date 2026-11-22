@@ -20,14 +20,42 @@ import android.widget.TextView
  * cartões arredondados, item focado em azul com leve aumento (como na Apple TV) e textos em pesos diferentes.
  */
 object Estilo {
-    val AZUL = Color.rgb(0x2F, 0x7C, 0xF6)
-    val AZUL_CLARO = Color.rgb(0x6F, 0xB1, 0xFF)
+    // Cores do destaque: mudam com o tema (2.23, pedido do Marco: escolher o visual em Ajustes → Aparência).
+    var AZUL = Color.rgb(0x2F, 0x7C, 0xF6)
+    var AZUL_CLARO = Color.rgb(0x6F, 0xB1, 0xFF)
+    var FOCO_A = Color.rgb(0x3D, 0x8B, 0xFF)
+    var FOCO_B = Color.rgb(0x25, 0x63, 0xEB)
+    var VERMELHO = Color.rgb(0xFF, 0x45, 0x3A)
     val TEXTO = Color.rgb(0xF5, 0xF6, 0xF8)
     val TEXTO_2 = Color.rgb(0xA3, 0xAD, 0xBD)
     val TEXTO_3 = Color.rgb(0x6B, 0x75, 0x86)
     val CARTAO = Color.argb(20, 255, 255, 255)
     val MARCADO = Color.argb(34, 255, 255, 255)
-    val VERMELHO = Color.rgb(0xFF, 0x45, 0x3A)
+
+    /** Tema atual ("classico" = azul; "premium" = ciano). */
+    var tema = "classico"
+        private set
+
+    /**
+     * Aplica o tema escolhido (chamado no início de cada abertura da tela, antes de montar as views).
+     * Só troca as cores do destaque — o resto do visual é o mesmo. Barato: nenhuma biblioteca ou imagem nova.
+     */
+    fun aplicar(nome: String) {
+        tema = if (nome == "premium") "premium" else "classico"
+        if (tema == "premium") {
+            AZUL = Color.rgb(0x3B, 0x82, 0xF6)       // azul
+            AZUL_CLARO = Color.rgb(0x22, 0xD3, 0xEE) // ciano (marca, "AGORA", barrinha, relógio)
+            FOCO_A = Color.rgb(0x3B, 0x82, 0xF6)     // foco: degradê azul → ciano
+            FOCO_B = Color.rgb(0x22, 0xD3, 0xEE)
+            VERMELHO = Color.rgb(0xF4, 0x3F, 0x6B)   // "AO VIVO" em magenta
+        } else {
+            AZUL = Color.rgb(0x2F, 0x7C, 0xF6)
+            AZUL_CLARO = Color.rgb(0x6F, 0xB1, 0xFF)
+            FOCO_A = Color.rgb(0x3D, 0x8B, 0xFF)
+            FOCO_B = Color.rgb(0x25, 0x63, 0xEB)
+            VERMELHO = Color.rgb(0xFF, 0x45, 0x3A)
+        }
+    }
 
     val MEDIO: Typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
     val NEGRITO: Typeface = Typeface.create("sans-serif", Typeface.BOLD)
@@ -42,7 +70,7 @@ object Estilo {
         GradientDrawable().apply { setColor(cor); cornerRadius = dp(c, raio) }
 
     fun foco(c: Context, raio: Float = 14f): GradientDrawable =
-        GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(Color.rgb(0x3D, 0x8B, 0xFF), Color.rgb(0x25, 0x63, 0xEB)))
+        GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(FOCO_A, FOCO_B))
             .apply { cornerRadius = dp(c, raio) }
 
     /** Fundo de linha/aba: azul quando focado, claro quando marcado, transparente no resto; com o "levantar" da Apple TV. */
