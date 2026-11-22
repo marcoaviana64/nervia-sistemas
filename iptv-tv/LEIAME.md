@@ -115,6 +115,16 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
   configuração sempre relê o `nvplayer.json` ao abrir — então o portal mostra o endereço atual se o provedor trocou
   (antes ficava fixo no embutido). A TV já ligada continua trocando sozinha pelo failover (2.5): quando o servidor
   salvo não responde, relê o `nvplayer.json` e passa para o 1º que faz login. Teste `TelaTest.portalMostraServidorDoSite`.
+- **Capas em Filmes/Séries, prévia maior, foco na lista** (2.26, 22/11/2026): (1) **Filmes e Séries em grade de
+  cartões** (pedido do Marco: "cartões com a imagem do filme e um texto com os dados, dá para analisar melhor") —
+  `rvItens` usa `GridLayoutManager(5)` nessas abas (o Marco escolheu 5 colunas: capa média, ~10 filmes por tela);
+  cartão = pôster 2:3 (`criarCartao`/`bindCartao`, `ImageView` com `onMeasure` h = w×3/2, `CENTER_CROP`, cantos
+  arredondados, `Logos.mostrar(c.logo)`), nome (2 linhas) e dados (ano · ★nota · ✓assistido/◐parou), ★ no canto do
+  favorito; `getItemViewType` 1 = cartão, 0 = linha da TV. (2) **Prévia maior** na TV ao vivo (coluna da direita 0.42 →
+  0.52; grupos/canais 0.18/0.34). (3) **Foco não pula ao descer a lista**: o EPG atualizava em segundo plano e
+  `guia.aoAtualizar` chamava `notifyDataSetChanged` com o foco na lista; agora, se a lista está com o foco, o redesenho
+  fica pendente (`guiaPendente`) e só é aplicado quando o foco sai (`OnGlobalFocusChangeListener` + `ehDescendente`),
+  como a 2.18 na Agenda.
 - **Visual premium: fundo e abas** (2.25, 22/11/2026: o Marco mostrou fotos do app real e disse que o conceito que ele
   tinha aprovado "não está assim" — a 2.23/2.24 só trocava cores. Primeiro passo do visual de verdade, aprovado por
   print): `Estilo.fundoTela` agora é um `LayerDrawable` com brilhos radiais (`brilho()`: ciano em cima à direita, azul
