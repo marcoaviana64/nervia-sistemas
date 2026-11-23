@@ -379,16 +379,10 @@ class TelaTest {
         assertTrue("programa do canal de esportes", textos(raiz).any { it.contains("Jogo Agora") })
         clicar(raiz, "Todos")
         esperar { textos(raiz).any { it.contains("TV Exemplo HD") } }
-        // escolhe o canal para ver a programação dele
-        clicar(raiz, "TV Exemplo HD")
-        esperar { textos(raiz).any { it.contains("Show Futuro") } }
 
-        // marca o aviso do programa futuro pelo menu e confere que foi guardado
-        acharTexto(raiz) { it.contains("Show Futuro") }!!.performClick()
-        ocioso()
-        val d = org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog()!!
-        assertTrue(shadowOf(d).title.toString().contains("Show Futuro"))
-        d.getButton(android.content.DialogInterface.BUTTON_NEUTRAL).performClick()
+        // na linha do tempo os programas de todos os canais já aparecem (grade). Segurar OK (long-press) num
+        // programa futuro agenda o aviso "vai começar"; confere que foi guardado.
+        acharTexto(raiz) { it.contains("Show Futuro") }!!.performLongClick()
         ocioso()
         assertTrue("lembrete gravado", Repositorio(act).lembretes().any { it.titulo == "Show Futuro" })
         ctl.pause().stop().destroy()

@@ -115,6 +115,17 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
   configuração sempre relê o `nvplayer.json` ao abrir — então o portal mostra o endereço atual se o provedor trocou
   (antes ficava fixo no embutido). A TV já ligada continua trocando sozinha pelo failover (2.5): quando o servidor
   salvo não responde, relê o `nvplayer.json` e passa para o 1º que faz login. Teste `TelaTest.portalMostraServidorDoSite`.
+- **Agenda em LINHA DO TEMPO** (2.31, 23/11/2026, conceito aprovado pelo Marco; antes era 3 colunas): a aba Agenda
+  virou uma grade de horários. Topo: pílulas de **DIA** (Hoje, Amanhã, … até onde a EPG tiver), pílulas de **GRUPO**
+  (Todos + cada grupo com o nº de canais) e **Buscar canal**. Grade: nome do canal fixo à esquerda, **régua de horas**
+  no topo (uma célula por hora) e, para cada canal, os programas como **blocos** com largura proporcional à duração;
+  **linha "AGORA"** vermelha no horário atual; o programa ao vivo vem com ● e em negrito; 🔔 nos programas com aviso.
+  Começa rolada perto de agora. **OK** num bloco abre o canal; **segurar OK** (ou Menu) liga/desliga o aviso "vai
+  começar" (mesmos lembretes `Repositorio.lembretes`/`conferirLembretes`). A rolagem horizontal é compartilhada:
+  a régua rola por `scrollTo` (é medida cedo) e as faixas dos canais por **translação** da camada de blocos
+  (`aplicarScroll`; `scrollTo` nas linhas de RecyclerView não "pegava" antes do layout). Ao focar um bloco,
+  `garantirVisivel` reposiciona a grade inteira para ele caber. Grade do XMLTV já existente (`guia.cheia`,
+  `Xtream.urlXmltv`), fuso de Brasília. Teste `TelaTest.agenda` atualizado (grade + aviso por segurar OK).
 - **Ícone do app e data no topo** (2.30, 23/11/2026, o Marco com foto: o ícone do app aparecia quebrado na tela inicial
   da TV ao atualizar, e a data saía da tela depois que a aba Início alargou o topo): (1) ícone do app refeito — havia só
   um PNG 96×96 em uma densidade (sem ícone adaptável do Android 8+ nem redondo), e launchers modernos (Google TV/Fire TV,
