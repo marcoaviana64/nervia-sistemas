@@ -3,9 +3,9 @@
     "http://p.urldata.gy"
   ],
   "versao": {
-    "codigo": 28,
-    "nome": "2.26",
+    "codigo": 29,
+    "nome": "2.27",
     "apk": "https://nervia.com.br/nvplayer.apk",
-    "novidades": "Filmes e Séries agora em capas (pôster + nome, ano e nota), prévia maior na TV ao vivo e o foco não pula mais ao descer a lista de canais."
+    "novidades": "Capas de Filmes e Séries menores (cabe mais na tela) com efeito de vidro, e no fim da lista de canais o ▼ volta para o primeiro canal."
   }
 }
