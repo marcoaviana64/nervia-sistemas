@@ -81,12 +81,13 @@ async function telaCondicionais() {
   carregarCond().catch(() => {});
 }
 
-async function abrirCondicional(id) {
+async function abrirCondicional(id, comprovante) {
   const [c] = checar(await sb.from("lin_condicionais").select("*").eq("id", id));
   const its = await todas(() => sb.from("lin_cond_itens").select("*").eq("condicional_id", id).order("id"));
   const bs = await todas(() => sb.from("lin_cond_baixas").select("*").eq("condicional_id", id).order("id"));
   const cli = (await cdLerClientes([c.cliente_id])).get(c.cliente_id) || {};
   fichaCondicional(c, its, bs, cli);
+  if (comprovante) comprovanteCondicional(c, its, cli, `${CD_TIPO[c.tipo]} nº ${c.id} registrada`);   // 2.57: comprovante na térmica
 }
 
 // nova malinha / reserva; ini = {variante, loja} quando vem do quadrado do Estoque
@@ -191,7 +192,7 @@ async function novaCondicional(tipo, ini) {
       await carregar();
       msg("ok", `${CD_TIPO[C.tipo]} nº ${id} registrada: as peças saíram do estoque de ${loja(C.loja).nome}.`);
       if (VISTA === "condicionais") telaCondicionais(); else if (VISTA === "estoque") lista();
-      await abrirCondicional(id);   // ficha para imprimir e mandar junto
+      await abrirCondicional(id, true);   // ficha + comprovante na térmica para a cliente assinar
     } catch (e) { $("cdok").disabled = false; $("cdok").textContent = C.tipo === "malinha" ? "Registrar malinha" : "Registrar reserva"; desenhar(e.message); }
   };
   desenhar();
@@ -214,7 +215,7 @@ function fichaCondicional(c, its, bs, cli) {
     ${c.situacao === "aberta" ? `<p class="mut">Próximo passo: quando a cliente ${c.tipo === "malinha" ? "devolver a malinha" : "vier retirar"}, clique em <b>Registrar volta</b> e diga peça por peça o que ela comprou e o que voltou. ${n(fora)} peça(s) ainda com a cliente.</p>` : ""}
     <div class="acoes" style="flex-wrap:wrap">
       ${c.situacao === "aberta" ? `<button type="button" class="bt pri" id="cdfvolta">Registrar volta</button><button type="button" class="bt" id="cdfprazo">Mudar prazo</button>${cli.telefone ? '<button type="button" class="bt" id="cdfzap">WhatsApp da cliente</button>' : ""}` : ""}
-      <button type="button" class="bt" id="cdfimp">Imprimir / PDF</button><button type="button" class="bt" id="cdfx">Fechar</button></div>`;
+      <button type="button" class="bt" id="cdfterm" title="Comprovante na impressora térmica de 80 mm, com a assinatura da cliente">Comprovante (térmica)</button><button type="button" class="bt" id="cdfimp">Imprimir / PDF</button><button type="button" class="bt" id="cdfx">Fechar</button></div>`;
   if ($("cdfvolta")) $("cdfvolta").onclick = () => voltaCondicional(c, its, bs, cli, null, true);
   if ($("cdfprazo")) $("cdfprazo").onclick = () => prazoCondicional(c, its, bs, cli);
   if ($("cdfzap")) $("cdfzap").onclick = () => {
@@ -224,6 +225,7 @@ function fichaCondicional(c, its, bs, cli) {
     window.open(`https://wa.me/55${cli.telefone}?text=${encodeURIComponent(txt)}`, "_blank", "noopener");
   };
   $("cdfimp").onclick = () => imprimirCondicional(c, its, cli);
+  $("cdfterm").onclick = () => comprovanteCondicional(c, its, cli);
   $("cdfx").onclick = () => $("dlg").close();
   if (!$("dlg").open) $("dlg").showModal();
 }

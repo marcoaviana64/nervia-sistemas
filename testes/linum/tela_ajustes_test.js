@@ -108,9 +108,15 @@ async function aba(pg, sel) { const g = await pg.getAttribute(sel, 'data-g'); aw
     // "Entregue" sem observação (opcional)
     await pg.click('#ajtab [data-aj="entregue"][data-id="2"]'); await pg.waitForSelector('#dlg2[open] #ajandobs');
     ok((await pg.locator('#dlg2f label').textContent()).includes('Observação do retorno (opcional)'), '"Entregue" pede a observação do retorno (opcional)');
-    await pg.click('#ajandok'); await pg.waitForTimeout(500);
+    await pg.click('#ajandok'); await pg.waitForSelector('#dlg2[open] #tmprev');
     r = await ultimaRpc(pg, 'lin_ajuste_andamento');
     ok(r.p_ajuste === 2 && r.p_acao === 'entregue' && r.p_motivo === null, 'entregue sem observação também grava');
+    const cent = await pg.locator('#tmprev').innerText();
+    ok(cent.includes('ENTREGA DE AJUSTE Nº 2') && cent.includes('Entregue em') && cent.includes('Recebi a peça com o ajuste feito') && cent.includes('VIA DA LOJA') && cent.split('\n').filter(l => /^\s*_{10,}\s*$/.test(l)).length === 1,
+      '2.57: ao entregar abre o comprovante de entrega (2 vias, a cliente assina a da loja)');
+    ok(!cent.includes('Dona Rosa'), '2.57: o comprovante não mostra a costureira');
+    await print(pg, 'ajuste_comprovante_entrega');
+    await pg.click('#tmfechar'); await pg.waitForTimeout(400);
 
     // "Voltar p/ costureira" exige o motivo
     await pg.click('#ajtab [data-aj="reabrir"][data-id="1"]'); await pg.waitForSelector('#dlg2[open] #ajandobs');
@@ -134,7 +140,12 @@ async function aba(pg, sel) { const g = await pg.getAttribute(sel, 'data-g'); aw
     await pg.click('#ajandx'); await pg.waitForSelector('#dlg2f .ajlinha');
     ok(true, '"Voltar" no formulário volta para a ficha');
     await pg.click('#dlg2f [data-fa="entregue"]'); await pg.waitForSelector('#ajandobs');
-    await pg.fill('#ajandobs', 'cliente provou e gostou'); await pg.click('#ajandok'); await pg.waitForSelector('#dlg2f .ajlinha li.ev-entregue');
+    await pg.fill('#ajandobs', 'cliente provou e gostou'); await pg.click('#ajandok'); await pg.waitForSelector('#dlg2[open] #tmprev');
+    ok((await pg.locator('#tmprev').innerText()).includes('cliente provou e gostou'), '2.57: comprovante de entrega com a observação');
+    await pg.click('#tmfechar'); await pg.waitForSelector('#dlg2f .ajlinha li.ev-entregue');
+    await pg.click('#faterm'); await pg.waitForSelector('#dlg2[open] #tmprev');
+    ok((await pg.locator('#tmprev').innerText()).includes('ENTREGA DE AJUSTE Nº 1') && (await pg.locator('#tmfechar').innerText()) === 'Voltar', '2.57: "Comprovante de entrega" na ficha, com Voltar');
+    await pg.click('#tmfechar'); await pg.waitForSelector('#dlg2f .ajlinha li.ev-entregue');
     f = await pg.locator('#dlg2f').innerText();
     ok(f.includes('Entregue') && f.includes('Entregue à cliente') && f.includes('cliente provou e gostou') && await pg.locator('#dlg2f [data-fa]').count() === 0,
       'depois de entregar, a ficha mostra Entregue, a observação e nenhuma ação');
