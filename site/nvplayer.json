@@ -3,9 +3,9 @@
     "http://p.urldata.gy"
   ],
   "versao": {
-    "codigo": 32,
-    "nome": "2.30",
+    "codigo": 33,
+    "nome": "2.31",
     "apk": "https://nervia.com.br/nvplayer.apk",
-    "novidades": "Novo ícone do app (não aparece mais quebrado na tela inicial da TV) e a data voltou a caber no topo: a aba Início virou um ícone de casa."
+    "novidades": "Nova Agenda em linha do tempo: os dias e os grupos viram pílulas no topo, e a programação aparece como uma grade de horários (cada programa é um bloco, com a linha do horário atual). OK abre o canal; segurar OK avisa quando o programa vai começar."
   }
 }

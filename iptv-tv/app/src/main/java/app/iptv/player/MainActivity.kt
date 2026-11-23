@@ -145,22 +145,30 @@ class MainActivity : ComponentActivity() {
     private lateinit var inHeroBtn: TextView
     private var inHeroItem: Item? = null
 
-    // 2.17 (pedido do Marco em 19/11/2026): aba Agenda — grade por dia com aviso de "vai começar".
+    // 2.17 (pedido do Marco em 19/11/2026): aba Agenda. 2.31 (23/11/2026, conceito aprovado pelo Marco):
+    // GRADE EM LINHA DO TEMPO — pílulas de dia + grupo + busca; grade com canais à esquerda, régua de horas no topo,
+    // cada programa é um bloco com largura proporcional à duração; linha "AGORA" em magenta; 🔔 nos programas avisados.
     private lateinit var agCorpo: LinearLayout
-    private lateinit var agDias: LinearLayout
+    private lateinit var agDias: LinearLayout            // pílulas de dia
+    private lateinit var agGruposRow: LinearLayout       // pílulas de grupo
     private lateinit var agBusca: EditText
-    private lateinit var agRvGrupos: RecyclerView   // 2.20: coluna de grupos
-    private lateinit var agRvCanais: RecyclerView
-    private lateinit var agTitulo: TextView
-    private lateinit var agRvProgs: RecyclerView
+    private lateinit var agRegua: LinearLayout           // régua de horas
+    private lateinit var agReguaScroll: HorizontalScrollView // rola a régua (medida cedo: scrollTo "pega")
+    private lateinit var agRv: RecyclerView              // uma linha por canal (nome + faixa de programas)
+    private lateinit var agAgora: View                   // linha "AGORA" (vertical, magenta)
+    private lateinit var agVazio: TextView               // mensagem quando não há grade
     private var agDiasList: List<Long> = emptyList()
     private var agDiaSel = 0
-    private var agCanaisDia: List<Item> = emptyList()   // 2.20: canais do dia (antes do grupo/busca)
+    private var agCanaisDia: List<Item> = emptyList()    // canais com programação no dia
     private var agGrupos: List<String> = emptyList()
-    private var agGrupoSel: String? = null              // null = Todos
-    private var agCanais: List<Item> = emptyList()
-    private var agCanalSel: Item? = null
-    private var agProgs: List<Programa> = emptyList()
+    private var agGrupoSel: String? = null               // null = Todos
+    private var agLinhas: List<Item> = emptyList()       // canais mostrados (após grupo/busca)
+    private var agScrollX = 0                            // rolagem horizontal compartilhada das faixas (px)
+    // escala da linha do tempo: minutos → dp. 2.0 dp/min → 1 h = 120 dp, 30 min = 60 dp, dia inteiro = 2880 dp.
+    private val AG_DP_MIN = 2.0f
+    private fun agX(min: Int) = (min * AG_DP_MIN * resources.displayMetrics.density).toInt()
+    private val AG_LARG_CANAL = 148     // dp, largura da coluna de nome do canal
+    private val AG_ALT_LINHA = 62       // dp, altura de cada linha de canal
 
     private val Int.dp get() = (this * resources.displayMetrics.density).toInt()
     private val hhmm = SimpleDateFormat("HH:mm", Locale.US)
@@ -908,11 +916,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // ---------------------------------------------------------------- Agenda (2.17)
-
-    private val AG_CANAL = Any()
-    private val AG_GRUPO = Any()
-
     // ---------------------------------------------------------------- Início (hero + prateleiras)
 
     private fun montarInicio(parent: LinearLayout) {
@@ -1031,25 +1034,26 @@ class MainActivity : ComponentActivity() {
         return card
     }
 
+    // 2.31: grade em LINHA DO TEMPO. Topo: pílulas de dia + grupo + busca. Grade: canais à esquerda, régua de
+    // horas em cima, cada programa é um bloco com largura proporcional à duração, linha "AGORA" magenta.
     private fun montarAgenda(parent: LinearLayout) {
-        // 2.20: dias em cima; embaixo três colunas — grupos · canais do grupo · programação do canal.
         agCorpo = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
+
+        // 1) pílulas de DIA
         val rolaDias = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; isFocusable = false }
-        agDias = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(4.dp, 2.dp, 4.dp, 6.dp) }
+        agDias = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(4.dp, 2.dp, 4.dp, 4.dp) }
         rolaDias.addView(agDias)
         agCorpo.addView(rolaDias, LinearLayout.LayoutParams(-1, -2))
 
-        val linha = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        agRvGrupos = RecyclerView(this).apply {
-            clipChildren = false; clipToPadding = false; setPadding(4.dp, 4.dp, 8.dp, 4.dp)
-            layoutManager = LinearLayoutManager(this@MainActivity); adapter = AdAgGrupos(); itemAnimator = null
-        }
-        linha.addView(agRvGrupos, LinearLayout.LayoutParams(0, -1, 0.24f))
-
-        val colCanais = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(10.dp, 0, 6.dp, 0) }
+        // 2) pílulas de GRUPO + busca
+        val linhaGrupo = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val rolaGrupos = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; isFocusable = false }
+        agGruposRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(4.dp, 2.dp, 4.dp, 4.dp) }
+        rolaGrupos.addView(agGruposRow)
+        linhaGrupo.addView(rolaGrupos, LinearLayout.LayoutParams(0, -2, 1f))
         agBusca = EditText(this).apply {
-            hint = "Buscar canal…"; setHintTextColor(Estilo.TEXTO_3); setTextColor(Color.WHITE); textSize = 15f
-            Estilo.campo(this); setPadding(14.dp, 7.dp, 14.dp, 7.dp); isSingleLine = true
+            hint = "Buscar canal…"; setHintTextColor(Estilo.TEXTO_3); setTextColor(Color.WHITE); textSize = 14f
+            Estilo.campo(this); setPadding(14.dp, 6.dp, 14.dp, 6.dp); isSingleLine = true
             imeOptions = EditorInfo.IME_ACTION_SEARCH; inputType = InputType.TYPE_CLASS_TEXT
             addTextChangedListener(object : TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
@@ -1057,29 +1061,44 @@ class MainActivity : ComponentActivity() {
                 override fun afterTextChanged(s: Editable?) { h.removeCallbacks(filtrarAgenda); h.postDelayed(filtrarAgenda, 300) }
             })
         }
-        colCanais.addView(agBusca, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 6.dp; marginStart = 4.dp; marginEnd = 8.dp })
-        agRvCanais = RecyclerView(this).apply {
-            clipChildren = false; clipToPadding = false; setPadding(4.dp, 4.dp, 8.dp, 4.dp)
-            layoutManager = LinearLayoutManager(this@MainActivity); adapter = AdAgCanais(); itemAnimator = null
-        }
-        colCanais.addView(agRvCanais, LinearLayout.LayoutParams(-1, 0, 1f))
-        linha.addView(colCanais, LinearLayout.LayoutParams(0, -1, 0.34f))
+        linhaGrupo.addView(agBusca, LinearLayout.LayoutParams(190.dp, -2).apply { marginStart = 8.dp; marginEnd = 6.dp })
+        agCorpo.addView(linhaGrupo, LinearLayout.LayoutParams(-1, -2))
 
-        val dir = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(12.dp, 0, 0, 0) }
-        agTitulo = texto(16f, Estilo.TEXTO_2).apply { setPadding(8.dp, 0, 0, 8.dp); typeface = Estilo.MEDIO }
-        dir.addView(agTitulo)
-        agRvProgs = RecyclerView(this).apply {
-            clipChildren = false; clipToPadding = false; setPadding(4.dp, 4.dp, 8.dp, 4.dp)
-            layoutManager = LinearLayoutManager(this@MainActivity); adapter = AdAgProgs(); itemAnimator = null
-        }
-        dir.addView(agRvProgs, LinearLayout.LayoutParams(-1, 0, 1f))
-        linha.addView(dir, LinearLayout.LayoutParams(0, -1, 0.42f))
+        // 3) grade (régua + linhas) com a barra "AGORA" por cima
+        val wrap = FrameLayout(this).apply { clipChildren = true }
+        val grade = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
-        agCorpo.addView(linha, LinearLayout.LayoutParams(-1, 0, 1f))
+        val header = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val canto = texto(12f, Estilo.TEXTO_3).apply {
+            text = "CANAL"; typeface = Estilo.MEDIO; letterSpacing = 0.08f
+            gravity = Gravity.CENTER_VERTICAL; setPadding(14.dp, 0, 0, 0)
+        }
+        header.addView(canto, LinearLayout.LayoutParams(AG_LARG_CANAL.dp, 34.dp))
+        // a régua rola por scrollTo (ela é medida cedo, então "pega"); as faixas dos canais rolam por translação.
+        agReguaScroll = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; isFocusable = false; overScrollMode = View.OVER_SCROLL_NEVER }
+        agRegua = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        agReguaScroll.addView(agRegua)
+        header.addView(agReguaScroll, LinearLayout.LayoutParams(0, 34.dp, 1f))
+        grade.addView(header, LinearLayout.LayoutParams(-1, -2))
+
+        agRv = RecyclerView(this).apply {
+            clipChildren = false; clipToPadding = false; setPadding(0, 3.dp, 0, 4.dp)
+            layoutManager = LinearLayoutManager(this@MainActivity); adapter = AdAgLinhas(); itemAnimator = null
+        }
+        grade.addView(agRv, LinearLayout.LayoutParams(-1, 0, 1f))
+
+        agVazio = texto(15f, Estilo.TEXTO_2).apply { setPadding(16.dp, 16.dp, 16.dp, 16.dp); visibility = View.GONE }
+        grade.addView(agVazio)
+
+        wrap.addView(grade, FrameLayout.LayoutParams(-1, -1))
+        agAgora = View(this).apply { setBackgroundColor(Estilo.VERMELHO); visibility = View.GONE }
+        wrap.addView(agAgora, FrameLayout.LayoutParams(2.dp, -1).apply { marginStart = AG_LARG_CANAL.dp })
+
+        agCorpo.addView(wrap, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = 4.dp })
         parent.addView(agCorpo, LinearLayout.LayoutParams(0, -1, 1f))
     }
 
-    private val filtrarAgenda = Runnable { if (aba == Aba.AGENDA) montarCanais() }
+    private val filtrarAgenda = Runnable { if (aba == Aba.AGENDA) montarLinhas() }
 
     private fun mostrarAgenda(focar: Boolean) {
         rvGrupos.visibility = View.GONE
@@ -1093,20 +1112,23 @@ class MainActivity : ComponentActivity() {
         carregarAgenda(focar)
     }
 
+    private fun mostrarVazio(msg: String) { agVazio.text = msg; agVazio.visibility = View.VISIBLE }
+
     private fun carregarAgenda(focar: Boolean) {
         val c = catalogo
-        if (c == null) { agTitulo.text = "Carregue uma lista primeiro."; return }
-        if (porAba[Aba.TV].orEmpty().isEmpty()) { agTitulo.text = "Esta lista não tem canais ao vivo."; return }
-        agTitulo.text = "Carregando a programação…"
+        if (c == null) { mostrarVazio("Carregue uma lista primeiro."); return }
+        if (porAba[Aba.TV].orEmpty().isEmpty()) { mostrarVazio("Esta lista não tem canais ao vivo."); return }
+        mostrarVazio("Carregando a programação…")
         guia.agenda(c, forcar = false) { err ->
             if (aba != Aba.AGENDA) return@agenda
             if (err != null) {
-                agTitulo.text = "Agenda: $err"
-                agDiasList = emptyList(); agDias.removeAllViews()
-                agGrupos = emptyList(); agCanaisDia = emptyList(); agCanais = emptyList(); agProgs = emptyList()
-                agRvGrupos.adapter?.notifyDataSetChanged(); agRvCanais.adapter?.notifyDataSetChanged(); agRvProgs.adapter?.notifyDataSetChanged()
+                mostrarVazio("Agenda: $err")
+                agDiasList = emptyList(); agDias.removeAllViews(); agGruposRow.removeAllViews()
+                agGrupos = emptyList(); agCanaisDia = emptyList(); agLinhas = emptyList()
+                agRv.adapter?.notifyDataSetChanged()
                 return@agenda
             }
+            agVazio.visibility = View.GONE
             montarDias()
             if (focar) (agDias.getChildAt(agDiaSel) ?: agDias.getChildAt(0))?.requestFocus()
         }
@@ -1120,31 +1142,38 @@ class MainActivity : ComponentActivity() {
         if (agDiaSel >= agDiasList.size) agDiaSel = 0
         agDias.removeAllViews()
         agDiasList.forEachIndexed { i, d ->
-            val pil = texto(15f).apply {
+            val pil = texto(14f).apply {
                 text = rotuloDia(d, agora); typeface = Estilo.MEDIO
                 setPadding(16.dp, 6.dp, 16.dp, 6.dp); isFocusable = true; isClickable = true; isSingleLine = true
-                setOnFocusChangeListener { v, f -> pintar(v, f, (v.tag as? Int) == agDiaSel); if (f) selecionarDia(v.tag as Int) }
-                setOnClickListener { selecionarDia(tag as Int) }
                 tag = i
+                setOnFocusChangeListener { v, f -> pintar(v, f, (v.tag as? Int) == agDiaSel) }
+                setOnClickListener { selecionarDia(tag as Int) }
             }
             pintar(pil, false, i == agDiaSel)
             agDias.addView(pil, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = 6.dp })
         }
-        montarGrupos()
+        agScrollX = scrollInicial()
+        montarGruposPilulas()
     }
 
     private fun selecionarDia(i: Int) {
-        if (i < 0 || i >= agDiasList.size) return
-        if (i != agDiaSel) {
-            val antes = agDiaSel; agDiaSel = i
-            (agDias.getChildAt(antes))?.let { pintar(it, it.hasFocus(), false) }
-            (agDias.getChildAt(i))?.let { pintar(it, it.hasFocus(), true) }
-        }
-        montarGrupos()
+        if (i < 0 || i >= agDiasList.size || i == agDiaSel) return
+        val antes = agDiaSel; agDiaSel = i
+        (agDias.getChildAt(antes))?.let { pintar(it, it.hasFocus(), false) }
+        (agDias.getChildAt(i))?.let { pintar(it, it.hasFocus(), true) }
+        agScrollX = scrollInicial()
+        montarGruposPilulas()
     }
 
-    /** 2.20: canais do dia agrupados; os grupos viram a 1ª coluna, "Todos" no topo. */
-    private fun montarGrupos() {
+    /** Rolagem horizontal inicial: começa ~40 min antes de agora (no dia de hoje), senão no começo do dia. */
+    private fun scrollInicial(): Int {
+        val dia = agDiasList.getOrNull(agDiaSel) ?: return 0
+        val now = System.currentTimeMillis()
+        return if (now in dia until dia + 86_400_000L) (agX(((now - dia) / 60000L).toInt()) - agX(40)).coerceAtLeast(0) else 0
+    }
+
+    /** Canais do dia agrupados: "Todos" + cada grupo em pílulas. */
+    private fun montarGruposPilulas() {
         if (agDiasList.isEmpty()) return
         val dia = agDiasList[agDiaSel]; val fim = dia + 86_400_000L
         agCanaisDia = semTravados(porAba[Aba.TV].orEmpty()).filter { c ->
@@ -1152,79 +1181,164 @@ class MainActivity : ComponentActivity() {
         }
         agGrupos = agCanaisDia.map { it.grupo }.distinct()
         if (agGrupoSel != null && agGrupoSel !in agGrupos) agGrupoSel = null
-        agRvGrupos.adapter?.notifyDataSetChanged(); agRvGrupos.scrollToPosition(0)
-        montarCanais()
+        agGruposRow.removeAllViews()
+        fun addPil(txt: String, g: String?) {
+            val pil = texto(14f).apply {
+                text = txt; typeface = Estilo.MEDIO; isSingleLine = true
+                setPadding(15.dp, 6.dp, 15.dp, 6.dp); isFocusable = true; isClickable = true
+                setOnFocusChangeListener { v, f -> pintar(v, f, agGrupoSel == g) }
+                setOnClickListener {
+                    selecionarGrupoAgenda(g)
+                    agRv.post { agRv.findViewHolderForAdapterPosition(0)?.itemView?.let { acharPrimeiroBloco(it)?.requestFocus() } }
+                }
+            }
+            pintar(pil, false, agGrupoSel == g)
+            agGruposRow.addView(pil, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = 6.dp })
+        }
+        addPil("Todos  (${agCanaisDia.size})", null)
+        for (g in agGrupos) addPil("$g  (${agCanaisDia.count { it.grupo == g }})", g)
+        montarLinhas()
     }
-
-    private fun posGrupoAgenda(g: String?) = if (g == null) 0 else agGrupos.indexOf(g).let { if (it < 0) 0 else it + 1 }
 
     private fun selecionarGrupoAgenda(g: String?) {
         if (agGrupoSel == g) return
-        val antes = posGrupoAgenda(agGrupoSel)
         agGrupoSel = g
-        val agora = posGrupoAgenda(g)
-        agRvGrupos.adapter?.notifyItemChanged(antes)
-        agRvGrupos.adapter?.notifyItemChanged(agora)
-        montarCanais()
+        for (i in 0 until agGruposRow.childCount) {
+            val pil = agGruposRow.getChildAt(i) as TextView
+            val gi = if (i == 0) null else agGrupos.getOrNull(i - 1)
+            pintar(pil, pil.hasFocus(), gi == agGrupoSel)
+        }
+        montarLinhas()   // mantém a rolagem horizontal ao trocar de grupo
     }
 
-    private fun montarCanais() {
+    private fun montarLinhas() {
         if (agDiasList.isEmpty()) return
         val q = semAcento(agBusca.text.toString().trim())
         // com busca, procura em todos os canais do dia; sem busca, só o grupo escolhido ("Todos" = todos).
         val base = if (q.isNotEmpty() || agGrupoSel == null) agCanaisDia else agCanaisDia.filter { it.grupo == agGrupoSel }
-        agCanais = if (q.isEmpty()) base else base.filter { it.chave.contains(q) }
-        if (agCanalSel == null || agCanalSel !in agCanais) agCanalSel = agCanais.firstOrNull()
-        agRvCanais.adapter?.notifyDataSetChanged(); agRvCanais.scrollToPosition(0)
-        montarProgs()
+        agLinhas = if (q.isEmpty()) base else base.filter { it.chave.contains(q) }
+        if (agLinhas.isEmpty()) mostrarVazio(if (agCanaisDia.isEmpty()) "Sem programação para este dia." else "Nenhum canal encontrado.")
+        else agVazio.visibility = View.GONE
+        montarRegua()
+        agRv.adapter?.notifyDataSetChanged()
+        agRv.post { agRv.scrollToPosition(0); aplicarScroll(agScrollX) }
     }
 
-    private fun selecionarCanal(c: Item) {
-        if (agCanalSel == c) return
-        // 2.18: repinta SÓ as duas linhas que mudaram (como na aba TV). notifyDataSetChanged aqui,
-        // com a lista em foco, fazia o foco escapar para o menu de cima ("volta para o menu").
-        val antes = agCanais.indexOf(agCanalSel)
-        agCanalSel = c
-        val agora = agCanais.indexOf(c)
-        if (antes >= 0) agRvCanais.adapter?.notifyItemChanged(antes)
-        if (agora >= 0) agRvCanais.adapter?.notifyItemChanged(agora)
-        montarProgs()
-    }
-
-    private fun programaAgora(c: Item): Programa? {
-        val n = System.currentTimeMillis()
-        return guia.cheia[guia.chaveEpg(c)]?.firstOrNull { n >= it.inicio && n < it.fim }
-    }
-
-    private fun montarProgs() {
-        val canal = agCanalSel
-        if (canal == null) {
-            agTitulo.text = if (agCanais.isEmpty()) "Sem programação para este dia." else "Escolha um canal."
-            agProgs = emptyList(); agRvProgs.adapter?.notifyDataSetChanged(); return
+    /** Régua de horas (00:00 … 23:00), uma célula por hora, alinhada com as faixas dos canais. */
+    private fun montarRegua() {
+        agRegua.removeAllViews()
+        for (hr in 0..23) {
+            val cel = FrameLayout(this)
+            cel.addView(View(this).apply { setBackgroundColor(Color.argb(22, 255, 255, 255)) }, FrameLayout.LayoutParams(1.dp, -1))
+            cel.addView(texto(13f, Estilo.TEXTO_2).apply {
+                text = "%02d:00".format(hr); typeface = Estilo.MEDIO; gravity = Gravity.CENTER_VERTICAL; setPadding(8.dp, 0, 0, 0)
+            }, FrameLayout.LayoutParams(-2, -1))
+            agRegua.addView(cel, LinearLayout.LayoutParams(agX(60), -1))
         }
-        val dia = agDiasList[agDiaSel]; val fim = dia + 86_400_000L
-        agTitulo.text = "${canal.nome} · ${diaLongo.format(Date(dia)).replaceFirstChar { it.uppercase() }}"
-        agProgs = guia.cheia[guia.chaveEpg(canal)].orEmpty().filter { it.inicio < fim && it.fim > dia }.sortedBy { it.inicio }
-        agRvProgs.adapter?.notifyDataSetChanged(); agRvProgs.scrollToPosition(0)
     }
 
-    private fun menuPrograma(canal: Item, p: Programa) {
-        val agora = System.currentTimeMillis()
-        val futuro = p.inicio > agora
+    /** Põe a linha vermelha "AGORA" na posição certa (só no dia de hoje e se estiver visível). */
+    private fun atualizarAgora() {
+        val dia = agDiasList.getOrNull(agDiaSel)
+        if (dia == null) { agAgora.visibility = View.GONE; return }
+        val now = System.currentTimeMillis()
+        if (now < dia || now >= dia + 86_400_000L) { agAgora.visibility = View.GONE; return }
+        val x = agX(((now - dia) / 60000L).toInt()) - agScrollX
+        if (x < 0 || x > larguraFaixa()) { agAgora.visibility = View.GONE; return }
+        agAgora.translationX = x.toFloat(); agAgora.visibility = View.VISIBLE
+    }
+
+    /** Largura visível da faixa de programas (viewport), em px. */
+    private fun larguraFaixa(): Int {
+        val w = if (agRv.width > 0) agRv.width else resources.displayMetrics.widthPixels
+        return (w - AG_LARG_CANAL.dp).coerceAtLeast(1)
+    }
+
+    /** Aplica a MESMA rolagem horizontal (por translação) na régua e em todas as faixas — grade sempre alinhada. */
+    private fun aplicarScroll(x: Int) {
+        val max = (agX(1440) - larguraFaixa()).coerceAtLeast(0)
+        agScrollX = x.coerceIn(0, max)
+        if (agReguaScroll.scrollX != agScrollX) agReguaScroll.scrollTo(agScrollX, 0)
+        for (i in 0 until agRv.childCount) {
+            ((agRv.getChildAt(i) as? ViewGroup)?.getChildAt(1) as? ViewGroup)?.getChildAt(0)?.translationX = -agScrollX.toFloat()
+        }
+        atualizarAgora()
+    }
+
+    /** Ao focar um bloco, garante que ele caiba na janela (reposiciona a grade inteira se preciso). */
+    private fun garantirVisivel(esqMin: Int, durMin: Int) {
+        val vp = larguraFaixa()
+        val esq = agX(esqMin); val dir = agX(esqMin + durMin)
+        var sx = agScrollX
+        if (esq - sx < agX(20)) sx = esq - agX(20)
+        else if (dir - sx > vp - agX(10)) sx = dir - vp + agX(10)
+        if (sx != agScrollX) aplicarScroll(sx)
+    }
+
+    private fun acharPrimeiroBloco(row: View): View? {
+        val blocos = ((row as? ViewGroup)?.getChildAt(1) as? ViewGroup)?.getChildAt(0) as? ViewGroup
+        return if (blocos != null && blocos.childCount > 0) blocos.getChildAt(0)
+        else (row as? ViewGroup)?.getChildAt(0)
+    }
+
+    private fun pintarBloco(v: TextView, foco: Boolean, agora: Boolean) {
+        v.background = when {
+            foco -> Estilo.foco(this, 10f)
+            agora -> GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(
+                Color.argb(70, Color.red(Estilo.AZUL), Color.green(Estilo.AZUL), Color.blue(Estilo.AZUL)),
+                Color.argb(26, 255, 255, 255))).apply {
+                cornerRadius = 10.dp.toFloat()
+                setStroke(1.dp, Color.argb(130, Color.red(Estilo.AZUL_CLARO), Color.green(Estilo.AZUL_CLARO), Color.blue(Estilo.AZUL_CLARO)))
+            }
+            else -> Estilo.vidro(this, 10f, 8)
+        }
+        v.setTextColor(if (foco && Estilo.tema == "premium") Color.rgb(0x05, 0x12, 0x20) else Color.WHITE)
+        val e = if (foco) 1.04f else 1f
+        if (v.scaleX != e) v.animate().scaleX(e).scaleY(e).setDuration(130).start()
+        v.translationZ = if (foco) 6.dp.toFloat() else 0f
+    }
+
+    /** Um bloco de programa na faixa do canal. OK = assistir o canal; segurar OK / Menu = avisar quando começar. */
+    private fun criarBloco(canal: Item, p: Programa, esqMin: Int, durMin: Int): TextView {
+        val now = System.currentTimeMillis()
+        val agora = now >= p.inicio && now < p.fim
+        val passou = p.fim <= now
         val marcado = repo.temLembrete(guia.chaveEpg(canal), p.inicio)
-        val quando = "${diaCurto.format(Date(p.inicio)).replaceFirstChar { it.uppercase() }}  ${hhmm.format(Date(p.inicio))}–${hhmm.format(Date(p.fim))}"
-        val b = AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-            .setTitle(p.titulo)
-            .setMessage(canal.nome + "\n" + quando + (if (p.descricao.isNotBlank()) "\n\n" + p.descricao.take(300) else ""))
-            .setPositiveButton("Assistir o canal") { _, _ -> abrirCanalAgenda(canal) }
-            .setNegativeButton("Fechar", null)
-        if (futuro) b.setNeutralButton(if (marcado) "Cancelar aviso" else "Avisar quando começar") { _, _ ->
-            val ligado = repo.alternarLembrete(Lembrete(guia.chaveEpg(canal), canal.nome, canal.url, p.titulo, p.inicio, p.fim))
-            if (ligado) repo.limparAvisado(guia.chaveEpg(canal), p.inicio)
-            toast(if (ligado) "Vou avisar quando \"${p.titulo}\" começar." else "Aviso cancelado.")
-            agRvProgs.adapter?.notifyDataSetChanged()
+        val tv = texto(13f).apply {
+            isFocusable = true; isClickable = true
+            setPadding(10.dp, 5.dp, 10.dp, 5.dp); setLineSpacing(1.dp.toFloat(), 1f); maxLines = 2; ellipsize = TextUtils.TruncateAt.END
+            gravity = Gravity.CENTER_VERTICAL
         }
-        b.show()
+        val sb = android.text.SpannableStringBuilder()
+        fun span(s: String, vararg sp: Any) { val a = sb.length; sb.append(s); sp.forEach { sb.setSpan(it, a, sb.length, 0) } }
+        span(hhmm.format(Date(p.inicio)) + "  ", android.text.style.ForegroundColorSpan(if (agora) Estilo.AZUL_CLARO else Estilo.TEXTO_2), android.text.style.RelativeSizeSpan(0.82f))
+        if (agora) { span("● ", android.text.style.ForegroundColorSpan(Estilo.VERMELHO), android.text.style.RelativeSizeSpan(0.8f)) }
+        if (marcado) span("🔔 ", android.text.style.RelativeSizeSpan(0.9f))
+        span(p.titulo, android.text.style.StyleSpan(if (agora) Typeface.BOLD else Typeface.NORMAL))
+        tv.text = sb
+        tv.alpha = if (passou) 0.5f else 1f
+        pintarBloco(tv, false, agora)
+        tv.setOnFocusChangeListener { v, f -> pintarBloco(v as TextView, f, agora); if (f) garantirVisivel(esqMin, durMin) }
+        tv.setOnClickListener { abrirCanalAgenda(canal) }
+        tv.setOnLongClickListener { avisoPrograma(canal, p); true }
+        tv.setOnKeyListener { _, k, ev ->
+            if (ev.action == KeyEvent.ACTION_DOWN && (k == KeyEvent.KEYCODE_MENU || k == KeyEvent.KEYCODE_INFO)) { avisoPrograma(canal, p); true } else false
+        }
+        return tv
+    }
+
+    /** Liga/desliga o aviso "vai começar" de um programa futuro. */
+    private fun avisoPrograma(canal: Item, p: Programa) {
+        val agora = System.currentTimeMillis()
+        if (p.inicio <= agora) {
+            toast(if (p.fim <= agora) "Esse programa já terminou." else "Esse programa já está no ar — é só abrir o canal.")
+            return
+        }
+        val ligado = repo.alternarLembrete(Lembrete(guia.chaveEpg(canal), canal.nome, canal.url, p.titulo, p.inicio, p.fim))
+        if (ligado) repo.limparAvisado(guia.chaveEpg(canal), p.inicio)
+        toast(if (ligado) "Vou avisar quando \"${p.titulo}\" começar." else "Aviso cancelado.")
+        agRv.adapter?.notifyDataSetChanged()
+        agRv.post { aplicarScroll(agScrollX) }
     }
 
     private fun abrirCanalAgenda(c: Item) {
@@ -1273,109 +1387,46 @@ class MainActivity : ComponentActivity() {
         else -> diaCurto.format(Date(d)).replaceFirstChar { it.uppercase() }
     }
 
-    private inner class AdAgGrupos : RecyclerView.Adapter<VH>() {
-        override fun getItemCount() = agGrupos.size + 1   // +1 = "Todos" no topo
-        private fun grupoDe(pos: Int): String? = if (pos == 0) null else agGrupos.getOrNull(pos - 1)
-        override fun onCreateViewHolder(p: ViewGroup, t: Int): VH = VH(texto(15f).apply {
-            setPadding(14.dp, 7.dp, 14.dp, 7.dp); typeface = Estilo.MEDIO
-            isSingleLine = true; ellipsize = TextUtils.TruncateAt.END
-            isFocusable = true; isClickable = true
-            layoutParams = RecyclerView.LayoutParams(-1, -2).apply { bottomMargin = 2.dp }
-        })
-        override fun onBindViewHolder(vh: VH, pos: Int) {
-            val tv = vh.itemView as TextView
-            val g = grupoDe(pos)
-            val n = if (g == null) agCanaisDia.size else agCanaisDia.count { it.grupo == g }
-            tv.text = (g ?: "Todos") + "  ($n)"
-            pintar(tv, tv.hasFocus(), g == agGrupoSel)
-            tv.setOnFocusChangeListener { v, f ->
-                val q = vh.bindingAdapterPosition
-                pintar(v, f, q >= 0 && grupoDe(q) == agGrupoSel)
-                if (f && q >= 0) {
-                    h.removeCallbacksAndMessages(AG_GRUPO)
-                    HandlerCompat.postDelayed(h, { if (v.hasFocus()) selecionarGrupoAgenda(grupoDe(q)) }, AG_GRUPO, 220)
-                }
-            }
-            tv.setOnClickListener {
-                vh.bindingAdapterPosition.takeIf { it >= 0 }?.let {
-                    selecionarGrupoAgenda(grupoDe(it))
-                    agRvCanais.post { agRvCanais.findViewHolderForAdapterPosition(0)?.itemView?.requestFocus() }
-                }
-            }
-        }
-    }
-
-    private inner class AdAgCanais : RecyclerView.Adapter<VH>() {
-        override fun getItemCount() = agCanais.size
+    /** Uma linha por canal: nome fixo à esquerda + faixa com os blocos de programa (rolagem por translação). */
+    private inner class AdAgLinhas : RecyclerView.Adapter<VH>() {
+        override fun getItemCount() = agLinhas.size
         override fun onCreateViewHolder(p: ViewGroup, t: Int): VH {
-            val col = LinearLayout(this@MainActivity).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(12.dp, 5.dp, 12.dp, 5.dp)
+            val row = LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.HORIZONTAL; clipChildren = true
+                layoutParams = RecyclerView.LayoutParams(-1, AG_ALT_LINHA.dp).apply { bottomMargin = 3.dp }
+            }
+            val nome = texto(14f).apply {
+                typeface = Estilo.MEDIO; isSingleLine = true; ellipsize = TextUtils.TruncateAt.END
+                gravity = Gravity.CENTER_VERTICAL; setPadding(14.dp, 0, 8.dp, 0)
+                background = Estilo.vidro(this@MainActivity, 12f, 10)
                 isFocusable = true; isClickable = true
-                layoutParams = RecyclerView.LayoutParams(-1, -2).apply { bottomMargin = 2.dp }
             }
-            col.addView(texto(15f).apply { typeface = Estilo.MEDIO; isSingleLine = true; ellipsize = TextUtils.TruncateAt.END })
-            col.addView(texto(12f, Estilo.TEXTO_2).apply { isSingleLine = true; ellipsize = TextUtils.TruncateAt.END })
-            return VH(col)
+            row.addView(nome, LinearLayout.LayoutParams(AG_LARG_CANAL.dp, -1).apply { marginEnd = 3.dp })
+            // faixaWrap recorta; dentro, a camada de blocos (largura do dia inteiro) é transladada por aplicarScroll.
+            val faixaWrap = FrameLayout(this@MainActivity).apply { clipChildren = true }
+            faixaWrap.addView(FrameLayout(this@MainActivity).apply { clipChildren = false }, FrameLayout.LayoutParams(agX(1440), -1))
+            row.addView(faixaWrap, LinearLayout.LayoutParams(0, -1, 1f))
+            return VH(row)
         }
         override fun onBindViewHolder(vh: VH, pos: Int) {
-            val col = vh.itemView as LinearLayout
-            val c = agCanais[pos]
-            (col.getChildAt(0) as TextView).text = c.nome
-            val ag = programaAgora(c)
-            (col.getChildAt(1) as TextView).apply {
-                text = ag?.let { "agora: ${it.titulo}" } ?: " "
-                visibility = if (ag != null) View.VISIBLE else View.GONE
+            val row = vh.itemView as LinearLayout
+            val nome = row.getChildAt(0) as TextView
+            val blocos = (row.getChildAt(1) as FrameLayout).getChildAt(0) as FrameLayout
+            val canal = agLinhas[pos]
+            nome.text = canal.nome
+            nome.setOnClickListener { abrirCanalAgenda(canal) }
+            blocos.removeAllViews()
+            blocos.translationX = -agScrollX.toFloat()
+            val dia = agDiasList[agDiaSel]; val fim = dia + 86_400_000L
+            val progs = guia.cheia[guia.chaveEpg(canal)].orEmpty().filter { it.inicio < fim && it.fim > dia }.sortedBy { it.inicio }
+            for (p in progs) {
+                val ini = maxOf(p.inicio, dia); val fin = minOf(p.fim, fim)
+                val esq = ((ini - dia) / 60000L).toInt()
+                val dur = maxOf(1, ((fin - ini) / 60000L).toInt())
+                blocos.addView(criarBloco(canal, p, esq, dur), FrameLayout.LayoutParams((agX(dur) - 2.dp).coerceAtLeast(1), -1).apply {
+                    marginStart = agX(esq); topMargin = 1.dp; bottomMargin = 1.dp
+                })
             }
-            pintar(col, col.hasFocus(), c == agCanalSel)
-            col.setOnFocusChangeListener { v, f ->
-                val q = vh.bindingAdapterPosition
-                pintar(v, f, q >= 0 && agCanais.getOrNull(q) == agCanalSel)
-                if (f && q >= 0) {
-                    h.removeCallbacksAndMessages(AG_CANAL)
-                    HandlerCompat.postDelayed(h, { if (v.hasFocus()) agCanais.getOrNull(q)?.let { selecionarCanal(it) } }, AG_CANAL, 220)
-                }
-            }
-            col.setOnClickListener { vh.bindingAdapterPosition.takeIf { it >= 0 }?.let { agCanais.getOrNull(it)?.let { c2 -> selecionarCanal(c2); agRvProgs.post { agRvProgs.findViewHolderForAdapterPosition(0)?.itemView?.requestFocus() } } } }
-            // No fim da lista, ▼ volta para o 1º canal em vez de escapar para os grupos (pedido do Marco).
-            col.setOnKeyListener { _, k, ev ->
-                val q = vh.bindingAdapterPosition
-                if (k == KeyEvent.KEYCODE_DPAD_DOWN && ev.action == KeyEvent.ACTION_DOWN && q >= 0 && q == agCanais.size - 1) {
-                    agRvCanais.scrollToPosition(0)
-                    agRvCanais.post { agRvCanais.findViewHolderForAdapterPosition(0)?.itemView?.requestFocus() }
-                    true
-                } else false
-            }
-        }
-    }
-
-    private inner class AdAgProgs : RecyclerView.Adapter<VH>() {
-        override fun getItemCount() = agProgs.size
-        override fun onCreateViewHolder(p: ViewGroup, t: Int): VH = VH(texto(15f).apply {
-            setPadding(14.dp, 7.dp, 14.dp, 7.dp); typeface = Estilo.MEDIO
-            isFocusable = true; isClickable = true
-            setLineSpacing(2.dp.toFloat(), 1f); maxLines = 2; ellipsize = TextUtils.TruncateAt.END
-            layoutParams = RecyclerView.LayoutParams(-1, -2).apply { bottomMargin = 2.dp }
-        })
-        override fun onBindViewHolder(vh: VH, pos: Int) {
-            val tv = vh.itemView as TextView
-            val canal = agCanalSel ?: return
-            val p = agProgs[pos]
-            val n = System.currentTimeMillis()
-            val agora = n >= p.inicio && n < p.fim
-            val passou = p.fim <= n
-            val marcado = repo.temLembrete(guia.chaveEpg(canal), p.inicio)
-            val sb = android.text.SpannableStringBuilder()
-            fun span(s: String, vararg sp: Any) { val a = sb.length; sb.append(s); sp.forEach { sb.setSpan(it, a, sb.length, 0) } }
-            span(hhmm.format(Date(p.inicio)) + "  ", android.text.style.ForegroundColorSpan(if (agora) Estilo.AZUL_CLARO else Estilo.TEXTO_2))
-            if (agora) { span(" AGORA ", android.text.style.BackgroundColorSpan(Estilo.VERMELHO), android.text.style.ForegroundColorSpan(Color.WHITE), android.text.style.StyleSpan(Typeface.BOLD), android.text.style.RelativeSizeSpan(0.66f)); sb.append("  ") }
-            span(p.titulo, android.text.style.StyleSpan(if (agora) Typeface.BOLD else Typeface.NORMAL))
-            if (marcado) span("   🔔", android.text.style.RelativeSizeSpan(0.9f))
-            tv.text = sb
-            tv.alpha = if (passou) 0.45f else 1f
-            pintar(tv, tv.hasFocus(), false)
-            tv.setOnFocusChangeListener { v, f -> pintar(v, f, false) }
-            tv.setOnClickListener { vh.bindingAdapterPosition.takeIf { it >= 0 }?.let { menuPrograma(canal, agProgs[it]) } }
         }
     }
 
