@@ -1336,6 +1336,15 @@ class MainActivity : ComponentActivity() {
                 }
             }
             col.setOnClickListener { vh.bindingAdapterPosition.takeIf { it >= 0 }?.let { agCanais.getOrNull(it)?.let { c2 -> selecionarCanal(c2); agRvProgs.post { agRvProgs.findViewHolderForAdapterPosition(0)?.itemView?.requestFocus() } } } }
+            // No fim da lista, ▼ volta para o 1º canal em vez de escapar para os grupos (pedido do Marco).
+            col.setOnKeyListener { _, k, ev ->
+                val q = vh.bindingAdapterPosition
+                if (k == KeyEvent.KEYCODE_DPAD_DOWN && ev.action == KeyEvent.ACTION_DOWN && q >= 0 && q == agCanais.size - 1) {
+                    agRvCanais.scrollToPosition(0)
+                    agRvCanais.post { agRvCanais.findViewHolderForAdapterPosition(0)?.itemView?.requestFocus() }
+                    true
+                } else false
+            }
         }
     }
 
