@@ -314,9 +314,9 @@ class MainActivity : ComponentActivity() {
         painel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = Estilo.fundoTela(238)
-            // margem de segurança de TV (overscan): muitas TVs cortam ~5% da borda; 60dp nas laterais e 24dp no topo
-            // garantem que a data/relógio (na borda direita) e as abas não saiam da tela (o Marco, LG, 23/11/2026).
-            setPadding(60.dp, 24.dp, 60.dp, 18.dp)
+            // margem de segurança de TV (overscan): a direita (onde fica o relógio) recebe mais folga que a esquerda,
+            // para a data não sair da borda sem deixar um vão grande à esquerda (o Marco, LG, 23/11/2026).
+            setPadding(32.dp, 22.dp, 56.dp, 18.dp)
             clipChildren = false; clipToPadding = false
         }
         // topo: marca à esquerda, abas em pílulas no meio, relógio à direita
@@ -349,8 +349,14 @@ class MainActivity : ComponentActivity() {
             abas[a] = t
             pilulas.addView(t)
         }
-        barraAbas.addView(pilulas)
-        barraAbas.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
+        // as abas entram num trilho que ocupa o meio e ENCOLHE sozinho: com números grandes (3.298, 17.780…)
+        // elas nunca empurram o relógio para fora da tela; se não couberem, rolam dentro do trilho (o foco traz a aba à vista).
+        val rolaAbas = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false; isFocusable = false
+            overScrollMode = View.OVER_SCROLL_NEVER; clipChildren = false; clipToPadding = false
+        }
+        rolaAbas.addView(pilulas)
+        barraAbas.addView(rolaAbas, LinearLayout.LayoutParams(0, -2, 1f))
         relogio = texto(18f, Estilo.TEXTO_2).apply { typeface = Estilo.LEVE; gravity = Gravity.END; setLineSpacing(0f, 0.95f) }
         barraAbas.addView(relogio, LinearLayout.LayoutParams(-2, -2).apply { marginStart = 16.dp })
         painel.addView(barraAbas)

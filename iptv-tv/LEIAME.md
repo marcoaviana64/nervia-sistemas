@@ -115,6 +115,12 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
   configuração sempre relê o `nvplayer.json` ao abrir — então o portal mostra o endereço atual se o provedor trocou
   (antes ficava fixo no embutido). A TV já ligada continua trocando sozinha pelo failover (2.5): quando o servidor
   salvo não responde, relê o `nvplayer.json` e passa para o 1º que faz login. Teste `TelaTest.portalMostraServidorDoSite`.
+- **Relógio blindado no topo** (2.33, 23/11/2026, o Marco: com a 2.32 a data piorou — só dia/mês, e vão grande à
+  esquerda): a 2.32 aumentou o padding dos DOIS lados, mas com os números grandes das abas do Marco (TV ao vivo 3.298,
+  Filmes 17.780, Séries 5.779) a linha estourou e empurrou o relógio para fora, e os 60dp à esquerda viraram vão. Agora:
+  as abas entram num `HorizontalScrollView` que ocupa o meio com `weight 1` e ENCOLHE sozinho (se não couberem, rolam
+  dentro do trilho; o foco traz a aba à vista), então **nunca empurram o relógio**; padding assimétrico `32dp` à
+  esquerda (sem vão) e `56dp` à direita (folga para o overscan da data). Vale para todas as telas.
 - **Margem de segurança de TV (overscan)** (2.32, 23/11/2026, o Marco com foto da TV LG: a data/hora no topo ainda
   saía pela borda direita mesmo com a casinha da 2.30): o padding lateral do `painel` passou de 36dp para **60dp** (e o
   topo de 18 para 24dp). Muitas TVs cortam ~5% da borda; 60dp deixam a data (na borda direita) e as abas dentro da área
