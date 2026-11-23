@@ -678,7 +678,7 @@ class MainActivity : ComponentActivity() {
         coluna.layoutParams = (coluna.layoutParams as LinearLayout.LayoutParams).apply { weight = if (tv3) 0.34f else 0.74f }
         // Filmes e Séries em grade de cartões com pôster (pedido do Marco: dá para analisar melhor); TV continua em lista.
         val grade = a == Aba.FILMES || a == Aba.SERIES
-        rvItens.layoutManager = if (grade) GridLayoutManager(this, 5) else LinearLayoutManager(this)
+        rvItens.layoutManager = if (grade) GridLayoutManager(this, 6) else LinearLayoutManager(this)
         posicionarVideo()
         busca.hint = when (a) { Aba.TV -> "Buscar canal…"; Aba.FILMES -> "Buscar filme…"; else -> "Buscar série…" }
         algumLogo = porAba[a].orEmpty().any { it.logo != null }
