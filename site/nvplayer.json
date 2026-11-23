@@ -3,9 +3,9 @@
     "http://p.urldata.gy"
   ],
   "versao": {
-    "codigo": 31,
-    "nome": "2.29",
+    "codigo": 32,
+    "nome": "2.30",
     "apk": "https://nervia.com.br/nvplayer.apk",
-    "novidades": "A coluna de grupos na TV ao vivo ficou mais larga: os nomes dos grupos aparecem mais completos."
+    "novidades": "Novo ícone do app (não aparece mais quebrado na tela inicial da TV) e a data voltou a caber no topo: a aba Início virou um ícone de casa."
   }
 }
