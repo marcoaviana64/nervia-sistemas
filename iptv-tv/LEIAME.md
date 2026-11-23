@@ -115,6 +115,10 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
   configuração sempre relê o `nvplayer.json` ao abrir — então o portal mostra o endereço atual se o provedor trocou
   (antes ficava fixo no embutido). A TV já ligada continua trocando sozinha pelo failover (2.5): quando o servidor
   salvo não responde, relê o `nvplayer.json` e passa para o 1º que faz login. Teste `TelaTest.portalMostraServidorDoSite`.
+- **Margem de segurança de TV (overscan)** (2.32, 23/11/2026, o Marco com foto da TV LG: a data/hora no topo ainda
+  saía pela borda direita mesmo com a casinha da 2.30): o padding lateral do `painel` passou de 36dp para **60dp** (e o
+  topo de 18 para 24dp). Muitas TVs cortam ~5% da borda; 60dp deixam a data (na borda direita) e as abas dentro da área
+  visível. Vale para todas as telas.
 - **Agenda em LINHA DO TEMPO** (2.31, 23/11/2026, conceito aprovado pelo Marco; antes era 3 colunas): a aba Agenda
   virou uma grade de horários. Topo: pílulas de **DIA** (Hoje, Amanhã, … até onde a EPG tiver), pílulas de **GRUPO**
   (Todos + cada grupo com o nº de canais) e **Buscar canal**. Grade: nome do canal fixo à esquerda, **régua de horas**

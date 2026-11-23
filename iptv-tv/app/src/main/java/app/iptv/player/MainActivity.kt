@@ -314,7 +314,9 @@ class MainActivity : ComponentActivity() {
         painel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = Estilo.fundoTela(238)
-            setPadding(36.dp, 18.dp, 36.dp, 18.dp)
+            // margem de segurança de TV (overscan): muitas TVs cortam ~5% da borda; 60dp nas laterais e 24dp no topo
+            // garantem que a data/relógio (na borda direita) e as abas não saiam da tela (o Marco, LG, 23/11/2026).
+            setPadding(60.dp, 24.dp, 60.dp, 18.dp)
             clipChildren = false; clipToPadding = false
         }
         // topo: marca à esquerda, abas em pílulas no meio, relógio à direita
