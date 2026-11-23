@@ -1448,6 +1448,8 @@ function andamentoAjuste(a, acao, depois, voltar) {
       checar(await sb.rpc("lin_ajuste_andamento", { p_ajuste: a.id, p_acao: acao, p_motivo: t || null }));
       const { data: novo } = await sb.from("lin_ajustes").select("*").eq("id", a.id).maybeSingle();
       msg("ok", x.ok);
+      // 2.57: na entrega, abre o comprovante (a cliente assina); a tela de trás atualiza quando ele fecha
+      if (acao === "entregue") return comprovanteAjuste(novo || a, { titulo: `Ajuste nº ${a.id} entregue`, aoFechar: () => depois(novo || a) });
       depois(novo || a);
     } catch (e) { $("ajanderr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; $("ajandok").disabled = false; }
   };
@@ -1481,11 +1483,12 @@ async function fichaAjuste(a, depois) {
       ${a.situacao === "na_costureira" ? '<button type="button" class="bt pri" data-fa="pronto">Voltou da costureira</button><button type="button" class="bt" id="fazapc">WhatsApp costureira</button>' : ""}
       ${a.situacao === "pronto" ? '<button type="button" class="bt pri" data-fa="entregue">Entregue à cliente</button><button type="button" class="bt" id="fazapcli">Avisar cliente</button><button type="button" class="bt" data-fa="reabrir">Voltar p/ costureira</button>' : ""}
       ${podeCanc ? '<button type="button" class="bt" data-fa="cancelar" style="color:var(--crit);border-color:var(--crit)">Cancelar</button>' : ""}
-      <button type="button" class="bt" id="faimp">Imprimir / PDF</button><button type="button" class="bt" id="fax">Fechar</button></div>`;
+      ${a.situacao !== "cancelado" ? `<button type="button" class="bt" id="faterm" title="Comprovante na impressora térmica de 80 mm">${a.situacao === "entregue" ? "Comprovante de entrega" : "Comprovante p/ a cliente"} (térmica)</button>` : ""}<button type="button" class="bt" id="faimp">Imprimir / PDF</button><button type="button" class="bt" id="fax">Fechar</button></div>`;
   g.querySelectorAll("[data-fa]").forEach(b => b.onclick = () => andamentoAjuste(a, b.dataset.fa, novo => { fichaAjuste(novo, depois); if (depois) depois(); }, () => fichaAjuste(a, depois)));
   if ($("fazapc")) $("fazapc").onclick = () => zapAjusteCostureira(a);
   if ($("fazapcli")) $("fazapcli").onclick = () => zapAjusteCliente(a);
   $("faimp").onclick = () => imprimirAjustes([a], { [a.id]: evs });
+  if ($("faterm")) $("faterm").onclick = () => comprovanteAjuste(a, { voltar: () => fichaAjuste(a, depois) });
   $("fax").onclick = () => $("dlg2").close();
   if (!$("dlg2").open) $("dlg2").showModal();
 }
@@ -1584,9 +1587,10 @@ async function novoAjuste(v, it, depois) {
       const { data: a } = await sb.from("lin_ajustes").select("*").eq("id", id).maybeSingle();
       g.innerHTML = `<h3>Ajuste nº ${id} registrado</h3><p>${esc(it.referencia)} ${esc(it.descricao)} vai para <b>${esc(a ? a.costureira : "")}</b> e volta até <b>${dataBR($("ajprazo").value)}</b>.</p>
         <p class="mut">Imprima a ficha para ir junto com a peça, ou salve em PDF (na janela de impressão, destino "Salvar como PDF") e mande para a costureira.</p>
-        <div class="acoes"><button type="button" class="bt" id="ajfim">Fechar</button><button type="button" class="bt" id="ajzap">WhatsApp para a costureira</button><button type="button" class="bt pri" id="ajimp">Imprimir / PDF</button></div>`;
+        <div class="acoes"><button type="button" class="bt" id="ajfim">Fechar</button><button type="button" class="bt" id="ajzap">WhatsApp para a costureira</button><button type="button" class="bt" id="ajterm">Comprovante p/ a cliente (térmica)</button><button type="button" class="bt pri" id="ajimp">Imprimir / PDF</button></div>`;
       $("ajfim").onclick = () => $("dlg2").close();
       $("ajimp").onclick = () => a && imprimirAjustes([a]);
+      $("ajterm").onclick = () => a && comprovanteAjuste(a);
       $("ajzap").onclick = () => a && zapAjusteCostureira(a);
     } catch (e) { $("ajerr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; $("ajok").disabled = false; }
   };
