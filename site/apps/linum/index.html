@@ -1787,7 +1787,7 @@ async function novaTroca() {
     if (TR.modo === "venda") {
       $("trdevbox").innerHTML = `<div style="display:flex;gap:6px;flex-wrap:wrap"><input id="trvnum" inputmode="numeric" placeholder="Número da venda (na boleta / lista de vendas)" style="flex:1;min-width:200px" value="${TR.venda ? TR.venda.venda : ""}">
         <button type="button" class="bt" id="trvbusca">Buscar venda</button></div>
-        ${TR.venda ? `<div class="mut" style="margin-top:6px">Venda nº ${TR.venda.venda} de ${dataBR(TR.venda.data)} · ${esc(loja(TR.venda.loja_id).nome)} · ${esc(TR.venda.vendedora)}</div>
+        ${TR.venda ? `<div class="mut" style="margin-top:6px">Venda nº ${TR.venda.venda} de ${dataBR(TR.venda.data)} · ${esc(loja(TR.venda.loja_id).nome)} · ${esc(TR.venda.vendedora)}</div>${Number(TR.venda.desconto_geral) > 0 ? `<div class="mut" style="font-size:12px">Esta venda teve desconto geral de ${brl(TR.venda.desconto_geral)}: ele já está repartido entre as peças, e o crédito é o valor líquido pago.</div>` : ""}
           ${TR.venda.itens.map((i, x) => `<div class="vlin"><span><b>${esc(i.referencia)}</b> ${esc(i.descricao)} — ${esc([i.cor, i.tamanho, i.edicao].filter(Boolean).join(" "))} · pago ${brl(i.valor_unitario)} · ${i.trocavel > 0 ? `pode trocar ${i.trocavel}` : "já trocada"}</span>
             ${i.trocavel > 0 ? `<button type="button" class="lnk" data-devv="${x}">Devolver</button>` : ""}</div>`).join("")}` : ""}`;
       $("trvbusca").onclick = async () => {

@@ -3925,4 +3925,26 @@ select pg_temp.ok((select preco = 380 from lin_promo_itens where promocao_id = (
   and exists (select 1 from auditoria where acao = 'linum_promocao_criada') and exists (select 1 from auditoria where acao = 'linum_promocao_cancelada'),
   'linum 2.58: alterar troca o preço; cancelada deixa de valer; auditoria');
 reset request.jwt.claim.sub;
+
+-- ---------------------------------------------------------------- linum 2.59: crédito da devolução = valor líquido (desconto geral repartido)
+reset role;
+reset request.jwt.claim.sub;
+insert into lin_estoque (variante_id, loja_id, quantidade) values ('20000000-0000-0000-0000-000000000003', (select v from lin_ids where k = 'gav'), 10)
+  on conflict (variante_id, loja_id) do update set quantidade = excluded.quantidade;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora
+insert into lin_vd values ('dg1', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'data', ((now() at time zone 'America/Sao_Paulo')::date)::text,
+  'desconto', 100,
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000003', 'quantidade', 2, 'valor_unitario', 300)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 500))))::text);
+select pg_temp.ok((lin_venda_trocavel((select v from lin_vd where k = 'dg1')::bigint) -> 'itens' -> 0 ->> 'valor_unitario')::numeric = 250
+  and (lin_venda_trocavel((select v from lin_vd where k = 'dg1')::bigint) ->> 'desconto_geral')::numeric = 100,
+  'linum 2.59: peça devolvida vale o líquido pago (desconto geral de R$ 100 repartido: 2 × R$ 300 → R$ 250 cada)');
+insert into lin_vd values ('dg2', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'data', ((now() at time zone 'America/Sao_Paulo')::date)::text,
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000003', 'quantidade', 1, 'valor_unitario', 280, 'desconto_pct', 22)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 280))))::text);
+select pg_temp.ok((lin_venda_trocavel((select v from lin_vd where k = 'dg2')::bigint) -> 'itens' -> 0 ->> 'valor_unitario')::numeric = 280,
+  'linum 2.59: sem desconto geral, vale o preço cobrado na peça');
+reset role;
+reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'
