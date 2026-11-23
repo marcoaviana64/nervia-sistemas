@@ -21,6 +21,7 @@
 <script src="gerencial.js"></script>
 <script src="gerencial-vendas.js"></script>
 <script src="termica.js"></script>
+<script src="promocoes.js"></script>
 <style>
 /* Sistema Linum (app "linum", tabelas lin_): o sistema da LINUM Roupas de Linho trazido do Lovable para a Plataforma.
    Produtos, estoque das lojas, vendas (boleta) e clientes. Dono: tudo; Estoque: cadastra e movimenta sem custo;
@@ -213,6 +214,7 @@ td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-n
         <button class="aba oculto" data-v="transferencias" data-g="estoque" id="abaTransf">Transferências</button>
         <button class="aba oculto" data-v="beneficiamento" data-g="estoque" id="abaBenef">Beneficiamento</button>
         <button class="aba oculto" data-v="brindes" data-g="estoque" id="abaBrindes">Brindes</button>
+        <button class="aba oculto" data-v="promocoes" data-g="estoque" id="abaPromo">Promoções</button>
         <button class="aba oculto" data-v="etiquetas" data-g="estoque" id="abaEtiquetas">Etiquetas</button>
         <button class="aba oculto" data-v="vendas" data-g="vendas" id="abaVendas">Vendas</button>
         <button class="aba oculto" data-v="clientes" data-g="vendas" id="abaClientes">Clientes</button>
@@ -312,7 +314,7 @@ async function iniciar() {
     PERM = checar(await sb.rpc("lin_minhas_permissoes")) || PERM;
     $("abaEquipe").classList.toggle("oculto", !ADMIN);
     $("abaProdutos").classList.toggle("oculto", !controla()); $("abaMovimentos").classList.toggle("oculto", !controla());
-    $("abaVendas").classList.toggle("oculto", !vende()); $("abaTransf").classList.toggle("oculto", !vende()); $("abaBenef").classList.toggle("oculto", !controla()); $("abaBrindes").classList.toggle("oculto", !controla()); $("abaClientes").classList.toggle("oculto", !vende()); $("abaFluxo").classList.toggle("oculto", !vende()); $("abaAjustes").classList.toggle("oculto", !vende()); $("abaCond").classList.toggle("oculto", !vende());
+    $("abaVendas").classList.toggle("oculto", !vende()); $("abaTransf").classList.toggle("oculto", !vende()); $("abaBenef").classList.toggle("oculto", !controla()); $("abaBrindes").classList.toggle("oculto", !controla()); $("abaPromo").classList.toggle("oculto", !vende()); $("abaClientes").classList.toggle("oculto", !vende()); $("abaFluxo").classList.toggle("oculto", !vende()); $("abaAjustes").classList.toggle("oculto", !vende()); $("abaCond").classList.toggle("oculto", !vende());
     $("abaComissoes").classList.toggle("oculto", !dono()); $("abaLucro").classList.toggle("oculto", !dono()); $("abaGiro").classList.toggle("oculto", !dono()); $("abaHorarios").classList.toggle("oculto", !dono()); $("abaCreditos").classList.toggle("oculto", !dono()); $("abaCustos").classList.toggle("oculto", !dono()); document.querySelectorAll(".aba.ger").forEach(x => x.classList.toggle("oculto", !dono())); $("abaRanking").classList.toggle("oculto", !vende()); $("abaEtiquetas").classList.toggle("oculto", !vende()); $("abaProducao").classList.toggle("oculto", !PERM.producao);
     $("quem").textContent = ADMIN ? "Equipe Nervia (Dono)" : dono() ? "Dono" : controla() ? "Estoque · sem custos" : "Vendedora" + (MINHA_LOJA ? " · " + loja(MINHA_LOJA).nome : "");
     $("aviso").classList.add("oculto"); $("app").classList.remove("oculto");
@@ -444,6 +446,7 @@ function render() {
   if (VISTA === "transferencias" && vende()) return telaTransferencias();
   if (VISTA === "beneficiamento" && controla()) return telaBeneficiamento();
   if (VISTA === "brindes" && controla()) return telaBrindes();
+  if (VISTA === "promocoes" && vende()) return telaPromocoes();
   if (VISTA === "vendas" && vende()) return telaVendas();
   if (VISTA === "clientes" && vende()) return telaClientes();
   if (VISTA === "fluxo" && vende()) return telaFluxo();
@@ -1079,7 +1082,7 @@ function verVenda(id, abrirCv) {
     <div class="mut">${dataBR(v.data)} · ${esc(loja(v.loja_id).nome)} · vendedora ${esc(v.vendedora_nome)}</div>
     <div class="campo"><b>Cliente:</b> ${c ? `${esc(c.nome)}${c.telefone ? " · " + esc(fone(c.telefone)) : ""}` : '<span class="mut">não informado</span>'}</div>
     <div class="campo tw"><table><thead><tr><th>Peça</th><th class="num">Qtd</th><th class="num">Tabela</th><th class="num">Desc.</th><th class="num">Valor</th><th class="num">Total</th>${podeAjuste ? "<th></th>" : ""}</tr></thead><tbody>
-      ${its.map(i => `<tr><td><b>${esc(i.referencia)}</b> ${esc(i.descricao)}<br><span class="mut">${esc([i.cor, i.tamanho, i.edicao].filter(Boolean).join(" · "))}</span></td>
+      ${its.map(i => `<tr><td><b>${esc(i.referencia)}</b> ${esc(i.descricao)}<br><span class="mut">${esc([i.cor, i.tamanho, i.edicao].filter(Boolean).join(" · "))}</span>${i.promocao_nome ? `<br><span class="tag ok">Promoção: ${esc(i.promocao_nome)}</span>` : ""}</td>
         <td class="num">${n(i.quantidade)}</td><td class="num">${brl(i.preco_tabela)}</td><td class="num">${Number(i.desconto_pct) ? decBR(Number(i.desconto_pct)) + "%" : "—"}</td>
         <td class="num">${brl(i.valor_unitario)}</td><td class="num">${brl(i.valor_total)}</td>${podeAjuste ? `<td><button type="button" class="lnk" data-ajuste="${i.id}" title="Mandar para a costureira (bainha, apertar…)">Ajuste</button></td>` : ""}</tr>`).join("")}
     </tbody></table></div>
@@ -1228,6 +1231,7 @@ async function novaVenda(pre = {}) {
   // 2.46: venda das peças que a cliente comprou da malinha/reserva (CD = {id, tipo, loja, resp, respNome, itens: [{item_id, vid, q}]})
   const CD = pre.condicional || null;
   if (CD) { NV.loja = CD.loja; if (dono()) NV.vend = CD.resp || eu; }
+  try { await carregarPromos(); } catch (e) { PROMOS = []; }   // 2.58: preço de promoção na peça
   const f = $("dlgf");
   const soma = () => r2(NV.itens.reduce((s, i) => s + numV(i.vu) * (Number(i.q) || 0), 0));
   const totalV = () => r2(soma() - numV(NV.desconto));
@@ -1309,7 +1313,7 @@ async function novaVenda(pre = {}) {
   };
   const desenharItens = () => {
     $("nvitens").innerHTML = NV.itens.length ? `<div class="tw"><table><thead><tr><th>Peça</th><th class="num">Qtd</th><th class="num">Tabela</th><th class="num">Desc. %</th><th class="num">Valor</th><th class="num">Total</th><th></th></tr></thead><tbody>
-      ${NV.itens.map((it, i) => `<tr><td><b>${esc(it.ref)}</b> ${esc(it.desc)}<br><span class="mut">${esc(it.var)} · ${n(disp(it.vid))} na loja</span></td>
+      ${NV.itens.map((it, i) => `<tr><td><b>${esc(it.ref)}</b> ${esc(it.desc)}<br><span class="mut">${esc(it.var)} · ${n(disp(it.vid))} na loja</span>${it.promo ? `<br><span class="tag ok" title="Preço da promoção já aplicado">Promoção: ${esc(it.promo)}</span>` : ""}</td>
         <td class="num"><input data-i="${i}" data-k="q" type="number" min="1" max="${disp(it.vid)}" value="${it.q}" style="width:60px"></td>
         <td class="num">${brl(it.tab)}</td>
         <td class="num"><input data-i="${i}" data-k="pct" inputmode="decimal" value="${esc(it.pct)}" placeholder="0" style="width:64px"></td>
@@ -1317,7 +1321,7 @@ async function novaVenda(pre = {}) {
         <td class="num" data-it-total="${i}"></td><td><button type="button" class="lnk perigo" data-rm="${i}" title="Tirar">×</button></td></tr>`).join("")}
       </tbody></table></div>` : '<div class="mut">Procure a peça acima pela referência, pelo nome ou pelo código de barras.</div>';
     $("nvitens").querySelectorAll("input[data-i]").forEach(inp => inp.oninput = () => {
-      const it = NV.itens[inp.dataset.i], k = inp.dataset.k; it[k] = inp.value;
+      const it = NV.itens[inp.dataset.i], k = inp.dataset.k; it[k] = inp.value; if (k !== "q") it.manual = true;
       if (k === "pct") { it.vu = moeda(r2(it.tab * (1 - Math.min(Math.max(numV(it.pct), 0), 100) / 100))); $("nvitens").querySelector(`[data-i="${inp.dataset.i}"][data-k="vu"]`).value = it.vu; }
       if (k === "vu") { it.pct = it.tab > 0 && numV(it.vu) < it.tab ? decBR(r2((1 - numV(it.vu) / it.tab) * 100)) : ""; $("nvitens").querySelector(`[data-i="${inp.dataset.i}"][data-k="pct"]`).value = it.pct; }
       totais();
@@ -1325,11 +1329,19 @@ async function novaVenda(pre = {}) {
     $("nvitens").querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { NV.itens.splice(Number(b.dataset.rm), 1); desenharItens(); });
     totais();
   };
+  // 2.58: preço da promoção válida na loja e na data da venda (o menor); a peça que a vendedora mudou à mão fica como está
+  const aplicarPromo = it => {
+    if (it.manual) return;
+    const pr = promoDa(it.vid, NV.loja, NV.data);
+    if (pr && pr.preco < it.tab) { it.promo = pr.nome; it.vu = moeda(pr.preco); it.pct = it.tab > 0 ? decBR(r2((1 - pr.preco / it.tab) * 100)) : ""; }
+    else if (it.promo) { it.promo = ""; it.vu = moeda(it.tab); it.pct = ""; }
+  };
   const addItem = (p, v) => {
     const ja = NV.itens.find(i => i.vid === v.id);
     if (ja) { ja.q = String(Math.min((Number(ja.q) || 0) + 1, disp(v.id))); }
     else { const tab = Number(v.preco_venda != null ? v.preco_venda : p.preco_venda) || 0;
-      NV.itens.push({ vid: v.id, ref: p.referencia, desc: p.descricao, var: nomeVar(v), tab, q: "1", pct: "", vu: moeda(tab) }); }
+      const it = { vid: v.id, ref: p.referencia, desc: p.descricao, var: nomeVar(v), tab, q: "1", pct: "", vu: moeda(tab) };
+      aplicarPromo(it); NV.itens.push(it); }
     $("nvpq").value = ""; $("nvres").innerHTML = ""; desenharItens(); $("nvpq").focus();
   };
   const buscaPeca = () => {
@@ -1341,7 +1353,7 @@ async function novaVenda(pre = {}) {
       for (const v of p.variantes) if ((casaP || (v.codigo_barras || "") === t) && disp(v.id) > 0) r.push([p, v]);
       if (r.length > 40) break;
     }
-    $("nvres").innerHTML = r.length ? r.slice(0, 40).map(([p, v], i) => `<div class="vlin"><span><b>${esc(p.referencia)}</b> ${esc(p.descricao)} — ${esc(nomeVar(v))} · ${brl(v.preco_venda != null ? v.preco_venda : p.preco_venda)} · ${n(disp(v.id))} na loja</span>
+    $("nvres").innerHTML = r.length ? r.slice(0, 40).map(([p, v], i) => `<div class="vlin"><span><b>${esc(p.referencia)}</b> ${esc(p.descricao)} — ${esc(nomeVar(v))} · ${(pr => pr && pr.preco < (Number(v.preco_venda != null ? v.preco_venda : p.preco_venda) || 0) ? `<s class="mut">${brl(v.preco_venda != null ? v.preco_venda : p.preco_venda)}</s> <b>${brl(pr.preco)}</b> <span class="tag ok">${esc(pr.nome)}</span>` : brl(v.preco_venda != null ? v.preco_venda : p.preco_venda))(promoDa(v.id, NV.loja, NV.data))} · ${n(disp(v.id))} na loja</span>
         <button type="button" class="lnk" data-add="${i}">Adicionar</button></div>`).join("") : `<div class="mut">Nenhuma peça com estoque em ${esc(loja(NV.loja).nome)} para “${esc(t)}”.</div>`;
     $("nvres").querySelectorAll("[data-add]").forEach(b => b.onclick = () => addItem(...r[b.dataset.add]));
     return r;
@@ -1366,7 +1378,7 @@ async function novaVenda(pre = {}) {
   };
   $("nvmaispag").onclick = () => { NV.pags.forEach(p => p.auto = false); const falta = r2(aPagar() - NV.pags.reduce((s, p) => s + numV(p.valor), 0));
     NV.pags.push({ forma: "pix", valor: falta > 0 ? moeda(falta) : "", parcelas: "1" }); desenharPags(); };
-  $("nvdata").onchange = e => NV.data = e.target.value;
+  $("nvdata").onchange = e => { NV.data = e.target.value; NV.itens.forEach(aplicarPromo); desenharItens(); };
   if ($("nvloja")) $("nvloja").onchange = e => { NV.loja = e.target.value; NV.itens = []; desenharItens(); };
   if ($("nvvend")) $("nvvend").onchange = e => NV.vend = e.target.value;
   $("nvdesc").oninput = e => { NV.desconto = e.target.value; totais(); };
@@ -1520,7 +1532,7 @@ function imprimirVenda(v, its, c) {
     <div class="lin">${cx("Endereço", esc(c ? c.endereco : ""), "flex:3")}${cx("E-mail", esc(c ? c.email : ""), "flex:2")}</div>
     <div class="tit">Peças</div>
     <table><thead><tr><th>Referência</th><th>Descrição</th><th>Cor</th><th>Tam.</th><th>Peça especial</th><th class="n">Qtd</th><th class="n">Preço de tabela</th><th class="n">Desc.</th><th class="n">Valor unit.</th><th class="n">Total</th></tr></thead><tbody>
-      ${its.map(i => `<tr><td>${esc(i.referencia)}</td><td>${esc(i.descricao)}</td><td>${esc(i.cor)}</td><td>${esc(i.tamanho)}</td><td>${esc(i.edicao)}</td><td class="n">${n(i.quantidade)}</td>
+      ${its.map(i => `<tr><td>${esc(i.referencia)}</td><td>${esc(i.descricao)}${i.promocao_nome ? `<br><small>Promoção: ${esc(i.promocao_nome)}</small>` : ""}</td><td>${esc(i.cor)}</td><td>${esc(i.tamanho)}</td><td>${esc(i.edicao)}</td><td class="n">${n(i.quantidade)}</td>
         <td class="n">${brl(i.preco_tabela)}</td><td class="n">${Number(i.desconto_pct) ? decBR(Number(i.desconto_pct)) + "%" : "—"}</td><td class="n">${brl(i.valor_unitario)}</td><td class="n">${brl(i.valor_total)}</td></tr>`).join("")}
     </tbody></table>
     <div class="tit">Valores</div>
@@ -1666,7 +1678,7 @@ function htmlTrocas() {
 function verTroca(id) {
   $("dlg").classList.add("largo");
   const t = TROCAS.find(x => x.id === id), its = TITENS.filter(i => i.troca_id === id), c = cliente(t.cliente_id), f = $("dlgf");
-  const tab = tipo => its.filter(i => i.tipo === tipo).map(i => `<tr><td><b>${esc(i.referencia)}</b> ${esc(i.descricao)}<br><span class="mut">${esc([i.cor, i.tamanho, i.edicao].filter(Boolean).join(" · "))}</span></td>
+  const tab = tipo => its.filter(i => i.tipo === tipo).map(i => `<tr><td><b>${esc(i.referencia)}</b> ${esc(i.descricao)}<br><span class="mut">${esc([i.cor, i.tamanho, i.edicao].filter(Boolean).join(" · "))}</span>${i.promocao_nome ? `<br><span class="tag ok">Promoção: ${esc(i.promocao_nome)}</span>` : ""}</td>
     <td class="num">${n(i.quantidade)}</td><td class="num">${brl(i.valor_unitario)}</td><td class="num">${brl(i.valor_total)}</td></tr>`).join("");
   f.innerHTML = `<h3>${its.some(i => i.tipo === "nova") ? "Troca" : "Devolução"} T${t.id}${t.cancelada_em ? ' <span class="tag">cancelada</span>' : ""}</h3>
     <div class="mut">${dataBR(t.data)} · ${esc(loja(t.loja_id).nome)} · atendente ${esc(t.atendente_nome)}${t.venda_id ? ` · da venda nº ${t.venda_id}` : " · compra sem venda no sistema"}</div>

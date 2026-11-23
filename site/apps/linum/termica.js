@@ -142,6 +142,7 @@ function termExtrato(v, its, c, w) {
     if (det) quebra("  " + det);
     par(`  ${Number(i.quantidade)} x ${brl(i.valor_unitario)}`, brl(i.valor_total));
     if (Number(i.desconto_pct)) quebra(`  (tabela ${brl(i.preco_tabela)}, desconto ${String(i.desconto_pct).replace(".", ",")}%)`);
+    if (i.promocao_nome) quebra("  Promoção: " + i.promocao_nome);
   });
   sep();
   par(`${pecas} peça${pecas === 1 ? "" : "s"} - valor de tabela`, brl(v.valor_bruto));
