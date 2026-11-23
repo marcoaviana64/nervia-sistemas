@@ -2134,9 +2134,19 @@ class MainActivity : ComponentActivity() {
             linha.setOnClickListener { vh.bindingAdapterPosition.takeIf { it >= 0 }?.let { abrirItem(visiveis[it]) } }
             linha.setOnLongClickListener { vh.bindingAdapterPosition.takeIf { it >= 0 }?.let { alternarFavorito(visiveis[it]) }; true }
             linha.setOnKeyListener { _, k, ev ->
-                if (k == KeyEvent.KEYCODE_MENU && ev.action == KeyEvent.ACTION_UP) {
-                    vh.bindingAdapterPosition.takeIf { it >= 0 }?.let { alternarFavorito(visiveis[it]) }; true
-                } else k == KeyEvent.KEYCODE_MENU
+                val p = vh.bindingAdapterPosition
+                when {
+                    k == KeyEvent.KEYCODE_MENU && ev.action == KeyEvent.ACTION_UP -> {
+                        p.takeIf { it >= 0 }?.let { alternarFavorito(visiveis[it]) }; true
+                    }
+                    k == KeyEvent.KEYCODE_MENU -> true
+                    // No fim da lista, ▼ volta para o 1º canal em vez de escapar para os grupos (pedido do Marco).
+                    // Os grupos só pela seta ◀.
+                    k == KeyEvent.KEYCODE_DPAD_DOWN && ev.action == KeyEvent.ACTION_DOWN && p >= 0 && p == visiveis.size - 1 -> {
+                        focarItem(0); true
+                    }
+                    else -> false
+                }
             }
         }
 
