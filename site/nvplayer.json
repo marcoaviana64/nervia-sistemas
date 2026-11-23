@@ -3,9 +3,9 @@
     "http://p.urldata.gy"
   ],
   "versao": {
-    "codigo": 35,
-    "nome": "2.33",
+    "codigo": 36,
+    "nome": "2.34",
     "apk": "https://nervia.com.br/nvplayer.apk",
-    "novidades": "A data e a hora no topo agora aparecem inteiras: as abas deixaram de empurrar o relógio para fora da tela e a margem esquerda ficou menor."
+    "novidades": "O menu do topo não passa mais por cima da data nem do logo: as abas ficam dentro do próprio espaço e a aba \"TV ao vivo\" virou só \"TV\"."
   }
 }

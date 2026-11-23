@@ -233,7 +233,7 @@ class TelaTest {
         ocioso()
         val base = "http://127.0.0.1:${servidor.localPort}"
         assertTrue(enviar(porta(act), "tipo=xtream&servidor=${enc(base)}&usuario=marco&senha=segredo").contains("Pronto"))
-        esperar { textos(raiz).any { it.startsWith("TV ao vivo") } }
+        esperar { textos(raiz).any { it.startsWith("TV  ") } }
         clicar(raiz, "Abertos")
         act.dispatchKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_DPAD_RIGHT))
         act.dispatchKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_DPAD_RIGHT))
@@ -271,7 +271,7 @@ class TelaTest {
         assertTrue(enviar(p, "tipo=xtream&servidor=&usuario=marco&senha=x").contains("Informe o servidor"))
         assertTrue(enviar(p, "tipo=xtream&servidor=${enc(base)}&usuario=marco&senha=segredo").contains("Pronto"))
 
-        esperar { textos(raiz).any { it.startsWith("TV ao vivo") && it.endsWith("4") } }
+        esperar { textos(raiz).any { it.startsWith("TV  ") && it.endsWith("4") } }
         val t = textos(raiz)
         assertTrue(t.toString(), t.contains("Filmes  3") && t.contains("Séries  2"))
         assertTrue(t.contains("Abertos  (2)") && t.contains("🔒 Adultos XXX  (1)"))
@@ -358,7 +358,7 @@ class TelaTest {
         ultimaRaiz = raiz
         ocioso()
         assertTrue(enviar(porta(act), "tipo=xtream&servidor=${enc(base)}&usuario=marco&senha=segredo").contains("Pronto"))
-        esperar { textos(raiz).any { it.startsWith("TV ao vivo") } }
+        esperar { textos(raiz).any { it.startsWith("TV  ") } }
 
         // abre a aba Agenda e espera a grade (vem do xmltv.php)
         clicar(raiz, "Agenda")
@@ -398,7 +398,7 @@ class TelaTest {
         ultimaRaiz = raiz
         ocioso()
         assertTrue(enviar(porta(act), "tipo=xtream&servidor=${enc(base)}&usuario=marco&senha=segredo").contains("Pronto"))
-        esperar { textos(raiz).any { it.startsWith("TV ao vivo") } }
+        esperar { textos(raiz).any { it.startsWith("TV  ") } }
 
         // com o controle ligado, o canal adulto não aparece em "Todos"
         clicar(raiz, "Todos")
@@ -415,7 +415,7 @@ class TelaTest {
         ocioso()
 
         // agora o canal adulto aparece em "Todos"
-        clicar(raiz, "TV ao vivo")
+        clicar(raiz, "TV  ")
         clicar(raiz, "Todos")
         assertTrue("adulto liberado", textos(raiz).any { it == "Canal Adulto" })
         // e os Ajustes mostram que dá para esconder de novo
@@ -433,7 +433,7 @@ class TelaTest {
         ultimaRaiz = raiz
         ocioso()
         assertTrue(enviar(porta(act), "tipo=xtream&servidor=${enc(base)}&usuario=marco&senha=segredo").contains("Pronto"))
-        esperar { textos(raiz).any { it.startsWith("TV ao vivo") } }
+        esperar { textos(raiz).any { it.startsWith("TV  ") } }
 
         // começa no Clássico (azul)
         assertEquals("classico", Estilo.tema)
@@ -463,7 +463,7 @@ class TelaTest {
         assertEquals("premium", Estilo.tema)
         assertEquals(android.graphics.Color.rgb(0x34, 0xE0, 0xF2), Estilo.AZUL_CLARO)
         assertTrue(enviar(porta(act), "tipo=xtream&servidor=${enc(base)}&usuario=marco&senha=segredo").contains("Pronto"))
-        esperar { textos(raiz).any { it.startsWith("TV ao vivo") } }
+        esperar { textos(raiz).any { it.startsWith("TV  ") } }
         clicar(raiz, "Abertos  (2)")
         act.dispatchKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_DPAD_RIGHT))
         act.dispatchKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_DPAD_RIGHT))
@@ -482,7 +482,7 @@ class TelaTest {
         ultimaRaiz = raiz
         ocioso()
         assertTrue(enviar(porta(act), "tipo=xtream&servidor=${enc(base)}&usuario=marco&senha=segredo").contains("Pronto"))
-        esperar { textos(raiz).any { it.startsWith("TV ao vivo") } }
+        esperar { textos(raiz).any { it.startsWith("TV  ") } }
         // a aba Início (só a casinha 🏠, para economizar espaço no topo) existe e abre o hero + prateleiras
         clicar(raiz, "🏠")
         esperar { textos(raiz).any { it == "Filmes" } }

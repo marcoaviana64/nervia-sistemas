@@ -66,7 +66,7 @@ import java.util.concurrent.Executors
 class MainActivity : ComponentActivity() {
 
     // curto = rótulo mostrado na aba (Início vira só a casinha, para a data caber no topo); rotulo = nome por extenso
-    enum class Aba(val rotulo: String, val curto: String = rotulo) { INICIO("Início", "🏠"), TV("TV ao vivo"), FILMES("Filmes"), SERIES("Séries"), AGENDA("Agenda"), AJUSTES("Ajustes") }
+    enum class Aba(val rotulo: String, val curto: String = rotulo) { INICIO("Início", "🏠"), TV("TV ao vivo", "TV"), FILMES("Filmes"), SERIES("Séries"), AGENDA("Agenda"), AJUSTES("Ajustes") }
     private enum class TE { FAVORITOS, CONTINUAR, TODOS, GRUPO, ACAO }
     private data class Entrada(val rotulo: String, val tipo: TE, val grupo: String? = null, val acao: String? = null, val bloqueado: Boolean = false)
 
@@ -353,7 +353,10 @@ class MainActivity : ComponentActivity() {
         // elas nunca empurram o relógio para fora da tela; se não couberem, rolam dentro do trilho (o foco traz a aba à vista).
         val rolaAbas = HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false; isFocusable = false
-            overScrollMode = View.OVER_SCROLL_NEVER; clipChildren = false; clipToPadding = false
+            // RECORTA as abas às bordas do trilho (clipChildren=true): sem isso elas transbordam sobre o relógio e o
+            // logo (o Marco, 23/11/2026). clipToPadding=false + padding vertical dá espaço para o "levantar" do foco.
+            overScrollMode = View.OVER_SCROLL_NEVER; clipChildren = true; clipToPadding = false
+            setPadding(0, 8.dp, 0, 8.dp)
         }
         rolaAbas.addView(pilulas)
         barraAbas.addView(rolaAbas, LinearLayout.LayoutParams(0, -2, 1f))
@@ -662,7 +665,7 @@ class MainActivity : ComponentActivity() {
         guia.preparar(c)
         abas.forEach { (a, t) ->
             val n = porAba[a]?.size ?: 0
-            t.text = if (a == Aba.AJUSTES || a == Aba.AGENDA || a == Aba.INICIO) a.curto else "${a.rotulo}  ${"%,d".format(Locale.forLanguageTag("pt-BR"), n)}"
+            t.text = if (a == Aba.AJUSTES || a == Aba.AGENDA || a == Aba.INICIO) a.curto else "${a.curto}  ${"%,d".format(Locale.forLanguageTag("pt-BR"), n)}"
         }
         atual = atual?.let { a -> porUrl[a.url] ?: a }
         if (primeiraCarga) {
