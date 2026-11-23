@@ -3867,4 +3867,62 @@ do $$ begin
 exception when insufficient_privilege then null;
 end $$;
 select pg_temp.ok(true, 'carga NFS-e: tela não chama a lista');
+
+-- ---------------------------------------------------------------- linum 2.58: promoções
+reset role;
+reset request.jwt.claim.sub;
+insert into lin_estoque (variante_id, loja_id, quantidade) values ('20000000-0000-0000-0000-000000000002', (select v from lin_ids where k = 'gav'), 10)
+  on conflict (variante_id, loja_id) do update set quantidade = excluded.quantidade;
+create temp table lin_pr (k text primary key, v bigint); grant all on lin_pr to authenticated;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora
+select pg_temp.erro2($$select lin_promocao_salvar('{}')$$, 'Somente o Dono ou o Estoque', 'linum 2.58: vendedora não cria promoção');
+select pg_temp.erro2($$insert into lin_promocoes (nome, inicio, fim) values ('x', current_date, current_date)$$, 'permission denied', 'linum 2.58: a tela não grava direto');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';   -- Estoque
+select pg_temp.erro2($$select lin_promocao_salvar(jsonb_build_object('nome', 'Semana', 'inicio', '2026-11-20', 'fim', '2026-11-10',
+  'itens', jsonb_build_array(jsonb_build_object('produto_id', '10000000-0000-0000-0000-000000000001', 'preco', 400))))$$, 'não pode ser antes do início', 'linum 2.58: fim antes do início');
+select pg_temp.erro2($$select lin_promocao_salvar(jsonb_build_object('nome', 'Semana', 'inicio', '2026-11-01', 'fim', '2026-11-30', 'itens', '[]'::jsonb))$$, 'pelo menos uma peça', 'linum 2.58: sem peça');
+select pg_temp.erro2($$select lin_promocao_salvar(jsonb_build_object('nome', 'Semana', 'inicio', '2026-11-01', 'fim', '2026-11-30',
+  'itens', jsonb_build_array(jsonb_build_object('produto_id', '10000000-0000-0000-0000-000000000001', 'preco', 489))))$$, 'menor que o preço de tabela', 'linum 2.58: preço da promoção tem de ser menor');
+-- duas promoções válidas hoje para a peça: vale o menor preço
+insert into lin_pr values ('a', lin_promocao_salvar(jsonb_build_object('nome', 'Semana do Linho', 'inicio', ((now() at time zone 'America/Sao_Paulo')::date - 1)::text,
+  'fim', ((now() at time zone 'America/Sao_Paulo')::date + 5)::text, 'itens', jsonb_build_array(jsonb_build_object('produto_id', '10000000-0000-0000-0000-000000000001', 'preco', 400)))));
+insert into lin_pr values ('b', lin_promocao_salvar(jsonb_build_object('nome', 'Queima Gávea', 'loja_id', (select v from lin_ids where k = 'gav'),
+  'inicio', ((now() at time zone 'America/Sao_Paulo')::date)::text, 'fim', ((now() at time zone 'America/Sao_Paulo')::date)::text,
+  'itens', jsonb_build_array(jsonb_build_object('produto_id', '10000000-0000-0000-0000-000000000001', 'variante_id', '20000000-0000-0000-0000-000000000002', 'preco', 350)))));
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora lê
+select pg_temp.ok((select count(*) = 2 from lin_promocoes) and (select count(*) = 2 from lin_promo_itens), 'linum 2.58: a equipe vê as promoções (a venda precisa)');
+insert into lin_vd values ('pr1', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'data', ((now() at time zone 'America/Sao_Paulo')::date)::text,
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 2, 'valor_unitario', 350, 'desconto_pct', 28.43)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 700))))::text);
+insert into lin_vd values ('pr2', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'data', ((now() at time zone 'America/Sao_Paulo')::date)::text,
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 1, 'valor_unitario', 489)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 489))))::text);
+reset role;
+select pg_temp.ok((select promocao_nome = 'Queima Gávea' and promocao_id = (select v from lin_pr where k = 'b') from lin_venda_itens where venda_id = (select v from lin_vd where k = 'pr1')::bigint),
+  'linum 2.58: peça vendida pelo menor preço válido fica marcada com essa promoção');
+select pg_temp.ok((select promocao_id is null from lin_venda_itens where venda_id = (select v from lin_vd where k = 'pr2')::bigint),
+  'linum 2.58: vendida pelo preço cheio não fica marcada');
+select pg_temp.ok((select nome = 'Queima Gávea' and preco = 350 from _lin_promo_da('20000000-0000-0000-0000-000000000002', (select v from lin_ids where k = 'gav'), (now() at time zone 'America/Sao_Paulo')::date))
+  and (select nome = 'Semana do Linho' and preco = 400 from _lin_promo_da('20000000-0000-0000-0000-000000000002', (select v from lin_ids where k = 'ipa'), (now() at time zone 'America/Sao_Paulo')::date))
+  and not exists (select 1 from _lin_promo_da('20000000-0000-0000-0000-000000000002', (select v from lin_ids where k = 'gav'), '2026-01-01')),
+  'linum 2.58: promoção só na loja e nas datas dela; a de todas as lojas vale em Ipanema');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.erro2($$select lin_promocoes_resumo()$$, 'Somente o Dono ou o Estoque', 'linum 2.58: vendedora não vê o resultado');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+select pg_temp.ok((select (lin_promocoes_resumo() -> (select v from lin_pr where k = 'b')::text ->> 'pecas')::int = 2
+  and (lin_promocoes_resumo() -> (select v from lin_pr where k = 'b')::text ->> 'desconto')::numeric = 278), 'linum 2.58: resultado da promoção (peças e desconto dado)');
+-- alterar e cancelar
+select lin_promocao_salvar(jsonb_build_object('id', (select v from lin_pr where k = 'a'), 'nome', 'Semana do Linho', 'inicio', ((now() at time zone 'America/Sao_Paulo')::date - 1)::text,
+  'fim', ((now() at time zone 'America/Sao_Paulo')::date + 2)::text, 'itens', jsonb_build_array(jsonb_build_object('produto_id', '10000000-0000-0000-0000-000000000001', 'preco', 380))));
+select pg_temp.erro2(format($$select lin_promocao_cancelar(%s, 'x')$$, (select v from lin_pr where k = 'b')), 'motivo do cancelamento', 'linum 2.58: cancelar exige motivo');
+select lin_promocao_cancelar((select v from lin_pr where k = 'b'), 'acabou o estoque da promoção');
+reset role;
+select pg_temp.ok((select preco = 380 from lin_promo_itens where promocao_id = (select v from lin_pr where k = 'a'))
+  and (select nome = 'Semana do Linho' and preco = 380 from _lin_promo_da('20000000-0000-0000-0000-000000000002', (select v from lin_ids where k = 'gav'), (now() at time zone 'America/Sao_Paulo')::date))
+  and (select count(*) = 4 from auditoria where acao in ('linum_promocao_criada', 'linum_promocao_alterada', 'linum_promocao_cancelada') and detalhes ->> 'nome' in ('Semana do Linho', 'Queima Gávea'))
+  and exists (select 1 from auditoria where acao = 'linum_promocao_criada') and exists (select 1 from auditoria where acao = 'linum_promocao_cancelada'),
+  'linum 2.58: alterar troca o preço; cancelada deixa de valer; auditoria');
+reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'
