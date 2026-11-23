@@ -93,13 +93,31 @@ async function telaPromocoes() {
   });
 }
 
-// formulário: nome, loja, datas, observação e as peças com o preço da promoção
+// formulário: nome, loja, datas, observação e as peças com o preço da promoção.
+// 2.59 (pedido do Marco: "por lista suspensa fica muito difícil"): cada peça mostra a GRADE de cores × tamanhos como no
+// Estoque; um clique marca/desmarca a variação, clicar na cor marca a linha, no tamanho a coluna; Todas / Nenhuma / Só as
+// com estoque; peças especiais à parte. Um preço vale para as marcadas da peça; outro preço = adicionar a peça de novo.
+// Gravação igual à 2.58: todas as cores/tamanhos normais marcadas (e nenhuma especial) = uma linha sem variante; senão uma
+// linha por variação marcada.
+const prNormais = p => (p.variantes || []).filter(v => v.ativo !== false && !(v.edicao || "").trim()).sort(ordemVar);
+const prEspeciais = p => (p.variantes || []).filter(v => v.ativo !== false && (v.edicao || "").trim()).sort(ordemVar);
 function editarPromocao(pr) {
   $("dlg").classList.add("largo");
   const f = $("dlgf");
-  const P = pr ? { id: pr.id, nome: pr.nome, loja: pr.loja_id || "", inicio: pr.inicio, fim: pr.fim, obs: pr.observacao || "",
-                   itens: pr.itens.map(i => ({ produto_id: i.produto_id, variante_id: i.variante_id || "", preco: moeda(i.preco) })) }
+  // itens: {produto_id, sel: Set(variante_id), preco}
+  const itensDe = pr => {
+    const grupos = new Map();
+    for (const i of pr.itens) {
+      const k = i.produto_id + "|" + Number(i.preco).toFixed(2);
+      if (!grupos.has(k)) grupos.set(k, { produto_id: i.produto_id, sel: new Set(), preco: moeda(i.preco) });
+      const g = grupos.get(k), p = prProduto(i.produto_id);
+      if (i.variante_id) g.sel.add(i.variante_id); else if (p) prNormais(p).forEach(v => g.sel.add(v.id));
+    }
+    return [...grupos.values()];
+  };
+  const P = pr ? { id: pr.id, nome: pr.nome, loja: pr.loja_id || "", inicio: pr.inicio, fim: pr.fim, obs: pr.observacao || "", itens: itensDe(pr) }
     : { id: null, nome: "", loja: "", inicio: hoje(), fim: somaDias(hoje(), 6), obs: "", itens: [] };
+  const estoque = vid => P.loja ? qtd(vid, P.loja) : LOJAS.reduce((s, l) => s + qtd(vid, l.id), 0);
   const desenhar = erro => {
     f.innerHTML = `<h3>${P.id ? "Editar promoção" : "Nova promoção"}</h3>
       <div class="campo grade3">
@@ -114,27 +132,47 @@ function editarPromocao(pr) {
       <div class="caixa"><h4>Peças da promoção</h4>
         <input id="prq" type="search" placeholder="Procure a peça pela referência ou pelo nome" autocomplete="off"><div id="prres"></div>
         <div id="pritens" class="campo"></div>
-        <div class="mut" style="font-size:12px">"Todas as cores e tamanhos" vale para as cores e tamanhos normais da peça; peça especial (com preço próprio) entra só escolhida uma a uma.</div>
+        <div class="mut" style="font-size:12px">Clique nos quadradinhos para marcar as cores e tamanhos que entram na promoção (o número é o estoque${P.loja ? " da loja" : " das lojas"}). Clique na cor para marcar a linha e no tamanho para marcar a coluna. Para outro preço na mesma peça, adicione a peça de novo.</div>
       </div>
       ${erro ? `<div class="msg err">${esc(erro)}</div>` : ""}
       <div class="acoes"><button type="button" class="bt" id="prx">Cancelar</button><button type="button" class="bt pri" id="prok">${P.id ? "Salvar alterações" : "Criar promoção"}</button></div>`;
     const guardar = () => { P.nome = $("prnome").value; P.inicio = $("prini").value; P.fim = $("prfim").value; P.loja = $("prloja").value; P.obs = $("probs").value; };
-    ["prnome", "prini", "prfim", "prloja", "probs"].forEach(id => $(id).onchange = guardar);
+    ["prnome", "prini", "prfim", "probs"].forEach(id => $(id).onchange = guardar);
+    $("prloja").onchange = () => { guardar(); itens(); };   // o estoque mostrado muda com a loja
+    const desconto = (tab, pr) => tab > 0 && pr > 0 && pr < tab ? "−" + decBR(r2((1 - pr / tab) * 100)) + "%" : "";
+    const grade = (it, k, p) => {
+      const vs = prNormais(p), esp = prEspeciais(p);
+      const cores = [...new Set(vs.map(v => v.cor || "—"))], tams = [...new Set(vs.map(v => v.tamanho || ""))].sort(ordemTam);
+      const cel = v => { if (!v) return '<td></td>'; const on = it.sel.has(v.id), q = estoque(v.id);
+        return `<td><button type="button" class="prch${on ? " on" : ""}${q ? "" : " zero"}" data-prv="${k}|${v.id}" aria-pressed="${on}" title="${esc(nomeVar(v))} · ${q} em estoque">${on ? "✓ " : ""}${q}</button></td>`; };
+      return `<div class="prgrade">${vs.length ? `<table><thead><tr><th></th>${tams.map(t => `<th><button type="button" class="lnk" data-prcol="${k}|${esc(t)}" title="Marcar/desmarcar o tamanho ${esc(t)} em todas as cores">${esc(t || "—")}</button></th>`).join("")}</tr></thead><tbody>
+        ${cores.map(c => `<tr><th><button type="button" class="lnk" data-prrow="${k}|${esc(c)}" title="Marcar/desmarcar todos os tamanhos de ${esc(c)}">${esc(c)}</button></th>${tams.map(t => cel(vs.find(v => (v.cor || "—") === c && (v.tamanho || "") === t))).join("")}</tr>`).join("")}
+        </tbody></table>` : '<div class="mut">Esta peça ainda não tem cores e tamanhos cadastrados.</div>'}
+        ${esp.length ? `<div class="mut" style="margin-top:6px">★ Peças especiais (preço próprio):</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">${esp.map(v => { const on = it.sel.has(v.id);
+          return `<button type="button" class="prch esp${on ? " on" : ""}" data-prv="${k}|${v.id}" aria-pressed="${on}">${on ? "✓ " : ""}${esc(nomeVar(v))} · ${brl(prTabela(p, v))} · ${estoque(v.id)}</button>`; }).join("")}</div>` : ""}</div>`;
+    };
     const itens = () => {
-      $("pritens").innerHTML = P.itens.length ? `<div class="tw"><table><thead><tr><th>Peça</th><th>Cor / tamanho</th><th class="num">Tabela</th><th class="num">Preço na promoção</th><th class="num">Desconto</th><th></th></tr></thead><tbody>
-        ${P.itens.map((it, k) => { const p = prProduto(it.produto_id) || { referencia: "?", descricao: "peça excluída", variantes: [] };
-          const v = it.variante_id ? (p.variantes || []).find(x => x.id === it.variante_id) : null, tab = prTabela(p, v), pr = numV(it.preco);
-          return `<tr><td><b>${esc(p.referencia)}</b> ${esc(p.descricao)}</td>
-            <td><select data-prv="${k}"><option value="">Todas as cores e tamanhos</option>${(p.variantes || []).filter(x => x.ativo !== false || x.id === it.variante_id).map(x => `<option value="${x.id}" ${x.id === it.variante_id ? "selected" : ""}>${esc(nomeVar(x))}${x.preco_venda != null ? " · " + brl(x.preco_venda) : ""}</option>`).join("")}</select></td>
-            <td class="num">${brl(tab)}</td>
-            <td class="num"><input data-prp="${k}" inputmode="decimal" value="${esc(it.preco)}" placeholder="0,00" style="width:100px"></td>
-            <td class="num" data-prd="${k}">${tab > 0 && pr > 0 && pr < tab ? "−" + decBR(r2((1 - pr / tab) * 100)) + "%" : "—"}</td>
-            <td><button type="button" class="lnk perigo" data-prrm="${k}" title="Tirar">×</button></td></tr>`; }).join("")}
-        </tbody></table></div>` : '<div class="mut">Nenhuma peça ainda: procure acima.</div>';
-      $("pritens").querySelectorAll("[data-prv]").forEach(s => s.onchange = () => { P.itens[s.dataset.prv].variante_id = s.value; itens(); });
-      $("pritens").querySelectorAll("[data-prp]").forEach(i => i.oninput = () => { const it = P.itens[i.dataset.prp]; it.preco = i.value;
-        const p = prProduto(it.produto_id), v = it.variante_id ? (p.variantes || []).find(x => x.id === it.variante_id) : null, tab = prTabela(p, v), pr = numV(it.preco);
-        $("pritens").querySelector(`[data-prd="${i.dataset.prp}"]`).textContent = tab > 0 && pr > 0 && pr < tab ? "−" + decBR(r2((1 - pr / tab) * 100)) + "%" : "—"; });
+      $("pritens").innerHTML = P.itens.length ? P.itens.map((it, k) => {
+        const p = prProduto(it.produto_id) || { referencia: "?", descricao: "peça excluída", variantes: [] }, tab = Number(p.preco_venda) || 0, pr = numV(it.preco);
+        const total = prNormais(p).length + prEspeciais(p).length;
+        return `<div class="card prpeca" style="margin:8px 0">
+          <div class="vlin" style="border:0;flex-wrap:wrap"><span><b>${esc(p.referencia)}</b> ${esc(p.descricao)} · tabela ${brl(tab)}</span>
+            <span style="display:flex;gap:8px;align-items:center"><label for="prp${k}" style="margin:0">Preço na promoção</label><input id="prp${k}" data-prp="${k}" inputmode="decimal" value="${esc(it.preco)}" placeholder="0,00" style="width:110px">
+              <b class="tag ok" data-prd="${k}">${desconto(tab, pr)}</b><button type="button" class="lnk perigo" data-prrm="${k}" title="Tirar a peça da promoção">Tirar</button></span></div>
+          ${grade(it, k, p)}
+          <div class="acoes" style="justify-content:flex-start;margin-top:4px"><button type="button" class="pilula" data-prtodas="${k}">Todas</button><button type="button" class="pilula" data-prnenh="${k}">Nenhuma</button><button type="button" class="pilula" data-prest="${k}">Só as com estoque</button>
+            <span class="mut" data-prcont="${k}">${it.sel.size} de ${total} marcada(s)</span></div></div>`; }).join("")
+        : '<div class="mut">Nenhuma peça ainda: procure acima.</div>';
+      const peca = k => prProduto(P.itens[k].produto_id) || { variantes: [] };
+      const alternar = (k, ids) => { const s = P.itens[k].sel, todos = ids.every(id => s.has(id)); ids.forEach(id => todos ? s.delete(id) : s.add(id)); itens(); };
+      $("pritens").querySelectorAll("[data-prv]").forEach(b => b.onclick = () => { const [k, id] = b.dataset.prv.split("|"); alternar(+k, [id]); });
+      $("pritens").querySelectorAll("[data-prrow]").forEach(b => b.onclick = () => { const [k, c] = b.dataset.prrow.split("|"); alternar(+k, prNormais(peca(+k)).filter(v => (v.cor || "—") === c).map(v => v.id)); });
+      $("pritens").querySelectorAll("[data-prcol]").forEach(b => b.onclick = () => { const [k, t] = b.dataset.prcol.split("|"); alternar(+k, prNormais(peca(+k)).filter(v => (v.tamanho || "") === t).map(v => v.id)); });
+      $("pritens").querySelectorAll("[data-prtodas]").forEach(b => b.onclick = () => { const k = +b.dataset.prtodas; prNormais(peca(k)).forEach(v => P.itens[k].sel.add(v.id)); itens(); });
+      $("pritens").querySelectorAll("[data-prnenh]").forEach(b => b.onclick = () => { P.itens[+b.dataset.prnenh].sel.clear(); itens(); });
+      $("pritens").querySelectorAll("[data-prest]").forEach(b => b.onclick = () => { const k = +b.dataset.prest; P.itens[k].sel = new Set(prNormais(peca(k)).filter(v => estoque(v.id) > 0).map(v => v.id)); itens(); });
+      $("pritens").querySelectorAll("[data-prp]").forEach(i => i.oninput = () => { const k = +i.dataset.prp, it = P.itens[k]; it.preco = i.value;
+        $("pritens").querySelector(`[data-prd="${k}"]`).textContent = desconto(Number(peca(k).preco_venda) || 0, numV(it.preco)); });
       $("pritens").querySelectorAll("[data-prrm]").forEach(b => b.onclick = () => { P.itens.splice(+b.dataset.prrm, 1); itens(); });
     };
     $("prq").oninput = () => {
@@ -144,7 +182,7 @@ function editarPromocao(pr) {
       $("prres").innerHTML = l.length ? l.map(p => `<div class="vlin"><span><b>${esc(p.referencia)}</b> ${esc(p.descricao)} · ${brl(p.preco_venda)}</span><button type="button" class="lnk" data-pradd="${p.id}">Adicionar</button></div>`).join("")
         : '<div class="mut">Nenhuma peça encontrada.</div>';
       $("prres").querySelectorAll("[data-pradd]").forEach(b => b.onclick = () => {
-        guardar(); P.itens.push({ produto_id: b.dataset.pradd, variante_id: "", preco: "" });
+        guardar(); P.itens.push({ produto_id: b.dataset.pradd, sel: new Set(), preco: "" });
         $("prq").value = ""; $("prres").innerHTML = ""; itens();
         const ult = $("pritens").querySelector(`[data-prp="${P.itens.length - 1}"]`); if (ult) ult.focus();
       });
@@ -157,15 +195,24 @@ function editarPromocao(pr) {
       if (!P.inicio || !P.fim) return desenhar("Informe o início e o fim.");
       if (P.fim < P.inicio) return desenhar("O fim não pode ser antes do início.");
       if (!P.itens.length) return desenhar("Escolha pelo menos uma peça.");
+      const linhas = [], vistas = new Map();
       for (const it of P.itens) {
-        const p = prProduto(it.produto_id), v = it.variante_id ? (p.variantes || []).find(x => x.id === it.variante_id) : null, tab = prTabela(p, v), pr = numV(it.preco);
-        if (!(pr > 0) && String(it.preco).trim() !== "0") return desenhar(`Informe o preço da promoção de ${p.referencia} ${p.descricao}.`);
-        if (tab > 0 && pr >= tab) return desenhar(`${p.referencia} ${p.descricao}: o preço da promoção (${brl(pr)}) tem de ser menor que o de tabela (${brl(tab)}).`);
+        const p = prProduto(it.produto_id), nome = `${p.referencia} ${p.descricao}`, pr = numV(it.preco);
+        if (!it.sel.size) return desenhar(`${nome}: marque pelo menos uma cor/tamanho.`);
+        if (!(pr > 0) && String(it.preco).trim() !== "0") return desenhar(`Informe o preço da promoção de ${nome}.`);
+        for (const vid of it.sel) {
+          const v = (p.variantes || []).find(x => x.id === vid), tab = prTabela(p, v);
+          if (tab > 0 && pr >= tab) return desenhar(`${nome} ${v ? nomeVar(v) : ""}: o preço da promoção (${brl(pr)}) tem de ser menor que o de tabela (${brl(tab)}).`);
+          if (vistas.has(vid)) return desenhar(`${nome} ${v ? nomeVar(v) : ""} está marcada duas vezes na promoção (com preços diferentes). Desmarque numa delas.`);
+          vistas.set(vid, true);
+        }
+        const normais = prNormais(p), todasNormais = normais.length && normais.every(v => it.sel.has(v.id));
+        if (todasNormais) linhas.push({ produto_id: it.produto_id, variante_id: null, preco: numBR(it.preco) });
+        for (const vid of it.sel) if (!(todasNormais && normais.some(v => v.id === vid))) linhas.push({ produto_id: it.produto_id, variante_id: vid, preco: numBR(it.preco) });
       }
       $("prok").disabled = true;
       try {
-        const id = checar(await sb.rpc("lin_promocao_salvar", { p: { id: P.id, nome: P.nome.trim(), loja_id: P.loja || null, inicio: P.inicio, fim: P.fim, observacao: P.obs.trim(),
-          itens: P.itens.map(i => ({ produto_id: i.produto_id, variante_id: i.variante_id || null, preco: numBR(i.preco) })) } }));
+        const id = checar(await sb.rpc("lin_promocao_salvar", { p: { id: P.id, nome: P.nome.trim(), loja_id: P.loja || null, inicio: P.inicio, fim: P.fim, observacao: P.obs.trim(), itens: linhas } }));
         $("dlg").close(); msg("ok", `Promoção "${P.nome.trim()}" ${P.id ? "alterada" : "criada"} (nº ${id}).`);
         telaPromocoes();
       } catch (e) { desenhar(e.message); }

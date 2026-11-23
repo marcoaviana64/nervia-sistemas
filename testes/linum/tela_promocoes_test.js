@@ -13,8 +13,10 @@ const DADOS = {
   papel: 'vendedora', minha_loja: 'l-ipa', comissao_pct: 0,
   lojas: [{ id: 'l-ipa', nome: 'Ipanema' }, { id: 'l-gav', nome: 'Gávea' }],
   produtos: [{ id: 'p1', referencia: 'A25', descricao: 'Vestido Artesanal', categoria: 'Vestido', preco_venda: 1799,
-    variantes: [{ id: 'v1', cor: 'Natural', tamanho: 'G', edicao: '' }, { id: 'v2', cor: 'Natural', tamanho: 'M', edicao: 'Bordada', preco_venda: 2400 }] }],
-  estoque: [['v1', 'l-ipa', 5], ['v2', 'l-ipa', 3], ['v1', 'l-gav', 2]],
+    variantes: [{ id: 'v1', cor: 'Natural', tamanho: 'G', edicao: '' }, { id: 'v2', cor: 'Natural', tamanho: 'M', edicao: 'Bordada', preco_venda: 2400 }] },
+    { id: 'p2', referencia: 'B10', descricao: 'Blusa Linho', categoria: 'Blusa', preco_venda: 500,
+      variantes: [{ id: 'w1', cor: 'Cru', tamanho: 'P', edicao: '' }, { id: 'w2', cor: 'Cru', tamanho: 'M', edicao: '' }, { id: 'w3', cor: 'Preto', tamanho: 'P', edicao: '' }, { id: 'w4', cor: 'Preto', tamanho: 'M', edicao: '' }] }],
+  estoque: [['v1', 'l-ipa', 5], ['v2', 'l-ipa', 3], ['v1', 'l-gav', 2], ['w1', 'l-ipa', 2], ['w4', 'l-ipa', 1]],
 };
 const venda = (id, vend, pags) => ({ id, data: hoje, loja_id: 'l-ipa', vendedora_id: vend, vendedora_nome: vend === 'u-vendedora' ? 'Beatriz' : 'Bia Outra',
   cliente_id: null, valor_bruto: 849, valor_itens: 849, desconto: 0, valor_total: 849, credito_usado: 0, valor_nf: 849, comissao_pct: 0, comissao_valor: 0,
@@ -120,14 +122,31 @@ const somaD = (d, n) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.g
     await e.pg.click('#prnova'); await e.pg.waitForSelector('#dlg[open] #prok');
     await e.pg.fill('#prnome', 'Semana do Linho');
     await e.pg.fill('#prq', 'a25'); await e.pg.waitForTimeout(150); await e.pg.click('[data-pradd="p1"]'); await e.pg.waitForTimeout(100);
+    await e.pg.fill('[data-prp="0"]', '1349,90'); await e.pg.click('#prok'); await e.pg.waitForTimeout(200);
+    ok((await e.pg.locator('#dlgf .msg.err').innerText()).includes('marque pelo menos uma cor'), '2.59: peça sem cor/tamanho marcado não salva');
+    await e.pg.click('[data-prtodas="0"]'); await e.pg.waitForTimeout(100);
+    ok(await e.pg.locator('[data-prv="0|v1"].on').count() === 1 && await e.pg.locator('[data-prv="0|v2"].on').count() === 0, '2.59: "Todas" marca as normais, não a peça especial');
     await e.pg.fill('[data-prp="0"]', '1900'); await e.pg.click('#prok'); await e.pg.waitForTimeout(200);
     ok((await e.pg.locator('#dlgf .msg.err').innerText()).includes('menor que o de tabela'), 'preço da promoção maior que o de tabela: barrado na tela');
     await e.pg.fill('[data-prp="0"]', '1349,90'); await e.pg.waitForTimeout(100);
     ok((await e.pg.locator('[data-prd="0"]').innerText()).startsWith('−'), 'mostra o desconto da promoção');
     await print(e.pg, 'promo_form');
+    // 2.59: grade — segunda peça com 2 cores × 2 tamanhos
+    await e.pg.fill('#prq', 'b10'); await e.pg.waitForTimeout(150); await e.pg.click('[data-pradd="p2"]'); await e.pg.waitForTimeout(100);
+    await e.pg.click('[data-prrow="1|Cru"]'); await e.pg.waitForTimeout(80);
+    ok(await e.pg.locator('#pritens [data-prv^="1|"].on').count() === 2, '2.59: clicar na cor marca a linha');
+    await e.pg.click('[data-prcol="1|M"]'); await e.pg.waitForTimeout(80);
+    ok(await e.pg.locator('#pritens [data-prv^="1|"].on').count() === 3 && (await e.pg.locator('[data-prcont="1"]').innerText()).startsWith('3 de 4'), '2.59: clicar no tamanho marca a coluna (contador)');
+    await e.pg.click('[data-prv="1|w2"]'); await e.pg.waitForTimeout(80);
+    ok(await e.pg.locator('#pritens [data-prv^="1|"].on').count() === 2, '2.59: clique no quadradinho desmarca');
+    await e.pg.click('[data-prest="1"]'); await e.pg.waitForTimeout(80);
+    ok(await e.pg.locator('[data-prv="1|w1"].on').count() === 1 && await e.pg.locator('[data-prv="1|w4"].on').count() === 1 && await e.pg.locator('#pritens [data-prv^="1|"].on').count() === 2, '2.59: "Só as com estoque"');
+    await e.pg.fill('[data-prp="1"]', '399,90');
+    await print(e.pg, 'promo_grade');
     await e.pg.click('#prok'); await e.pg.waitForTimeout(400);
     const r = await ultimaRpc(e.pg, 'lin_promocao_salvar');
-    ok(r && r.p.nome === 'Semana do Linho' && r.p.loja_id === null && r.p.inicio === hoje && r.p.fim === somaD(hoje, 6) && r.p.itens[0].produto_id === 'p1' && r.p.itens[0].variante_id === null && r.p.itens[0].preco === '1349.90',
+    ok(r && r.p.itens.length === 3 && r.p.itens[1].variante_id === 'w1' && r.p.itens[2].variante_id === 'w4' && r.p.itens[1].preco === '399.90', '2.59: grava uma linha por cor/tamanho marcado');
+    ok(r && r.p.nome === 'Semana do Linho' && r.p.loja_id === null && r.p.inicio === hoje && r.p.fim === somaD(hoje, 6) && r.p.itens[0].produto_id === 'p1' && r.p.itens[0].variante_id === null && r.p.itens[0].preco === '1349.90' && r.p.itens.length === 3,
       'grava nome, todas as lojas, 7 dias a partir de hoje e a peça com o preço');
     const t = await e.pg.locator('#tela').innerText();
     ok(t.includes('Semana do Linho') && t.includes('Valendo') && t.includes('todas as cores e tamanhos') && t.includes('Todas as lojas'), 'lista mostra a promoção valendo');
@@ -189,6 +208,7 @@ const somaD = (d, n) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.g
     const m = await pagina(cel, 'estoque', promos);
     await m.pg.click('.barra .grupo[data-g="estoque"]'); await m.pg.waitForTimeout(150); await m.pg.click('#abaPromo'); await m.pg.waitForSelector('#prnova');
     await m.pg.click('[data-pred="1"]'); await m.pg.waitForSelector('#dlg[open] #prok');
+    ok(await m.pg.locator('[data-prv="0|v1"].on').count() === 1, '2.59: ao editar, a peça inteira aparece com as cores/tamanhos normais marcados');
     ok(await m.pg.evaluate(() => document.getElementById('dlg').scrollWidth <= document.getElementById('dlg').clientWidth + 1), 'celular: formulário sem rolagem lateral');
     await print(m.pg, 'promo_celular');
   } catch (e) { falhas++; console.log('FALHOU  ' + (e.stack || e)); }
