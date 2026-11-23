@@ -115,6 +115,12 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
   configuração sempre relê o `nvplayer.json` ao abrir — então o portal mostra o endereço atual se o provedor trocou
   (antes ficava fixo no embutido). A TV já ligada continua trocando sozinha pelo failover (2.5): quando o servidor
   salvo não responde, relê o `nvplayer.json` e passa para o 1º que faz login. Teste `TelaTest.portalMostraServidorDoSite`.
+- **Trilho das abas recortado + "TV"** (2.34, 23/11/2026, o Marco: a 2.33 mostrou a data, mas o menu (grande pelos
+  números) passava POR CIMA da data e, ao navegar, por cima do logo): o `HorizontalScrollView` das abas estava com
+  `clipChildren=false` e as abas transbordavam sobre o relógio/logo; agora `clipChildren=true` (com `clipToPadding=false`
+  + 8dp vertical para o "levantar" do foco não cortar), então as abas ficam DENTRO do trilho. E a aba "TV ao vivo"
+  virou só **"TV"** (pedido do Marco; `Aba.TV.curto="TV"`, e o rótulo com número passou a usar `a.curto`), economizando
+  espaço. Testes esperam/clicam `"TV  "` (duas casas) no lugar de "TV ao vivo".
 - **Relógio blindado no topo** (2.33, 23/11/2026, o Marco: com a 2.32 a data piorou — só dia/mês, e vão grande à
   esquerda): a 2.32 aumentou o padding dos DOIS lados, mas com os números grandes das abas do Marco (TV ao vivo 3.298,
   Filmes 17.780, Séries 5.779) a linha estourou e empurrou o relógio para fora, e os 60dp à esquerda viraram vão. Agora:
