@@ -115,6 +115,9 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
   configuração sempre relê o `nvplayer.json` ao abrir — então o portal mostra o endereço atual se o provedor trocou
   (antes ficava fixo no embutido). A TV já ligada continua trocando sozinha pelo failover (2.5): quando o servidor
   salvo não responde, relê o `nvplayer.json` e passa para o 1º que faz login. Teste `TelaTest.portalMostraServidorDoSite`.
+- **Coluna de grupos mais larga** (2.29, 23/11/2026, o Marco com foto: os nomes dos grupos "Canais | …" ficavam
+  cortados): na TV ao vivo, peso da coluna de grupos 0.18 → 0.24, prévia 0.52 → 0.44, canais 0.32 (em `trocarAba` e no
+  `addView(lado)`); cabe mais texto do nome do grupo.
 - **Tela de Início (hero) e foco na Agenda** (2.28, 23/11/2026, pedidos do Marco): (1) nova aba **Início** (1ª aba;
   `Aba.INICIO`): hero com pôster grande em destaque (véu escuro, título, ano/★nota, botão ▶ Abrir que abre a ficha) +
   prateleiras horizontais de capinhas (Continuar assistindo, Filmes, Séries, Canais favoritos). `montarInicio`/
