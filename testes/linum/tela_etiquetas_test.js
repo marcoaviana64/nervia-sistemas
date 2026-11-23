@@ -59,7 +59,7 @@ async function pagina(ctx) {
   pg.on('pageerror', e => erros.push(String(e)));
   await pg.route('**/supabase-js@*/**', r => r.fulfill({ body: FALSO, contentType: 'text/javascript' }));
   if (process.env.JSPDF) await pg.route('**/jspdf/2.5.1/**', r => r.fulfill({ body: fs.readFileSync(process.env.JSPDF), contentType: 'text/javascript' }));
-  await pg.goto(`http://127.0.0.1:${PORTA}/apps/linum/`);
+  await pg.goto(`http://127.0.0.1:${PORTA}/apps/linum/?aba=estoque`);
   await pg.waitForSelector('#app:not(.oculto)');
   return { pg, erros };
 }

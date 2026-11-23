@@ -93,7 +93,7 @@ async function aba(pg, sel) { const g = await pg.getAttribute(sel, 'data-g'); aw
     const pg = await ctx.newPage(); const erros = [];
     pg.on('pageerror', e => erros.push(String(e)));
     await pg.route('**/supabase-js@*/**', r => r.fulfill({ body: FALSO, contentType: 'text/javascript' }));
-    await pg.goto(`http://127.0.0.1:${PORTA}/apps/linum/`); await pg.waitForSelector('#app:not(.oculto)');
+    await pg.goto(`http://127.0.0.1:${PORTA}/apps/linum/?aba=estoque`); await pg.waitForSelector('#app:not(.oculto)');
     await aba(pg, '#abaAjustes'); await pg.waitForSelector('#ajtab');
     ok(await pg.locator('#ajtab [data-ficha]').count() === 4, 'cada ajuste tem o número e "Ficha" para abrir a ficha');
 
@@ -169,7 +169,7 @@ async function aba(pg, sel) { const g = await pg.getAttribute(sel, 'data-g'); aw
     const cel = await b.newContext({ viewport: { width: 390, height: 844 } });
     const c = await cel.newPage(); const ce = []; c.on('pageerror', e => ce.push(String(e)));
     await c.route('**/supabase-js@*/**', r => r.fulfill({ body: FALSO, contentType: 'text/javascript' }));
-    await c.goto(`http://127.0.0.1:${PORTA}/apps/linum/`); await c.waitForSelector('#app:not(.oculto)');
+    await c.goto(`http://127.0.0.1:${PORTA}/apps/linum/?aba=estoque`); await c.waitForSelector('#app:not(.oculto)');
     await aba(c, '#abaAjustes'); await c.click('#ajtab [data-ficha="2"] >> nth=0'); await c.waitForSelector('#dlg2[open] .ajlinha');
     ok(await c.evaluate(() => document.getElementById('dlg2').scrollWidth <= document.getElementById('dlg2').clientWidth + 1), 'celular: ficha sem rolagem lateral');
     await print(c, 'ajuste_ficha_celular');

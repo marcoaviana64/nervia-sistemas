@@ -22,6 +22,7 @@
 <script src="gerencial-vendas.js"></script>
 <script src="termica.js"></script>
 <script src="promocoes.js"></script>
+<script src="inicio.js"></script>
 <style>
 /* Sistema Linum (app "linum", tabelas lin_): o sistema da LINUM Roupas de Linho trazido do Lovable para a Plataforma.
    Produtos, estoque das lojas, vendas (boleta) e clientes. Dono: tudo; Estoque: cadastra e movimenta sem custo;
@@ -164,6 +165,18 @@ h2.temesp::after{content:"★";color:#c9a227;font-size:.7em;margin-left:5px;vert
 .grade3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 dialog.largo{max-width:860px}
 tr.cancelada td{color:var(--ink-faint);text-decoration:line-through}tr.cancelada td:last-child{text-decoration:none}
+.ingrade{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;align-items:start}
+.ingrade .card{margin-bottom:0}.inq.alerta{border-left:4px solid var(--crit)}
+.inqcab{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px}.inqcab h2{margin:0;font-size:15px}
+.inqn{display:inline-block;min-width:18px;padding:0 6px;border-radius:999px;background:var(--border);font-size:11px;font-weight:700;line-height:18px;text-align:center}
+.inlin{display:flex;justify-content:space-between;gap:8px;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--border);padding:6px 2px;font:inherit;color:inherit;cursor:pointer}
+.inlin:hover{background:var(--bg)}.inlin>span:last-child{text-align:right;font-size:12px}
+.insub{font-size:12px;font-weight:700;color:var(--ink-soft);margin:8px 0 2px;text-transform:uppercase;letter-spacing:.3px}
+.inbig{font-size:22px;font-weight:700}.inbig small{font-size:13px;font-weight:400}
+.ingrade3{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.inbar{display:grid;grid-template-columns:minmax(70px,40%) 1fr auto;gap:6px;align-items:center;font-size:13px;margin:3px 0}
+.inbar span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.inbar i{display:block;height:10px;border-radius:5px;background:var(--accent);min-width:2px}
+#inmais{margin-top:12px}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px}
 .kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px}
 .kpi small{display:block;color:var(--ink-soft)}.kpi b{font-size:22px;display:block;font-variant-numeric:tabular-nums}.kpi span{font-size:12px;color:var(--ink-faint)}
@@ -202,6 +215,7 @@ td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-n
   <div id="app" class="oculto">
     <div class="barra">
       <div class="grupos">
+        <button type="button" class="grupo" data-g="inicio" id="grp_inicio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg><span>Início</span><span class="gb"></span></button>
         <button type="button" class="grupo oculto" data-g="estoque" id="grp_estoque"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z"/><path d="m3 7.5 9 4.5 9-4.5M12 12v9"/></svg><span>Estoque</span><span class="gb"></span></button>
         <button type="button" class="grupo oculto" data-g="vendas" id="grp_vendas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M5 8h14l-1.2 12H6.2z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg><span>Vendas</span><span class="gb"></span></button>
         <button type="button" class="grupo oculto" data-g="producao" id="grp_producao"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8 7.5 20 18M8 16.5 20 6"/></svg><span>Produção</span><span class="gb"></span></button>
@@ -210,8 +224,9 @@ td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-n
         <div class="dir" id="quem"></div>
       </div>
       <div class="abas">
+        <button class="aba on" data-v="inicio" data-g="inicio" id="abaInicio">Início</button>
         <button class="aba oculto" data-v="produtos" data-g="estoque" id="abaProdutos">Produtos</button>
-        <button class="aba on" data-v="estoque" data-g="estoque">Estoque</button>
+        <button class="aba" data-v="estoque" data-g="estoque">Estoque</button>
         <button class="aba oculto" data-v="movimentos" data-g="estoque" id="abaMovimentos">Movimentações</button>
         <button class="aba oculto" data-v="transferencias" data-g="estoque" id="abaTransf">Transferências</button>
         <button class="aba oculto" data-v="beneficiamento" data-g="estoque" id="abaBenef">Beneficiamento</button>
@@ -264,7 +279,7 @@ const n = v => Number(v || 0).toLocaleString("pt-BR");
 function msg(tipo, texto) { const m = $("msg"); m.className = "msg " + tipo; m.textContent = texto; m.scrollIntoView({ block: "nearest" }); if (tipo === "ok") setTimeout(() => m.classList.add("oculto"), 5000); }
 function limparMsg() { $("msg").className = "msg oculto"; }
 
-let MINHA_LOJA = null, ADMIN = false, PAPEL = null, LOJAS = [], PRODUTOS = [], QTD = new Map(), VISTA = "estoque", EQUIPE = [];
+let MINHA_LOJA = null, ADMIN = false, PAPEL = null, LOJAS = [], PRODUTOS = [], QTD = new Map(), VISTA = new URLSearchParams(location.search).get("aba") || "inicio", EQUIPE = [];   // 2.62: o app abre no Início (?aba=estoque abre outra aba)
 const F = { q: "", loja: "", cat: "", cor: "", tam: "", zerados: true, prov: false, promo: false };
 // referência provisória = a automática NOVA-<ano>-<nº> (produto cadastrado sem saber a referência; troca-se depois no Editar)
 const refProvisoria = p => /^NOVA-\d{4}-\d+$/i.test(p.referencia || "");
@@ -443,6 +458,7 @@ function menu() {
 }
 function render() {
   menu();
+  if (VISTA === "inicio" && vende()) return telaInicio();
   if (VISTA === "equipe" && ADMIN) return telaEquipe();
   if (VISTA === "produtos" && controla()) return telaProdutos();
   if (VISTA === "movimentos" && controla()) return telaMovimentos();

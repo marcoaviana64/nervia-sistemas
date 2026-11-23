@@ -113,7 +113,7 @@ async function pagina(ctx, papel) {
   pg.on('dialog', d => d.accept(pg.__resposta || ''));
   await pg.route('**/supabase-js@*/**', r => r.fulfill({ body: FALSO.replace('"papel":"dono"', `"papel":"${papel}"`), contentType: 'text/javascript' }));
   await pg.route('**/cdnjs.cloudflare.com/**', r => r.fulfill({ body: CHART, contentType: 'text/javascript' }));
-  await pg.goto(`http://127.0.0.1:${PORTA}/apps/linum/`);
+  await pg.goto(`http://127.0.0.1:${PORTA}/apps/linum/?aba=estoque`);
   await pg.waitForSelector('#app:not(.oculto)');
   return { pg, erros };
 }
