@@ -93,7 +93,7 @@ async function pagina(ctx, papel) {
   const pg = await ctx.newPage(); const erros = [];
   pg.on('pageerror', e => erros.push(String(e)));
   await pg.route('**/supabase-js@*/**', r => r.fulfill({ body: FALSO.replace('"papel":"dono"', `"papel":"${papel}"`), contentType: 'text/javascript' }));
-  await pg.goto(`http://127.0.0.1:${PORTA}/apps/linum/`);
+  await pg.goto(`http://127.0.0.1:${PORTA}/apps/linum/?aba=estoque`);
   await pg.waitForSelector('#app:not(.oculto)');
   return { pg, erros };
 }

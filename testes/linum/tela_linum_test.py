@@ -98,7 +98,7 @@ def entrar(b, papel, largura=1300):
     pg.respostas = respostas
     return pg, erros
 
-def abrir(pg, rota="/apps/linum/"):
+def abrir(pg, rota="/apps/linum/?aba=estoque"):
     pg.goto(f"http://127.0.0.1:{PORTA_SITE}{rota}"); pg.wait_for_selector("#app:not(.oculto), #aviso:not(.oculto)"); pg.wait_for_timeout(400)
 
 # menu em dois níveis (2.34): a aba fica dentro do grupo; clica no grupo antes

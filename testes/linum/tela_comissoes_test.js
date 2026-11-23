@@ -77,7 +77,7 @@ const ultimaRpc = (pg, fn) => pg.evaluate(fn => { const l = window.__S.rpc.filte
     pg.on('pageerror', e => erros.push(String(e.stack || e).slice(0, 300)));
     pg.on('dialog', d => d.accept(d.type() === 'prompt' ? 'cadastrada errado' : undefined));
     await pg.route('**/supabase-js@*/**', r => r.fulfill({ body: FALSO.replace('__PAPEL__', 'dono'), contentType: 'text/javascript' }));
-    await pg.goto(`http://127.0.0.1:${PORTA}/apps/linum/`); await pg.waitForSelector('#app:not(.oculto)');
+    await pg.goto(`http://127.0.0.1:${PORTA}/apps/linum/?aba=estoque`); await pg.waitForSelector('#app:not(.oculto)');
     await pg.click('.barra .grupo[data-g="gestao"]'); await pg.waitForTimeout(150); await pg.click('#abaComissoes'); await pg.waitForSelector('#cmnova');
     ok((await pg.locator('#cmregras').innerText()).includes('Nenhuma regra cadastrada') && (await pg.locator('#cmregras').innerText()).includes('Sem comissão hoje: Meire, Rachel'),
       'sem regra: ninguém tem comissão, e a tela diz quem está sem');
@@ -128,7 +128,7 @@ const ultimaRpc = (pg, fn) => pg.evaluate(fn => { const l = window.__S.rpc.filte
     // vendedora: sem a aba Comissões
     const v = await ctx.newPage();
     await v.route('**/supabase-js@*/**', r => r.fulfill({ body: FALSO.replace('__PAPEL__', 'vendedora'), contentType: 'text/javascript' }));
-    await v.goto(`http://127.0.0.1:${PORTA}/apps/linum/`); await v.waitForSelector('#app:not(.oculto)');
+    await v.goto(`http://127.0.0.1:${PORTA}/apps/linum/?aba=estoque`); await v.waitForSelector('#app:not(.oculto)');
     ok(await v.locator('#abaComissoes.oculto').count() === 1, 'vendedora não vê a aba Comissões');
   } catch (e) { falhas++; console.log('FALHOU  ' + (e.stack || e)); }
   finally { await b.close(); srv.close(); }

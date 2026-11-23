@@ -4037,4 +4037,17 @@ select pg_temp.erro2($$update lin_vendas set comissao_pct = 9 where id = (select
   'linum 2.61: a comissão da venda só muda pelo recálculo das regras');
 reset role;
 reset request.jwt.claim.sub;
+-- ---------------------------------------------------------------- linum 2.62: aba Início — o que mais vende (só Dona e Estoque, só em peças)
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora
+select pg_temp.erro2($$select lin_mais_vendidos(30)$$, 'Só a Dona e o Estoque', 'linum 2.62: vendedora não vê o que mais vende');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';   -- Estoque (lê as vendas de todos só por esta função)
+insert into cm values ('mv', lin_mais_vendidos(30)::text);
+reset role;
+select pg_temp.ok(((select v from cm where k = 'mv')::jsonb ->> 'pecas')::int = (select sum(i.quantidade) from lin_venda_itens i join lin_vendas v on v.id = i.venda_id
+    where v.cancelada_em is null and v.data >= (now() at time zone 'America/Sao_Paulo')::date - 29)
+  and jsonb_array_length((select v from cm where k = 'mv')::jsonb -> 'cores') >= 1 and not ((select v from cm where k = 'mv') ~ 'valor|vendedora'),
+  'linum 2.62: Estoque vê as peças vendidas de todas as vendas, por cor e tamanho, sem valores nem quem vendeu');
+select pg_temp.ok((select count(*) from (select jsonb_array_elements(lin_mais_vendidos(30) -> 'produtos')) x) <= 10, 'linum 2.62: até 10 peças no ranking');
+reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'
