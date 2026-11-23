@@ -93,9 +93,27 @@ object Estilo {
     fun cartao(c: Context, cor: Int = CARTAO, raio: Float = 16f): GradientDrawable =
         GradientDrawable().apply { setColor(cor); cornerRadius = dp(c, raio) }
 
+    /**
+     * Cartão "de vidro fosco" (2.27): degradê vertical do branco translúcido um pouco mais claro em cima para mais
+     * escuro embaixo + borda clara fininha. Dá o ar de vidro do conceito premium, sem precisar de desfoque (que o
+     * Android só faz no 12+). [base] = quanto de branco translúcido no meio (alfa 0–255).
+     */
+    fun vidro(c: Context, raio: Float = 16f, base: Int = 22): GradientDrawable =
+        GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+            intArrayOf(Color.argb((base + 16).coerceAtMost(255), 255, 255, 255), Color.argb((base - 8).coerceAtLeast(0), 255, 255, 255)))
+            .apply { cornerRadius = dp(c, raio); setStroke(dp(c, 1f).toInt(), Color.argb(38, 255, 255, 255)) }
+
     fun foco(c: Context, raio: Float = 14f): GradientDrawable =
         GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(FOCO_A, FOCO_B))
             .apply { cornerRadius = dp(c, raio) }
+
+    /** Cartão de Filme/Série: vidro fosco em repouso, degradê azul→ciano quando focado (com o "levantar"). */
+    fun pintarCartao(v: View, focado: Boolean, raio: Float = 16f) {
+        v.background = if (focado) foco(v.context, raio) else vidro(v.context, raio, 10)
+        val e = if (focado) 1.05f else 1f
+        if (v.scaleX != e) v.animate().scaleX(e).scaleY(e).setDuration(140).start()
+        v.translationZ = if (focado) dp(v.context, 6f) else 0f
+    }
 
     /** Fundo de linha/aba: azul quando focado, claro quando marcado, transparente no resto; com o "levantar" da Apple TV. */
     fun pintar(v: View, focado: Boolean, marcado: Boolean, raio: Float = 14f) {

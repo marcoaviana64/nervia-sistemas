@@ -312,7 +312,7 @@ class MainActivity : ComponentActivity() {
         })
         val pilulas = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            background = Estilo.cartao(this@MainActivity, Color.argb(18, 255, 255, 255), 26f)
+            background = Estilo.vidro(this@MainActivity, 26f, 18)
             setPadding(5.dp, 5.dp, 5.dp, 5.dp); clipChildren = false; clipToPadding = false
         }
         Aba.entries.forEach { a ->
@@ -373,7 +373,7 @@ class MainActivity : ComponentActivity() {
             if (saiu && guiaPendente) { guiaPendente = false; rvItens.adapter?.notifyDataSetChanged() }
         }
         guiaBox = texto(15f, Estilo.TEXTO).apply {
-            background = Estilo.cartao(this@MainActivity, Color.argb(16, 255, 255, 255), 18f)
+            background = Estilo.vidro(this@MainActivity, 18f, 16)
             setPadding(18.dp, 14.dp, 18.dp, 14.dp)
             setLineSpacing(2.dp.toFloat(), 1f)
             maxLines = 6; ellipsize = TextUtils.TruncateAt.END
@@ -398,7 +398,7 @@ class MainActivity : ComponentActivity() {
         guiaBox.maxLines = 18
         lado.addView(guiaBox, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = 10.dp })
         infoAjustes = texto(17f, Estilo.TEXTO).apply {
-            background = Estilo.cartao(this@MainActivity, Color.argb(16, 255, 255, 255), 18f)
+            background = Estilo.vidro(this@MainActivity, 18f, 16)
             setPadding(24.dp, 18.dp, 24.dp, 18.dp); setLineSpacing(4.dp.toFloat(), 1f); visibility = View.GONE
         }
         coluna.addView(infoAjustes, LinearLayout.LayoutParams(-1, 0, 1f))
@@ -2059,7 +2059,8 @@ class MainActivity : ComponentActivity() {
                 orientation = LinearLayout.VERTICAL
                 isFocusable = true; isClickable = true; isLongClickable = true
                 clipChildren = false; clipToPadding = false
-                setPadding(5.dp, 5.dp, 5.dp, 8.dp)
+                background = Estilo.vidro(ctx, 16f, 10)
+                setPadding(6.dp, 6.dp, 6.dp, 8.dp)
                 layoutParams = RecyclerView.LayoutParams(-1, -2).apply { setMargins(6.dp, 6.dp, 6.dp, 6.dp) }
             }
             val fl = FrameLayout(ctx).apply { clipChildren = false }
@@ -2154,8 +2155,8 @@ class MainActivity : ComponentActivity() {
                 text = listOfNotNull(c.ano, c.nota?.let { "★ $it" }, prog, if (emBusca) c.grupo else null).joinToString("  ·  ")
                 visibility = if (text.isEmpty()) View.GONE else View.VISIBLE
             }
-            pintar(card, card.hasFocus(), false)
-            card.setOnFocusChangeListener { v, f -> pintar(v, f, false) }
+            Estilo.pintarCartao(card, card.hasFocus())
+            card.setOnFocusChangeListener { v, f -> Estilo.pintarCartao(v, f) }
             card.setOnClickListener { vh.bindingAdapterPosition.takeIf { it >= 0 }?.let { abrirItem(visiveis[it]) } }
             card.setOnLongClickListener { vh.bindingAdapterPosition.takeIf { it >= 0 }?.let { alternarFavorito(visiveis[it]) }; true }
             card.setOnKeyListener { _, k, ev ->
