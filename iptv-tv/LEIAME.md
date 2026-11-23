@@ -115,6 +115,12 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
   configuração sempre relê o `nvplayer.json` ao abrir — então o portal mostra o endereço atual se o provedor trocou
   (antes ficava fixo no embutido). A TV já ligada continua trocando sozinha pelo failover (2.5): quando o servidor
   salvo não responde, relê o `nvplayer.json` e passa para o 1º que faz login. Teste `TelaTest.portalMostraServidorDoSite`.
+- **Vidro, capas menores, foco no fim da lista** (2.27, 23/11/2026, pedidos do Marco): (1) **efeito de vidro fosco**
+  `Estilo.vidro()` (degradê vertical do branco translúcido + borda clara 1px; sem desfuso real, que o Android só faz no
+  12+) na barra de abas, no guia, na caixa de Ajustes e nos cartões de Filmes/Séries (`Estilo.pintarCartao`: vidro em
+  repouso, degradê azul→ciano com foco); (2) **cartões menores** = `GridLayoutManager(6)` (5 → 6 colunas, ~14 filmes por
+  tela); (3) **foco no fim da lista de canais**: no último canal, `DPAD_DOWN` volta ao 1º canal (`focarItem(0)`) em vez
+  de escapar para a coluna de grupos — os grupos só pela seta ◀.
 - **Capas em Filmes/Séries, prévia maior, foco na lista** (2.26, 22/11/2026): (1) **Filmes e Séries em grade de
   cartões** (pedido do Marco: "cartões com a imagem do filme e um texto com os dados, dá para analisar melhor") —
   `rvItens` usa `GridLayoutManager(5)` nessas abas (o Marco escolheu 5 colunas: capa média, ~10 filmes por tela);
