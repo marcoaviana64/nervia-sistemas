@@ -427,7 +427,7 @@ try:
         pg.select_option('#nvpags [data-k="parcelas"]', "6"); pg.fill("#nvobs", "Niver 21/07")
         pg.screenshot(path=os.path.join(SAIDA, "linum_nova_venda.png"), full_page=True)
         pg.fill(".nvcv", "0189435334")   # 2.54: CV do comprovante do cartão
-        pg.click("#nvok"); pg.wait_for_timeout(1000)
+        pg.click("#nvok"); pg.wait_for_timeout(1000); pg.evaluate("() => { const d = document.getElementById('dlg2'); if (d.open) d.close(); }")  # extrato da venda (2.56)
         ok("registrada" in pg.text_content("#msg") and not pg.is_visible("#dlg"), "venda registrada")
         ok(psql("select valor_bruto || ' ' || valor_total || ' ' || (pagamentos->0->>'parcelas') || ' ' || observacao || ' ' || (pagamentos->0->>'cv') from lin_vendas", saida=True) == "998.00 898.00 6 Niver 21/07 189435334"
            and qtd_banco(V_AZUL_P, "Ipanema") == 1, "venda gravada com tabela, total, parcelas e baixa no estoque da Ipanema")
@@ -500,7 +500,7 @@ try:
         ok(not pg.is_visible("#dlg2") and psql("select count(*) from lin_clientes", saida=True) == "2", "É outra pessoa: cria o cadastro novo")
         pg.select_option("#nvloja", label="Gávea"); pg.fill("#nvpq", "cal-are"); pg.wait_for_timeout(150)
         pg.click('#nvres [data-add="0"]'); pg.wait_for_timeout(150)
-        pg.select_option('#nvpags [data-k="forma"]', "pix"); pg.click("#nvok"); pg.wait_for_timeout(1000)
+        pg.select_option('#nvpags [data-k="forma"]', "pix"); pg.click("#nvok"); pg.wait_for_timeout(1000); pg.evaluate("() => { const d = document.getElementById('dlg2'); if (d.open) d.close(); }")  # extrato da venda (2.56)
         ok("registrada" in pg.text_content("#msg") and "Sua comissão" in pg.text_content(".kpis") and "sem comissão" in pg.text_content(".kpis"), "Estoque registra venda na Gávea; KPI sem comissão")
         ok(psql("select (select nome from lin_lojas where id = loja_id) || ' ' || comissao_pct || ' ' || comissao_valor from lin_vendas order by id desc limit 1", saida=True) == "Gávea 0.00 0.00",
            "venda do Estoque gravada na loja escolhida e sem comissão")
@@ -519,7 +519,7 @@ try:
         pg.fill("#nvcq", "Carmen"); pg.wait_for_timeout(150); pg.click("#nvcres [data-cli] >> nth=0"); pg.wait_for_timeout(500)
         ok(pg.inner_html("#nvcred") == "", "cliente sem crédito: a caixa de crédito não aparece")
         pg.fill("#nvpq", "ves-mar"); pg.wait_for_timeout(150); pg.click('#nvres [data-add="0"]'); pg.wait_for_timeout(150)
-        pg.select_option('#nvpags [data-k="forma"]', "pix"); pg.click("#nvok"); pg.wait_for_timeout(1000)
+        pg.select_option('#nvpags [data-k="forma"]', "pix"); pg.click("#nvok"); pg.wait_for_timeout(1000); pg.evaluate("() => { const d = document.getElementById('dlg2'); if (d.open) d.close(); }")  # extrato da venda (2.56)
         venda = psql("select max(id) from lin_vendas where cancelada_em is null and loja_id = (select id from lin_lojas where nome = 'Ipanema')", saida=True)
         cli = psql(f"select cliente_id from lin_vendas where id = {venda}", saida=True)
         pago_p = psql(f"select valor_total from lin_venda_itens where venda_id = {venda}", saida=True)
@@ -546,7 +546,7 @@ try:
         pg.fill('#nvitens [data-k="vu"]', "600,00"); pg.wait_for_timeout(150)
         nf = pg.text_content("#nvnf").replace("\xa0", " ")
         ok("Valor da nota fiscal" in nf, f"mostra o que falta pagar e o valor da nota fiscal ({nf.strip()[:80]})")
-        pg.select_option('#nvpags [data-k="forma"]', "pix"); pg.click("#nvok"); pg.wait_for_timeout(1200)
+        pg.select_option('#nvpags [data-k="forma"]', "pix"); pg.click("#nvok"); pg.wait_for_timeout(1200); pg.evaluate("() => { const d = document.getElementById('dlg2'); if (d.open) d.close(); }")  # extrato da venda (2.56)
         vc = psql("select max(id) from lin_vendas", saida=True)
         ok(psql(f"select credito_usado || ' ' || valor_nf || ' ' || (pagamentos @> '[{{\"forma\":\"credito_loja\"}}]') from lin_vendas where id = {vc}", saida=True)
              == f"{pago_p} {round(600 - float(pago_p), 2):.2f} true"

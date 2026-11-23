@@ -82,16 +82,19 @@ async function pagina(ctx, papel) {
   return { pg, erros };
 }
 async function vendas(pg) {
+  await pg.evaluate(() => { const d = document.getElementById('dlg2'); if (d.open) d.close(); });
   await pg.click('.barra .grupo[data-g="vendas"]'); await pg.waitForTimeout(150);
   await pg.click('#abaVendas'); await pg.waitForSelector('#vnova'); await pg.waitForTimeout(200);
 }
 const print = async (pg, nome) => { if (SAIDA) await pg.screenshot({ path: path.join(SAIDA, nome + '.png'), fullPage: true }); };
 const ultimaRpc = (pg, fn) => pg.evaluate(fn => { const l = window.__S.rpc.filter(x => x[0] === fn); return l.length ? l[l.length - 1][1] : null; }, fn);
 async function vendas(pg) {
+  await pg.evaluate(() => { const d = document.getElementById('dlg2'); if (d.open) d.close(); });
   await pg.click('.barra .grupo[data-g="vendas"]'); await pg.waitForTimeout(150);
   await pg.click('#abaVendas'); await pg.waitForSelector('#vnova'); await pg.waitForTimeout(200);
 }
 async function nova(pg) {
+  await pg.evaluate(() => { const d = document.getElementById('dlg2'); if (d.open) d.close(); });   // extrato da venda anterior (2.56)
   await pg.click('#vnova'); await pg.waitForSelector('#dlg[open] #nvok');
   await pg.fill('#nvpq', 'a25'); await pg.waitForTimeout(200); await pg.locator('#nvres button').first().click(); await pg.waitForTimeout(150);
 }
