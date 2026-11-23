@@ -414,7 +414,7 @@ class MainActivity : ComponentActivity() {
         }
         coluna.addView(infoAjustes, LinearLayout.LayoutParams(-1, 0, 1f))
         corpo.addView(coluna, LinearLayout.LayoutParams(0, -1, 0.7f))
-        corpo.addView(lado, LinearLayout.LayoutParams(0, -1, 0.52f))
+        corpo.addView(lado, LinearLayout.LayoutParams(0, -1, 0.44f))
         montarAgenda(corpo)
         montarInicio(corpo)
         painel.addView(corpo, LinearLayout.LayoutParams(-1, 0, 1f))
@@ -688,8 +688,8 @@ class MainActivity : ComponentActivity() {
         guiaBox.text = "Escolha um canal para ver a programação."
         val tv3 = a == Aba.TV
         lado.visibility = if (tv3) View.VISIBLE else View.GONE
-        rvGrupos.layoutParams = (rvGrupos.layoutParams as LinearLayout.LayoutParams).apply { weight = if (tv3) 0.18f else 0.26f }
-        coluna.layoutParams = (coluna.layoutParams as LinearLayout.LayoutParams).apply { weight = if (tv3) 0.34f else 0.74f }
+        rvGrupos.layoutParams = (rvGrupos.layoutParams as LinearLayout.LayoutParams).apply { weight = if (tv3) 0.24f else 0.26f }
+        coluna.layoutParams = (coluna.layoutParams as LinearLayout.LayoutParams).apply { weight = if (tv3) 0.32f else 0.74f }
         // Filmes e Séries em grade de cartões com pôster (pedido do Marco: dá para analisar melhor); TV continua em lista.
         val grade = a == Aba.FILMES || a == Aba.SERIES
         rvItens.layoutManager = if (grade) GridLayoutManager(this, 6) else LinearLayoutManager(this)
