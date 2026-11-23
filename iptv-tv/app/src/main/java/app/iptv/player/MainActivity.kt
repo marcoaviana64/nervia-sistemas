@@ -23,10 +23,12 @@ import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.EditText
+import android.graphics.drawable.GradientDrawable
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -63,7 +65,7 @@ import java.util.concurrent.Executors
 @OptIn(UnstableApi::class)
 class MainActivity : ComponentActivity() {
 
-    enum class Aba(val rotulo: String) { TV("TV ao vivo"), FILMES("Filmes"), SERIES("Séries"), AGENDA("Agenda"), AJUSTES("Ajustes") }
+    enum class Aba(val rotulo: String) { INICIO("Início"), TV("TV ao vivo"), FILMES("Filmes"), SERIES("Séries"), AGENDA("Agenda"), AJUSTES("Ajustes") }
     private enum class TE { FAVORITOS, CONTINUAR, TODOS, GRUPO, ACAO }
     private data class Entrada(val rotulo: String, val tipo: TE, val grupo: String? = null, val acao: String? = null, val bloqueado: Boolean = false)
 
@@ -132,6 +134,15 @@ class MainActivity : ComponentActivity() {
     private var desbloqueado = false
     private var focadoGuia: Item? = null
     private var algumLogo = false
+
+    // 2.28: aba Início — hero em destaque + prateleiras (Continuar assistindo, Filmes, Séries).
+    private lateinit var inCorpo: ScrollView
+    private lateinit var inRails: LinearLayout
+    private lateinit var inHeroImg: ImageView
+    private lateinit var inHeroTitulo: TextView
+    private lateinit var inHeroInfo: TextView
+    private lateinit var inHeroBtn: TextView
+    private var inHeroItem: Item? = null
 
     // 2.17 (pedido do Marco em 19/11/2026): aba Agenda — grade por dia com aviso de "vai começar".
     private lateinit var agCorpo: LinearLayout
@@ -405,6 +416,7 @@ class MainActivity : ComponentActivity() {
         corpo.addView(coluna, LinearLayout.LayoutParams(0, -1, 0.7f))
         corpo.addView(lado, LinearLayout.LayoutParams(0, -1, 0.52f))
         montarAgenda(corpo)
+        montarInicio(corpo)
         painel.addView(corpo, LinearLayout.LayoutParams(-1, 0, 1f))
         painel.visibility = View.GONE
         raiz.addView(painel, FrameLayout.LayoutParams(-1, -1))
@@ -633,7 +645,7 @@ class MainActivity : ComponentActivity() {
         guia.preparar(c)
         abas.forEach { (a, t) ->
             val n = porAba[a]?.size ?: 0
-            t.text = if (a == Aba.AJUSTES || a == Aba.AGENDA) a.rotulo else "${a.rotulo}  ${"%,d".format(Locale.forLanguageTag("pt-BR"), n)}"
+            t.text = if (a == Aba.AJUSTES || a == Aba.AGENDA || a == Aba.INICIO) a.rotulo else "${a.rotulo}  ${"%,d".format(Locale.forLanguageTag("pt-BR"), n)}"
         }
         atual = atual?.let { a -> porUrl[a.url] ?: a }
         if (primeiraCarga) {
@@ -661,7 +673,9 @@ class MainActivity : ComponentActivity() {
     private fun trocarAba(a: Aba, focar: Boolean) {
         aba = a
         abas.forEach { (k, v) -> Estilo.pintarAba(v, v.hasFocus(), k == a) }
+        if (a == Aba.INICIO) { mostrarInicio(focar); return }
         if (a == Aba.AGENDA) { mostrarAgenda(focar); return }
+        inCorpo.visibility = View.GONE
         agCorpo.visibility = View.GONE
         rvGrupos.visibility = View.VISIBLE
         coluna.visibility = View.VISIBLE
@@ -898,6 +912,124 @@ class MainActivity : ComponentActivity() {
     private val AG_CANAL = Any()
     private val AG_GRUPO = Any()
 
+    // ---------------------------------------------------------------- Início (hero + prateleiras)
+
+    private fun montarInicio(parent: LinearLayout) {
+        inCorpo = ScrollView(this).apply {
+            isFillViewport = true; visibility = View.GONE; isVerticalScrollBarEnabled = false
+            clipChildren = false; clipToPadding = false
+        }
+        val col = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; clipChildren = false; clipToPadding = false
+            setPadding(4.dp, 0, 4.dp, 20.dp)
+        }
+        // hero: pôster grande + véu escuro + título/infos/botão no rodapé
+        val hero = FrameLayout(this).apply { clipChildren = true; Estilo.arredondar(this, 20f) }
+        inHeroImg = ImageView(this).apply { scaleType = ImageView.ScaleType.CENTER_CROP; setBackgroundColor(Color.rgb(0x0C, 0x12, 0x20)) }
+        hero.addView(inHeroImg, FrameLayout.LayoutParams(-1, -1))
+        hero.addView(View(this).apply {
+            background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(Color.argb(30, 5, 8, 14), Color.argb(150, 5, 8, 14), Color.argb(235, 5, 8, 14)))
+        }, FrameLayout.LayoutParams(-1, -1))
+        val ov = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(36.dp, 0, 36.dp, 30.dp) }
+        inHeroTitulo = texto(34f).apply { typeface = Estilo.NEGRITO; letterSpacing = -0.02f; maxLines = 2; ellipsize = TextUtils.TruncateAt.END }
+        inHeroInfo = texto(16f, Estilo.TEXTO_2).apply { setPadding(0, 6.dp, 0, 0); typeface = Estilo.MEDIO }
+        inHeroBtn = texto(18f).apply { text = "▶  Abrir"; Estilo.botao(this); setOnClickListener { inHeroItem?.let { abrirItem(it) } } }
+        ov.addView(inHeroTitulo)
+        ov.addView(inHeroInfo)
+        ov.addView(inHeroBtn, LinearLayout.LayoutParams(-2, -2).apply { topMargin = 16.dp })
+        hero.addView(ov, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+        col.addView(hero, LinearLayout.LayoutParams(-1, 330.dp).apply { setMargins(8.dp, 6.dp, 8.dp, 6.dp) })
+
+        inRails = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; clipChildren = false; clipToPadding = false }
+        col.addView(inRails, LinearLayout.LayoutParams(-1, -2))
+        inCorpo.addView(col, android.view.ViewGroup.LayoutParams(-1, -2))
+        parent.addView(inCorpo, LinearLayout.LayoutParams(0, -1, 1f))
+    }
+
+    private fun mostrarInicio(focar: Boolean) {
+        rvGrupos.visibility = View.GONE
+        coluna.visibility = View.GONE
+        lado.visibility = View.GONE
+        agCorpo.visibility = View.GONE
+        inCorpo.visibility = View.VISIBLE
+        rvGrupos.layoutParams = (rvGrupos.layoutParams as LinearLayout.LayoutParams).apply { weight = 0.0001f }
+        coluna.layoutParams = (coluna.layoutParams as LinearLayout.LayoutParams).apply { weight = 0.0001f }
+        posicionarVideo()
+        popularInicio(focar)
+    }
+
+    private fun popularInicio(focar: Boolean) {
+        inRails.removeAllViews()
+        val c = catalogo
+        if (c == null) {
+            inHeroTitulo.text = "Carregue uma lista primeiro."; inHeroInfo.text = ""
+            inHeroItem = null; inHeroBtn.visibility = View.GONE; return
+        }
+        val filmes = semTravados(porAba[Aba.FILMES].orEmpty())
+        val series = semTravados(porAba[Aba.SERIES].orEmpty())
+        val recentes = semTravados(repo.recentes().mapNotNull { porUrl[it] } + repo.seriesRecentes().mapNotNull { porSerie[it] })
+        val destaque = recentes.firstOrNull { it.logo != null } ?: filmes.firstOrNull { it.logo != null }
+            ?: series.firstOrNull { it.logo != null } ?: filmes.firstOrNull() ?: series.firstOrNull()
+        inHeroItem = destaque
+        if (destaque == null) {
+            inHeroTitulo.text = "Esta lista não tem filmes nem séries."; inHeroInfo.text = ""; inHeroBtn.visibility = View.GONE
+        } else {
+            inHeroTitulo.text = destaque.nome
+            inHeroInfo.text = listOfNotNull(if (destaque.tipo == Tipo.SERIE) "Série" else "Filme", destaque.ano,
+                destaque.nota?.let { "★ $it" }).joinToString("   ·   ")
+            inHeroBtn.visibility = View.VISIBLE
+            Logos.mostrar(inHeroImg, destaque.logo, 700)
+        }
+        if (recentes.isNotEmpty()) inRails.addView(prateleira("Continuar assistindo", recentes))
+        if (filmes.isNotEmpty()) inRails.addView(prateleira("Filmes", filmes))
+        if (series.isNotEmpty()) inRails.addView(prateleira("Séries", series))
+        val favs = semTravados(porAba[Aba.TV].orEmpty().filter { repo.chave(it) in repo.favoritos })
+        if (favs.isNotEmpty()) inRails.addView(prateleira("Canais favoritos", favs))
+        if (focar) inHeroBtn.post {
+            if (inHeroBtn.visibility == View.VISIBLE) inHeroBtn.requestFocus() else inCorpo.requestFocus()
+        }
+    }
+
+    /** Uma prateleira do Início: título + fileira horizontal de capinhas. */
+    private fun prateleira(titulo: String, itens: List<Item>): View {
+        val wrap = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; clipChildren = false; clipToPadding = false; setPadding(0, 12.dp, 0, 0)
+        }
+        wrap.addView(texto(18f).apply { text = titulo; typeface = Estilo.MEDIO; setPadding(12.dp, 0, 0, 8.dp) })
+        val hs = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; clipChildren = false; clipToPadding = false }
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(8.dp, 2.dp, 8.dp, 8.dp); clipChildren = false; clipToPadding = false }
+        itens.take(30).forEach { row.addView(cartaoMini(it)) }
+        hs.addView(row)
+        wrap.addView(hs, LinearLayout.LayoutParams(-1, -2))
+        return wrap
+    }
+
+    /** Capinha do Início: pôster 2:3 + nome; abre a ficha/canal ao clicar. */
+    private fun cartaoMini(item: Item): View {
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; isFocusable = true; isClickable = true
+            clipChildren = false; clipToPadding = false
+            setPadding(5.dp, 5.dp, 5.dp, 6.dp)
+            layoutParams = LinearLayout.LayoutParams(120.dp, -2).apply { marginEnd = 12.dp }
+        }
+        val poster = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            background = Estilo.cartao(this@MainActivity, Color.argb(26, 255, 255, 255), 12f)
+            Estilo.arredondar(this, 12f)
+        }
+        card.addView(poster, LinearLayout.LayoutParams(-1, 165.dp))
+        card.addView(texto(13f).apply {
+            text = item.nome; typeface = Estilo.MEDIO; maxLines = 2; ellipsize = TextUtils.TruncateAt.END
+            setLineSpacing(0f, 0.95f); setPadding(2.dp, 6.dp, 2.dp, 0)
+        })
+        Logos.mostrar(poster, item.logo, 240)
+        Estilo.pintarCartao(card, false, 14f)
+        card.setOnFocusChangeListener { v, f -> Estilo.pintarCartao(v, f, 14f) }
+        card.setOnClickListener { abrirItem(item) }
+        return card
+    }
+
     private fun montarAgenda(parent: LinearLayout) {
         // 2.20: dias em cima; embaixo três colunas — grupos · canais do grupo · programação do canal.
         agCorpo = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
@@ -952,6 +1084,7 @@ class MainActivity : ComponentActivity() {
         rvGrupos.visibility = View.GONE
         coluna.visibility = View.GONE
         lado.visibility = View.GONE
+        inCorpo.visibility = View.GONE
         agCorpo.visibility = View.VISIBLE
         rvGrupos.layoutParams = (rvGrupos.layoutParams as LinearLayout.LayoutParams).apply { weight = 0.0001f }
         coluna.layoutParams = (coluna.layoutParams as LinearLayout.LayoutParams).apply { weight = 0.0001f }
