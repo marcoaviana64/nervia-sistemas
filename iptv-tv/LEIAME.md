@@ -115,6 +115,15 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
   configuração sempre relê o `nvplayer.json` ao abrir — então o portal mostra o endereço atual se o provedor trocou
   (antes ficava fixo no embutido). A TV já ligada continua trocando sozinha pelo failover (2.5): quando o servidor
   salvo não responde, relê o `nvplayer.json` e passa para o 1º que faz login. Teste `TelaTest.portalMostraServidorDoSite`.
+- **Tela de Início (hero) e foco na Agenda** (2.28, 23/11/2026, pedidos do Marco): (1) nova aba **Início** (1ª aba;
+  `Aba.INICIO`): hero com pôster grande em destaque (véu escuro, título, ano/★nota, botão ▶ Abrir que abre a ficha) +
+  prateleiras horizontais de capinhas (Continuar assistindo, Filmes, Séries, Canais favoritos). `montarInicio`/
+  `mostrarInicio`/`popularInicio`/`prateleira`/`cartaoMini`, no mesmo padrão da Agenda (ScrollView próprio no corpo,
+  alternado em `trocarAba`). A abertura do app **continua retomando o último canal** — o Início é só a 1ª aba.
+  (2) **foco na Agenda**: a lista de canais da Agenda (`AdAgCanais`) tinha o mesmo defeito da TV — no último canal o ▼
+  escapava para os grupos; agora volta ao 1º canal. Teste `TelaTest.telaInicio` (grava `tela-inicio.png`). PENDENTE
+  (pedido do Marco, aprovado o conceito): **Agenda em linha do tempo** (grade de horários com seletor de dia + grupo em
+  pílulas; mockup em `scratchpad/mockup/agenda-timeline.html`) — implementar depois.
 - **Vidro, capas menores, foco no fim da lista** (2.27, 23/11/2026, pedidos do Marco): (1) **efeito de vidro fosco**
   `Estilo.vidro()` (degradê vertical do branco translúcido + borda clara 1px; sem desfuso real, que o Android só faz no
   12+) na barra de abas, no guia, na caixa de Ajustes e nos cartões de Filmes/Séries (`Estilo.pintarCartao`: vidro em

@@ -3,9 +3,9 @@
     "http://p.urldata.gy"
   ],
   "versao": {
-    "codigo": 29,
-    "nome": "2.27",
+    "codigo": 30,
+    "nome": "2.28",
     "apk": "https://nervia.com.br/nvplayer.apk",
-    "novidades": "Capas de Filmes e Séries menores (cabe mais na tela) com efeito de vidro, e no fim da lista de canais o ▼ volta para o primeiro canal."
+    "novidades": "Nova tela de Início com capa em destaque e prateleiras (Continuar assistindo, Filmes, Séries). Na Agenda, o foco também não pula mais para os grupos no fim da lista."
   }
 }

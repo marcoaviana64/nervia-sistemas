@@ -480,6 +480,24 @@ class TelaTest {
         try { ctl.pause().stop().destroy() } catch (_: Exception) {}
     }
 
+    @Test fun telaInicio() {
+        val base = "http://127.0.0.1:${servidor.localPort}"
+        val ctl = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val act = ctl.get()
+        val raiz = act.window.decorView
+        ultimaRaiz = raiz
+        ocioso()
+        assertTrue(enviar(porta(act), "tipo=xtream&servidor=${enc(base)}&usuario=marco&senha=segredo").contains("Pronto"))
+        esperar { textos(raiz).any { it.startsWith("TV ao vivo") } }
+        // a aba Início existe e abre o hero + prateleiras
+        clicar(raiz, "Início")
+        esperar { textos(raiz).any { it == "Filmes" } }
+        assertTrue("prateleira de séries", textos(raiz).any { it == "Séries" })
+        assertTrue("botão do hero", textos(raiz).any { it.startsWith("▶") })
+        foto(raiz, "tela-inicio")
+        try { ctl.pause().stop().destroy() } catch (_: Exception) {}
+    }
+
     @Test fun linkM3u() {
         val ctl = Robolectric.buildActivity(MainActivity::class.java).setup()
         val act = ctl.get()
