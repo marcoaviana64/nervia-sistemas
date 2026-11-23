@@ -3,9 +3,9 @@
     "http://p.urldata.gy"
   ],
   "versao": {
-    "codigo": 30,
-    "nome": "2.28",
+    "codigo": 31,
+    "nome": "2.29",
     "apk": "https://nervia.com.br/nvplayer.apk",
-    "novidades": "Nova tela de Início com capa em destaque e prateleiras (Continuar assistindo, Filmes, Séries). Na Agenda, o foco também não pula mais para os grupos no fim da lista."
+    "novidades": "A coluna de grupos na TV ao vivo ficou mais larga: os nomes dos grupos aparecem mais completos."
   }
 }
