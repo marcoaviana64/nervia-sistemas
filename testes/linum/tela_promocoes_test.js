@@ -190,6 +190,41 @@ const somaD = (d, n) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.g
     await v.pg.click('.barra .grupo[data-g="estoque"]'); await v.pg.waitForTimeout(150); await v.pg.click('#abaPromo'); await v.pg.waitForTimeout(400);
     ok((await v.pg.locator('#tela').innerText()).includes('Queima Ipanema') && await v.pg.locator('#prnova').count() === 0 && await v.pg.locator('[data-pred]').count() === 0, 'vendedora vê as promoções, sem criar nem editar');
 
+    // 2.60: relatório das peças em promoção (PDF), também para a vendedora
+    ok(await v.pg.locator('[data-prrel]').count() >= 1, '2.60: vendedora tem o botão Relatório (PDF)');
+    const rels = [];
+    for (const id of await v.pg.locator('[data-prrel]').evaluateAll(l => l.map(b => b.dataset.prrel))) {
+      const [pop] = await Promise.all([v.pg.waitForEvent('popup'), v.pg.click(`[data-prrel="${id}"]`)]);
+      await pop.waitForLoadState(); rels.push({ id, html: await pop.content(), txt: await pop.locator('body').innerText(), pop });
+    }
+    const rel = rels.find(r => r.txt.includes('Semana do Linho'));
+    ok(rel, '2.60: relatório abre numa janela nova com o nome da promoção');
+    if (rel) {
+      const nomes = await rel.pop.locator('.pc .cab > div:first-child > b').allInnerTexts();
+      ok(nomes.join('|') === [...nomes].sort((a, b) => a.localeCompare(b, 'pt-BR')).join('|') && nomes.length >= 1, '2.60: peças em ordem alfabética ' + nomes.join(' / '));
+      const tams = await rel.pop.locator('.pc').first().locator('td.tam').allInnerTexts();
+      ok(tams.length > 0 && rel.txt.includes('de R$') && rel.txt.includes('%'), '2.60: tamanho por linha, preço de/por e desconto ' + tams.join(','));
+      await rel.pop.pdf({ path: require('path').join(require('os').tmpdir(), 'promo_relatorio.pdf'), format: 'A4' }).catch(() => {});
+      await rel.pop.screenshot({ path: require('path').join(require('os').tmpdir(), 'promo_relatorio.png'), fullPage: true });
+    }
+    for (const r of rels) await r.pop.close();
+    // várias peças: todas as do cadastro, a peça toda (com especiais à parte) e uma variação com outro preço
+    const [pop2] = await Promise.all([v.pg.waitForEvent('popup'), v.pg.evaluate(() => {
+      const its = PRODUTOS.map(p => ({ produto_id: p.id, variante_id: null, preco: Number(p.preco_venda) * 0.8 }));
+      const esp = PRODUTOS.flatMap(p => (p.variantes || []).filter(x => (x.edicao || '').trim()).map(x => ({ produto_id: p.id, variante_id: x.id, preco: 100 })));
+      relatorioPromocao({ id: 99, nome: 'Teste várias', loja_id: null, inicio: hoje(), fim: hoje(), itens: its.concat(esp) }); })]);
+    await pop2.waitForLoadState();
+    const nomes2 = await pop2.locator('.pc .cab > div:first-child > b').allInnerTexts();
+    const ordenado = [...nomes2].sort((a, b) => a.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().localeCompare(b.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(), 'pt-BR'));
+    ok(nomes2.length >= 2 && nomes2.join('|') === ordenado.join('|'), '2.60: várias peças em ordem alfabética ' + nomes2.join(' / '));
+    const ordemOk = await pop2.evaluate(() => [...document.querySelectorAll('.pc')].every(pc => { const O = ['PP','P','M','G','GG','G1','G2','G3'];
+      const t = [...pc.querySelectorAll('tr:not(.e) td.tam')].filter(td => !td.nextElementSibling.textContent.startsWith('★')).map(td => O.indexOf(td.textContent)); return t.every((x, i) => i === 0 || x >= t[i - 1]); }));
+    ok(ordemOk, '2.60: tamanhos na ordem PP, P, M, G…');
+    ok((await pop2.locator('body').innerText()).includes('peça especial'), '2.60: peça especial aparece à parte, com a edição');
+    if (SAIDA) await pop2.screenshot({ path: path.join(SAIDA, 'promo_relatorio_varias.png'), fullPage: true });
+    await pop2.screenshot({ path: require('path').join(require('os').tmpdir(), 'promo_relatorio2.png'), fullPage: true });
+    await pop2.close();
+
     // 2.58: indicação no Estoque (e filtro) e em Produtos
     const est = await pagina(ctx, 'estoque', promos);
     await est.pg.waitForSelector('#lista .prod');

@@ -69,11 +69,13 @@ async function telaPromocoes() {
         <ul style="margin:6px 0 0;padding-left:18px">${p.itens.map(linhaItem).join("")}</ul>
         ${r ? `<div class="vlin"><span>Vendido na promoção</span><span><b>${n(r.pecas)}</b> peça(s) em ${n(r.vendas)} venda(s) · ${brl(r.vendido)} · desconto dado ${brl(r.desconto)}</span></div>` : controla() ? '<div class="vlin mut"><span>Nenhuma peça vendida nesta promoção ainda.</span></div>' : ""}
         ${p.cancelada_em ? `<div class="msg err">Cancelada por ${esc(p.cancelada_nome || "")} em ${quando(p.cancelada_em)}: ${esc(p.motivo_cancelamento || "")}</div>` : ""}
-        ${controla() && !p.cancelada_em ? `<div class="acoes" style="justify-content:flex-start"><button type="button" class="bt" data-pred="${p.id}">Editar</button>${s !== "encerrada" ? `<button type="button" class="bt" data-prenc="${p.id}">Encerrar hoje</button>` : ""}<button type="button" class="bt" data-prcanc="${p.id}" style="color:var(--crit);border-color:var(--crit)">Cancelar</button></div>` : ""}
+        ${controla() && !p.cancelada_em ? `<div class="acoes" style="justify-content:flex-start"><button type="button" class="bt" data-prrel="${p.id}" title="Lista das peças em ordem alfabética, por tamanho e cor, para imprimir ou salvar em PDF">Relatório (PDF)</button><button type="button" class="bt" data-pred="${p.id}">Editar</button>${s !== "encerrada" ? `<button type="button" class="bt" data-prenc="${p.id}">Encerrar hoje</button>` : ""}<button type="button" class="bt" data-prcanc="${p.id}" style="color:var(--crit);border-color:var(--crit)">Cancelar</button></div>` : ""}
+        ${!controla() && !p.cancelada_em ? `<div class="acoes" style="justify-content:flex-start"><button type="button" class="bt" data-prrel="${p.id}" title="Lista das peças em ordem alfabética, por tamanho e cor, para imprimir ou salvar em PDF">Relatório (PDF)</button></div>` : ""}
         <div class="mut" style="font-size:12px">Criada por ${esc(p.criado_nome || "")} em ${quando(p.criado_em)}${p.alterado_em ? ` · alterada por ${esc(p.alterado_nome || "")} em ${quando(p.alterado_em)}` : ""}</div>
       </div>`; }).join("") : '<div class="card mut">Nenhuma promoção aqui.</div>'}`;
   document.querySelectorAll("[data-fpr]").forEach(b => b.onclick = () => { FPROMO.sit = b.dataset.fpr; telaPromocoes(); });
   if ($("prnova")) $("prnova").onclick = () => editarPromocao(null);
+  document.querySelectorAll("[data-prrel]").forEach(b => b.onclick = () => relatorioPromocao(PROMOS.find(p => p.id === +b.dataset.prrel)));
   document.querySelectorAll("[data-pred]").forEach(b => b.onclick = () => editarPromocao(PROMOS.find(p => p.id === +b.dataset.pred)));
   document.querySelectorAll("[data-prenc]").forEach(b => b.onclick = async () => {
     const p = PROMOS.find(x => x.id === +b.dataset.prenc);
@@ -91,6 +93,66 @@ async function telaPromocoes() {
     try { checar(await sb.rpc("lin_promocao_cancelar", { p_id: p.id, p_motivo: motivo })); msg("ok", "Promoção cancelada."); telaPromocoes(); }
     catch (e) { msg("err", e.message); }
   });
+}
+
+// 2.60 (pedido do Marco: "relatório das peças em ordem alfabética do nome da peça, tamanho e cor, para deixar com as
+// vendedoras"): uma folha A4 para imprimir ou salvar em PDF. Peças pelo nome (sem acento/maiúscula), cada uma num quadro com
+// "de → por" e o desconto, e embaixo uma linha por tamanho com as cores. "Todas as cores e tamanhos" é aberto nas
+// variações normais ativas de hoje; peça especial sai à parte, com a edição. Preços diferentes na mesma peça = quadros separados.
+function relatorioPromocao(pr) {
+  if (!pr) return;
+  const blocos = new Map();   // chave produto|preço → {p, preco, tab:Set, normais:[v], especiais:[v]}
+  const por = (p, preco) => { const k = p.id + "|" + Number(preco); if (!blocos.has(k)) blocos.set(k, { p, preco: Number(preco), tab: new Set(), normais: [], especiais: [] }); return blocos.get(k); };
+  const visto = new Set();
+  for (const i of pr.itens) {
+    const p = prProduto(i.produto_id); if (!p) continue;
+    const vs = i.variante_id ? [prVariante(i.variante_id)[1]].filter(Boolean) : prNormais(p);
+    for (const v of vs) {
+      if (visto.has(v.id)) continue; visto.add(v.id);
+      const b = por(p, i.preco); b.tab.add(prTabela(p, v));
+      ((v.edicao || "").trim() ? b.especiais : b.normais).push(v);
+    }
+  }
+  const lista = [...blocos.values()].sort((a, b) => semAc(a.p.descricao || "").localeCompare(semAc(b.p.descricao || ""), "pt-BR")
+    || (a.p.referencia || "").localeCompare(b.p.referencia || "", "pt-BR")
+    || (a.normais.length ? 0 : 1) - (b.normais.length ? 0 : 1) || a.preco - b.preco);
+  if (!lista.length) return msg("err", "Esta promoção não tem peças para listar.");
+  const w = window.open("", "_blank"); if (!w) return msg("err", "O navegador bloqueou a janela de impressão.");
+  const pct = (tab, preco) => tab > 0 ? "−" + Math.round((1 - preco / tab) * 100) + "%" : "";
+  const linhas = vs => {
+    const tams = [...new Set(vs.map(v => v.tamanho || ""))].sort(ordemTam);
+    return tams.map(t => `<tr><td class="tam">${esc(t || "—")}</td><td>${[...new Set(vs.filter(v => (v.tamanho || "") === t).map(v => v.cor || "—"))]
+      .sort((a, b) => a.localeCompare(b, "pt-BR")).map(esc).join(" · ")}</td></tr>`).join("");
+  };
+  const quadro = b => {
+    const tabs = [...b.tab], tab = Math.max(...tabs);
+    const de = tabs.length > 1 ? `de ${brl(Math.min(...tabs))} a ${brl(tab)}` : `de ${brl(tab)}`;
+    const esp = [...b.especiais].sort(ordemVar);
+    return `<div class="pc"><div class="cab"><div><b>${esc(b.p.descricao || "")}</b><span class="ref">${esc(b.p.referencia || "")}</span></div>
+      <div class="pr"><s>${de}</s> <b>${brl(b.preco)}</b>${tabs.length === 1 && pct(tab, b.preco) ? ` <span class="pct">${pct(tab, b.preco)}</span>` : ""}</div></div>
+      <table>${b.normais.length ? linhas(b.normais) : ""}
+      ${esp.map(v => `<tr><td class="tam">${esc(v.tamanho || "—")}</td><td>★ ${esc(v.cor || "—")} · peça especial ${esc(v.edicao)}</td></tr>`).join("")}</table></div>`;
+  };
+  const nvar = lista.reduce((s, b) => s + b.normais.length + b.especiais.length, 0);
+  const sit = PR_SIT[prSituacao(pr)][0];
+  w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Promoção ${esc(pr.nome)} — Linum</title>
+    <style>@page{size:A4;margin:10mm}*{box-sizing:border-box}body{font:13px system-ui,sans-serif;margin:0;color:#111}
+    .topo{border-bottom:3px solid #9b1d3a;padding-bottom:6px;margin-bottom:10px;display:flex;justify-content:space-between;gap:12px;align-items:flex-end}
+    h1{font-size:22px;margin:0}h1 small{font-size:13px;font-weight:400;color:#555;letter-spacing:2px;display:block}
+    .info{text-align:right;font-size:13px}.info b{font-size:15px}.dica{font-size:11px;color:#555;margin:0 0 10px}
+    .grade{columns:2;column-gap:12px}.pc{break-inside:avoid;border:1px solid #999;border-radius:6px;margin:0 0 10px;padding:6px 8px}
+    .cab{display:flex;justify-content:space-between;gap:8px;align-items:baseline;border-bottom:1px solid #ddd;padding-bottom:4px;margin-bottom:3px}
+    .cab b{font-size:14px}.ref{color:#555;font-size:11px;margin-left:6px}.pr{white-space:nowrap;text-align:right}.pr s{color:#777;font-size:11px}.pr b{font-size:16px;color:#9b1d3a}
+    .pct{background:#9b1d3a;color:#fff;border-radius:4px;padding:0 4px;font-size:11px;font-weight:700}
+    table{width:100%;border-collapse:collapse}td{padding:2px 4px;border-bottom:1px dotted #ddd;vertical-align:top}tr:last-child td{border-bottom:0}
+    td.tam{width:42px;font-weight:700;white-space:nowrap}
+    @media print{.pct{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>
+    <div class="topo"><h1><small>LINUM · PROMOÇÃO</small>${esc(pr.nome)}</h1>
+      <div class="info"><b>${dataBR(pr.inicio)} a ${dataBR(pr.fim)}</b><br>${pr.loja_id ? "Só na loja " + esc(loja(pr.loja_id).nome) : "Todas as lojas"} · ${esc(sit)}</div></div>
+    <p class="dica">${lista.length} peça(s), ${nvar} cor(es)/tamanho(s) · em ordem alfabética, por tamanho e cor · na venda o preço da promoção entra sozinho · emitido em ${quando(new Date().toISOString())}${pr.observacao ? " · " + esc(pr.observacao) : ""}</p>
+    <div class="grade">${lista.map(quadro).join("")}</div>
+    </body></html>`);
+  w.document.close(); w.focus(); w.print();
 }
 
 // formulário: nome, loja, datas, observação e as peças com o preço da promoção.
