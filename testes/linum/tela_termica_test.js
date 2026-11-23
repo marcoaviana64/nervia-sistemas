@@ -113,7 +113,7 @@ const bytesTexto = b => Buffer.from(b).toString('utf8');
     await pg.click('#vterm'); await pg.waitForSelector('#dlg2[open] #tmimp');
     const prev = await pg.locator('#tmprev').innerText();
     ok(prev.includes('EXTRATO DA VENDA Nº 6') && prev.includes('Não é documento fiscal') && prev.includes('Maria Fictícia') && prev.includes('CPF 111.222.333-44')
-      && prev.includes('A25 Vestido Artesanal') && prev.includes('CV 189435334') && prev.includes('Rua Visconde de Pirajá') && prev.includes('22410-002') && prev.includes('3734-1350'), 'prévia do extrato com venda, cliente, peça, CV e endereço da loja');
+      && prev.includes('A25 Vestido Artesanal') && prev.includes('CV 189435334') && prev.includes('Rua Visconde de Pirajá') && prev.includes('22410-002') && prev.includes('3734-1350') && prev.includes('atendimento@linummm.com.br'), 'prévia do extrato com venda, cliente, peça, CV e endereço da loja');
     ok(!prev.includes('omiss'), 'extrato sem comissão');
     const largura = await pg.evaluate(() => Math.max(...[...document.querySelectorAll('#tmprev div:not(.g)')].map(d => d.textContent.length)));
     ok(largura <= 48, 'nenhuma linha passa de 48 colunas (' + largura + ')');

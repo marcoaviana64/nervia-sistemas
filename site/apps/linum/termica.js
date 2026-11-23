@@ -104,6 +104,7 @@ function termExtrato(v, its, c, w) {
   linha("LINUM", { c: 1, b: 1, g: 1 }); linha("Roupas de Linho", { c: 1 });
   quebra("Loja " + nomeLoja, { c: 1 });
   (TERM_ENDERECOS[nomeLoja] || []).forEach(t => termQuebrar(t, w).forEach(x => linha(x, { c: 1 })));
+  quebra("atendimento@linummm.com.br", { c: 1 });   // com 3 "m" mesmo (confirmado pelo Marco em 23/11/2026)
   sep();
   if (v.cancelada_em) quebra("*** VENDA CANCELADA ***", { c: 1, b: 1 });
   quebra(`EXTRATO DA VENDA Nº ${v.id}`, { c: 1, b: 1 });
