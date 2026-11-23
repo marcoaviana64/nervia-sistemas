@@ -149,14 +149,14 @@ try:
         ok("salvo" in pg.text_content("#msg") and psql("select comissao_pct from lin_membros where papel = 'vendedora'", saida=True) == "0.00",
            "vendedora sem loja principal é aceita (vende em qualquer loja), comissão 0% até definir")
         pg.select_option(f'.eq-papel[data-i="{i_vend}"]', "vendedora"); pg.select_option(f'.eq-loja[data-i="{i_vend}"]', label="Ipanema")
-        pg.fill(f'.eq-comissao[data-i="{i_vend}"]', "3,5")
         pg.click(f'.eq-salvar[data-i="{i_vend}"]'); pg.wait_for_timeout(600)
         pg.select_option(f'.eq-papel[data-i="{i_est}"]', "estoque"); pg.click(f'.eq-salvar[data-i="{i_est}"]'); pg.wait_for_timeout(600)
         ok(psql("select string_agg(papel || ':' || coalesce((select nome from lin_lojas where id = loja_id), '-'), ',' order by papel) from lin_membros", saida=True) == "dono:-,estoque:-,vendedora:Ipanema",
            "papéis gravados (dono; estoque; vendedora da Ipanema)")
         ok(int(psql("select count(*) from auditoria where acao = 'linum_papel_definido'", saida=True)) == 4, "papéis na auditoria")
-        ok(psql("select string_agg(papel || ':' || comissao_pct, ',' order by papel) from lin_membros", saida=True) == "dono:0.00,estoque:0.00,vendedora:3.50",
-           "comissão em % gravada pela Equipe (vendedora 3,5%; os outros 0%)")
+        # 2.61: a comissão vem das regras por loja e período (Comissões → Regras); aqui a vendedora ganha 3,5% nas duas lojas
+        psql("insert into lin_comissoes (user_id, pct, lojas, inicio) select user_id, 3.5, (select array_agg(id) from lin_lojas), '2000-01-01' from lin_membros where papel = 'vendedora'")
+        ok(not pg.is_visible(".eq-comissao"), "a Equipe não tem mais o campo de comissão (vai para as regras)")
         pg.screenshot(path=os.path.join(SAIDA, "linum_equipe.png"), full_page=True)
         ok(not erros, "sem erros de JavaScript (admin)")
 
@@ -501,7 +501,7 @@ try:
         pg.select_option("#nvloja", label="Gávea"); pg.fill("#nvpq", "cal-are"); pg.wait_for_timeout(150)
         pg.click('#nvres [data-add="0"]'); pg.wait_for_timeout(150)
         pg.select_option('#nvpags [data-k="forma"]', "pix"); pg.click("#nvok"); pg.wait_for_timeout(1000); pg.evaluate("() => { const d = document.getElementById('dlg2'); if (d.open) d.close(); }")  # extrato da venda (2.56)
-        ok("registrada" in pg.text_content("#msg") and "Sua comissão" in pg.text_content(".kpis") and "sem comissão" in pg.text_content(".kpis"), "Estoque registra venda na Gávea; KPI sem comissão")
+        ok("registrada" in pg.text_content("#msg") and "Sua comissão" in pg.text_content(".kpis"), "Estoque registra venda na Gávea; KPI da comissão")
         ok(psql("select (select nome from lin_lojas where id = loja_id) || ' ' || comissao_pct || ' ' || comissao_valor from lin_vendas order by id desc limit 1", saida=True) == "Gávea 0.00 0.00",
            "venda do Estoque gravada na loja escolhida e sem comissão")
         ok(not any("preco_custo" in r for r in pg.respostas), "Estoque que vende continua sem receber custo")
