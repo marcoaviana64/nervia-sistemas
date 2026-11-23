@@ -89,7 +89,11 @@ function termPar(esq, dir, w) {
 }
 
 // endereço impresso no cabeçalho (o mesmo da etiqueta da Linum); loja sem endereço aqui sai só com o nome
-const TERM_ENDERECOS = { Ipanema: ["Rua Visconde de Pirajá, 444, loja 111", "Tel. (21) 3734-1350 - (21) 97437-4263"] };
+// (site da Linum, enviado pelo Marco em 23/11/2026; o "loja 111" de Ipanema vem da etiqueta)
+const TERM_ENDERECOS = {
+  "Ipanema": ["Rua Visconde de Pirajá, 444, loja 111", "Rio de Janeiro - RJ, 22410-002", "Tel. (21) 3734-1350"],
+  "Gávea": ["R. Marquês de São Vicente, 52, loja 161", "Rio de Janeiro - RJ, 22451-040", "Tel. (21) 97437-4263"],
+};
 
 // linhas do extrato: { t: texto, c: centro, b: negrito, g: grande }; serve para a térmica e para a prévia/impressão do navegador
 function termExtrato(v, its, c, w) {
