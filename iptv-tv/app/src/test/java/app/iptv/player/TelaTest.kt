@@ -489,8 +489,8 @@ class TelaTest {
         ocioso()
         assertTrue(enviar(porta(act), "tipo=xtream&servidor=${enc(base)}&usuario=marco&senha=segredo").contains("Pronto"))
         esperar { textos(raiz).any { it.startsWith("TV ao vivo") } }
-        // a aba Início existe e abre o hero + prateleiras
-        clicar(raiz, "Início")
+        // a aba Início (só a casinha 🏠, para economizar espaço no topo) existe e abre o hero + prateleiras
+        clicar(raiz, "🏠")
         esperar { textos(raiz).any { it == "Filmes" } }
         assertTrue("prateleira de séries", textos(raiz).any { it == "Séries" })
         assertTrue("botão do hero", textos(raiz).any { it.startsWith("▶") })

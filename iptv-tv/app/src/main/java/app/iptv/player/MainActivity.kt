@@ -65,7 +65,8 @@ import java.util.concurrent.Executors
 @OptIn(UnstableApi::class)
 class MainActivity : ComponentActivity() {
 
-    enum class Aba(val rotulo: String) { INICIO("Início"), TV("TV ao vivo"), FILMES("Filmes"), SERIES("Séries"), AGENDA("Agenda"), AJUSTES("Ajustes") }
+    // curto = rótulo mostrado na aba (Início vira só a casinha, para a data caber no topo); rotulo = nome por extenso
+    enum class Aba(val rotulo: String, val curto: String = rotulo) { INICIO("Início", "🏠"), TV("TV ao vivo"), FILMES("Filmes"), SERIES("Séries"), AGENDA("Agenda"), AJUSTES("Ajustes") }
     private enum class TE { FAVORITOS, CONTINUAR, TODOS, GRUPO, ACAO }
     private data class Entrada(val rotulo: String, val tipo: TE, val grupo: String? = null, val acao: String? = null, val bloqueado: Boolean = false)
 
@@ -328,7 +329,7 @@ class MainActivity : ComponentActivity() {
         }
         Aba.entries.forEach { a ->
             val t = texto(16f).apply {
-                text = a.rotulo
+                text = a.curto
                 typeface = Estilo.MEDIO
                 setPadding(20.dp, 7.dp, 20.dp, 7.dp)
                 isFocusable = true; isClickable = true
@@ -645,7 +646,7 @@ class MainActivity : ComponentActivity() {
         guia.preparar(c)
         abas.forEach { (a, t) ->
             val n = porAba[a]?.size ?: 0
-            t.text = if (a == Aba.AJUSTES || a == Aba.AGENDA || a == Aba.INICIO) a.rotulo else "${a.rotulo}  ${"%,d".format(Locale.forLanguageTag("pt-BR"), n)}"
+            t.text = if (a == Aba.AJUSTES || a == Aba.AGENDA || a == Aba.INICIO) a.curto else "${a.rotulo}  ${"%,d".format(Locale.forLanguageTag("pt-BR"), n)}"
         }
         atual = atual?.let { a -> porUrl[a.url] ?: a }
         if (primeiraCarga) {

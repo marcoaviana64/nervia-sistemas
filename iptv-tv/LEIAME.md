@@ -115,6 +115,14 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
   configuração sempre relê o `nvplayer.json` ao abrir — então o portal mostra o endereço atual se o provedor trocou
   (antes ficava fixo no embutido). A TV já ligada continua trocando sozinha pelo failover (2.5): quando o servidor
   salvo não responde, relê o `nvplayer.json` e passa para o 1º que faz login. Teste `TelaTest.portalMostraServidorDoSite`.
+- **Ícone do app e data no topo** (2.30, 23/11/2026, o Marco com foto: o ícone do app aparecia quebrado na tela inicial
+  da TV ao atualizar, e a data saía da tela depois que a aba Início alargou o topo): (1) ícone do app refeito — havia só
+  um PNG 96×96 em uma densidade (sem ícone adaptável do Android 8+ nem redondo), e launchers modernos (Google TV/Fire TV,
+  celular) mostravam o quadrado quebrado; agora ícone completo (fundo navy + triângulo de play ciano, no visual do app) em
+  5 densidades, com **ícone adaptável** (`mipmap-anydpi-v26/ic_launcher.xml`, fundo `drawable/ic_launcher_bg.xml` degradê +
+  `ic_launcher_foreground`) e **redondo** (`android:roundIcon`), gerado por `ferramentas/nvplayer_icone.py`; (2) a aba
+  **Início** passou a mostrar só um ícone de casa (🏠) em vez da palavra ("curto" no enum `Aba`), economizando espaço no
+  topo para a data voltar a caber. Teste `TelaTest.telaInicio` clica na casinha.
 - **Coluna de grupos mais larga** (2.29, 23/11/2026, o Marco com foto: os nomes dos grupos "Canais | …" ficavam
   cortados): na TV ao vivo, peso da coluna de grupos 0.18 → 0.24, prévia 0.52 → 0.44, canais 0.32 (em `trocarAba` e no
   `addView(lado)`); cabe mais texto do nome do grupo.
