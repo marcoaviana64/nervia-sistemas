@@ -174,3 +174,24 @@ function editarPromocao(pr) {
   desenhar();
   if (!$("dlg").open) $("dlg").showModal();
 }
+
+// 2.58: indicação no Estoque e em Produtos — promoções valendo ou que ainda vão começar em que a peça entra
+function promosDoProduto(pid) {
+  const h = hoje(), r = [];
+  for (const pr of PROMOS) {
+    if (pr.cancelada_em || pr.fim < h) continue;
+    for (const i of pr.itens) if (i.produto_id === pid) r.push({ pr, i });
+  }
+  return r;
+}
+function promoSelo(pid) {
+  const l = promosDoProduto(pid); if (!l.length) return "";
+  const h = hoje();
+  return `<div class="promos">${l.map(({ pr, i }) => {
+    const [, v] = i.variante_id ? prVariante(i.variante_id) : [null, null];
+    const quando = pr.inicio > h ? `de ${dataBR(pr.inicio)} a ${dataBR(pr.fim)}` : `até ${dataBR(pr.fim)}`;
+    const onde = pr.loja_id ? " · só " + loja(pr.loja_id).nome : "";
+    return `<span class="tagpromo${pr.inicio > h ? " futura" : ""}" title="Promoção “${esc(pr.nome)}”${pr.inicio > h ? " (ainda não começou)" : ""}: ${esc(i.variante_id ? (v ? nomeVar(v) : "uma cor/tamanho") : "todas as cores e tamanhos")} por ${esc(brl(i.preco))}, ${esc(quando)}${esc(onde)}">`
+      + `🏷 ${esc(pr.nome)}: ${i.variante_id && v ? esc(nomeVar(v)) + " " : ""}<b>${brl(i.preco)}</b> · ${quando}${onde}</span>`;
+  }).join("")}</div>`;
+}

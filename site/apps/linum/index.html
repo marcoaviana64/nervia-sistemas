@@ -141,6 +141,7 @@ dialog.vitrine:fullscreen .vplayer{max-height:none;flex:1;aspect-ratio:auto;heig
 .vtam{border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-weight:600}
 @media (max-width:700px){.vcorpo{flex-direction:column}.vplayer{aspect-ratio:9/12;max-height:58vh}.vlista{width:auto;flex-direction:row;flex-wrap:wrap;max-height:none}.vtopo h3{font-size:18px}}
 .chip.cd{border-style:dashed;border-color:#8a4fb3}.chip .cdx{color:#8a4fb3;font-weight:600}.chip.zero.cd{background:#f4ecf9;color:#6d3a92}.chip.zero.cd *{color:#6d3a92}
+.promos{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 2px}.tagpromo{font-size:12px;padding:2px 8px;border-radius:999px;background:#fdecef;color:#9b1d3a;border:1px solid #f3c0cc}.tagpromo.futura{background:var(--surface-2,#f4f4f5);color:var(--ink-soft,#555);border-style:dashed}
 h2.temesp::after{content:"★";color:#c9a227;font-size:.7em;margin-left:5px;vertical-align:.15em}
 .vtag{display:inline-block;font-size:12px;padding:2px 8px;border:1px solid var(--border);border-radius:7px;margin:2px 4px 2px 0}
 .esplinha{margin-top:8px;padding:6px 8px;border-left:3px solid #c9a227;background:rgba(201,162,39,.07);border-radius:0 8px 8px 0}.esptit{font-size:12px;font-weight:700;color:#8a6d12;margin-bottom:4px}.prod .loja .esplinha .chips{margin-top:4px}
@@ -263,7 +264,7 @@ function msg(tipo, texto) { const m = $("msg"); m.className = "msg " + tipo; m.t
 function limparMsg() { $("msg").className = "msg oculto"; }
 
 let MINHA_LOJA = null, ADMIN = false, PAPEL = null, LOJAS = [], PRODUTOS = [], QTD = new Map(), VISTA = "estoque", EQUIPE = [];
-const F = { q: "", loja: "", cat: "", cor: "", tam: "", zerados: true, prov: false };
+const F = { q: "", loja: "", cat: "", cor: "", tam: "", zerados: true, prov: false, promo: false };
 // referência provisória = a automática NOVA-<ano>-<nº> (produto cadastrado sem saber a referência; troca-se depois no Editar)
 const refProvisoria = p => /^NOVA-\d{4}-\d+$/i.test(p.referencia || "");
 const dono = () => PAPEL === "dono";
@@ -419,6 +420,7 @@ async function carregar() {
   COND_EST = new Map((cd.error ? [] : cd.data || []).map(x => [chave(x.variante_id, x.loja_id), x]));
   if (typeof carregarCond === "function") await carregarCond().catch(() => {});
   if (typeof carregarVideos === "function") await carregarVideos().catch(() => {});
+  if (typeof carregarPromos === "function") await carregarPromos().catch(() => {});   // 2.58: indicação de promoção no Estoque e em Produtos
 }
 function irPara(v) { if (VISTA === "custos" && v !== "custos" && !cuPodeSair()) return; CU_SUJO = false; VISTA = v; limparMsg(); render(); }
 document.querySelectorAll(".barra .aba").forEach(b => b.onclick = () => irPara(b.dataset.v));
@@ -483,6 +485,7 @@ function telaEstoque() {
       <select id="ftam" aria-label="Tamanho">${opc(tams, F.tam, "Tamanho")}</select>
       <button class="pilula ${F.zerados ? "on" : ""}" id="fzero" type="button" title="Esconde as variações sem peça na loja">${F.zerados ? "Ocultar zerados: ativo" : "Ocultar zerados: inativo"}</button>
       <button class="pilula ${F.prov ? "on" : ""}" id="fprov" type="button" title="Só as peças com referência provisória (NOVA-…), para trocar pela correta">Referência provisória</button>
+      <button class="pilula ${F.promo ? "on" : ""}" id="fpromo" type="button" title="Só as peças que estão (ou vão entrar) em promoção">🏷 Em promoção</button>
     </div>
     ${avisoTransito()}
     <div class="resumo" id="resumo"></div>
@@ -492,6 +495,7 @@ function telaEstoque() {
   [["floja", "loja"], ["fcat", "cat"], ["fcor", "cor"], ["ftam", "tam"]].forEach(([id, k]) => $(id).onchange = e => { F[k] = e.target.value; lista(); });
   $("fzero").onclick = () => { F.zerados = !F.zerados; telaEstoque(); };
   $("fprov").onclick = () => { F.prov = !F.prov; telaEstoque(); };
+  $("fpromo").onclick = () => { F.promo = !F.promo; telaEstoque(); };
   lista();
 }
 function lista() {
@@ -503,6 +507,7 @@ function lista() {
     if (termo && !semAc(p.descricao).includes(termo) && !semAc(p.referencia).includes(termo)) continue;
     if (F.cat && p.categoria !== F.cat) continue;
     if (F.prov && !refProvisoria(p)) continue;
+    if (F.promo && !(typeof promosDoProduto === "function" && promosDoProduto(p.id).length)) continue;
     const vars = p.variantes.filter(v => (!F.cor || v.cor === F.cor) && (!F.tam || v.tamanho === F.tam)).sort(ordemVar);
     if (!vars.length) continue;
     // um cartão por produto; cada loja numa faixa própria, separadas por linha tracejada (pedido do Marco)
@@ -541,6 +546,7 @@ function cartao(p, grupos) {
   return `<div class="prod">
     <div class="cab"><h2 class="${temEsp ? "temesp" : ""}" title="${esc(p.descricao)}${temEsp ? " · tem peça especial" : ""}">${esc(p.descricao)}</h2><span class="preco">${p.preco_venda != null ? brl(p.preco_venda) : "Preço não cadastrado"}</span></div>
     <div class="info"><span>Ref: ${esc(p.referencia || "—")}${refProvisoria(p) ? '<span class="tag">provisória</span>' : ""}</span><span>·</span><span>Peça: ${esc(p.categoria || "—")}</span>${typeof VIDEOS !== "undefined" && VIDEOS[p.id] ? `<button type="button" class="bt vidbt" data-vid="${p.id}" title="Ficha com os vídeos para mostrar à cliente">▶ Mostrar à cliente</button>` : ""}</div>
+    ${typeof promoSelo === "function" ? promoSelo(p.id) : ""}
     ${grupos.map(([l, vs]) => { const [comuns, esp] = separarEsp(vs);
       return `<div class="loja" data-loja="${l.id}"><span class="selo">${esc(l.nome)}</span>${comuns.length ? `<div class="chips">${chipsLoja(p, l, comuns)}</div>` : ""}
         ${esp.length ? `<div class="esplinha"><div class="esptit">★ Peças especiais</div><div class="chips">${chipsLoja(p, l, esp)}</div></div>` : ""}</div>`; }).join("")}</div>`;
@@ -777,6 +783,7 @@ function listaProdutos() {
       <div class="info"><span>${esc([p.referencia, p.categoria, p.fornecedor].filter(Boolean).join(" · "))}</span>
         ${p.codigo_barras ? `<span>· cód. ${esc(p.codigo_barras)}</span>` : ""}${p.preco_custo != null ? `<span>· custo ${brl(p.preco_custo)}</span>` : ""}
         ${CLASSIF ? (semClassif(p) ? '<span class="semncm">· sem NCM</span>' : `<span title="${esc(rotuloClassif(classifDe(p)))}">· NCM ${esc(fmtNcm(classifDe(p).ncm))}</span>`) : ""}</div>
+      ${typeof promoSelo === "function" ? promoSelo(p.id) : ""}
       ${(() => {
         const [comuns, esp] = separarEsp(vs);
         const tag = v => `<span class="vtag ${v.ativo ? "" : "off"}" title="${v.ativo ? "" : "inativa"}">${esc(nomeVar(v))}${v.preco_venda != null ? " · " + brl(v.preco_venda) : ""}</span>`;

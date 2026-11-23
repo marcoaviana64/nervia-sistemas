@@ -53,6 +53,8 @@ const FALSO = `(() => {
       p.itens.forEach(i => S.pitens.push({ id: S.seq++, promocao_id: id, produto_id: i.produto_id, variante_id: i.variante_id, preco: Number(i.preco) })); return ok(id); },
     lin_promocao_cancelar: ({ p_id, p_motivo }) => { Object.assign(S.promos.find(x => x.id === p_id), { cancelada_em: new Date().toISOString(), cancelada_nome: 'Estoque', motivo_cancelamento: p_motivo }); return ok(null); },
     lin_promocoes_resumo: () => ok({}),
+    lin_catalogo: () => ok({ produtos: S.D.produtos.map(p => ({ id: p.id, referencia: p.referencia, descricao: p.descricao, categoria: p.categoria, preco_venda: p.preco_venda, ativo: true })),
+      variantes: S.D.produtos.flatMap(p => p.variantes.map(v => Object.assign({ produto_id: p.id, ativo: true }, v))) }),
     lin_venda_comprovante: ({ p_venda, p_cvs }) => { const v = S.vendas.find(x => x.id === p_venda);
       v.pagamentos = v.pagamentos.map((p, i) => (p.forma === 'credito' || p.forma === 'debito') && p_cvs[i] ? { ...p, cv: p_cvs[i].replace(/^0+/, '') } : p); return ok(null); },
   };
@@ -168,6 +170,20 @@ const somaD = (d, n) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.g
     await v.pg.evaluate(() => { const d = document.getElementById('dlg2'); if (d.open) d.close(); });
     await v.pg.click('.barra .grupo[data-g="estoque"]'); await v.pg.waitForTimeout(150); await v.pg.click('#abaPromo'); await v.pg.waitForTimeout(400);
     ok((await v.pg.locator('#tela').innerText()).includes('Queima Ipanema') && await v.pg.locator('#prnova').count() === 0 && await v.pg.locator('[data-pred]').count() === 0, 'vendedora vê as promoções, sem criar nem editar');
+
+    // 2.58: indicação no Estoque (e filtro) e em Produtos
+    const est = await pagina(ctx, 'estoque', promos);
+    await est.pg.waitForSelector('#lista .prod');
+    const cart = await est.pg.locator('#lista .prod').first().innerText();
+    ok(cart.includes('Semana do Linho') && cart.includes('Queima Ipanema') && cart.includes('Futura') && !cart.includes('Cancelada'),
+      '2.58: cartão do Estoque mostra as promoções valendo e as próximas (não a cancelada)');
+    ok((await est.pg.locator('#lista .tagpromo.futura').count()) === 1 && (await est.pg.locator('#lista .tagpromo').first().getAttribute('title')).includes('por R$'), '2.58: a futura aparece diferente; o aviso explica a promoção');
+    await print(est.pg, 'promo_estoque');
+    await est.pg.click('#fpromo'); await est.pg.waitForTimeout(150);
+    ok(await est.pg.locator('#lista .prod').count() === 1, '2.58: filtro "Em promoção"');
+    await est.pg.click('.barra .grupo[data-g="estoque"]'); await est.pg.waitForTimeout(150); await est.pg.click('#abaProdutos'); await est.pg.waitForTimeout(600);
+    ok((await est.pg.locator('#plista').innerText()).includes('Queima Ipanema'), '2.58: lista de Produtos mostra a promoção');
+    ok(est.erros.length === 0, 'sem erro de JavaScript (Estoque/Produtos) ' + est.erros.join(' | '));
 
     const cel = await b.newContext({ viewport: { width: 390, height: 844 } });
     const m = await pagina(cel, 'estoque', promos);
