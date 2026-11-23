@@ -159,7 +159,7 @@
   <ol>
     <li>Crie o login na Área do Cliente → Administração → Logins e marque o app <b>Sistema Linum</b>.</li>
     <li>No app, abra <b>Equipe</b>. Aparecem os logins com o app liberado.</li>
-    <li>Escolha o <b>Papel</b>: <b>Dono</b> (tudo, inclusive preço de custo), <b>Estoque</b> (cadastra peças, altera o preço de venda e movimenta o estoque, sem ver nem alterar custo) ou <b>Vendedora</b> (consulta o estoque). Todos vendem, em qualquer loja, e veem só as próprias vendas; o Dono vê as de todos. Informe a <b>Loja principal</b> (opcional, vem marcada na venda) e a <b>Comissão (%)</b> sobre o valor pago das vendas da pessoa (0 = sem comissão). Marque as <b>Permissões</b>, que somam ao papel: <b>Produção</b> (rolos, fichas e etapas) e <b>Valores da produção</b> (valor pago no linho, preço por peça e custo das peças; marca junto a Produção). O Dono já tem as duas. Clique em <b>Salvar</b>. A troca fica na auditoria.</li>
+    <li>Escolha o <b>Papel</b>: <b>Dono</b> (tudo, inclusive preço de custo), <b>Estoque</b> (cadastra peças, altera o preço de venda e movimenta o estoque, sem ver nem alterar custo) ou <b>Vendedora</b> (consulta o estoque). Todos vendem, em qualquer loja, e veem só as próprias vendas; o Dono vê as de todos. Informe a <b>Loja principal</b> (opcional, vem marcada na venda). A comissão não fica mais aqui: é cadastrada pela Dona em <b>Gestão → Comissões → Regras de comissão</b>. Marque as <b>Permissões</b>, que somam ao papel: <b>Produção</b> (rolos, fichas e etapas) e <b>Valores da produção</b> (valor pago no linho, preço por peça e custo das peças; marca junto a Produção). O Dono já tem as duas. Clique em <b>Salvar</b>. A troca fica na auditoria.</li>
     <li>Para tirar alguém do app, escolha <b>Sem papel</b> ou retire o app do login na Área do Cliente.</li>
   </ol>
 
@@ -177,7 +177,7 @@
   <p>A venda não pode ser editada depois de registrada. Se algo saiu errado, o Dono cancela e a venda é registrada de novo.</p>
 
   <h3>Comissão</h3>
-  <p>Cada venda guarda a comissão de quem vendeu: o % cadastrado na Equipe sobre o valor pago (ex.: 3,5% de R$ 898,00 = R$ 31,43). Na aba Vendas, cada um vê a própria comissão do período; o Dono vê o total e a de cada pessoa. Venda cancelada não conta.</p>
+  <p>Cada venda guarda a comissão de quem vendeu: o % da regra de comissão da pessoa na loja e no dia da venda, sobre o valor pago (ex.: 3,5% de R$ 898,00 = R$ 31,43). Sem regra = sem comissão. Na aba Vendas, cada um vê a própria comissão do período; o Dono vê o total e a de cada pessoa. Venda cancelada não conta.</p>
 
   <h3>Promoções</h3>
   <p>A <b>Dona</b> ou o <b>Estoque</b> cadastra em <b>Estoque → Promoções → + Nova promoção</b>: dê um nome (ex.: "Semana do Linho"), escolha a loja (ou "Todas as lojas"), a data de início e a de fim (o último dia da promoção conta). Procure cada peça e informe o <b>preço na promoção</b>, que tem de ser menor que o de tabela. Abaixo de cada peça aparece a <b>grade de cores e tamanhos</b>, como no Estoque: clique nos quadradinhos das variações que entram na promoção (ficam vinho com ✓). Clicar no <b>nome da cor</b> marca a linha inteira; clicar no <b>tamanho</b> marca a coluna. Os botões <b>Todas</b>, <b>Nenhuma</b> e <b>Só as com estoque</b> ajudam; o número no quadradinho é o estoque (da loja escolhida ou das duas). Peças especiais aparecem à parte, para marcar uma a uma. Para dar <b>outro preço</b> a uma cor da mesma peça, adicione a peça de novo e marque só ela.</p>
@@ -337,12 +337,13 @@
   <h2 id="comissoes">7a. Comissões do mês (Dono)</h2>
   <ol>
     <li>Aba <b>Comissões</b> (só o Dono e a equipe Nervia; as vendedoras ainda não veem este relatório).</li>
+    <li><b>Regras de comissão</b> (no alto da aba): cada regra diz o % de uma pessoa em uma ou mais lojas, num período. Clique em <b>+ Nova regra</b>, escolha a pessoa, digite o % (ex.: 1,5), marque as lojas, o <b>Início</b> e, se tiver, o <b>Fim</b> (vazio = sem fim) e clique em <b>Salvar regra</b>. Exemplos: a vendedora ganha 1% só na Gávea; ganha 1,5% em Ipanema e 1% na Gávea (duas regras); ganha comissão só em dezembro (início e fim). Quem não tem regra na loja e no dia da venda fica <b>sem comissão</b> (a lista mostra quem está sem comissão hoje). A mesma pessoa não pode ter duas regras valendo na mesma loja no mesmo dia: para mudar o %, use <b>Editar</b> ou ponha fim na regra antiga e crie outra a partir do dia seguinte. Se o início for no passado, as vendas da pessoa nessas lojas e nesse período são <b>recalculadas</b> ao salvar (o aviso diz quantas); o mesmo vale para <b>Excluir</b> (pede o motivo). Tudo fica na auditoria.</li>
     <li>Escolha o mês (‹ ›) e, se quiser, a loja. O relatório mostra, por pessoa, o número de vendas, o valor pago, o % e a comissão, com o total do mês.</li>
     <li>Clique na pessoa para ver as vendas dela (nº, data, loja, valor, % e comissão de cada uma).</li>
     <li><b>Últimos 12 meses</b>: a comissão de cada pessoa mês a mês, para comparar.</li>
     <li><b>Baixar CSV</b> para a planilha do pagamento ou <b>Imprimir</b>.</li>
   </ol>
-  <p>A comissão de cada venda é o % que a pessoa tinha no dia da venda (aba Equipe) sobre o valor pago; mudar o % depois não muda as vendas antigas. Venda cancelada não entra; troca não muda a comissão; na venda com crédito da cliente, a comissão é só sobre o valor pago a mais.</p>
+  <p>A comissão de cada venda é o % da regra da pessoa na loja e no dia da venda, sobre o valor pago; mudar uma regra recalcula só as vendas do período dela. Venda cancelada não entra; troca não muda a comissão; na venda com crédito da cliente, a comissão é só sobre o valor pago a mais.</p>
 
   <h2 id="lucro">7a1. Lucro das vendas (Dono)</h2>
   <p>Só a Dona e os administradores veem a aba <b>Lucro</b>. Ela compara, para as vendas do período (sem as canceladas):</p>

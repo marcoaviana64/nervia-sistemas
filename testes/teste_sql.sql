@@ -1363,6 +1363,9 @@ set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
 select pg_temp.erro2($$select lin_membro_salvar('00000000-0000-0000-0000-00000000000c', 'vendedora', null, 120)$$, 'de 0 a 100', 'linum comissão: % acima de 100 recusado');
 select lin_membro_salvar('00000000-0000-0000-0000-00000000000c', 'vendedora', (select v from lin_ids where k = 'gav'), 3.5);
 select lin_membro_salvar('00000000-0000-0000-0000-00000000000c', 'vendedora', null);   -- sem informar a comissão: mantém 3,5%
+-- desde a 2.61 a comissão vem das regras por loja e período (lin_comissoes), não mais do % da equipe
+select lin_comissao_salvar(jsonb_build_object('user_id', '00000000-0000-0000-0000-00000000000c', 'pct', 3.5,
+  'lojas', jsonb_build_array((select v from lin_ids where k = 'gav'), (select v from lin_ids where k = 'ipa')), 'inicio', '2000-01-01'));
 select pg_temp.ok((select (e->>'comissao_pct')::numeric = 3.5 from jsonb_array_elements(lin_equipe()) e where e->>'user_id' = '00000000-0000-0000-0000-00000000000c')
   and (select count(*) = 3 from jsonb_array_elements(lin_vendedoras())), 'linum comissão: % salvo na equipe; todos os membros aparecem entre quem vende');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora, sem loja principal
@@ -1488,7 +1491,7 @@ select pg_temp.erro2($$select lin_venda_registrar(jsonb_build_object('loja_id', 
 insert into lin_tr values ('vc', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'cliente_id', (select v from lin_vd where k = 'cli'),
   'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 1, 'valor_unitario', 300)),
   'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'credito_loja', 'valor', 200), jsonb_build_object('forma', 'pix', 'valor', 100))))::text);
-select pg_temp.ok((select valor_total = 300 and credito_usado = 200 and valor_nf = 100 and comissao_valor = 5 from lin_vendas where id = (select v from lin_tr where k = 'vc')::bigint)
+select pg_temp.ok((select valor_total = 300 and credito_usado = 200 and valor_nf = 100 and comissao_valor = 3.5 from lin_vendas where id = (select v from lin_tr where k = 'vc')::bigint)
   and (lin_cliente_credito((select v from lin_vd where k = 'cli')::uuid)->>'saldo')::numeric = 41,
   'linum crédito: venda de R$ 300 com R$ 200 de crédito: paga R$ 100, nota fiscal de R$ 100, comissão só sobre R$ 100, saldo fica R$ 41');
 select pg_temp.erro2($$select lin_credito_ajustar((select v from lin_vd where k = 'cli')::uuid, 50, 'vale de papel')$$, 'Somente o Dono', 'linum crédito: só o Dono ajusta');
@@ -3945,6 +3948,93 @@ insert into lin_vd values ('dg2', lin_venda_registrar(jsonb_build_object('loja_i
   'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 280))))::text);
 select pg_temp.ok((lin_venda_trocavel((select v from lin_vd where k = 'dg2')::bigint) -> 'itens' -> 0 ->> 'valor_unitario')::numeric = 280,
   'linum 2.59: sem desconto geral, vale o preço cobrado na peça');
+reset role;
+reset request.jwt.claim.sub;
+-- ---------------------------------------------------------------- linum 2.61: regras de comissão por loja e período
+reset role;
+reset request.jwt.claim.sub;
+insert into lin_estoque (variante_id, loja_id, quantidade) values ('20000000-0000-0000-0000-000000000003', (select v from lin_ids where k = 'gav'), 20),
+  ('20000000-0000-0000-0000-000000000003', (select v from lin_ids where k = 'ipa'), 20)
+  on conflict (variante_id, loja_id) do update set quantidade = excluded.quantidade;
+create temp table cm (k text primary key, v text); grant all on cm to authenticated;
+insert into cm values ('hoje', ((now() at time zone 'America/Sao_Paulo')::date)::text);
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';   -- Estoque
+select pg_temp.erro2($$select lin_comissao_salvar(jsonb_build_object('user_id', '00000000-0000-0000-0000-00000000000d', 'pct', 2,
+  'lojas', jsonb_build_array((select v from lin_ids where k = 'gav')), 'inicio', '2000-01-01'))$$, 'Só a Dona', 'linum 2.61: Estoque não cadastra regra de comissão');
+-- sem regra = sem comissão
+insert into cm values ('s1', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'),
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000003', 'quantidade', 1, 'valor_unitario', 200)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 200))))::text);
+insert into cm values ('s2', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'ipa'),
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000003', 'quantidade', 1, 'valor_unitario', 300)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 300))))::text);
+reset role;
+select pg_temp.ok((select comissao_pct = 0 and comissao_valor = 0 from lin_vendas where id = (select v from cm where k = 's1')::bigint),
+  'linum 2.61: sem regra, a venda sai sem comissão');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';   -- Dona
+select pg_temp.erro2($$select lin_comissao_salvar(jsonb_build_object('user_id', '00000000-0000-0000-0000-00000000000d', 'pct', 0,
+  'lojas', jsonb_build_array((select v from lin_ids where k = 'gav')), 'inicio', '2000-01-01'))$$, 'maior que zero', 'linum 2.61: 0% recusado (sem comissão = sem regra)');
+select pg_temp.erro2($$select lin_comissao_salvar(jsonb_build_object('user_id', '00000000-0000-0000-0000-00000000000d', 'pct', 2,
+  'lojas', '[]'::jsonb, 'inicio', '2000-01-01'))$$, 'pelo menos uma loja', 'linum 2.61: regra sem loja recusada');
+select pg_temp.erro2($$select lin_comissao_salvar(jsonb_build_object('user_id', '00000000-0000-0000-0000-00000000000d', 'pct', 2,
+  'lojas', jsonb_build_array((select v from lin_ids where k = 'gav')), 'inicio', '2026-11-10', 'fim', '2026-11-01'))$$, 'antes do início', 'linum 2.61: fim antes do início recusado');
+-- regra retroativa só na Gávea: recalcula a venda da Gávea, não a de Ipanema
+insert into cm values ('r1', (lin_comissao_salvar(jsonb_build_object('user_id', '00000000-0000-0000-0000-00000000000d', 'pct', 2,
+  'lojas', jsonb_build_array((select v from lin_ids where k = 'gav')), 'inicio', '2000-01-01', 'observacao', 'só Gávea'))) ->> 'id');
+reset role;
+select pg_temp.ok((select comissao_pct = 2 and comissao_valor = 4 from lin_vendas where id = (select v from cm where k = 's1')::bigint)
+  and (select comissao_pct = 0 from lin_vendas where id = (select v from cm where k = 's2')::bigint),
+  'linum 2.61: regra com início no passado recalcula as vendas daquela loja (Gávea 2% = R$ 4) e não as da outra loja');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.erro2($$select lin_comissao_salvar(jsonb_build_object('user_id', '00000000-0000-0000-0000-00000000000d', 'pct', 3,
+  'lojas', jsonb_build_array((select v from lin_ids where k = 'gav'), (select v from lin_ids where k = 'ipa')), 'inicio', (select v from cm where k = 'hoje')))$$,
+  'Já existe regra', 'linum 2.61: duas regras na mesma loja e no mesmo dia recusadas');
+-- Ipanema com outro %, de hoje em diante sem fim
+select lin_comissao_salvar(jsonb_build_object('user_id', '00000000-0000-0000-0000-00000000000d', 'pct', 5,
+  'lojas', jsonb_build_array((select v from lin_ids where k = 'ipa')), 'inicio', (select v from cm where k = 'hoje')));
+reset role;
+select pg_temp.ok((select comissao_pct = 5 and comissao_valor = 15 from lin_vendas where id = (select v from cm where k = 's2')::bigint),
+  'linum 2.61: outra loja com outro % (Ipanema 5% = R$ 15)');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+insert into cm values ('s3', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'),
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000003', 'quantidade', 1, 'valor_unitario', 100)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 100))))::text);
+select pg_temp.ok((select count(*) = 2 from jsonb_array_elements(lin_comissoes_ler() -> 'regras')) and jsonb_array_length(lin_comissoes_ler() -> 'pessoas') = 0,
+  'linum 2.61: a pessoa vê as próprias regras e não a lista da equipe');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.ok((select count(*) = 0 from jsonb_array_elements(lin_comissoes_ler() -> 'regras') r where r ->> 'user_id' <> '00000000-0000-0000-0000-00000000000c')
+  and (select count(*) = 0 from lin_comissoes where user_id <> '00000000-0000-0000-0000-00000000000c'),
+  'linum 2.61: vendedora não vê as regras das outras');
+reset role;
+select pg_temp.ok((select comissao_pct = 2 and comissao_valor = 2 from lin_vendas where id = (select v from cm where k = 's3')::bigint),
+  'linum 2.61: venda nova usa a regra da loja e da data');
+-- editar: a regra da Gávea termina ontem → a venda de hoje volta a ficar sem comissão
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok((lin_comissao_salvar(jsonb_build_object('id', (select v from cm where k = 'r1'), 'pct', 2,
+  'lojas', jsonb_build_array((select v from lin_ids where k = 'gav')), 'inicio', '2000-01-01', 'fim', ((select v from cm where k = 'hoje')::date - 1)::text)) ->> 'recalculadas')::int = 2,
+  'linum 2.61: encurtar o período recalcula as vendas que saíram dele');
+reset role;
+select pg_temp.ok((select comissao_pct = 0 and comissao_valor = 0 from lin_vendas where id = (select v from cm where k = 's1')::bigint),
+  'linum 2.61: venda fora do período fica sem comissão');
+-- excluir a regra de Ipanema (motivo obrigatório) → venda de Ipanema volta a 0
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.erro2($$select lin_comissao_excluir((select max(id) from lin_comissoes where user_id = '00000000-0000-0000-0000-00000000000d'), 'x')$$, 'motivo', 'linum 2.61: excluir exige motivo');
+select lin_comissao_excluir((select max(id) from lin_comissoes where user_id = '00000000-0000-0000-0000-00000000000d'), 'cadastrada errado');
+reset role;
+select pg_temp.ok((select comissao_pct = 0 from lin_vendas where id = (select v from cm where k = 's2')::bigint),
+  'linum 2.61: excluir a regra recalcula as vendas dela');
+select pg_temp.ok((select count(*) = 3 from auditoria where acao = 'linum_comissao_regra_criada' and detalhes ->> 'pessoa' is not null)
+  and (select count(*) = 1 from auditoria where acao = 'linum_comissao_regra_alterada' and jsonb_array_length(detalhes -> 'vendas_recalculadas') = 2)
+  and (select count(*) = 1 from auditoria where acao = 'linum_comissao_regra_excluida' and detalhes ->> 'motivo' = 'cadastrada errado'),
+  'linum 2.61: regras criadas, alteradas e excluídas na auditoria, com as vendas recalculadas');
+select pg_temp.erro2($$update lin_vendas set comissao_pct = 9 where id = (select v from cm where k = 's1')::bigint$$, 'Não pode ser alterada',
+  'linum 2.61: a comissão da venda só muda pelo recálculo das regras');
 reset role;
 reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'
