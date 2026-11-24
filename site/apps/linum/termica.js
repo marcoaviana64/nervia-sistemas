@@ -109,7 +109,7 @@ function termMontar(w) {
     o.quebra("atendimento@linummm.com.br", { c: 1 });   // com 3 "m" mesmo (confirmado pelo Marco em 23/11/2026)
     o.sep();
   };
-  o.via = via => { if (via) o.quebra(via === "loja" ? "VIA DA LOJA" : "VIA DA CLIENTE", { c: 1 }); };
+  o.via = (via, rot) => { if (via) o.quebra((rot && rot[via]) || (via === "loja" ? "VIA DA LOJA" : "VIA DA CLIENTE"), { c: 1 }); };
   o.cliente = (c, cpfTambem) => {
     if (!c || !c.nome) return o.linha("Cliente: não informada");
     o.quebra("Cliente: " + c.nome, { b: 1 });
@@ -225,6 +225,77 @@ function termAjuste(a, cli, w, via) {
   return m.L;
 }
 
+// 2.63 (pedido do Marco em 24/11/2026: "transferência e beneficiamento ainda não têm impressão na térmica para ter
+// comprovante de envio em papel"): comprovante da transferência entre lojas e da saída para beneficiamento, em 2 vias.
+const TERM_VIAS_TR = { loja: "VIA DA LOJA DE ORIGEM", cliente: "VIA QUE VAI COM AS PEÇAS" };
+const TERM_VIAS_BF = { loja: "VIA DA LOJA", cliente: "VIA DO BENEFICIADOR" };
+const termPecaLinha = (m, i) => { m.quebra(`${i.referencia || ""} ${i.descricao || ""}`.trim(), { b: 1 }); const d = [i.cor, i.tamanho, i.edicao].filter(Boolean).join(" - "); return d; };
+function termTransferencia(t, its, w, via) {
+  const m = termMontar(w), { sep, quebra, par } = m, rec = t.situacao === "recebida" || t.situacao === "recebida_com_falta";
+  m.cabecalho(loja(t.origem_id).nome);
+  quebra(`TRANSFERÊNCIA ENTRE LOJAS Nº ${t.id}`, { c: 1, b: 1 });
+  m.via(via, TERM_VIAS_TR);
+  sep();
+  par("De: " + loja(t.origem_id).nome, "Para: " + loja(t.destino_id).nome, { b: 1 });
+  par("Enviada em " + quando(t.enviado_em), termPrimeiro(t.enviado_nome));
+  if (t.situacao === "cancelada") quebra("*** TRANSFERÊNCIA CANCELADA ***", { c: 1, b: 1 });
+  sep();
+  let tot = 0, chegou = 0;
+  its.forEach(i => {
+    const q = Number(i.quantidade); tot += q; chegou += Number(i.recebida ?? 0);
+    const d = termPecaLinha(m, i);
+    par("  " + (d || "-"), `${q} un.`);
+    if (rec && i.recebida != null && Number(i.recebida) < q) quebra(`  chegaram ${i.recebida} de ${q}`, { b: 1 });
+  });
+  sep();
+  par(`Total enviado`, `${tot} peça${tot === 1 ? "" : "s"}`, { b: 1 });
+  if (rec) { par("Total recebido", `${chegou} peça${chegou === 1 ? "" : "s"}`, { b: 1 });
+    par("Recebida em " + quando(t.recebido_em), termPrimeiro(t.recebido_nome)); if (t.recebimento_obs) quebra("Obs. do recebimento: " + t.recebimento_obs); }
+  if (t.observacao) quebra("Obs.: " + t.observacao);
+  sep();
+  if (t.situacao === "em_transito") {
+    quebra(`As peças só entram no estoque de ${loja(t.destino_id).nome} depois de conferidas e recebidas no app.`);
+    m.assinatura("Enviado por " + (t.enviado_nome || ""));
+    m.linha(""); m.quebra("Conferido em ____/____/______", { c: 1 });
+    m.assinatura("Recebido por (" + loja(t.destino_id).nome + ")");
+  }
+  m.rodape();
+  return m.L;
+}
+function termBeneficiamento(b, its, w, via) {
+  const m = termMontar(w), { sep, quebra, par } = m;
+  m.cabecalho(loja(b.loja_id).nome);
+  quebra(`SAÍDA PARA BENEFICIAMENTO Nº ${b.id}`, { c: 1, b: 1 });
+  m.via(via, TERM_VIAS_BF);
+  sep();
+  quebra("Serviço: " + (b.servico || ""), { b: 1 });
+  quebra("Quem faz: " + (b.beneficiador || ""));
+  if (b.vai_virar) quebra("Vai virar: " + b.vai_virar);
+  par("Saiu em " + quando(b.enviado_em), termPrimeiro(b.enviado_nome));
+  if (b.previsto) par("Volta prevista", dataBR(b.previsto), { b: 1 });
+  sep();
+  let tot = 0, voltou = 0, perd = 0;
+  its.forEach(i => {
+    const q = Number(i.quantidade); tot += q; voltou += Number(i.voltaram || 0); perd += Number(i.perdidas || 0);
+    const d = termPecaLinha(m, i);
+    par("  " + (d || "-"), `${q} un.`);
+    if (Number(i.voltaram) || Number(i.perdidas)) quebra(`  voltaram ${n(i.voltaram)} - perdidas ${n(i.perdidas)} - fora ${n(q - i.voltaram - i.perdidas)}`);
+  });
+  sep();
+  par("Total enviado", `${tot} peça${tot === 1 ? "" : "s"}`, { b: 1 });
+  if (voltou || perd) par("Voltaram / perdidas", `${voltou} / ${perd}`, { b: 1 });
+  if (b.situacao === "concluido") quebra("Beneficiamento concluído em " + quando(b.concluido_em));
+  if (b.observacao) quebra("Obs.: " + b.observacao);
+  sep();
+  if (b.situacao === "no_beneficiamento") {
+    quebra(`Recebi as peças acima para o serviço "${b.servico || ""}"${b.previsto ? ", com volta prevista para " + dataBR(b.previsto) : ""}.`);
+    if (via !== "cliente") m.assinatura("Recebido por " + (b.beneficiador || ""));
+    else { m.linha(""); m.quebra("Apresente esta via ao devolver as peças.", { c: 1 }); }
+  }
+  m.rodape();
+  return m.L;
+}
+
 // linha em letra dupla (metade das colunas): "TOTAL ......... R$ 849,00" refeita para caber
 function termGrande(t, w) {
   const w2 = Math.floor(w / 2), m = t.replace(/\s{2,}/g, "  ").match(/^(.*?\S)\s{2,}(\S.*)$/);
@@ -294,7 +365,7 @@ function termJanela(op) {
   g.innerHTML = `<h3>${esc(op.titulo)}</h3>
     <div class="mut">${esc(op.desc)}</div>
     <div class="campo">Impressora: <span id="tmstatus"></span></div>
-    ${op.vias ? `<label class="campo" style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font-size:13px;font-weight:400;color:var(--ink)"><input type="checkbox" style="width:auto;flex:none;margin:0" id="tmvias"${cfg.vias !== false ? " checked" : ""}> Imprimir 2 vias (a da loja, assinada pela cliente, e a da cliente)</label>` : ""}
+    ${op.vias ? `<label class="campo" style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font-size:13px;font-weight:400;color:var(--ink)"><input type="checkbox" style="width:auto;flex:none;margin:0" id="tmvias"${cfg.vias !== false ? " checked" : ""}> Imprimir 2 vias (${esc(op.viasTexto || "a da loja, assinada pela cliente, e a da cliente")})</label>` : ""}
     <div class="tmprev" id="tmprev"></div>
     <details class="campo"><summary>Ajustes da impressora</summary>
       <div class="duas"><div><label for="tmcol">Colunas por linha</label><select id="tmcol">${[48, 42, 32].map(x => `<option value="${x}"${cfg.colunas === x ? " selected" : ""}>${x}${x === 48 ? " (80 mm, letra normal)" : x === 32 ? " (papel de 58 mm)" : ""}</option>`).join("")}</select></div>
@@ -343,6 +414,28 @@ async function comprovanteAjuste(a, op = {}) {
     desc: entregue ? "Comprovante de entrega da peça ajustada: a cliente assina a via da loja e leva a dela."
       : "Comprovante para a cliente retirar a peça depois do ajuste.",
     linhas: (w, via) => termAjuste(a, cliente(a.cliente_id), w, via) }, op));
+}
+
+function comprovanteTransferencia(t, its, op = {}) {
+  const rec = t.situacao === "recebida" || t.situacao === "recebida_com_falta";
+  termJanela(Object.assign({ titulo: `Comprovante · transferência nº ${t.id}`, nome: `Transferência nº ${t.id}`, vias: t.situacao === "em_transito",
+    viasTexto: "uma fica na loja de origem e a outra vai com as peças para conferir e assinar",
+    desc: rec ? "Comprovante do recebimento: o que foi enviado e o que chegou." : t.situacao === "cancelada" ? "Transferência cancelada: as peças voltaram para a loja de origem."
+      : `Comprovante de envio: uma via fica em ${loja(t.origem_id).nome} e a outra vai com as peças para ${loja(t.destino_id).nome} conferir e assinar.`,
+    linhas: (w, via) => termTransferencia(t, its, w, via) }, op));
+}
+async function comprovanteTransferenciaId(id, op) {
+  const [{ data: t, error: e1 }, { data: its, error: e2 }] = await Promise.all([
+    sb.from("lin_transferencias").select("*").eq("id", id).maybeSingle(),
+    sb.from("lin_transferencia_itens").select("*").eq("transferencia_id", id).order("id")]);
+  if (e1 || e2) throw new Error((e1 || e2).message);
+  if (t) comprovanteTransferencia(t, its || [], op);
+}
+function comprovanteBeneficiamento(b, its, op = {}) {
+  termJanela(Object.assign({ titulo: `Comprovante · beneficiamento nº ${b.id}`, nome: `Beneficiamento nº ${b.id}`, vias: b.situacao === "no_beneficiamento",
+    viasTexto: "a da loja, assinada por quem recebe as peças, e a do beneficiador",
+    desc: b.situacao === "no_beneficiamento" ? "Comprovante de saída das peças: quem faz o serviço assina a via da loja e leva a dele." : "Comprovante do beneficiamento com o que já voltou.",
+    linhas: (w, via) => termBeneficiamento(b, its, w, via) }, op));
 }
 
 // depois de registrar a venda: busca a venda gravada e abre o extrato

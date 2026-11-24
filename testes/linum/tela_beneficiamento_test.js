@@ -163,6 +163,10 @@ const ultimaRpc = (pg, fn) => pg.evaluate(fn => { const l = window.__S.rpc.filte
     ok((await pg.locator('#abaBenef').innerText()).trim().endsWith('1'), 'número na aba');
     // 2.40: depois do envio, a ficha abre sozinha (para imprimir e mandar junto com as peças)
     await pg.waitForSelector('#dlg[open] #bffimp');
+    // 2.63: o comprovante da térmica abre por cima da ficha; Voltar volta para a ficha
+    await pg.waitForSelector('#dlg2[open] #tmprev');
+    ok((await pg.locator('#tmprev').innerText()).includes('SAÍDA PARA BENEFICIAMENTO Nº 1'), '2.63: depois do envio abre o comprovante da térmica');
+    await pg.click('#tmfechar'); await pg.waitForTimeout(150);
     let fic = await pg.locator('#dlgf').innerText();
     ok(fic.includes('Beneficiamento nº 1') && fic.includes('bordado à mão') && fic.includes('Ateliê Flor') && fic.includes('Enviado para Ateliê Flor') && fic.includes('Próximo: registrar a volta de 5 peça(s)'),
       'ficha abre depois do envio: serviço, quem faz, andamento e próximo passo');
@@ -257,7 +261,9 @@ const ultimaRpc = (pg, fn) => pg.evaluate(fn => { const l = window.__S.rpc.filte
     d.pg.once('dialog', x => x.accept()); await d.pg.click('#bfok'); await d.pg.waitForTimeout(500);
     const env2 = await ultimaRpc(d.pg, 'lin_beneficiamento_enviar');
     ok(env2 && env2.p.itens[0].valor_unitario === 35.5, 'valor por peça vai no envio (vírgula vira ponto)');
-    await d.pg.waitForSelector('#dlg[open] #bffimp');
+    await d.pg.waitForSelector('#dlg[open] #bffimp'); await d.pg.waitForSelector('#dlg2[open] #tmprev');
+    ok(!/R\$/.test(await d.pg.locator('#tmprev').innerText()), '2.63: comprovante da térmica sem valor, mesmo para o Dono');
+    await d.pg.click('#tmfechar'); await d.pg.waitForTimeout(150);
     ok((await d.pg.locator('#dlgf').innerText()).replace(/\u00a0/g, ' ').includes('R$ 71,00') && await d.pg.locator('#bffval').count() === 1, 'ficha do Dono mostra o valor pago e "Valor pago"');
     await d.pg.click('#bffx');
     await aba(d.pg, '#abaBenef'); await d.pg.waitForSelector('[data-bfval]');
@@ -300,6 +306,9 @@ const ultimaRpc = (pg, fn) => pg.evaluate(fn => { const l = window.__S.rpc.filte
     await c.pg.fill('#bfquem', 'Ateliê'); await c.pg.fill('#bfserv', 'bordado');
     c.pg.once('dialog', x => x.accept()); await c.pg.click('#bfok'); await c.pg.waitForSelector('#dlg[open] #bffimp');
     ok(await c.pg.evaluate(() => document.getElementById('dlg').scrollWidth <= document.getElementById('dlg').clientWidth + 1), 'celular: ficha sem rolagem lateral');
+    await c.pg.waitForSelector('#dlg2[open] #tmprev');
+    ok(await c.pg.evaluate(() => document.getElementById('dlg2').scrollWidth <= document.getElementById('dlg2').clientWidth + 1), 'celular: comprovante da térmica sem rolagem lateral');
+    await c.pg.click('#tmfechar'); await c.pg.waitForTimeout(150);
     await c.pg.click('#bffx');
     await aba(c.pg, '#abaBenef'); await c.pg.waitForSelector('[data-bfret]');
     await c.pg.click('[data-bfret="1"]'); await c.pg.waitForSelector('#dlg[open] #rbok');
