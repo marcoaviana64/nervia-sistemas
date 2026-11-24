@@ -4050,4 +4050,140 @@ select pg_temp.ok(((select v from cm where k = 'mv')::jsonb ->> 'pecas')::int = 
   'linum 2.62: Estoque vê as peças vendidas de todas as vendas, por cor e tamanho, sem valores nem quem vendeu');
 select pg_temp.ok((select count(*) from (select jsonb_array_elements(lin_mais_vendidos(30) -> 'produtos')) x) <= 10, 'linum 2.62: até 10 peças no ranking');
 reset request.jwt.claim.sub;
+-- ---------------------------------------------------------------- NVSintonia (laboratório)
+insert into auth.users (id, email) values ('51000000-0000-0000-0000-000000000001', 'ana@sin.test'), ('51000000-0000-0000-0000-000000000002', 'bia@sin.test'),
+  ('51000000-0000-0000-0000-000000000003', 'caio@sin.test');
+select pg_temp.ok(not exists (select 1 from information_schema.role_table_grants where grantee in ('anon','authenticated') and table_name like 'sin\_%'),
+  'sintonia: tela não lê nem grava as tabelas (só pelas funções)');
+set role anon;
+reset request.jwt.claim.sub;
+select pg_temp.erro2($$select sin_espelho('p')$$, 'permission denied', 'sintonia: sem login não abre espelho');
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '51000000-0000-0000-0000-000000000001';
+select pg_temp.erro2($$select sin_espelho('p')$$, 'perfil', 'sintonia: precisa criar o perfil antes');
+select pg_temp.ok((sin_perfil() ->> 'existe')::boolean = false, 'sintonia: perfil ainda não existe');
+select sin_perfil_salvar('Ana');
+select pg_temp.ok((sin_perfil() ->> 'id_dia') ~ '^SN-[A-Z0-9]{4}$', 'sintonia: ID do dia no formato SN-XXXX');
+select pg_temp.ok(jsonb_array_length(sin_espelho('r') -> 'circulos') = 4 and (sin_espelho('r') -> 'circulos' -> 0 ->> 'gestor')::boolean,
+  'sintonia: 360° nasce com gestor, pares, liderados e clientes internos');
+select sin_circulo_criar('p', 'Família');
+select pg_temp.erro2($$select sin_circulo_criar('p', 'família')$$, 'Já existe', 'sintonia: círculo com nome repetido recusado');
+create temp table sinc as select (sin_espelho('p') -> 'circulos' -> 0 ->> 'codigo') as fam,
+  (select c ->> 'codigo' from jsonb_array_elements(sin_espelho('r') -> 'circulos') c where c ->> 'nome' = 'Gestor') as gest,
+  (select c ->> 'codigo' from jsonb_array_elements(sin_espelho('r') -> 'circulos') c where c ->> 'nome' = 'Pares') as pares;
+select pg_temp.erro2($$select sin_responder((select fam from sinc), 'aparelho-da-ana-123456', '{4,4,4,4,4}')$$, 'é seu', 'sintonia: dono não responde o próprio convite');
+reset role;
+grant select on sinc to anon, authenticated;
+set role anon;
+reset request.jwt.claim.sub;
+select pg_temp.ok(sin_convite_ler((select fam from sinc)) ->> 'dono' = 'Ana' and sin_convite_ler((select fam from sinc)) ->> 'circulo' = 'Família',
+  'sintonia: convite abre sem login com o nome de quem pediu');
+select sin_responder((select fam from sinc), 'aparelho-0000000001', '{5,5,4,4,5}');
+select pg_temp.erro2($$select sin_responder((select fam from sinc), 'aparelho-0000000001', '{1,1,1,1,1}')$$, 'já respondeu', 'sintonia: o mesmo aparelho não responde duas vezes');
+select pg_temp.erro2($$select sin_responder((select fam from sinc), 'aparelho-0000000009', '{1,1,1,1}')$$, 'todos os itens', 'sintonia: faltando item recusado');
+select pg_temp.erro2($$select sin_responder((select fam from sinc), 'aparelho-0000000009', '{1,1,1,1,6}')$$, 'todos os itens', 'sintonia: nota acima de 5 recusada');
+select sin_responder((select fam from sinc), 'aparelho-000000000' || i, '{3,4,3,4,3}') from generate_series(2, 4) i;
+reset role;
+select pg_temp.ok(not exists (select 1 from information_schema.columns where table_name = 'sin_respostas' and column_name in ('user_id','autor','criado_em','em','marca')),
+  'sintonia: a resposta não guarda autor nem hora');
+select pg_temp.ok((select count(*) = 4 and bool_and(not liberada) from sin_respostas), 'sintonia: 4 respostas esperando o lote, nenhuma liberada');
+set role authenticated;
+set request.jwt.claim.sub = '51000000-0000-0000-0000-000000000001';
+select pg_temp.ok((sin_espelho('p') -> 'circulos' -> 0 ->> 'liberadas')::int = 0 and sin_espelho('p') -> 'circulos' -> 0 -> 'medias' = 'null'::jsonb,
+  'sintonia: com 4 respostas o dono não vê nada nem a contagem');
+reset role;
+set role anon;
+reset request.jwt.claim.sub;
+select sin_responder((select fam from sinc), 'aparelho-0000000005', '{2,2,2,2,2}');
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '51000000-0000-0000-0000-000000000001';
+select pg_temp.ok((sin_espelho('p') -> 'circulos' -> 0 ->> 'liberadas')::int = 5 and sin_espelho('p') -> 'circulos' -> 0 -> 'medias' = 'null'::jsonb,
+  'sintonia: lote fechado, mas sem autoavaliação o resultado fica escondido');
+select pg_temp.erro2($$select sin_auto_salvar('p', '{4,4,4}')$$, 'todos os itens', 'sintonia: autoavaliação incompleta recusada');
+select sin_auto_salvar('p', '{4,5,5,4,4}');
+select pg_temp.ok((sin_espelho('p') -> 'circulos' -> 0 -> 'medias' ->> 0)::numeric = 3.2, 'sintonia: depois da autoavaliação aparece a média do círculo (3,2)');
+select pg_temp.erro2($$select sin_auto_salvar('p', '{1,1,1,1,1}')$$, 'nova rodada', 'sintonia: autoavaliação não se refaz na mesma rodada');
+select pg_temp.erro2($$select sin_nova_rodada('p')$$, '90 dias', 'sintonia: nova rodada só depois de 90 dias quando já há respostas');
+select sin_nova_rodada('r');
+select pg_temp.ok((sin_espelho('r') ->> 'rodada')::int = 2, 'sintonia: rodada sem respostas pode recomeçar na hora');
+-- 360°: gestor aparece com 1 resposta; pares com 3; "não observei" não conta na média
+reset role;
+set role anon;
+reset request.jwt.claim.sub;
+select pg_temp.erro2($$select sin_responder((select gest from sinc), 'aparelho-g0000000001', '{1,2,3,4,5,null,null,3,4}')$$, 'todos os itens', 'sintonia: 360° exige os 10 itens');
+select pg_temp.erro2($$select sin_responder((select gest from sinc), 'aparelho-g0000000001', '{0,2,3,4,5,null,null,3,4,5}')$$, 'todos os itens', 'sintonia: 360° vai de 1 a 5');
+select sin_responder((select gest from sinc), 'aparelho-g0000000001', '{5,4,4,4,4,null,null,4,4,4}');
+select sin_responder((select pares from sinc), 'aparelho-p000000000' || i, ('{3,3,3,3,3,' || case when i = 1 then 'null' else '5' end || ',3,3,3,3}')::smallint[]) from generate_series(1, 3) i;
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '51000000-0000-0000-0000-000000000001';
+select sin_auto_salvar('r', '{5,5,5,5,5,5,5,5,5,5}');
+select pg_temp.ok((select (c -> 'medias' ->> 0)::numeric = 5 and c -> 'medias' -> 5 = 'null'::jsonb from jsonb_array_elements(sin_espelho('r') -> 'circulos') c where c ->> 'nome' = 'Gestor'),
+  'sintonia: gestor aparece com 1 resposta; item "não observei" fica vazio');
+select pg_temp.ok((select (c -> 'medias' ->> 5)::numeric = 5 and (c ->> 'liberadas')::int = 3 from jsonb_array_elements(sin_espelho('r') -> 'circulos') c where c ->> 'nome' = 'Pares'),
+  'sintonia: pares aparecem com 3 respostas; "não observei" fica fora da média');
+-- encontros por QR
+set request.jwt.claim.sub = '51000000-0000-0000-0000-000000000002';
+select sin_perfil_salvar('Bia');
+create temp table sinq (cod text);
+reset role; grant all on sinq to authenticated; set role authenticated;
+set request.jwt.claim.sub = '51000000-0000-0000-0000-000000000001';
+insert into sinq select sin_qr_gerar() ->> 'codigo';
+select pg_temp.erro2($$select sin_qr_usar((select cod from sinq))$$, 'próprio', 'sintonia: não lê o próprio QR');
+set request.jwt.claim.sub = '51000000-0000-0000-0000-000000000002';
+select pg_temp.ok(sin_qr_usar((select lower(cod) from sinq)) ->> 'nome' = 'Ana', 'sintonia: Bia lê o QR da Ana e o encontro é registrado');
+select pg_temp.erro2($$select sin_qr_usar((select cod from sinq))$$, 'inválido', 'sintonia: código do QR vale uma vez');
+select pg_temp.ok(jsonb_array_length(sin_fichas()) = 1 and sin_fichas() -> 0 ->> 'nome' = 'Ana', 'sintonia: Bia tem uma ficha para avaliar a Ana');
+set request.jwt.claim.sub = '51000000-0000-0000-0000-000000000001';
+select pg_temp.ok(sin_fichas() -> 0 ->> 'nome' = 'Bia', 'sintonia: e a Ana uma para avaliar a Bia');
+truncate sinq; insert into sinq select sin_qr_gerar() ->> 'codigo';
+set request.jwt.claim.sub = '51000000-0000-0000-0000-000000000002';
+select pg_temp.ok((sin_qr_usar((select cod from sinq)) ->> 'ok')::boolean = false, 'sintonia: a mesma dupla só se avalia uma vez a cada 30 dias');
+select sin_avaliar((sin_fichas() -> 0 ->> 'id')::bigint, '{5,5,5,5,5}');
+select pg_temp.ok(jsonb_array_length(sin_fichas()) = 0, 'sintonia: ficha some depois de usada');
+reset role;
+select pg_temp.ok((select count(*) = 1 from sin_enc_notas) and not exists (select 1 from information_schema.columns where table_name = 'sin_enc_notas' and column_name in ('avaliador','ficha_id','em')),
+  'sintonia: nota do encontro guardada sem quem avaliou');
+set role authenticated;
+set request.jwt.claim.sub = '51000000-0000-0000-0000-000000000001';
+select pg_temp.ok(sin_minha_nota() -> 'geral' = 'null'::jsonb and (sin_minha_nota() ->> 'n')::int = 0, 'sintonia: uma nota sozinha não aparece (lote de 5)');
+reset role;
+insert into sin_enc_notas (alvo, notas) select '51000000-0000-0000-0000-000000000001', '{4,4,4,4,4}' from generate_series(1, 3);
+insert into sin_fichas (avaliador, alvo) values ('51000000-0000-0000-0000-000000000002', '51000000-0000-0000-0000-000000000001');
+set role authenticated;
+set request.jwt.claim.sub = '51000000-0000-0000-0000-000000000002';
+select sin_avaliar((sin_fichas() -> 0 ->> 'id')::bigint, '{3,3,3,3,3}');
+set request.jwt.claim.sub = '51000000-0000-0000-0000-000000000001';
+select pg_temp.ok((sin_minha_nota() ->> 'n')::int = 5 and (sin_minha_nota() ->> 'geral')::numeric = round((10 * 3.5 + 20)::numeric / 15, 2),
+  'sintonia: lote de 5 fechado; média com peso da dúvida ((10×3,5 + 20) ÷ 15)');
+-- mapa
+select pg_temp.erro2($$select sin_mapa(-22.98, -43.2, 300)$$, 'Visível no mapa', 'sintonia: só vê o mapa quem está visível');
+select sin_mapa_visivel(true);
+select sin_mapa(-22.98321, -43.20111, 300);
+set request.jwt.claim.sub = '51000000-0000-0000-0000-000000000002';
+select sin_mapa_visivel(true);
+create temp table sinm as select sin_mapa(-22.98410, -43.20240, 500) as m;
+reset role;
+select pg_temp.ok((select jsonb_array_length(m -> 'pessoas') = 1 and (m -> 'pessoas' -> 0 -> 'nota' ->> 'n')::int = 5 and not (m::text ~ 'Ana|51000000') from sinm),
+  'sintonia: no mapa aparece o ID do dia e a nota, nunca o nome');
+select pg_temp.ok((select lat = -22.983 and lon = -43.201 from sin_posicoes where user_id = '51000000-0000-0000-0000-000000000001'), 'sintonia: guarda só a quadra (3 casas)');
+set role authenticated;
+set request.jwt.claim.sub = '51000000-0000-0000-0000-000000000001';
+select sin_mapa_visivel(false);
+reset role;
+select pg_temp.ok(not exists (select 1 from sin_posicoes where user_id = '51000000-0000-0000-0000-000000000001'), 'sintonia: desligar o mapa apaga a posição');
+-- excluir tudo
+set role authenticated;
+select sin_excluir_tudo();
+reset role;
+select pg_temp.ok(not exists (select 1 from sin_espelhos where dono = '51000000-0000-0000-0000-000000000001') and not exists (select 1 from sin_enc_notas where alvo = '51000000-0000-0000-0000-000000000001')
+  and exists (select 1 from auth.users where id = '51000000-0000-0000-0000-000000000001'), 'sintonia: excluir apaga os dados do NVSintonia e mantém o login');
+select pg_temp.ok((select count(*) >= 3 from auditoria where acao like 'sintonia_%') and not exists (select 1 from auditoria where acao like 'sintonia_%' and detalhes::text ~ 'notas'),
+  'sintonia: ações na auditoria, sem nenhuma nota');
+set role service_role;
+select pg_temp.ok(sin_conta_limite('1.2.3.4') and sin_usuario_existe('BIA@sin.test') and not sin_usuario_existe('ninguem@sin.test'), 'sintonia: limite de contas e procura do e-mail (service role)');
+reset role;
+reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'

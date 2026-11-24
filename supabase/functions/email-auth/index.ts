@@ -19,6 +19,12 @@ export function montar(u: Usuario, d: Dados, supabaseUrl: string): { para: strin
   const nome = u.user_metadata?.nome ? `Olá, ${escHtml(u.user_metadata.nome.split(" ")[0])}!` : "Olá!";
   const naoFoiVoce = "<p style=\"color:#667;font-size:13px\">Se não foi você que pediu, ignore este e-mail: nada muda no seu acesso.</p>";
   const vale = "O link vale por pouco tempo e só pode ser usado uma vez.";
+  // NVSintonia (laboratório): link de entrada pedido pela página /sintonia/ tem texto próprio
+  if (/\/sintonia\//.test(d.redirect_to ?? "") && (d.email_action_type === "magiclink" || d.email_action_type === "signup")) {
+    return [{ para: u.email, assunto: "Seu link de entrada — NVSintonia", html: modelo("Entrar no NVSintonia",
+      `<p>${nome}</p><p>Clique no botão para entrar no NVSintonia, o laboratório de avaliação anônima da Nervia. ${vale}</p>${naoFoiVoce}`,
+      { texto: "Entrar no NVSintonia", link: link(d.token_hash) }) }];
+  }
   switch (d.email_action_type) {
     case "recovery":
       return [{ para: u.email, assunto: "Criar uma senha nova — Área do Cliente Nervia", html: modelo("Criar uma senha nova",

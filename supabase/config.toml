@@ -47,3 +47,7 @@ verify_jwt = false
 # Sistema Linum: vídeos do produto (lista a pasta do Google Drive; confere o papel do login no banco)
 [functions.linum-videos]
 verify_jwt = false
+
+# NVSintonia (laboratório): cria a conta de quem quer o próprio espelho (sem login; limite por IP)
+[functions.sintonia-conta]
+verify_jwt = false
