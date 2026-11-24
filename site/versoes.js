@@ -40,6 +40,7 @@ window.NERVIA_VERSOES = {
     ["1.0", "Lançamento: requisição, propostas, mapa comparativo, aprovação por alçada (Gerente e Diretor), pedido e avaliação do fornecedor."],
   ],
   "sintonia": [
+    ["1.1", "Conta sem e-mail: você recebe uma chave secreta para anotar e entra com ela em qualquer celular (perdeu a chave, perdeu a conta). Quem entrou pelo e-mail troca por uma chave em Conta. Novo: texto de como funciona o anonimato e Você na multidão, que mostra onde a sua nota fica entre todas as pessoas do Sintonia."],
     ["1.0", "Laboratório: espelho pessoal e 360° profissional (você se avalia e compara com como os seus círculos te veem, sem saber quem respondeu), avaliação depois de um encontro pelo QR code e mapa de quem está por perto."],
   ],
   "nvplayer": [

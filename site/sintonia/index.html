@@ -205,6 +205,7 @@ const ler = (k) => { try { return localStorage.getItem(k); } catch { return null
 // ------------------------------------------------------------ estado
 let SESSAO = null, PERFIL = null, ABA = "inicio", MODO = "p";
 let mapaTimer = null;
+const porChave = () => String(SESSAO?.user?.email || "").endsWith("@sintonia.nervia.com.br");
 
 async function iniciar() {
   const h = location.hash;
@@ -221,40 +222,116 @@ async function iniciar() {
   if (location.hash) history.replaceState(null, "", location.pathname);
   abrir(ABA);
 }
-sb.auth.onAuthStateChange((ev) => { if (ev === "SIGNED_IN" && !SESSAO) iniciar(); });
+let ENTRANDO = false;   // entrada pela chave: quem chama segue o fluxo (evita desenhar a tela duas vezes)
+sb.auth.onAuthStateChange((ev) => { if (ev === "SIGNED_IN" && !SESSAO && !ENTRANDO) iniciar(); });
 addEventListener("hashchange", iniciar);
 
-// ------------------------------------------------------------ entrar
+// ------------------------------------------------------------ entrar (1.1: por CHAVE, sem e-mail)
+const DOMINIO_CHAVE = "@sintonia.nervia.com.br";
+// senha do login derivada da chave (a função sintonia-conta faz a mesma conta)
+const senhaDaChave = (k) => { const c = String(k).toUpperCase().replace(/[^0-9A-Z]/g, ""); return "Sn!" + c + c.toLowerCase(); };
+async function conta(body) {
+  const r = await sb.functions.invoke("sintonia-conta", { body });
+  if (r.error) {
+    let t = r.error.message; try { t = (await r.error.context.json()).mensagem || t; } catch { /* ok */ }
+    throw new Error(t);
+  }
+  return r.data;
+}
+async function entrarComChave(email, chave) {
+  ENTRANDO = true;
+  const { error } = await sb.auth.signInWithPassword({ email, password: senhaDaChave(chave) });
+  setTimeout(() => { ENTRANDO = false; }, 1500);
+  if (error) throw new Error(/invalid/i.test(error.message) ? "Chave não encontrada. Confira as letras e os números." : error.message);
+  guardar("sin-chave", chave);
+}
+
+// como funciona o anonimato (pedido do Marco em 24/11/2026): mesmo texto na entrada (resumo) e na Conta (completo)
+const ANON_ITENS = [
+  "<b>Você é um número, não um nome.</b> A sua conta é uma chave secreta que só quem anotou tem. Não pedimos e-mail, telefone nem documento.",
+  "O nome que você escolhe (pode ser um apelido) aparece só nos convites que você manda e para quem lê o seu QR, para a pessoa saber quem pediu a opinião.",
+  "Tudo o que o sistema guarda fica ligado a esse número: as notas que você recebe, a sua autoavaliação, os seus círculos.",
+  "Com isso o app compara números com números: no mapa, quem está por perto aparece só pelo código do dia; em <b>Você na multidão</b>, você vê onde se enquadra entre todas as pessoas do Sintonia, sem ninguém ver quem é quem.",
+  "Nenhuma nota guarda quem deu nem a hora, e elas entram em lotes (5 no pessoal e nos encontros, 3 no 360°): ninguém vê uma nota sozinha.",
+];
+const anonimato = (curto) => `<div class="card m"><h3>Como funciona o seu anonimato</h3><ul class="hint" style="padding-left:18px;margin:0">${(curto ? ANON_ITENS.slice(0, 3) : ANON_ITENS).map((t) => `<li style="margin-bottom:6px">${t}</li>`).join("")}</ul></div>`;
+
 function telaEntrar(msg) {
   $("nav").hidden = true; $("topoInfo").textContent = "laboratório";
   tela.innerHTML = `<h1>Como as pessoas te veem?</h1>
   <p>No NVSintonia você se avalia, convida família, amigos ou colegas para te avaliarem anonimamente e compara. Depois de um encontro, cada um também pode avaliar o outro pelo QR code.</p>
   ${msg ? `<div class="card m"><p>${esc(msg)}</p></div>` : ""}
-  <form class="card" id="fEntrar">
-    <h3>Entrar</h3>
-    <label for="eNome">Seu nome (só aparece para quem você convidar)</label><input type="text" id="eNome" maxlength="40" autocomplete="given-name" value="${esc(ler("sin-nome") || "")}">
-    <label for="eEmail">Seu e-mail</label><input type="email" id="eEmail" maxlength="254" autocomplete="email" inputmode="email">
-    <button class="btn g" id="bEntrar">Receber link de entrada</button>
-    <div id="mEntrar"></div>
-    <p class="hint" style="margin-top:10px">Sem senha: mandamos um link para o seu e-mail. Abra o link neste mesmo aparelho.</p>
+  <form class="card g" id="fCriar">
+    <h3>Sou novo aqui</h3>
+    <label for="eNome">Como você quer ser chamado? (aparece só no convite que você mandar)</label><input type="text" id="eNome" maxlength="40" autocomplete="nickname">
+    <button class="btn g" id="bCriar">Criar minha conta</button><div id="mCriar"></div>
+    <p class="hint" style="margin-top:10px">Sem e-mail, sem telefone, sem senha: você recebe uma chave secreta. Anote; é com ela que você entra de novo.</p>
   </form>
+  <form class="card" id="fChave">
+    <h3>Já tenho a minha chave</h3>
+    <label for="eChave">Chave (12 letras e números)</label><input type="text" id="eChave" maxlength="16" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX" style="font-family:ui-monospace,Menlo,monospace;letter-spacing:2px">
+    <button class="btn" id="bChave">Entrar</button><div id="mChave"></div>
+  </form>
+  ${anonimato(true)}
+  <p class="hint"><a href="#" id="lEmail">Entrei antes pelo e-mail</a></p>
   <p class="lab">Laboratório da Nervia Tecnologia · ninguém vê quem deu cada nota</p>`;
+  $("fCriar").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const nome = $("eNome").value.trim(), m = $("mCriar"), b = $("bCriar");
+    if (!nome) return aviso(m, "Informe como você quer ser chamado.");
+    b.disabled = true;
+    try {
+      const r = await conta({ acao: "criar", nome });
+      telaChave(r.chave, false, async () => {
+        await entrarComChave(r.email, r.chave);
+        await rpc("sin_perfil_salvar", { p_nome: nome });
+        SESSAO = null; iniciar();
+      });
+    } catch (e) { aviso(m, erroTxt(e)); b.disabled = false; }
+  });
+  $("fChave").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const chave = $("eChave").value.trim(), m = $("mChave"), b = $("bChave");
+    b.disabled = true;
+    try { const r = await conta({ acao: "entrar", chave }); await entrarComChave(r.email, chave.toUpperCase()); SESSAO = null; iniciar(); }
+    catch (e) { aviso(m, erroTxt(e)); b.disabled = false; }
+  });
+  $("lEmail").addEventListener("click", (e) => { e.preventDefault(); telaEmail(); });
+}
+
+// a chave aparece UMA vez: só segue depois de "Anotei"
+function telaChave(chave, troca, depois) {
+  $("nav").hidden = true;
+  tela.innerHTML = `<h1>${troca ? "Sua chave nova" : "Esta é a sua chave"}</h1>
+  <div class="card g"><p class="codigo" id="kTexto" style="font-size:30px">${esc(chave)}</p>
+  <button class="btn o" id="bCopiaK">Copiar</button><div id="mK"></div></div>
+  <div class="card"><p><b>Anote em um lugar seguro</b> (papel, gerenciador de senhas ou nota protegida). É com ela que você entra de novo, em qualquer celular.</p>
+  <p><b>Se perder a chave, perde a conta.</b> Ninguém consegue recuperar, nem a Nervia: ela não fica guardada em lugar nenhum. Aí é só criar uma conta nova.</p>
+  ${troca ? "<p>O seu e-mail foi apagado da conta. Os seus dados continuam todos aqui.</p>" : ""}
+  <p class="hint">Não mostre a chave para ninguém: quem tiver a chave entra como você. Para o Sintonia, você é este número: o nome não fica ligado a ele em lugar nenhum além dos seus convites.</p>
+  <label style="display:flex;gap:10px;align-items:center;font-size:16px;color:var(--ink)"><input type="checkbox" id="kOk" style="width:22px;height:22px"> Anotei a minha chave</label>
+  <button class="btn g" id="bSegue" disabled>Continuar</button><div id="mSegue"></div></div>`;
+  $("bCopiaK").onclick = async () => { try { await navigator.clipboard.writeText(chave); aviso($("mK"), "Copiada. Cole num lugar seguro.", true); } catch { aviso($("mK"), "Não deu para copiar: anote à mão."); } };
+  $("kOk").onchange = () => { $("bSegue").disabled = !$("kOk").checked; };
+  $("bSegue").onclick = async () => { $("bSegue").disabled = true; try { await depois(); } catch (e) { aviso($("mSegue"), erroTxt(e)); $("bSegue").disabled = false; } };
+}
+
+// entrada antiga por e-mail (1.0), só para quem já tinha conta assim; depois de entrar, Conta → trocar por chave
+function telaEmail() {
+  tela.innerHTML = `<h1>Entrar pelo e-mail</h1>
+  <form class="card" id="fEntrar"><p class="hint">Só para quem criou a conta antes da chave. Depois de entrar, troque o e-mail pela chave em Conta.</p>
+    <label for="eEmail">Seu e-mail</label><input type="email" id="eEmail" maxlength="254" autocomplete="email" inputmode="email">
+    <button class="btn g" id="bEntrar">Receber link de entrada</button><div id="mEntrar"></div></form>
+  <p class="hint"><a href="#" id="lVolta">Voltar</a></p>`;
+  $("lVolta").onclick = (e) => { e.preventDefault(); telaEntrar(); };
   $("fEntrar").addEventListener("submit", async (ev) => {
     ev.preventDefault();
-    const nome = $("eNome").value.trim(), email = $("eEmail").value.trim().toLowerCase(), m = $("mEntrar"), b = $("bEntrar");
-    if (!nome) return aviso(m, "Informe o seu nome.");
+    const email = $("eEmail").value.trim().toLowerCase(), m = $("mEntrar"), b = $("bEntrar");
     if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(email)) return aviso(m, "Informe um e-mail válido.");
-    b.disabled = true; guardar("sin-nome", nome);
-    try {
-      const r = await sb.functions.invoke("sintonia-conta", { body: { email, nome } });
-      if (r.error) {
-        let t = r.error.message; try { t = (await r.error.context.json()).mensagem || t; } catch { /* ok */ }
-        throw new Error(t);
-      }
-      const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: ENDERECO } });
-      if (error) throw error;
-      aviso(m, `Pronto! Abra o e-mail enviado para ${email} e toque em "Entrar no NVSintonia". Pode demorar um minuto; confira também o spam.`, true);
-    } catch (e) { aviso(m, erroTxt(e)); b.disabled = false; }
+    b.disabled = true;
+    const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: ENDERECO } });
+    if (error) { aviso(m, erroTxt(error)); b.disabled = false; return; }
+    aviso(m, `Se este e-mail tem conta, o link chega em ${email} em um minuto (confira o spam). Abra no mesmo aparelho.`, true);
   });
 }
 
@@ -286,8 +363,8 @@ $("nav").addEventListener("click", (e) => { const b = e.target.closest("button[d
 // ------------------------------------------------------------ encontros
 async function telaInicio() {
   tela.innerHTML = `<p class="hint">Carregando…</p>`;
-  let nota, fichas;
-  try { [nota, fichas] = await Promise.all([rpc("sin_minha_nota"), rpc("sin_fichas")]); }
+  let nota, fichas, mult;
+  try { [nota, fichas, mult] = await Promise.all([rpc("sin_minha_nota"), rpc("sin_fichas"), rpc("sin_multidao")]); }
   catch (e) { tela.innerHTML = `<p class="err">${esc(erroTxt(e))}</p>`; return; }
   const itens = nota.itens;
   tela.innerHTML = `
@@ -299,6 +376,7 @@ async function telaInicio() {
     ${itens.map((v, i) => `<div class="crit"><span>${tip("p", i)}</span><span class="bar"><i style="width:${v / 5 * 100}%"></i></span><span class="num">${fmt(v)}</span></div>`).join("")}
     <p class="hint" style="margin-top:8px">Média com “peso da dúvida”: com poucas avaliações a nota fica perto da média de todos; muda só quando um lote de 5 fecha.</p>`
     : `<p>A sua nota aparece depois das primeiras 5 avaliações de encontros (em lote, para ninguém saber quem deu cada nota).</p>`}</div>
+  ${multidao(mult)}
   <div class="card"><h3>Encontrou alguém?</h3><p>Um mostra o QR e o outro lê com a câmera do celular. Os dois ganham 48 horas para avaliar um ao outro.</p>
   <button class="btn g" id="bMeuQr">Mostrar o meu QR</button>
   <form id="fCodigo" style="margin-top:12px"><label for="cod">Ou digite o código que aparece embaixo do QR da outra pessoa</label>
@@ -307,6 +385,26 @@ async function telaInicio() {
   $("bMeuQr").addEventListener("click", mostrarQr);
   $("fCodigo").addEventListener("submit", (e) => { e.preventDefault(); usarQr($("cod").value); });
   tela.querySelectorAll("[data-ficha]").forEach((b) => b.addEventListener("click", () => avaliarFicha(+b.dataset.ficha, b.dataset.nome)));
+}
+
+// Você na multidão: onde a sua nota dos encontros fica entre todas as pessoas do Sintonia (só números, sem nomes)
+function multidao(m) {
+  if (!m) return "";
+  const cab = `<h2>Você na multidão</h2><p class="hint">${m.pessoas} ${m.pessoas === 1 ? "pessoa" : "pessoas"} no Sintonia · ${m.com_nota} com nota dos encontros. Só números: ninguém vê quem é quem.</p>`;
+  if (m.percentil == null) {
+    return `<div class="card">${cab}<p>${m.eu == null ? "Assim que a sua nota aparecer, você vê aqui onde se enquadra entre todo mundo." : ""} A comparação aparece quando ${m.minimo} pessoas tiverem nota (agora: ${m.com_nota}). Antes disso daria para adivinhar a nota de alguém.</p></div>`;
+  }
+  const mx = Math.max(1, ...m.faixas), minha = Math.min(9, Math.floor(Number(m.eu) * 2));
+  const barras = m.faixas.map((n, f) => `<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px;min-width:0">
+      <span style="font-size:11px;color:var(--mut)">${n || ""}</span>
+      <span style="width:100%;height:${Math.max(2, n / mx * 90)}px;border-radius:4px 4px 0 0;background:${f === minha ? "var(--g)" : "var(--line)"}"></span>
+      <span style="font-size:11px;color:${f === minha ? "var(--gd)" : "var(--mut)"};font-weight:${f === minha ? 700 : 400}">${f / 2}</span></div>`).join("");
+  return `<div class="card">${cab}
+    <div class="big"><div><b style="color:var(--gd)">${m.percentil}%</b><span>das pessoas têm nota menor que a sua (${fmt(m.eu)})</span></div></div>
+    <div style="display:flex;gap:4px;align-items:flex-end;height:130px" role="img" aria-label="Quantas pessoas em cada faixa de nota; a sua faixa em verde">${barras}</div>
+    <p class="hint" style="margin-top:4px">Pessoas por faixa de nota (0 a 5). Em verde, a sua faixa.</p>
+    ${m.itens.map((p, i) => `<div class="crit"><span>${tip("p", i)}</span><span class="bar"><i style="width:${p}%"></i></span><span class="num">${p}%</span></div>`).join("")}
+    <p class="hint">Em cada item: quantas pessoas ficam abaixo de você.</p></div>`;
 }
 
 async function mostrarQr() {
@@ -552,8 +650,10 @@ function telaConta() {
   <form id="fNome"><label for="cNome">Nome</label><div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px"><input type="text" id="cNome" maxlength="40" value="${esc(PERFIL.nome)}"><button class="btn p">Salvar</button></div></form><div id="mConta"></div>
   <p class="hint" style="margin-top:10px">Seu código no mapa hoje: <b>${esc(PERFIL.id_dia)}</b> · mapa ${PERFIL.mapa_visivel ? "ligado" : "desligado"}</p>
   <button class="btn o" id="bSair">Sair</button></div>
-  <div class="card"><h3>Como funciona o sigilo</h3><ul class="hint"><li>Nenhuma resposta guarda quem respondeu nem a hora.</li><li>As notas entram em lotes (5 no pessoal e nos encontros, 3 no 360°): você nunca vê uma nota sozinha.</li><li>O gestor do 360° é uma pessoa só e aparece identificado (ele é avisado).</li><li>No mapa: só a quadra, só por 30 minutos, código novo todo dia.</li></ul>
-  <a href="/sintonia/ajuda/manual.html" target="_blank" rel="noopener">Manual</a> · <a href="/sintonia/ajuda/cartao.html" target="_blank" rel="noopener">Cartão rápido</a></div>
+  ${porChave() ? `<div class="card"><h3>Sua chave</h3><p class="hint">É com ela que você entra de novo. Se perder, perde a conta.</p>
+    ${ler("sin-chave") ? `<p class="codigo" id="cK" hidden>${esc(ler("sin-chave"))}</p><button class="btn o" id="bVerK">Mostrar a chave</button>` : `<p class="hint">Este aparelho não guardou a chave: ela está onde você anotou.</p>`}</div>`
+  : `<div class="card g"><h3>Trocar o e-mail por uma chave</h3><p class="hint">Você entrou pelo e-mail. Para ficar anônimo de verdade, troque por uma chave secreta: o e-mail é apagado e os seus dados continuam. Depois, você entra só com a chave.</p><button class="btn g" id="bConv">Trocar por uma chave</button><div id="mConv"></div></div>`}
+  ${anonimato(false)}<div class="card"><a href="/sintonia/ajuda/manual.html" target="_blank" rel="noopener">Manual</a> · <a href="/sintonia/ajuda/cartao.html" target="_blank" rel="noopener">Cartão rápido</a></div>
   <div class="card"><h3>Apagar meus dados</h3><p class="hint">Apaga os seus espelhos, círculos, respostas recebidas, notas dos encontros e posição. O login continua existindo.</p><button class="btn r" id="bApaga">Apagar tudo do NVSintonia</button></div>
   <p class="lab">NVSintonia <span data-versao="sintonia"></span> · laboratório da Nervia Tecnologia</p>`;
   $("fNome").addEventListener("submit", async (e) => {
@@ -561,7 +661,17 @@ function telaConta() {
     try { PERFIL = await rpc("sin_perfil_salvar", { p_nome: $("cNome").value }); aviso($("mConta"), "Nome salvo.", true); $("topoInfo").textContent = `${PERFIL.nome} · ${PERFIL.id_dia}`; }
     catch (x) { aviso($("mConta"), erroTxt(x)); }
   });
-  $("bSair").addEventListener("click", async () => { await sb.auth.signOut(); SESSAO = null; telaEntrar(); });
+  $("bSair").addEventListener("click", () => confirmar(porChave() ? "Sair? Para voltar você vai precisar da sua chave. Confira se ela está anotada." : "Sair do NVSintonia?", "Sair", async () => {
+    await sb.auth.signOut(); guardar("sin-chave", null); SESSAO = null; ABA = "inicio"; telaEntrar();
+  }));
+  $("bVerK")?.addEventListener("click", () => { const k = $("cK"); k.hidden = !k.hidden; $("bVerK").textContent = k.hidden ? "Mostrar a chave" : "Esconder"; });
+  $("bConv")?.addEventListener("click", async () => {
+    $("bConv").disabled = true;
+    try {
+      const r = await conta({ acao: "converter" });
+      telaChave(r.chave, true, async () => { await sb.auth.signOut(); await entrarComChave(r.email, r.chave); SESSAO = null; await iniciar(); abrir("conta"); });
+    } catch (e) { aviso($("mConv"), erroTxt(e)); $("bConv").disabled = false; }
+  });
   $("bApaga").addEventListener("click", () => confirmar("Apagar tudo do NVSintonia? Não dá para desfazer.", "Apagar tudo", async () => { await rpc("sin_excluir_tudo"); iniciar(); }));
   const v = (window.NERVIA_VERSOES || {}).sintonia; const s = tela.querySelector("[data-versao]"); if (v && s) s.textContent = v[0][0];
 }

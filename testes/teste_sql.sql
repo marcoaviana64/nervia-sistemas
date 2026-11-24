@@ -4186,4 +4186,55 @@ set role service_role;
 select pg_temp.ok(sin_conta_limite('1.2.3.4') and sin_usuario_existe('BIA@sin.test') and not sin_usuario_existe('ninguem@sin.test'), 'sintonia: limite de contas e procura do e-mail (service role)');
 reset role;
 reset request.jwt.claim.sub;
+-- ---------------------------------------------------------------- NVSintonia 1.1: conta por chave, sem e-mail
+set role authenticated;
+select pg_temp.erro2($$select sin_chave_nova()$$, 'permission denied', 'sintonia 1.1: a tela não gera chave (só a função, service role)');
+reset role;
+set role anon;
+select pg_temp.erro2($$select sin_chave_email('ABCD-EFGH-JKMN')$$, 'permission denied', 'sintonia 1.1: sem login não descobre o e-mail da chave direto no banco');
+reset role;
+set role service_role;
+create temp table sink as select sin_chave_nova() as a, sin_chave_nova() as b;
+reset role;
+select pg_temp.ok((select (a ->> 'chave') ~ '^[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$' and (a ->> 'email') ~ '^s-[0-9a-f]{40}@sintonia\.nervia\.com\.br$'
+  and a ->> 'chave' <> b ->> 'chave' and a ->> 'email' <> b ->> 'email' from sink), 'sintonia 1.1: chave XXXX-XXXX-XXXX sem letras confusas e e-mail derivado, cada uma diferente');
+set role service_role;
+select pg_temp.ok((select sin_chave_email(lower(replace(a ->> 'chave', '-', ' '))) = a ->> 'email' from sink), 'sintonia 1.1: a chave digitada com minúsculas e espaços leva ao mesmo login');
+select pg_temp.ok(sin_chave_email('ABCD-EFGH-IJKL') is null and sin_chave_email('123') is null, 'sintonia 1.1: chave com letra fora do alfabeto ou curta é inválida');
+reset role;
+select pg_temp.ok((select count(*) = 2 from sin_chaves) and not exists (select 1 from sin_chaves k, sink where k.hash ilike '%' || replace(sink.a ->> 'chave', '-', '') || '%'),
+  'sintonia 1.1: o banco guarda só o resumo da chave, nunca a chave');
+select pg_temp.erro2($$insert into sin_chaves (hash) select hash from sin_chaves limit 1$$, 'duplicate', 'sintonia 1.1: a mesma chave nunca existe duas vezes');
+set role service_role;
+select pg_temp.ok((select count(*) filter (where sin_entrar_limite('9.9.9.9')) = 20 from generate_series(1, 22)), 'sintonia 1.1: até 20 tentativas de entrar por hora por IP');
+reset role;
+insert into auth.users (id, email, raw_user_meta_data) values ('51000000-0000-0000-0000-000000000009', 'velho@sin.test', '{"nome":"Velho"}');
+set role service_role;
+select sin_perfil_email('51000000-0000-0000-0000-000000000009', 's-abc@sintonia.nervia.com.br');
+select sin_conta_auditar('51000000-0000-0000-0000-000000000009', 'sintonia_email_trocado_por_chave');
+reset role;
+select pg_temp.ok((select email = 's-abc@sintonia.nervia.com.br' from perfis where user_id = '51000000-0000-0000-0000-000000000009')
+  and exists (select 1 from auditoria where acao = 'sintonia_email_trocado_por_chave' and user_id = '51000000-0000-0000-0000-000000000009' and email is null),
+  'sintonia 1.1: trocar o e-mail pela chave apaga o e-mail do perfil e fica na auditoria (sem e-mail nem chave)');
+-- ---------------------------------------------------------------- NVSintonia 1.1: você na multidão
+insert into auth.users (id, email) select ('52000000-0000-0000-0000-0000000000' || lpad(i::text, 2, '0'))::uuid, 'm' || i || '@sin.test' from generate_series(1, 12) i;
+insert into sin_pessoas (user_id, nome) select ('52000000-0000-0000-0000-0000000000' || lpad(i::text, 2, '0'))::uuid, 'M' || i from generate_series(1, 12) i;
+-- 9 pessoas com 5 notas liberadas (notas i/2 arredondadas) → ainda abaixo de 10
+insert into sin_enc_notas (alvo, notas, liberada) select ('52000000-0000-0000-0000-0000000000' || lpad(i::text, 2, '0'))::uuid, array_fill(least(5, i / 2)::smallint, array[5]), true
+  from generate_series(1, 9) i, generate_series(1, 5);
+set role authenticated;
+set request.jwt.claim.sub = '52000000-0000-0000-0000-000000000009';
+select pg_temp.ok((sin_multidao() ->> 'com_nota')::int = 9 and sin_multidao() -> 'percentil' is null, 'sintonia 1.1: com menos de 10 pessoas com nota, só a contagem');
+reset role;
+insert into sin_enc_notas (alvo, notas, liberada) select ('52000000-0000-0000-0000-0000000000' || lpad(i::text, 2, '0'))::uuid, array_fill(5::smallint, array[5]), true
+  from generate_series(10, 11) i, generate_series(1, 5);
+set role authenticated;
+create temp table sinmu as select sin_multidao() m;
+reset role;
+select pg_temp.ok((select (m ->> 'com_nota')::int = 11 and (m ->> 'percentil') is not null and jsonb_array_length(m -> 'faixas') = 10 and jsonb_array_length(m -> 'itens') = 5
+  and (select sum(x::int) from jsonb_array_elements_text(m -> 'faixas') x) = 11 and not (m::text ~ 'M[0-9]|52000000|SN-') from sinmu),
+  'sintonia 1.1: com 10 ou mais, percentil, itens e faixas, sem nome nem código de ninguém');
+select pg_temp.ok((select (m ->> 'percentil')::int = round(100.0 * (select count(*) from generate_series(1, 11) i where i <> 9 and least(10, i / 2 * 2) / 2.0 * 0 + (select (public._sin_nota(('52000000-0000-0000-0000-0000000000' || lpad(i::text, 2, '0'))::uuid) ->> 'geral')::numeric) < (m ->> 'eu')::numeric) / 10) from sinmu),
+  'sintonia 1.1: percentil = outras pessoas com nota menor ÷ outras pessoas com nota');
+reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'

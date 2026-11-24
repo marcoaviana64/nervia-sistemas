@@ -1,28 +1,47 @@
-// NVSintonia: regra da função sintonia-conta (cria conta só se o e-mail não existe; resposta igual; limite).
+// NVSintonia 1.1: regra da função sintonia-conta (conta por chave, sem e-mail).
 // Rodar: deno test -A testes/sintonia/conta_test.ts
 import nodeAssert from "node:assert/strict";
-import { pedirConta } from "../../supabase/functions/sintonia-conta/index.ts";
+import { atender, senhaDaChave } from "../../supabase/functions/sintonia-conta/index.ts";
 
-function falso(existentes: string[] = [], liberado = true) {
-  const criados: string[] = [];
-  return { criados, c: { limite: async () => liberado, existe: async (e: string) => existentes.includes(e), criar: async (e: string) => { criados.push(e); } } };
+function falso(op: { limite?: boolean; entrar?: boolean; usuario?: { id: string; email: string } | null } = {}) {
+  const log: string[] = [];
+  return {
+    log,
+    c: {
+      limite: async () => op.limite ?? true,
+      limiteEntrar: async () => op.entrar ?? true,
+      chaveNova: async () => ({ chave: "K7QM-4XPA-9TRD", email: "s-aaa@sintonia.nervia.com.br" }),
+      emailDaChave: async (k: string) => (/^[2-9A-HJ-NP-Z]{12}$/.test(k.toUpperCase().replace(/[^0-9A-Z]/gi, "")) ? "s-bbb@sintonia.nervia.com.br" : null),
+      criarUsuario: async (e: string, s: string, n: string) => { log.push(`criar ${e} ${s} ${n}`); return "u1"; },
+      usuarioDoToken: async () => op.usuario ?? null,
+      trocarLogin: async (id: string, e: string, s: string) => { log.push(`trocar ${id} ${e} ${s}`); },
+      auditar: async (id: string, a: string) => { log.push(`auditar ${id} ${a}`); },
+    },
+  };
 }
 
-Deno.test("cria a conta de e-mail novo, em minúsculas", async () => {
+Deno.test("senha derivada: tem maiúscula, minúscula, número e símbolo, e ignora traço e caixa", () => {
+  nodeAssert.equal(senhaDaChave("k7qm-4xpa-9trd"), "Sn!K7QM4XPA9TRDk7qm4xpa9trd");
+  nodeAssert.equal(senhaDaChave("K7QM 4XPA 9TRD"), senhaDaChave("k7qm4xpa9trd"));
+});
+Deno.test("criar: só com nome; devolve a chave uma vez; o usuário nasce com e-mail derivado e a senha da chave", async () => {
   const f = falso();
-  const r = await pedirConta({ email: " Caio@Exemplo.com ", nome: "Caio" }, "1.1.1.1", f.c);
-  nodeAssert.deepStrictEqual([r.status, r.corpo.ok, f.criados], [200, true, ["caio@exemplo.com"]]);
+  const r = await atender({ acao: "criar", nome: " Ana " }, "1.1.1.1", "", f.c);
+  nodeAssert.deepStrictEqual([r.status, r.corpo.chave, r.corpo.email], [200, "K7QM-4XPA-9TRD", "s-aaa@sintonia.nervia.com.br"]);
+  nodeAssert.deepStrictEqual(f.log, ["criar s-aaa@sintonia.nervia.com.br Sn!K7QM4XPA9TRDk7qm4xpa9trd Ana", "auditar u1 sintonia_conta_criada"]);
+  nodeAssert.equal((await atender({ acao: "criar", nome: "" }, "", "", falso().c)).status, 400);
+  nodeAssert.equal((await atender({ acao: "criar", nome: "Ana" }, "", "", falso({ limite: false }).c)).status, 429);
 });
-Deno.test("e-mail que já existe: mesma resposta, nada criado", async () => {
-  const f = falso(["ana@x.com"]);
-  const r = await pedirConta({ email: "ana@x.com", nome: "Ana" }, "1.1.1.1", f.c);
-  nodeAssert.deepStrictEqual([r.status, r.corpo.ok, f.criados.length], [200, true, 0]);
+Deno.test("entrar: chave válida devolve o e-mail derivado; inválida e limite recusam", async () => {
+  nodeAssert.equal((await atender({ acao: "entrar", chave: "k7qm-4xpa-9trd" }, "", "", falso().c)).corpo.email, "s-bbb@sintonia.nervia.com.br");
+  nodeAssert.equal((await atender({ acao: "entrar", chave: "abc" }, "", "", falso().c)).status, 400);
+  nodeAssert.equal((await atender({ acao: "entrar", chave: "K7QM4XPA9TRD" }, "", "", falso({ entrar: false }).c)).status, 429);
 });
-Deno.test("dados inválidos e limite", async () => {
-  nodeAssert.equal((await pedirConta({ email: "sem-arroba", nome: "A" }, "", falso().c)).status, 400);
-  nodeAssert.equal((await pedirConta({ email: "a@b.com", nome: "" }, "", falso().c)).status, 400);
-  nodeAssert.equal((await pedirConta({ email: "a@b.com", nome: "x".repeat(41) }, "", falso().c)).status, 400);
-  const f = falso([], false);
-  const r = await pedirConta({ email: "a@b.com", nome: "A" }, "", f.c);
-  nodeAssert.deepStrictEqual([r.status, f.criados.length], [429, 0]);
+Deno.test("converter: só com login de e-mail; mesmo usuário ganha a chave e perde o e-mail", async () => {
+  nodeAssert.equal((await atender({ acao: "converter" }, "", "", falso().c)).status, 401);
+  nodeAssert.equal((await atender({ acao: "converter" }, "", "t", falso({ usuario: { id: "u9", email: "s-x@sintonia.nervia.com.br" } }).c)).status, 400);
+  const f = falso({ usuario: { id: "u9", email: "marco@x.com" } });
+  const r = await atender({ acao: "converter" }, "", "t", f.c);
+  nodeAssert.equal(r.corpo.chave, "K7QM-4XPA-9TRD");
+  nodeAssert.deepStrictEqual(f.log, ["trocar u9 s-aaa@sintonia.nervia.com.br Sn!K7QM4XPA9TRDk7qm4xpa9trd", "auditar u9 sintonia_email_trocado_por_chave"]);
 });

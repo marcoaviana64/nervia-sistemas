@@ -195,6 +195,7 @@ Ao publicar mudança num app: linha nova no topo do app aqui (com a data) e em `
 
 | Versão | Data | O que mudou |
 |---|---|---|
+| 1.1 | 24/11/2026 | Conta sem e-mail: você recebe uma chave secreta para anotar e entra com ela em qualquer celular (perdeu a chave, perdeu a conta). Quem entrou pelo e-mail troca por uma chave em Conta. Novo: texto de como funciona o anonimato e Você na multidão, que mostra onde a sua nota fica entre todas as pessoas do Sintonia. (pedido do Marco; migração sintonia_chave: sin_config pimenta, sin_chaves só o hash, sin_chave_nova/sin_chave_email/sin_entrar_limite/sin_conta_auditar/sin_perfil_email, sin_multidao com mínimo de 10; função sintonia-conta com acao criar/entrar/converter) |
 | 1.0 | 24/11/2026 | Laboratório: espelho pessoal e 360° profissional (você se avalia e compara com como os seus círculos te veem, sem saber quem respondeu), avaliação depois de um encontro pelo QR code e mapa de quem está por perto. (pedido do Marco; migração sintonia, função sintonia-conta, e-mail de entrada próprio no email-auth; lote de 5 no pessoal e encontros, 3 no 360°, gestor identificado) |
 
 ## NVPlayer — uso (`nvplayer`)
