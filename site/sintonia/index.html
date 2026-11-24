@@ -69,6 +69,11 @@ input[type=range]{width:100%;accent-color:var(--g)}
 .stars button.on{color:var(--g)}
 .stars button.z{font-size:12px;font-weight:700;width:34px;border-radius:8px;border:1px solid var(--line);color:var(--mut);height:28px;margin-right:4px;align-self:center}
 .stars button.z.on{background:var(--red);border-color:var(--red);color:#fff}
+.rq{padding:10px 0;border-bottom:1px solid var(--line)}
+.rq:last-of-type{border-bottom:0}
+.rq .hint{margin:2px 0 6px}
+.na{font:500 13px Inter,sans-serif;border:1px dashed var(--line);background:none;color:var(--mut);border-radius:99px;padding:6px 12px;min-height:34px;margin-top:4px;cursor:pointer}
+.na.on{background:var(--ink);color:var(--bg);border-style:solid;border-color:var(--ink)}
 .circ{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
 .circ:last-of-type{border-bottom:0}
 .pill{font-size:12px;font-weight:600;padding:3px 9px;border-radius:99px;white-space:nowrap;background:var(--mist);color:var(--gd)}
@@ -135,12 +140,39 @@ const ENDERECO = location.origin + "/sintonia/";
 // ------------------------------------------------------------ itens (os mesmos da demonstração; texto da Nervia a partir das bases citadas)
 const OX = "Project Oxygen, do Google (pesquisa com avaliações de milhares de gestores; 10 comportamentos desde 2018) — comportamento ";
 const MOD = {
+  // Pessoal (1.2, questionário escolhido pelo Marco em 24/11/2026). Cada item: [nome curto, pergunta do convite (como o
+  // Marco escreveu), o que quer dizer, base, (liderança), pergunta da autoavaliação, pergunta do encontro, título completo].
   p: { nome: "Pessoal", itens: [
-    ["Simpatia", "Foi agradável estar com essa pessoa?", "Calor humano: a pessoa é amigável, acolhedora e fácil de conviver. Não tem a ver com aparência.", "dimensão Calor (sociabilidade) do Modelo do Conteúdo dos Estereótipos — Fiske, Cuddy, Glick e Xu, 2002."],
-    ["Respeito", "Ela tratou você com respeito?", "Trata os outros com educação e consideração, sem humilhar, interromper ou desmerecer.", "fator Amabilidade do Big Five, itens de domínio público do IPIP (Goldberg)."],
-    ["Atenção", "Ela ouviu e prestou atenção?", "Interessa-se pelas pessoas, escuta de verdade e percebe como o outro está se sentindo.", "Amabilidade do Big Five — itens do IPIP como “interesso-me pelas pessoas” e “percebo as emoções dos outros”."],
-    ["Confiança", "Você confiaria nela de novo?", "É honesta e cumpre o que promete: dá para contar com ela.", "dimensão Calor (confiabilidade) do modelo de Fiske e colegas, com a Conscienciosidade do Big Five (IPIP)."],
-    ["Encontro", "No geral, a interação foi satisfatória?", "Nota geral da experiência: depois do contato, você saiu satisfeito?", "item global de satisfação, usado para conferir os itens específicos."]] },
+    ["Respeito", "De 0 a 5, como você avalia minha capacidade de ouvir, respeitar opiniões diferentes e considerar os sentimentos das pessoas?",
+      "Ouvir de verdade, respeitar quem pensa diferente e levar em conta como os outros se sentem.",
+      "fator Amabilidade do Big Five, itens de domínio público do IPIP (Goldberg): respeitar os outros e considerar os sentimentos alheios.", null,
+      "De 0 a 5, como você avalia a sua capacidade de ouvir, respeitar opiniões diferentes e considerar os sentimentos das pessoas?",
+      "De 0 a 5, como você avalia a capacidade dessa pessoa de ouvir, respeitar opiniões diferentes e considerar os sentimentos dos outros?",
+      "Respeito e consideração"],
+    ["Confiança", "De 0 a 5, quanto você me considera uma pessoa confiável, honesta e coerente entre o que fala e o que faz?",
+      "Ser honesto, cumprir o que promete e agir de acordo com o que diz.",
+      "dimensão Calor (confiabilidade) do Modelo do Conteúdo dos Estereótipos — Fiske, Cuddy, Glick e Xu, 2002 — e Conscienciosidade do Big Five (IPIP).", null,
+      "De 0 a 5, quanto você se considera uma pessoa confiável, honesta e coerente entre o que fala e o que faz?",
+      "De 0 a 5, quanto essa pessoa lhe pareceu confiável, honesta e coerente entre o que fala e o que faz?",
+      "Confiança e credibilidade"],
+    ["Empatia", "De 0 a 5, como você avalia minha capacidade de compreender as pessoas, demonstrar empatia e oferecer apoio?",
+      "Perceber como o outro está, colocar-se no lugar dele e ajudar quando ele precisa.",
+      "Amabilidade do Big Five (IPIP: “percebo as emoções dos outros”, “dedico tempo aos outros”) e dimensão Calor do modelo de Fiske e colegas.", null,
+      "De 0 a 5, como você avalia a sua capacidade de compreender as pessoas, demonstrar empatia e oferecer apoio?",
+      "De 0 a 5, como você avalia a capacidade dessa pessoa de compreender os outros, demonstrar empatia e oferecer apoio?",
+      "Empatia e relacionamento"],
+    ["Comunicação", "De 0 a 5, como você avalia minha maneira de me comunicar, receber críticas e lidar com divergências?",
+      "Falar com clareza, ouvir uma crítica sem se fechar e lidar com opiniões contrárias sem brigar.",
+      "Estabilidade emocional e Amabilidade do Big Five (IPIP): manter a calma, aceitar críticas e resolver conflitos.", null,
+      "De 0 a 5, como você avalia a sua maneira de se comunicar, receber críticas e lidar com divergências?",
+      "De 0 a 5, como você avalia a maneira dessa pessoa de se comunicar, receber críticas e lidar com divergências?",
+      "Comunicação e convivência"],
+    ["Contribuição", "De 0 a 5, quanto você considera que minha presença e minhas atitudes contribuem positivamente para as pessoas e os ambientes em que convivo?",
+      "O efeito da pessoa no grupo: o ambiente fica melhor com ela por perto?",
+      "contribuição percebida para o grupo, usada em avaliações 360° para medir o efeito de cada pessoa no ambiente.", null,
+      "De 0 a 5, quanto você considera que a sua presença e as suas atitudes contribuem positivamente para as pessoas e os ambientes em que você convive?",
+      "De 0 a 5, quanto a presença e as atitudes dessa pessoa contribuíram positivamente para as pessoas e para o ambiente do encontro?",
+      "Influência e contribuição"]] },
   r: { nome: "Profissional (360°)", itens: [
     ["Orientação", "Com que frequência dá retorno claro e ajuda os outros a melhorar?", "Dá retorno específico e na hora certa, ensina e ajuda as pessoas a resolverem os problemas por conta própria.", OX + "1: ser um bom coach. Texto adaptado pela Nervia."],
     ["Autonomia", "Com que frequência confia e delega, sem microgerenciar?", "Dá liberdade para as pessoas fazerem do seu jeito, fica disponível para ajudar e não controla cada detalhe.", OX + "2: dar autonomia à equipe."],
@@ -154,20 +186,27 @@ const MOD = {
     ["Decisão", "Com que frequência decide com clareza e no tempo certo?", "Decide com as informações disponíveis, explica o porquê e não deixa as decisões travarem o trabalho.", OX + "10 (2018): toma decisões firmes."]] },
 };
 const ANC = ["Não observei", "Raramente", "Às vezes", "Com frequência", "Quase sempre", "Sempre"];
-const tip = (m, i) => `<span class="tip" tabindex="0" data-m="${m}" data-i="${i}">${MOD[m].itens[i][0]}</span>`;
+const tip = (m, i, cheio) => `<span class="tip" tabindex="0" data-m="${m}" data-i="${i}">${cheio ? MOD[m].itens[i][7] || MOD[m].itens[i][0] : MOD[m].itens[i][0]}</span>`;
+// pergunta conforme quem responde: convite (como o Marco escreveu), autoavaliação ou encontro
+const pergunta = (m, i, ctx) => { const it = MOD[m].itens[i]; return (ctx === "auto" && it[5]) || (ctx === "enc" && it[6]) || it[1]; };
+const ESCALA_P = `<p class="hint">0 = nada · 5 = totalmente. "Não tenho condições de avaliar" não conta na média.</p>`;
 const ESCALA_R = `<p class="hint">Escala de frequência: 1 raramente · 2 às vezes · 3 com frequência · 4 quase sempre · 5 sempre · N/O não observei (não conta).</p>`;
 
-// estrelas: arr[i] undefined = não respondido; null = N/O (só no 360°)
-function estrelas(m, arr, i, grupo) {
+// estrelas: arr[i] undefined = não respondido; null = não observei / não tenho condições de avaliar (não conta)
+function estrelas(m, arr, i, grupo, comNa) {
   const nome = MOD[m].itens[i][0];
   const z = m === "r"
     ? `<button class="z ${arr[i] === null ? "on" : ""}" data-g="${grupo}" data-i="${i}" data-v="na" aria-label="${nome}: não observei" title="Não observei">N/O</button>`
     : `<button class="z ${arr[i] === 0 ? "on" : ""}" data-g="${grupo}" data-i="${i}" data-v="0" aria-label="${nome}: 0">0</button>`;
+  const na = m === "p" && comNa
+    ? `<button class="na ${arr[i] === null ? "on" : ""}" data-g="${grupo}" data-i="${i}" data-v="na" aria-label="${nome}: não tenho condições de avaliar">Não tenho condições de avaliar</button>` : "";
   return `<span class="stars" role="group" aria-label="${nome}">${z}${[1, 2, 3, 4, 5].map((v) =>
-    `<button class="${arr[i] >= v ? "on" : ""}" data-g="${grupo}" data-i="${i}" data-v="${v}" aria-label="${nome}: ${m === "r" ? ANC[v] : v + " estrelas"}" title="${m === "r" ? ANC[v] : v}">★</button>`).join("")}</span>`;
+    `<button class="${arr[i] >= v ? "on" : ""}" data-g="${grupo}" data-i="${i}" data-v="${v}" aria-label="${nome}: ${m === "r" ? ANC[v] : v + " estrelas"}" title="${m === "r" ? ANC[v] : v}">★</button>`).join("")}</span>${na}`;
 }
-const formulario = (m, arr, grupo) => (m === "r" ? ESCALA_R : "") + MOD[m].itens.map((_, i) => `<div class="rrow"><span>${tip(m, i)}</span>${estrelas(m, arr, i, grupo)}</div>`).join("");
-const completo = (a) => a.every((x) => x !== undefined);
+// ctx: "convite" | "auto" | "enc" — na autoavaliação não existe "não tenho condições de avaliar"
+const formulario = (m, arr, grupo, ctx) => (m === "r" ? ESCALA_R : ctx === "auto" ? "" : ESCALA_P) + MOD[m].itens.map((_, i) =>
+  `<div class="rq"><div class="rqt"><b>${tip(m, i, true)}</b></div><p class="hint">${pergunta(m, i, ctx)}</p>${estrelas(m, arr, i, grupo, ctx !== "auto")}</div>`).join("");
+const completo = (a) => a.every((x) => x !== undefined) && a.some((x) => x != null);   // tudo respondido e ao menos uma nota
 const NOTAS = {};   // respostas em andamento por grupo
 function marcarEstrela(b) {
   const g = b.dataset.g, a = NOTAS[g]; if (!a) return false;
@@ -435,7 +474,7 @@ async function usarQr(codigo) {
 function avaliarFicha(id, nome) {
   const d = $("dlg"); NOTAS.f = Array(5).fill(undefined);
   const pinta = () => {
-    d.innerHTML = `<h3>Como foi encontrar ${esc(nome)}?</h3><p class="hint">0 a 5 estrelas. Toque no nome do item para ver o que ele quer dizer.</p>${formulario("p", NOTAS.f, "f")}
+    d.innerHTML = `<h3>Como foi encontrar ${esc(nome)}?</h3><p class="hint">0 a 5 estrelas. Toque no nome do item para ver o que ele quer dizer.</p>${formulario("p", NOTAS.f, "f", "enc")}
     <button class="btn g" id="bEnviaF" ${completo(NOTAS.f) ? "" : "disabled"}>Enviar anonimamente</button><button class="btn o" id="bCancF">Agora não</button><div id="mF"></div>`;
     $("bCancF").onclick = () => d.close();
     $("bEnviaF").onclick = async () => {
@@ -458,10 +497,10 @@ async function telaEspelho() {
   // 1. autoavaliação
   if (e.auto) {
     h += `<div class="card"><h3>Sua autoavaliação</h3><p class="hint">Rodada ${e.rodada}, feita antes de ver qualquer resultado.</p>${e.auto.map((v, i) =>
-      `<div class="crit"><span>${tip(m, i)}</span><span class="bar"><i style="width:${(v || 0) / 5 * 100}%;background:var(--ink)"></i></span><span class="num">${v == null ? "N/O" : v}</span></div>`).join("")}</div>`;
+      `<div class="crit"><span>${tip(m, i)}</span><span class="bar"><i style="width:${(v || 0) / 5 * 100}%;background:var(--ink)"></i></span><span class="num">${v == null ? (m === "r" ? "N/O" : "—") : v}</span></div>`).join("")}</div>`;
   } else {
     h += `<div class="card g"><h3>1. Como você se vê</h3><p class="hint">Responda antes de ver o que os outros acham. Toque no nome do item para ver o que ele quer dizer.</p>
-    ${formulario(m, NOTAS["a" + m], "a" + m)}<button class="btn g" id="bAuto" ${completo(NOTAS["a" + m]) ? "" : "disabled"}>Salvar minha autoavaliação</button><div id="mAuto"></div></div>`;
+    ${formulario(m, NOTAS["a" + m], "a" + m, "auto")}<button class="btn g" id="bAuto" ${completo(NOTAS["a" + m]) ? "" : "disabled"}>Salvar minha autoavaliação</button><div id="mAuto"></div></div>`;
   }
   // 2. resultado
   const vis = e.circulos.filter((c) => c.medias);
@@ -494,7 +533,7 @@ async function telaEspelho() {
 function telaEspelhoLocal(e) {
   const m = MODO, card = $("bAuto")?.closest(".card"); if (!card) return;
   card.innerHTML = `<h3>1. Como você se vê</h3><p class="hint">Responda antes de ver o que os outros acham. Toque no nome do item para ver o que ele quer dizer.</p>
-    ${formulario(m, NOTAS["a" + m], "a" + m)}<button class="btn g" id="bAuto" ${completo(NOTAS["a" + m]) ? "" : "disabled"}>Salvar minha autoavaliação</button><div id="mAuto"></div>`;
+    ${formulario(m, NOTAS["a" + m], "a" + m, "auto")}<button class="btn g" id="bAuto" ${completo(NOTAS["a" + m]) ? "" : "disabled"}>Salvar minha autoavaliação</button><div id="mAuto"></div>`;
   card.querySelectorAll("button[data-g]").forEach((b) => b.addEventListener("click", () => { if (marcarEstrela(b)) telaEspelhoLocal(e); }));
   $("bAuto").addEventListener("click", async () => {
     try { await rpc("sin_auto_salvar", { p_modelo: m, p_notas: NOTAS["a" + m] }); telaEspelho(); } catch (x) { aviso($("mAuto"), erroTxt(x)); }
@@ -520,10 +559,10 @@ function resultado(m, me, vis) {
   let h = `<div class="card m"><h2>Como você se vê × como te veem</h2>
   <div class="big"><div><b>${fmt(am)}</b><span>como você se vê</span></div><div><b style="color:var(--gd)">${fmt(ao)}</b><span>como te veem (${tot})</span></div><div><b>${am == null || ao == null ? "—" : (ao - am >= 0 ? "+" : "") + fmt(ao - am)}</b><span>diferença</span></div></div>
   <p>${frase}</p><div class="leg"><span><i style="border:3px solid var(--ink)"></i>você</span><span><i style="background:var(--g)"></i>${m === "r" ? "avaliadores" : "as pessoas"}</span></div>
-  ${MI.map((c, i) => { const a = (me[i] ?? 0) / 5 * 100, b = (ot[i] ?? 0) / 5 * 100, t = tag(gap[i]); return `<div class="db"><span><b>${tip(m, i)}</b></span><div class="trk">${me[i] == null || ot[i] == null ? "" : `<span class="ln" style="left:${Math.min(a, b)}%;width:${Math.abs(a - b)}%"></span>`}${me[i] == null ? "" : `<span class="me" style="left:${a}%"></span>`}${ot[i] == null ? "" : `<span class="ot" style="left:${b}%"></span>`}</div><span class="v">${me[i] == null ? "N/O" : me[i]} × <b>${fmt(ot[i])}</b><small class="${t[0]}">${t[1]}</small></span></div>`; }).join("")}`;
+  ${MI.map((c, i) => { const a = (me[i] ?? 0) / 5 * 100, b = (ot[i] ?? 0) / 5 * 100, t = tag(gap[i]); return `<div class="db"><span><b>${tip(m, i)}</b></span><div class="trk">${me[i] == null || ot[i] == null ? "" : `<span class="ln" style="left:${Math.min(a, b)}%;width:${Math.abs(a - b)}%"></span>`}${me[i] == null ? "" : `<span class="me" style="left:${a}%"></span>`}${ot[i] == null ? "" : `<span class="ot" style="left:${b}%"></span>`}</div><span class="v">${me[i] == null ? (m === "r" ? "N/O" : "—") : me[i]} × <b>${fmt(ot[i])}</b><small class="${t[0]}">${t[1]}</small></span></div>`; }).join("")}`;
   if (vis.length > 1 || m === "r") {
     h += `<h3 style="margin-top:16px">Por ${m === "r" ? "grupo" : "círculo"}</h3><div class="scroll"><table><thead><tr><th>Item</th><th class="n">Você</th>${vis.map((c) => `<th class="n">${esc(c.nome)}${c.gestor ? "*" : ""}</th>`).join("")}</tr></thead>
-    <tbody>${MI.map((it, i) => `<tr><td>${tip(m, i)}</td><td class="n">${me[i] == null ? "N/O" : me[i]}</td>${vis.map((c) => `<td class="n">${fmt(c.medias[i])}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
+    <tbody>${MI.map((it, i) => `<tr><td>${tip(m, i)}</td><td class="n">${me[i] == null ? (m === "r" ? "N/O" : "—") : me[i]}</td>${vis.map((c) => `<td class="n">${fmt(c.medias[i])}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
     ${vis.some((c) => c.gestor) ? `<p class="hint">* o gestor é uma pessoa só, por isso aparece identificado.</p>` : ""}`;
   }
   h += `<p class="hint" style="margin-top:10px">${m === "r" ? "Use para o seu desenvolvimento, não para salário ou promoção: quando a nota vale dinheiro, as respostas ficam distorcidas. " : ""}Ponto cego = os outros dão 0,7 ou mais abaixo da sua nota.</p></div>`;
@@ -569,7 +608,7 @@ async function telaConvite(codigo) {
     tela.innerHTML = `<h1>${esc(c.dono)} pediu a sua opinião</h1>
     <p>${m === "r" ? `Avaliação 360° (grupo: <b>${esc(c.circulo)}</b>). <b>Com que frequência ${esc(c.dono)}…</b>` : `Círculo: <b>${esc(c.circulo)}</b>. <b>Como você vê ${esc(c.dono)}?</b>`}
     ${c.gestor ? "Como gestor, a sua resposta aparece identificada para a pessoa." : `É anônimo: ${esc(c.dono)} só vê médias, e só depois que pelo menos ${m === "r" ? 3 : 5} pessoas responderem.`}</p>
-    <div class="card">${formulario(m, NOTAS.c, "c")}
+    <div class="card">${formulario(m, NOTAS.c, "c", "convite")}
     <button class="btn g" id="bResp" ${completo(NOTAS.c) ? "" : "disabled"}>Enviar${c.gestor ? "" : " anonimamente"}</button><div id="mResp"></div></div>
     <p class="hint">Toque no nome de cada item para ver o que ele quer dizer. Não precisa criar conta.</p>
     <p class="lab">NVSintonia · laboratório da Nervia Tecnologia</p>`;
@@ -680,7 +719,7 @@ function telaConta() {
 const bal = $("balao"); let balEl = null, antes = null, tipo = "mouse";
 function mostra(el) {
   const it = MOD[el.dataset.m].itens[+el.dataset.i];
-  bal.innerHTML = `<b>${it[0]}</b><span>${it[2]}</span><span class="pq">Pergunta: “${it[1]}”</span><span class="bs">Base: ${it[3]}</span>`;
+  bal.innerHTML = `<b>${it[7] || it[0]}</b><span>${it[2]}</span><span class="pq">Pergunta: “${it[1]}”</span><span class="bs">Base: ${it[3]}</span>`;
   bal.hidden = false; balEl = el;
   const r = el.getBoundingClientRect(), bw = bal.offsetWidth, bh = bal.offsetHeight;
   let y = r.bottom + 8; if (y + bh > innerHeight - 8) y = Math.max(8, r.top - bh - 8);
