@@ -138,7 +138,6 @@ const fmt = (x) => x == null ? "—" : Number(x).toFixed(1).replace(".", ",");
 const ENDERECO = location.origin + "/sintonia/";
 
 // ------------------------------------------------------------ itens (os mesmos da demonstração; texto da Nervia a partir das bases citadas)
-const OX = "Project Oxygen, do Google (pesquisa com avaliações de milhares de gestores; 10 comportamentos desde 2018) — comportamento ";
 const MOD = {
   // Pessoal (1.2, questionário escolhido pelo Marco em 24/11/2026). Cada item: [nome curto, pergunta do convite (como o
   // Marco escreveu), o que quer dizer, base, (liderança), pergunta da autoavaliação, pergunta do encontro, título completo].
@@ -173,38 +172,53 @@ const MOD = {
       "De 0 a 5, quanto você considera que a sua presença e as suas atitudes contribuem positivamente para as pessoas e os ambientes em que você convive?",
       "De 0 a 5, quanto a presença e as atitudes dessa pessoa contribuíram positivamente para as pessoas e para o ambiente do encontro?",
       "Influência e contribuição"]] },
+  // 360° (1.3, competências propostas pelo Marco em 24/11/2026; mesma escala de 0 a 5 do pessoal). Mesma ordem do pessoal.
   r: { nome: "Profissional (360°)", itens: [
-    ["Orientação", "Com que frequência dá retorno claro e ajuda os outros a melhorar?", "Dá retorno específico e na hora certa, ensina e ajuda as pessoas a resolverem os problemas por conta própria.", OX + "1: ser um bom coach. Texto adaptado pela Nervia."],
-    ["Autonomia", "Com que frequência confia e delega, sem microgerenciar?", "Dá liberdade para as pessoas fazerem do seu jeito, fica disponível para ajudar e não controla cada detalhe.", OX + "2: dar autonomia à equipe."],
-    ["Ambiente seguro", "Com que frequência faz todos se sentirem incluídos e respeitados?", "Cria um clima em que todos podem falar e errar sem medo, e se importa com o sucesso e o bem-estar das pessoas.", OX + "3: ambiente inclusivo. Ligado à “segurança psicológica” (Amy Edmondson)."],
-    ["Resultados", "Com que frequência mantém o foco e entrega o combinado?", "Define prioridades, tira os obstáculos do caminho e entrega no prazo e com qualidade.", OX + "4: produtivo e focado em resultados."],
-    ["Comunicação", "Com que frequência escuta e compartilha informação com clareza?", "Escuta antes de responder, explica com clareza e mantém as pessoas informadas.", OX + "5: bom comunicador."],
-    ["Desenvolvimento", "Com que frequência apoia o crescimento e a carreira das pessoas?", "Conversa sobre carreira, abre oportunidades e reconhece o progresso. Para quem lidera: se não se aplica, marque N/O.", OX + "6: apoia o desenvolvimento de carreira.", 1],
-    ["Visão", "Com que frequência deixa claro para onde a equipe vai e por quê?", "Explica os objetivos e o motivo das prioridades, inclusive nos momentos difíceis. Para quem lidera: se não se aplica, marque N/O.", OX + "7: visão e estratégia claras.", 1],
-    ["Conhecimento técnico", "Com que frequência mostra domínio do trabalho para orientar e resolver?", "Conhece o trabalho a fundo, a ponto de ajudar a equipe com problemas técnicos.", OX + "8: competência técnica."],
-    ["Colaboração", "Com que frequência trabalha bem com outras áreas e equipes?", "Compartilha, ajuda e busca soluções junto com quem é de fora da própria equipe.", OX + "9 (2018): colabora com toda a empresa."],
-    ["Decisão", "Com que frequência decide com clareza e no tempo certo?", "Decide com as informações disponíveis, explica o porquê e não deixa as decisões travarem o trabalho.", OX + "10 (2018): toma decisões firmes."]] },
+    ["Liderança", "De 0 a 5, como você avalia minha capacidade de assumir responsabilidades, tomar decisões e orientar pessoas na busca por resultados?",
+      "Assumir a responsabilidade, decidir no tempo certo e orientar as pessoas até o resultado. Vale também para quem não tem cargo de chefia.",
+      "competências de liderança, autonomia e tomada de decisão, presentes nos modelos de 360° mais usados (ex.: comportamentos 4 e 10 do Project Oxygen, do Google).", null,
+      "De 0 a 5, como você avalia a sua capacidade de assumir responsabilidades, tomar decisões e orientar pessoas na busca por resultados?", null,
+      "Liderança e capacidade de decisão"],
+    ["Comunicação", "De 0 a 5, como você avalia minha capacidade de transmitir informações com clareza, ouvir opiniões e manter um relacionamento profissional construtivo?",
+      "Explicar com clareza, escutar antes de responder e manter uma relação de trabalho boa, mesmo nas divergências.",
+      "comunicação, escuta ativa e relacionamento (ex.: comportamento 5 do Project Oxygen, “bom comunicador”).", null,
+      "De 0 a 5, como você avalia a sua capacidade de transmitir informações com clareza, ouvir opiniões e manter um relacionamento profissional construtivo?", null,
+      "Comunicação e relacionamento interpessoal"],
+    ["Comprometimento", "De 0 a 5, como você avalia meu comprometimento com as responsabilidades assumidas, cumprimento de prazos e qualidade das entregas?",
+      "Fazer o que assumiu, no prazo combinado e com qualidade.",
+      "responsabilidade, disciplina e confiabilidade (Conscienciosidade do Big Five, o traço que mais se liga ao desempenho no trabalho).", null,
+      "De 0 a 5, como você avalia o seu comprometimento com as responsabilidades assumidas, cumprimento de prazos e qualidade das entregas?", null,
+      "Comprometimento e responsabilidade"],
+    ["Iniciativa", "De 0 a 5, como você avalia minha capacidade de identificar problemas, propor soluções e agir proativamente diante dos desafios profissionais?",
+      "Enxergar o problema antes que ele cresça, trazer uma solução e agir sem esperar alguém mandar.",
+      "iniciativa, pensamento crítico e resolução de problemas, competências comuns nos modelos de 360°.", null,
+      "De 0 a 5, como você avalia a sua capacidade de identificar problemas, propor soluções e agir proativamente diante dos desafios profissionais?", null,
+      "Iniciativa e resolução de problemas"],
+    ["Equipe", "De 0 a 5, como você avalia minha capacidade de colaborar com outras pessoas, compartilhar conhecimentos e contribuir para o desenvolvimento da equipe?",
+      "Trabalhar junto, ensinar o que sabe e ajudar os colegas a crescer.",
+      "colaboração e desenvolvimento de pessoas (ex.: comportamentos 6 e 9 do Project Oxygen).", null,
+      "De 0 a 5, como você avalia a sua capacidade de colaborar com outras pessoas, compartilhar conhecimentos e contribuir para o desenvolvimento da equipe?", null,
+      "Trabalho em equipe e desenvolvimento de pessoas"]] },
 };
-const ANC = ["Não observei", "Raramente", "Às vezes", "Com frequência", "Quase sempre", "Sempre"];
+// escala do 360° (proposta do Marco): o que cada nota quer dizer
+const ANC = ["Não demonstra essa competência", "Demonstra muito pouco", "Demonstra abaixo do esperado", "Demonstra parcialmente", "Demonstra consistentemente", "É uma referência nessa competência"];
 const tip = (m, i, cheio) => `<span class="tip" tabindex="0" data-m="${m}" data-i="${i}">${cheio ? MOD[m].itens[i][7] || MOD[m].itens[i][0] : MOD[m].itens[i][0]}</span>`;
 // pergunta conforme quem responde: convite (como o Marco escreveu), autoavaliação ou encontro
 const pergunta = (m, i, ctx) => { const it = MOD[m].itens[i]; return (ctx === "auto" && it[5]) || (ctx === "enc" && it[6]) || it[1]; };
 const ESCALA_P = `<p class="hint">0 = nada · 5 = totalmente. "Não tenho condições de avaliar" não conta na média.</p>`;
-const ESCALA_R = `<p class="hint">Escala de frequência: 1 raramente · 2 às vezes · 3 com frequência · 4 quase sempre · 5 sempre · N/O não observei (não conta).</p>`;
+const ESCALA_R = `<p class="hint">0 não demonstra essa competência · 1 muito pouco · 2 abaixo do esperado · 3 parcialmente · 4 consistentemente · 5 é uma referência. "Não tenho condições de avaliar" não conta na média.</p>`;
 
-// estrelas: arr[i] undefined = não respondido; null = não observei / não tenho condições de avaliar (não conta)
+// estrelas: arr[i] undefined = não respondido; null = não tenho condições de avaliar (não conta)
 function estrelas(m, arr, i, grupo, comNa) {
   const nome = MOD[m].itens[i][0];
-  const z = m === "r"
-    ? `<button class="z ${arr[i] === null ? "on" : ""}" data-g="${grupo}" data-i="${i}" data-v="na" aria-label="${nome}: não observei" title="Não observei">N/O</button>`
-    : `<button class="z ${arr[i] === 0 ? "on" : ""}" data-g="${grupo}" data-i="${i}" data-v="0" aria-label="${nome}: 0">0</button>`;
-  const na = m === "p" && comNa
+  const z = `<button class="z ${arr[i] === 0 ? "on" : ""}" data-g="${grupo}" data-i="${i}" data-v="0" aria-label="${nome}: 0${m === "r" ? " — " + ANC[0] : ""}" title="${m === "r" ? ANC[0] : 0}">0</button>`;
+  const na = comNa
     ? `<button class="na ${arr[i] === null ? "on" : ""}" data-g="${grupo}" data-i="${i}" data-v="na" aria-label="${nome}: não tenho condições de avaliar">Não tenho condições de avaliar</button>` : "";
   return `<span class="stars" role="group" aria-label="${nome}">${z}${[1, 2, 3, 4, 5].map((v) =>
     `<button class="${arr[i] >= v ? "on" : ""}" data-g="${grupo}" data-i="${i}" data-v="${v}" aria-label="${nome}: ${m === "r" ? ANC[v] : v + " estrelas"}" title="${m === "r" ? ANC[v] : v}">★</button>`).join("")}</span>${na}`;
 }
 // ctx: "convite" | "auto" | "enc" — na autoavaliação não existe "não tenho condições de avaliar"
-const formulario = (m, arr, grupo, ctx) => (m === "r" ? ESCALA_R : ctx === "auto" ? "" : ESCALA_P) + MOD[m].itens.map((_, i) =>
+const formulario = (m, arr, grupo, ctx) => (ctx === "auto" ? "" : m === "r" ? ESCALA_R : ESCALA_P) + MOD[m].itens.map((_, i) =>
   `<div class="rq"><div class="rqt"><b>${tip(m, i, true)}</b></div><p class="hint">${pergunta(m, i, ctx)}</p>${estrelas(m, arr, i, grupo, ctx !== "auto")}</div>`).join("");
 const completo = (a) => a.every((x) => x !== undefined) && a.some((x) => x != null);   // tudo respondido e ao menos uma nota
 const NOTAS = {};   // respostas em andamento por grupo
@@ -497,7 +511,7 @@ async function telaEspelho() {
   // 1. autoavaliação
   if (e.auto) {
     h += `<div class="card"><h3>Sua autoavaliação</h3><p class="hint">Rodada ${e.rodada}, feita antes de ver qualquer resultado.</p>${e.auto.map((v, i) =>
-      `<div class="crit"><span>${tip(m, i)}</span><span class="bar"><i style="width:${(v || 0) / 5 * 100}%;background:var(--ink)"></i></span><span class="num">${v == null ? (m === "r" ? "N/O" : "—") : v}</span></div>`).join("")}</div>`;
+      `<div class="crit"><span>${tip(m, i)}</span><span class="bar"><i style="width:${(v || 0) / 5 * 100}%;background:var(--ink)"></i></span><span class="num">${v == null ? "—" : v}</span></div>`).join("")}</div>`;
   } else {
     h += `<div class="card g"><h3>1. Como você se vê</h3><p class="hint">Responda antes de ver o que os outros acham. Toque no nome do item para ver o que ele quer dizer.</p>
     ${formulario(m, NOTAS["a" + m], "a" + m, "auto")}<button class="btn g" id="bAuto" ${completo(NOTAS["a" + m]) ? "" : "disabled"}>Salvar minha autoavaliação</button><div id="mAuto"></div></div>`;
@@ -559,10 +573,10 @@ function resultado(m, me, vis) {
   let h = `<div class="card m"><h2>Como você se vê × como te veem</h2>
   <div class="big"><div><b>${fmt(am)}</b><span>como você se vê</span></div><div><b style="color:var(--gd)">${fmt(ao)}</b><span>como te veem (${tot})</span></div><div><b>${am == null || ao == null ? "—" : (ao - am >= 0 ? "+" : "") + fmt(ao - am)}</b><span>diferença</span></div></div>
   <p>${frase}</p><div class="leg"><span><i style="border:3px solid var(--ink)"></i>você</span><span><i style="background:var(--g)"></i>${m === "r" ? "avaliadores" : "as pessoas"}</span></div>
-  ${MI.map((c, i) => { const a = (me[i] ?? 0) / 5 * 100, b = (ot[i] ?? 0) / 5 * 100, t = tag(gap[i]); return `<div class="db"><span><b>${tip(m, i)}</b></span><div class="trk">${me[i] == null || ot[i] == null ? "" : `<span class="ln" style="left:${Math.min(a, b)}%;width:${Math.abs(a - b)}%"></span>`}${me[i] == null ? "" : `<span class="me" style="left:${a}%"></span>`}${ot[i] == null ? "" : `<span class="ot" style="left:${b}%"></span>`}</div><span class="v">${me[i] == null ? (m === "r" ? "N/O" : "—") : me[i]} × <b>${fmt(ot[i])}</b><small class="${t[0]}">${t[1]}</small></span></div>`; }).join("")}`;
+  ${MI.map((c, i) => { const a = (me[i] ?? 0) / 5 * 100, b = (ot[i] ?? 0) / 5 * 100, t = tag(gap[i]); return `<div class="db"><span><b>${tip(m, i)}</b></span><div class="trk">${me[i] == null || ot[i] == null ? "" : `<span class="ln" style="left:${Math.min(a, b)}%;width:${Math.abs(a - b)}%"></span>`}${me[i] == null ? "" : `<span class="me" style="left:${a}%"></span>`}${ot[i] == null ? "" : `<span class="ot" style="left:${b}%"></span>`}</div><span class="v">${me[i] == null ? "—" : me[i]} × <b>${fmt(ot[i])}</b><small class="${t[0]}">${t[1]}</small></span></div>`; }).join("")}`;
   if (vis.length > 1 || m === "r") {
     h += `<h3 style="margin-top:16px">Por ${m === "r" ? "grupo" : "círculo"}</h3><div class="scroll"><table><thead><tr><th>Item</th><th class="n">Você</th>${vis.map((c) => `<th class="n">${esc(c.nome)}${c.gestor ? "*" : ""}</th>`).join("")}</tr></thead>
-    <tbody>${MI.map((it, i) => `<tr><td>${tip(m, i)}</td><td class="n">${me[i] == null ? (m === "r" ? "N/O" : "—") : me[i]}</td>${vis.map((c) => `<td class="n">${fmt(c.medias[i])}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
+    <tbody>${MI.map((it, i) => `<tr><td>${tip(m, i)}</td><td class="n">${me[i] == null ? "—" : me[i]}</td>${vis.map((c) => `<td class="n">${fmt(c.medias[i])}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
     ${vis.some((c) => c.gestor) ? `<p class="hint">* o gestor é uma pessoa só, por isso aparece identificado.</p>` : ""}`;
   }
   h += `<p class="hint" style="margin-top:10px">${m === "r" ? "Use para o seu desenvolvimento, não para salário ou promoção: quando a nota vale dinheiro, as respostas ficam distorcidas. " : ""}Ponto cego = os outros dão 0,7 ou mais abaixo da sua nota.</p></div>`;
@@ -606,7 +620,7 @@ async function telaConvite(codigo) {
   NOTAS.c = Array(MOD[m].itens.length).fill(undefined);
   const pinta = () => {
     tela.innerHTML = `<h1>${esc(c.dono)} pediu a sua opinião</h1>
-    <p>${m === "r" ? `Avaliação 360° (grupo: <b>${esc(c.circulo)}</b>). <b>Com que frequência ${esc(c.dono)}…</b>` : `Círculo: <b>${esc(c.circulo)}</b>. <b>Como você vê ${esc(c.dono)}?</b>`}
+    <p>${m === "r" ? `Avaliação 360° (grupo: <b>${esc(c.circulo)}</b>). <b>Como você vê ${esc(c.dono)} no trabalho?</b>` : `Círculo: <b>${esc(c.circulo)}</b>. <b>Como você vê ${esc(c.dono)}?</b>`}
     ${c.gestor ? "Como gestor, a sua resposta aparece identificada para a pessoa." : `É anônimo: ${esc(c.dono)} só vê médias, e só depois que pelo menos ${m === "r" ? 3 : 5} pessoas responderem.`}</p>
     <div class="card">${formulario(m, NOTAS.c, "c", "convite")}
     <button class="btn g" id="bResp" ${completo(NOTAS.c) ? "" : "disabled"}>Enviar${c.gestor ? "" : " anonimamente"}</button><div id="mResp"></div></div>

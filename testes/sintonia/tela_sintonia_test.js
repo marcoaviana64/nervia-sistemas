@@ -237,14 +237,17 @@ async function estrelas(pg, n, valor, escopo = "") {
     // ---------- 360°: gestor responde e aparece identificado
     await pa.click('[data-modo="r"]'); await pa.waitForSelector("#bAuto");
     ok((await pa.$$("[data-conv]")).length === 4, "360°: gestor, pares, liderados e clientes internos já criados");
-    await estrelas(pa, 10, i => (i === 5 || i === 6) ? "na" : 4, ".card.g");
+    ok(/Liderança e capacidade de decisão/.test(await pa.textContent(".card.g")) && /como você avalia a sua capacidade de assumir/.test(await pa.textContent(".card.g")) && !(await pa.$(".card.g button.na")),
+      "360°: as 5 competências novas, autoavaliação na voz de quem se avalia, sem 'não tenho condições'");
+    await estrelas(pa, 5, 4, ".card.g");
     await pa.click("#bAuto"); await pa.waitForSelector("text=Nenhum grupo completou");
     const gest = await um(pool, "select c.codigo from sin_circulos c join sin_espelhos e on e.id = c.espelho_id where e.modelo = 'r' and c.gestor");
     {
       const G = await pagina(browser, null); IP = 30;
       await G.pg.goto(BASE + "/sintonia/#c-" + gest.codigo); await G.pg.waitForSelector("#bResp");
-      ok(/aparece identificada/.test(await G.pg.textContent("main")) && /Com que frequência/.test(await G.pg.textContent("main")), "360°: o gestor é avisado de que aparece identificado; escala de frequência");
-      await estrelas(G.pg, 10, i => i === 5 ? "na" : 3);
+      ok(/aparece identificada/.test(await G.pg.textContent("main")) && /é uma referência/i.test(await G.pg.textContent("main")) && /orientar pessoas na busca por resultados/.test(await G.pg.textContent("main")) && (await G.pg.$$("button.na")).length === 5,
+        "360°: o gestor é avisado de que aparece identificado; escala de 0 a 5 com 'Não tenho condições de avaliar'");
+      await estrelas(G.pg, 5, i => i === 4 ? "na" : 3);
       await G.pg.click("#bResp"); await G.pg.waitForSelector("text=Obrigado!");
       todosErros.push(...G.erros); await G.ctx.close();
     }
