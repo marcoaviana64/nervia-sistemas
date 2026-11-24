@@ -198,14 +198,18 @@ async function estrelas(pg, n, valor, escopo = "") {
       if (k === 1) {
         ok(/Ana pediu a sua opinião/.test(await P.pg.textContent("h1")) && /anônimo/.test(await P.pg.textContent("main")), "convite: abre sem login, com o nome de quem pediu e o aviso de anonimato");
         await P.pg.locator(".tip").first().tap();
-        ok(await P.pg.isVisible("#balao") && /Calor humano/.test(await P.pg.textContent("#balao")), "balão: tocar no nome do item mostra o que ele quer dizer (celular)");
+        ok(await P.pg.isVisible("#balao") && /Ouvir de verdade/.test(await P.pg.textContent("#balao")) && /Respeito e consideração/.test(await P.pg.textContent("#balao")), "balão: tocar no nome do item mostra o que ele quer dizer (celular)");
         await P.pg.locator("h1").tap();
         ok(!(await P.pg.isVisible("#balao")), "balão: tocar fora fecha");
         ok(await P.pg.evaluate(() => document.documentElement.scrollWidth <= innerWidth), "convite: sem rolagem lateral no celular");
         await P.pg.screenshot({ path: path.join(SAIDA, "02-convite-celular.png") });
         ok(await P.pg.isDisabled("#bResp"), "convite: enviar só com todos os itens");
       }
-      await estrelas(P.pg, 5, i => (k + i) % 5 + 1);
+      if (k === 1) {
+        ok(/como você avalia minha capacidade de ouvir/.test(await P.pg.textContent("main")) && (await P.pg.$$("button.na")).length === 5,
+          "convite: as perguntas novas, como o Marco escreveu, com 'Não tenho condições de avaliar' em cada uma");
+        await estrelas(P.pg, 5, i => i === 1 ? "na" : (k + i) % 5 + 1);
+      } else await estrelas(P.pg, 5, i => (k + i) % 5 + 1);
       await P.pg.click("#bResp");
       await P.pg.waitForSelector("text=Obrigado!");
       if (k === 1) {
@@ -222,6 +226,8 @@ async function estrelas(pg, n, valor, escopo = "") {
     ok(!(await pa.isVisible("text=Como você se vê × como te veem")), "espelho: resultado escondido antes da autoavaliação");
     await pa.hover(".tip >> nth=0");
     ok(await pa.isVisible("#balao") && /Base:/.test(await pa.textContent("#balao")), "balão: passar o mouse mostra o significado e a base");
+    ok(/como você avalia a sua capacidade de ouvir/.test(await pa.textContent(".card.g")) && !(await pa.$(".card.g button.na")),
+      "autoavaliação: pergunta na voz de quem se avalia, sem 'não tenho condições'");
     await estrelas(pa, 5, 4, ".card.g");
     await pa.click("#bAuto");
     await pa.waitForSelector("text=Como você se vê × como te veem");
@@ -260,6 +266,7 @@ async function estrelas(pg, n, valor, escopo = "") {
     await pb.waitForSelector("#mCod .okm");
     ok(/Encontro com Ana registrado/.test(await pb.textContent("#mCod")), "QR: quem lê o QR (mesmo antes de criar o perfil) registra o encontro");
     await pb.click('[data-ficha]'); await pb.waitForSelector("#bEnviaF");
+    ok(/capacidade dessa pessoa/.test(await pb.textContent("#dlg")), "encontro: pergunta sobre essa pessoa");
     await estrelas(pb, 5, 5, "#dlg"); await pb.click("#bEnviaF");
     ok(await pb.waitForSelector("[data-ficha]", { state: "detached", timeout: 5000 }).then(() => true, () => false), "encontro: avaliação enviada e a ficha some");
     const en = await um(pool, "select count(*)::int n from sin_enc_notas where alvo = $1", [ANA_ID]);

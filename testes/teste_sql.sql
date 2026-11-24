@@ -4237,4 +4237,16 @@ select pg_temp.ok((select (m ->> 'com_nota')::int = 11 and (m ->> 'percentil') i
 select pg_temp.ok((select (m ->> 'percentil')::int = round(100.0 * (select count(*) from generate_series(1, 11) i where i <> 9 and least(10, i / 2 * 2) / 2.0 * 0 + (select (public._sin_nota(('52000000-0000-0000-0000-0000000000' || lpad(i::text, 2, '0'))::uuid) ->> 'geral')::numeric) < (m ->> 'eu')::numeric) / 10) from sinmu),
   'sintonia 1.1: percentil = outras pessoas com nota menor ÷ outras pessoas com nota');
 reset request.jwt.claim.sub;
+-- ---------------------------------------------------------------- NVSintonia 1.2: perguntas novas + "não tenho condições de avaliar"
+select pg_temp.ok(exists (select 1 from auditoria where acao = 'sintonia_avaliacoes_zeradas'), 'sintonia 1.2: a troca das perguntas zera as avaliações e fica na auditoria');
+select pg_temp.ok(public._sin_notas_ok('p', '{5,null,4,null,3}') and not public._sin_notas_ok('p', '{null,null,null,null,null}')
+  and not public._sin_notas_ok('p', '{5,null,4,null}'), 'sintonia 1.2: item vazio = não tenho condições de avaliar; ao menos uma nota; os 5 itens');
+insert into auth.users (id, email) values ('53000000-0000-0000-0000-000000000001', 'z@sin.test');
+insert into sin_pessoas (user_id, nome) values ('53000000-0000-0000-0000-000000000001', 'Z');
+insert into sin_enc_notas (alvo, notas, liberada) select '53000000-0000-0000-0000-000000000001', case when g = 1 then '{5,2,5,5,5}' else '{5,null,5,5,5}' end::smallint[], true from generate_series(1, 5) g;
+select pg_temp.ok((select (public._sin_nota('53000000-0000-0000-0000-000000000001') -> 'itens' ->> 1)::numeric
+      = round((10 * (select case when count(notas[2]) >= 20 then avg(notas[2]) else 3.5 end from sin_enc_notas where liberada) + 2) / 11.0, 2)
+  and (public._sin_nota('53000000-0000-0000-0000-000000000001') -> 'itens' ->> 0)::numeric
+      = round((10 * (select case when count(notas[1]) >= 20 then avg(notas[1]) else 3.5 end from sin_enc_notas where liberada) + 25) / 15.0, 2)),
+  'sintonia 1.2: em cada item só quem avaliou entra na média (o vazio não vira zero)');
 \echo 'TODOS OS TESTES SQL OK'
