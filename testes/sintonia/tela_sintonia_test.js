@@ -33,7 +33,7 @@ async function prepararBanco() {
 }
 
 // ---------------------------------------------------------------- ponte
-const PEDIDOS = { contas: [], otp: [] };
+const PEDIDOS = { contas: [], otp: [] }, SENHAS = new Map();
 let IP = 1;
 function servidor(pool) {
   const tipos = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".png": "image/png", ".webmanifest": "application/manifest+json" };
@@ -70,7 +70,36 @@ function servidor(pool) {
           return meta.ret === "void" ? json(204) : json(200, r.rows[0].r);
         } catch (e) { return json(400, { message: e.message, code: e.code }); }
       }
-      if (url.pathname === "/functions/v1/sintonia-conta") { PEDIDOS.contas.push(JSON.parse(corpo)); return json(200, { ok: true }); }
+      if (url.pathname === "/functions/v1/sintonia-conta") {
+        // a função de verdade (chave + usuário do Auth), imitada com as mesmas rpcs do banco
+        const b = JSON.parse(corpo); PEDIDOS.contas.push(b);
+        const sr = async (q, v) => { const c = await pool.connect(); try { await c.query("set role service_role"); return (await c.query(q, v)).rows[0]; } finally { await c.query("reset role"); c.release(); } };
+        const senha = k => { const x = k.toUpperCase().replace(/[^0-9A-Z]/g, ""); return "Sn!" + x + x.toLowerCase(); };
+        if (b.acao === "criar") {
+          const k = (await sr("select sin_chave_nova() k")).k;
+          const id = (await pool.query("insert into auth.users (email, raw_user_meta_data) values ($1, $2) returning id", [k.email, { nome: b.nome, origem: "sintonia" }])).rows[0].id;
+          await sr("select sin_conta_auditar($1, 'sintonia_conta_criada')", [id]);
+          SENHAS.set(k.email, senha(k.chave)); return json(200, { ok: true, ...k, id });
+        }
+        if (b.acao === "entrar") {
+          const e = (await sr("select sin_chave_email($1) e", [b.chave])).e;
+          return e ? json(200, { ok: true, email: e }) : json(400, { ok: false, mensagem: "Chave inválida: são 12 letras e números, como K7QM-4XPA-9TRD." });
+        }
+        if (b.acao === "converter") {
+          if (!sub) return json(401, { ok: false, mensagem: "Entre no NVSintonia para trocar o e-mail pela chave." });
+          const k = (await sr("select sin_chave_nova() k")).k;
+          await pool.query("update auth.users set email = $1 where id = $2", [k.email, sub]);
+          await sr("select sin_perfil_email($1, $2)", [sub, k.email]);
+          await sr("select sin_conta_auditar($1, 'sintonia_email_trocado_por_chave')", [sub]);
+          SENHAS.set(k.email, senha(k.chave)); return json(200, { ok: true, ...k });
+        }
+        return json(400, { ok: false, mensagem: "Ação desconhecida." });
+      }
+      if (url.pathname === "/auth/v1/token" && url.searchParams.get("grant_type") === "password") {
+        const b = JSON.parse(corpo), u = (await pool.query("select id, email from auth.users where email = $1", [b.email])).rows[0];
+        if (!u || SENHAS.get(b.email) !== b.password) return json(400, { error: "invalid_grant", error_description: "Invalid login credentials", msg: "Invalid login credentials", code: "invalid_credentials" });
+        return json(200, sessao(u.id, u.email));
+      }
       if (url.pathname === "/auth/v1/otp") { PEDIDOS.otp.push({ corpo: JSON.parse(corpo), redirect: url.searchParams.get("redirect_to") }); return json(200, {}); }
       if (url.pathname.startsWith("/auth/v1/")) return json(200, {});
       // site estático (config.js apontando para esta ponte)
@@ -86,10 +115,15 @@ function token(uid) {
   const b = o => Buffer.from(JSON.stringify(o)).toString("base64url");
   return b({ alg: "HS256", typ: "JWT" }) + "." + b({ sub: uid, role: "authenticated", aud: "authenticated", exp: Math.floor(Date.now() / 1000) + 3600 }) + ".x";
 }
+function sessao(uid, email) {
+  return { access_token: token(uid), refresh_token: "x", token_type: "bearer", expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600,
+    user: { id: uid, aud: "authenticated", role: "authenticated", email } };
+}
 async function pagina(browser, uid, opc = {}) {
-  const ctx = await browser.newContext({ viewport: { width: 420, height: 860 }, ...opc });
+  const { email: _e, ...resto } = opc;
+  const ctx = await browser.newContext({ viewport: { width: 420, height: 860 }, ...resto });
   if (uid) {
-    const s = { access_token: token(uid), refresh_token: "x", token_type: "bearer", expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: uid, aud: "authenticated", role: "authenticated" } };
+    const s = sessao(uid, opc.email);
     await ctx.addInitScript(`localStorage.setItem('sb-127-auth-token', ${JSON.stringify(JSON.stringify(s))});`);
   }
   const pg = await ctx.newPage(), erros = [];
@@ -113,29 +147,38 @@ async function estrelas(pg, n, valor, escopo = "") {
   const browser = await chromium.launch();
   const todosErros = [];
   try {
-    // ---------- entrar (sem conta): pede a conta à função e o link por e-mail, sem criar usuário pelo Auth
-    {
-      const { pg, erros, ctx } = await pagina(browser, null);
-      await pg.goto(BASE + "/sintonia/");
-      await pg.fill("#eNome", "Caio"); await pg.fill("#eEmail", "Caio@Exemplo.test");
-      await pg.click("#bEntrar");
-      await pg.waitForSelector("#mEntrar .okm");
-      ok(PEDIDOS.contas[0]?.email === "caio@exemplo.test" && PEDIDOS.contas[0]?.nome === "Caio", "entrar: pede a conta à função sintonia-conta com nome e e-mail");
-      const otp = PEDIDOS.otp[0];
-      ok(otp && otp.corpo.create_user === false && /\/sintonia\/$/.test(otp.redirect || ""), "entrar: link de entrada sem criar usuário pelo Auth e voltando para /sintonia/");
-      await pg.screenshot({ path: path.join(SAIDA, "01-entrar.png") });
-      todosErros.push(...erros); await ctx.close();
-    }
-    // ---------- Ana: perfil, círculo, convite
-    const A = await pagina(browser, ANA, { permissions: ["geolocation"], geolocation: { latitude: -22.98321, longitude: -43.20111 } });
+    // ---------- conta nova por CHAVE (sem e-mail): a chave aparece uma vez e só segue com "Anotei"
+    const A = await pagina(browser, null, { permissions: ["geolocation", "clipboard-read", "clipboard-write"], geolocation: { latitude: -22.98321, longitude: -43.20111 } });
     const pa = A.pg;
     await pa.goto(BASE + "/sintonia/");
-    await pa.waitForSelector("#fPerfil");
-    ok(await pa.inputValue("#pNome") === "Ana Lima", "perfil: nome vem do login");
-    await pa.fill("#pNome", "Ana"); await pa.click("#fPerfil button");
+    ok(/Você é um número, não um nome/.test(await pa.textContent("main")), "entrada: explica o anonimato (um número sem nome)");
+    ok(!/e-mail/i.test(await pa.textContent("#fCriar")) || /Sem e-mail/.test(await pa.textContent("#fCriar")), "entrada: conta nova pede só o nome, sem e-mail");
+    await pa.fill("#eNome", "Ana"); await pa.click("#bCriar");
+    await pa.waitForSelector("#kTexto");
+    const chave = (await pa.textContent("#kTexto")).trim();
+    ok(/^[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$/.test(chave), "chave: 12 letras e números em 3 grupos, sem letras confusas");
+    ok(/perde a conta/.test(await pa.textContent("main")) && await pa.isDisabled("#bSegue"), "chave: avisa que perder a chave perde a conta; só segue depois de \"Anotei\"");
+    await pa.screenshot({ path: path.join(SAIDA, "01-chave.png") });
+    await pa.check("#kOk"); await pa.click("#bSegue");
     await pa.waitForSelector("#bMeuQr");
-    ok(/Ana · SN-[A-Z0-9]{4}/.test(await pa.textContent("#topoInfo")), "perfil criado: topo com o nome e o código do dia");
+    ok(/Ana · SN-[A-Z0-9]{4}/.test(await pa.textContent("#topoInfo")), "conta criada: entra direto, com o nome e o código do dia");
+    const anaUser = await um(pool, "select u.id, u.email, p.email pe from auth.users u join perfis p on p.user_id = u.id where u.email like 's-%'");
+    ok(anaUser && /^s-[0-9a-f]{40}@sintonia\.nervia\.com\.br$/.test(anaUser.email) && !(await um(pool, "select 1 from sin_chaves where hash ilike $1", ["%" + chave.replace(/-/g, "") + "%"])),
+      "banco: login sem e-mail de verdade e a chave não fica guardada");
+    const ANA_ID = anaUser.id;
     ok(/aparece depois das primeiras 5/.test(await pa.textContent("main")), "encontros: sem nota até o primeiro lote de 5");
+    ok(/Você na multidão/.test(await pa.textContent("main")) && /aparece quando 10 pessoas/.test(await pa.textContent("main")), "multidão: explica que a comparação aparece com 10 pessoas com nota");
+    // sair e voltar com a chave
+    await pa.click('#nav [data-aba="conta"]');
+    await pa.click("#bVerK"); ok((await pa.textContent("#cK")).trim() === chave, "conta: mostra a chave guardada neste aparelho");
+    await pa.click("#bSair"); await pa.waitForSelector("#bSim");
+    ok(/chave/.test(await pa.textContent("#dlg")), "sair: lembra de conferir a chave anotada");
+    await pa.click("#bSim"); await pa.waitForSelector("#fChave");
+    await pa.fill("#eChave", "ABCD-EFGH-2345"); await pa.click("#bChave"); await pa.waitForSelector("#mChave .err");
+    ok(/não encontrada/.test(await pa.textContent("#mChave")), "entrar: chave errada não entra");
+    await pa.fill("#eChave", chave.toLowerCase().replace(/-/g, " ")); await pa.click("#bChave");
+    await pa.waitForSelector("#bMeuQr");
+    ok(/Ana · SN-/.test(await pa.textContent("#topoInfo")), "entrar: a mesma chave (com minúsculas e espaços) volta para a mesma conta");
     await pa.click('#nav [data-aba="espelho"]');
     await pa.waitForSelector("#bAuto");
     await pa.click('[data-sug="Família"]');
@@ -210,7 +253,7 @@ async function estrelas(pg, n, valor, escopo = "") {
     ok(/^[0-9A-F]{8}$/.test(cod) && await pa.isVisible("#dlg .qr svg"), "QR: código de 8 letras e o desenho do QR");
     await pa.screenshot({ path: path.join(SAIDA, "05-qr.png") });
     await pa.click("#bFechaQr");
-    const B = await pagina(browser, BIA, { permissions: ["geolocation"], geolocation: { latitude: -22.98410, longitude: -43.20240 } });
+    const B = await pagina(browser, BIA, { email: "bia@exemplo.test", permissions: ["geolocation"], geolocation: { latitude: -22.98410, longitude: -43.20240 } });
     const pb = B.pg;
     await pb.goto(BASE + "/sintonia/#e-" + cod);
     await pb.waitForSelector("#fPerfil"); await pb.fill("#pNome", "Bia"); await pb.click("#fPerfil button");
@@ -219,7 +262,7 @@ async function estrelas(pg, n, valor, escopo = "") {
     await pb.click('[data-ficha]'); await pb.waitForSelector("#bEnviaF");
     await estrelas(pb, 5, 5, "#dlg"); await pb.click("#bEnviaF");
     ok(await pb.waitForSelector("[data-ficha]", { state: "detached", timeout: 5000 }).then(() => true, () => false), "encontro: avaliação enviada e a ficha some");
-    const en = await um(pool, "select count(*)::int n from sin_enc_notas where alvo = $1", [ANA]);
+    const en = await um(pool, "select count(*)::int n from sin_enc_notas where alvo = $1", [ANA_ID]);
     ok(en.n === 1, "banco: nota do encontro guardada para a Ana (sem quem deu)");
     await pa.reload(); await pa.waitForSelector("[data-ficha]");
     ok(/Bia/.test(await pa.textContent(".card.g")), "encontro: a Ana também tem a ficha para avaliar a Bia");
@@ -231,18 +274,37 @@ async function estrelas(pg, n, valor, escopo = "") {
     const lista = await pa.textContent("#lista");
     ok(/SN-[A-Z0-9]{4}/.test(lista) && /sem nota ainda/.test(lista) && !/Bia/.test(lista), "mapa: a Bia aparece pelo código do dia, sem nome, ainda sem nota");
     await pa.screenshot({ path: path.join(SAIDA, "06-mapa.png") });
-    const pos = await um(pool, "select lat::text, lon::text from sin_posicoes where user_id = $1", [ANA]);
+    const pos = await um(pool, "select lat::text, lon::text from sin_posicoes where user_id = $1", [ANA_ID]);
     ok(pos.lat === "-22.983" && pos.lon === "-43.201", "mapa: o banco guarda só a quadra");
     await pa.click("#bDesliga"); await pa.waitForSelector("#bLiga");
-    ok(!(await um(pool, "select 1 from sin_posicoes where user_id = $1", [ANA])), "mapa: ficar invisível apaga a posição");
+    ok(!(await um(pool, "select 1 from sin_posicoes where user_id = $1", [ANA_ID])), "mapa: ficar invisível apaga a posição");
+    // ---------- você na multidão com 10+ pessoas com nota
+    await pool.query(`insert into auth.users (id, email) select ('63000000-0000-0000-0000-0000000000' || lpad(i::text, 2, '0'))::uuid, 'x' || i || '@t' from generate_series(1, 11) i;
+      insert into sin_pessoas (user_id, nome) select ('63000000-0000-0000-0000-0000000000' || lpad(i::text, 2, '0'))::uuid, 'X' || i from generate_series(1, 11) i;
+      insert into sin_enc_notas (alvo, notas, liberada) select ('63000000-0000-0000-0000-0000000000' || lpad(i::text, 2, '0'))::uuid, array_fill((1 + i % 5)::smallint, array[5]), true from generate_series(1, 11) i, generate_series(1, 5)`);
+    await pool.query(`insert into sin_enc_notas (alvo, notas, liberada) select $1, '{4,4,4,4,4}', true from generate_series(1, 5)`, [ANA_ID]);
+    await pa.click('#nav [data-aba="inicio"]'); await pa.waitForSelector("text=das pessoas têm nota menor");
+    ok(/\d+%/.test(await pa.textContent("main")) && !/X\d|63000000/.test(await pa.textContent("main")), "multidão: mostra o percentil e as faixas, sem nome de ninguém");
+    await pa.screenshot({ path: path.join(SAIDA, "07-multidao.png"), fullPage: true });
+    // ---------- quem entrou pelo e-mail (1.0) troca o e-mail por uma chave
+    await pb.click('#nav [data-aba="conta"]'); await pb.waitForSelector("#bConv");
+    await pb.click("#bConv"); await pb.waitForSelector("#kTexto");
+    const chaveB = (await pb.textContent("#kTexto")).trim();
+    ok(/e-mail foi apagado/.test(await pb.textContent("main")), "conversão: avisa que o e-mail saiu e os dados ficam");
+    await pb.check("#kOk"); await pb.click("#bSegue"); await pb.waitForSelector("#bVerK");
+    const bu = await um(pool, "select u.email, p.email pe from auth.users u join perfis p on p.user_id = u.id where u.id = $1", [BIA]);
+    ok(/@sintonia\.nervia\.com\.br$/.test(bu.email) && bu.pe === bu.email && !!(await um(pool, "select 1 from sin_pessoas where user_id = $1", [BIA])),
+      "conversão: e-mail real apagado do login e do perfil; mesma conta, dados mantidos");
+    ok(!!(await um(pool, "select 1 from auditoria where acao = 'sintonia_email_trocado_por_chave' and user_id = $1", [BIA])), "conversão: registrada na auditoria");
+    await pb.click("#bVerK"); ok((await pb.textContent("#cK")).trim() === chaveB, "conversão: a chave nova fica na Conta deste aparelho");
     // ---------- conta: apagar tudo
     await pa.click('#nav [data-aba="conta"]'); await pa.click("#bApaga"); await pa.click("#bSim");
     await pa.waitForSelector("#fPerfil");
-    ok(!(await um(pool, "select 1 from sin_pessoas where user_id = $1", [ANA])), "conta: apagar tudo remove os dados e volta para criar o perfil");
+    ok(!(await um(pool, "select 1 from sin_pessoas where user_id = $1", [ANA_ID])), "conta: apagar tudo remove os dados e volta para criar o perfil");
     ok(await pa.evaluate(() => document.documentElement.scrollWidth <= innerWidth), "sem rolagem lateral");
     todosErros.push(...A.erros, ...B.erros);
     ok(todosErros.length === 0, "nenhum erro de script nas páginas" + (todosErros.length ? ": " + todosErros.join(" | ") : ""));
-  } catch (e) { falhas++; console.log("FALHOU  " + (e.stack || e)); }
+  } catch (e) { falhas++; console.log("FALHOU  " + (e.stack || e)); try { for (const pg of browser.contexts().flatMap(c => c.pages())) console.log("TELA:", (await pg.textContent("main")).slice(0, 300), "ERROS:", ""); } catch {} }
   await browser.close(); srv.close(); await pool.end();
   console.log(`\n${oks} ok, ${falhas} falha(s). Prints em ${SAIDA}`);
   process.exit(falhas ? 1 : 0);
