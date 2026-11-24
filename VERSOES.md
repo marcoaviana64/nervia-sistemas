@@ -191,6 +191,12 @@ Ao publicar mudança num app: linha nova no topo do app aqui (com a data) e em `
 | 1.1 | 09/11/2026 | Foro por cliente: cada cliente tem o foro eleito e a sede da arbitragem do contrato (montados pela cidade e UF), para contratos fora do Rio de Janeiro; sem preencher, vale o padrão da Configuração. |
 | 1.0 | 09/11/2026 | Lançamento: contratos de prestação de serviço da Nervia, do Word ao recebimento — contrato gerado pelo modelo de mala direta, envio e assinatura com o PDF guardado, cobranças de cada mês (com a parcela extra de dezembro), NF até o dia 5, conferência com o extrato OFX do Nubank e resumo gerencial. |
 
+## NVSintonia (`sintonia`, laboratório em site/sintonia/)
+
+| Versão | Data | O que mudou |
+|---|---|---|
+| 1.0 | 24/11/2026 | Laboratório: espelho pessoal e 360° profissional (você se avalia e compara com como os seus círculos te veem, sem saber quem respondeu), avaliação depois de um encontro pelo QR code e mapa de quem está por perto. (pedido do Marco; migração sintonia, função sintonia-conta, e-mail de entrada próprio no email-auth; lote de 5 no pessoal e encontros, 3 no 360°, gestor identificado) |
+
 ## NVPlayer — uso (`nvplayer`)
 
 | Versão | Data | O que mudou |

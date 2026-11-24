@@ -42,3 +42,10 @@
 /modelos/*
   X-Robots-Tag: noindex, nofollow
   Referrer-Policy: no-referrer
+
+# NVSintonia (laboratório, site/sintonia/): fora dos buscadores e sem Referer (o código do convite fica depois do #)
+/sintonia/*
+  X-Robots-Tag: noindex, nofollow
+  Referrer-Policy: no-referrer
+/sintonia/sw.js
+  Cache-Control: no-cache

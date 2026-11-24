@@ -1,0 +1,16 @@
+{
+  "name": "NVSintonia",
+  "short_name": "NVSintonia",
+  "description": "Como as pessoas te veem: avaliação anônima entre família, amigos e colegas. Laboratório da Nervia.",
+  "lang": "pt-BR",
+  "start_url": "/sintonia/",
+  "scope": "/sintonia/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#00a862",
+  "icons": [
+    { "src": "/sintonia/icone-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/sintonia/icone-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/sintonia/icone-512-mascara.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

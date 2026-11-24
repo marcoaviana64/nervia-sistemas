@@ -39,6 +39,9 @@ window.NERVIA_VERSOES = {
     ["1.1", "O fornecedor envia a proposta sozinho, sem login, pelo link do convite (WhatsApp ou e-mail), com PDF opcional."],
     ["1.0", "Lançamento: requisição, propostas, mapa comparativo, aprovação por alçada (Gerente e Diretor), pedido e avaliação do fornecedor."],
   ],
+  "sintonia": [
+    ["1.0", "Laboratório: espelho pessoal e 360° profissional (você se avalia e compara com como os seus círculos te veem, sem saber quem respondeu), avaliação depois de um encontro pelo QR code e mapa de quem está por perto."],
+  ],
   "nvplayer": [
     ["1.1", "Nova aba Servidores: a equipe Nervia escolhe por aqui o endereço de servidor que o NVPlayer usa; os aparelhos pegam sozinhos, sem mexer em arquivo."],
     ["1.0", "Lançamento: painel de uso do NVPlayer, só para a equipe Nervia — aparelhos, o que está passando, lista e validade, canais, filmes e séries mais assistidos, horas por dia e problemas de vídeo de cada aparelho."],
