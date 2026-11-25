@@ -120,11 +120,11 @@ function sessao(uid, email) {
     user: { id: uid, aud: "authenticated", role: "authenticated", email } };
 }
 async function pagina(browser, uid, opc = {}) {
-  const { email: _e, ...resto } = opc;
+  const { email: _e, chave = "sb-127-auth-token", ...resto } = opc;   // chave = onde a sessão fica guardada
   const ctx = await browser.newContext({ viewport: { width: 420, height: 860 }, ...resto });
   if (uid) {
     const s = sessao(uid, opc.email);
-    await ctx.addInitScript(`localStorage.setItem('sb-127-auth-token', ${JSON.stringify(JSON.stringify(s))});`);
+    await ctx.addInitScript(`localStorage.setItem(${JSON.stringify(chave)}, ${JSON.stringify(JSON.stringify(s))});`);
   }
   const pg = await ctx.newPage(), erros = [];
   pg.on("pageerror", e => erros.push(String(e)));
@@ -262,7 +262,7 @@ async function estrelas(pg, n, valor, escopo = "") {
     ok(/^[0-9A-F]{8}$/.test(cod) && await pa.isVisible("#dlg .qr svg"), "QR: código de 8 letras e o desenho do QR");
     await pa.screenshot({ path: path.join(SAIDA, "05-qr.png") });
     await pa.click("#bFechaQr");
-    const B = await pagina(browser, BIA, { email: "bia@exemplo.test", permissions: ["geolocation"], geolocation: { latitude: -22.98410, longitude: -43.20240 } });
+    const B = await pagina(browser, BIA, { email: "bia@exemplo.test", chave: "nvsintonia-auth", permissions: ["geolocation"], geolocation: { latitude: -22.98410, longitude: -43.20240 } });
     const pb = B.pg;
     await pb.goto(BASE + "/sintonia/#e-" + cod);
     await pb.waitForSelector("#fPerfil"); await pb.fill("#pNome", "Bia"); await pb.click("#fPerfil button");

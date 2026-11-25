@@ -40,6 +40,7 @@ window.NERVIA_VERSOES = {
     ["1.0", "Lançamento: requisição, propostas, mapa comparativo, aprovação por alçada (Gerente e Diretor), pedido e avaliação do fornecedor."],
   ],
   "aura": [
+    ["1.9", "Correção de segurança: o NVAura guarda a própria entrada e nunca mais usa (nem derruba) o login da Área do Cliente aberto no mesmo navegador; trocar a chave só vale para contas criadas no NVAura ou no NVSintonia."],
     ["1.8", "Denunciar este cartão: quem lê o QR avisa a Nervia sobre foto ou nome impróprio, sem se identificar. Com 3 denúncias de foto, a foto some do cartão até a revisão."],
     ["1.7", "Página Como funciona o NVAura (a ideia, o anonimato e a comparação com Queda Livre, de Black Mirror). Gestão pela equipe Nervia, com moderação: um cartão pode ser bloqueado (o QR mostra cartão indisponível e o dono vê o motivo)."],
     ["1.6", "O cartão mostra sempre quantas avaliações você recebeu e quantos pedidos de avaliação houve (cada leitura do seu QR, uma por celular por dia; só você vê os pedidos). A nota e as estrelas continuam mudando a cada 5 avaliações."],
@@ -51,6 +52,7 @@ window.NERVIA_VERSOES = {
     ["1.0", "Lançamento (laboratório): o seu cartão com foto, nome, estrelas e QR code. Quem conversou com você lê o QR e dá de 1 a 5 estrelas para a conversa, sem precisar de conta e sem se identificar. O cartão muda a cada 5 avaliações novas, pode ser impresso como cartão de visita, e o Radar mostra as auras por perto só pelo código do dia e pela nota."],
   ],
   "sintonia": [
+    ["1.5", "Correção de segurança: o NVSintonia guarda a própria entrada e nunca mais usa (nem derruba) o login da Área do Cliente aberto no mesmo navegador; trocar o e-mail por uma chave só vale para contas criadas no NVSintonia."],
     ["1.4", "O app sempre confere a versão nova ao abrir, em vez de mostrar uma cópia antiga guardada no celular."],
     ["1.3", "360° profissional com 5 competências: Liderança e capacidade de decisão, Comunicação e relacionamento interpessoal, Comprometimento e responsabilidade, Iniciativa e resolução de problemas e Trabalho em equipe e desenvolvimento de pessoas. Escala de 0 (não demonstra essa competência) a 5 (é uma referência), a mesma do pessoal, com Não tenho condições de avaliar."],
     ["1.2", "Perguntas novas no modelo pessoal: Respeito e consideração, Confiança e credibilidade, Empatia e relacionamento, Comunicação e convivência e Influência e contribuição, cada uma escrita do jeito de quem responde (convite, autoavaliação ou encontro). Nova opção: Não tenho condições de avaliar, que não conta na média. As avaliações feitas com as perguntas antigas foram zeradas."],
