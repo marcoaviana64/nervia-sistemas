@@ -4332,4 +4332,9 @@ select pg_temp.ok(not exists (select 1 from aur_cartoes where user_id = '5400000
   and not exists (select 1 from aur_notas where alvo = '54000000-0000-0000-0000-000000000001')
   and exists (select 1 from auth.users where id = '54000000-0000-0000-0000-000000000001'), 'aura: apagar tira cartão e notas e mantém o login');
 reset request.jwt.claim.sub;
+-- ---------------------------------------------------------------- NVAura 1.4: gerar uma chave nova
+select sin_conta_auditar('54000000-0000-0000-0000-000000000002', 'aura_chave_trocada');
+select pg_temp.ok(exists (select 1 from auditoria where acao = 'aura_chave_trocada' and user_id = '54000000-0000-0000-0000-000000000002'),
+  'aura 1.4: troca de chave vai para a auditoria');
+select pg_temp.erro2($$select sin_conta_auditar('54000000-0000-0000-0000-000000000002', 'qualquer_coisa')$$, 'Ação inválida', 'aura 1.4: auditoria da conta só aceita as ações conhecidas');
 \echo 'TODOS OS TESTES SQL OK'

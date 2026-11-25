@@ -4,6 +4,7 @@
 //                                           (s-…@sintonia.nervia.com.br, nunca recebe e-mail) e a senha derivada da chave.
 //                                           Devolve {chave, email}: a página mostra a chave UMA vez e entra com senha.
 //   {acao:"entrar", chave}    (sem login) → {email} derivado (não diz se a conta existe); a página entra com a senha.
+//   {acao:"nova_chave", app?} (com login) → chave nova para a mesma conta (perdeu ou não anotou); a antiga deixa de valer.
 //   {acao:"converter"}        (com login) → quem entrou pelo e-mail (1.0) troca o e-mail por uma chave: mesmo usuário,
 //                                           mesmos dados; o e-mail real some do Auth e do perfil.
 // A chave nunca é guardada nem registrada. Limites: criar/converter 5 por hora por IP e 100 por dia; entrar 20 por hora por IP.
@@ -57,6 +58,17 @@ export async function atender(corpo: unknown, ip: string, token: string, c: Cont
     const k = await c.chaveNova();
     await c.trocarLogin(u.id, k.email, senhaDaChave(k.chave));
     await c.auditar(u.id, "sintonia_email_trocado_por_chave");
+    return { status: 200, corpo: { ok: true, chave: k.chave, email: k.email } };
+  }
+  if (p.acao === "nova_chave") {
+    // quem está dentro da conta troca a chave (perdeu ou não anotou): mesmo usuário e dados; a chave antiga deixa de valer
+    const u = token ? await c.usuarioDoToken(token) : null;
+    if (!u) return falha(401, "Entre na sua conta para gerar uma chave nova.");
+    if (!u.email.endsWith("@sintonia.nervia.com.br")) return falha(400, "Esta conta entra pelo e-mail: use Trocar o e-mail por uma chave.");
+    if (!(await c.limite(ip))) return falha(429, "Muitos pedidos seguidos. Tente de novo mais tarde.");
+    const k = await c.chaveNova();
+    await c.trocarLogin(u.id, k.email, senhaDaChave(k.chave));
+    await c.auditar(u.id, aura ? "aura_chave_trocada" : "sintonia_chave_trocada");
     return { status: 200, corpo: { ok: true, chave: k.chave, email: k.email } };
   }
   return falha(400, "Ação desconhecida.");

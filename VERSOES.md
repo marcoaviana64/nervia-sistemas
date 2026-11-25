@@ -196,6 +196,7 @@ Ao publicar mudança num app: linha nova no topo do app aqui (com a data) e em `
 
 | Versão | Data | O que mudou |
 |---|---|---|
+| 1.4 | 25/11/2026 | Gerar uma chave nova: quem está dentro da conta e não anotou a chave gera outra, com o cartão, a foto e as notas mantidos; a antiga deixa de valer. A chave também fica guardada no celular assim que a conta é criada. (o Marco criou a conta, não viu a chave e ficou sem ela; migração chave_nova: sin_conta_auditar aceita aura/sintonia_chave_trocada; função sintonia-conta {acao:"nova_chave"}) |
 | 1.3 | 25/11/2026 | Ver a minha chave mostra a chave na hora, numa janela com Copiar; se o aparelho não tiver a chave guardada, explica onde ela está. (o Marco tocou em Ver a minha chave e a chave não apareceu: o botão só levava à Conta) |
 | 1.2 | 25/11/2026 | O app sempre confere a versão nova ao abrir, em vez de mostrar uma cópia antiga guardada no celular. (o Marco não via a 1.1 do NVAura até recarregar: sw.js com fetch cache "no-cache" e cache v2) |
 | 1.1 | 25/11/2026 | A chave de acesso ficou mais clara: na criação, Salvar num arquivo e Enviar para mim; na aba Cartão, um lembrete com Ver a minha chave; o topo mostra o seu nome, e o código do Radar avisa que não é a chave. (o Marco achou que o código AU-XXXX do topo era a chave; só tela) |

@@ -291,7 +291,7 @@ function telaEntrar() {
     b.disabled = true;
     try {
       const r = await conta({ acao: "criar", nome, app: "aura" });
-      guardar("aur-nome", nome);
+      guardar("aur-nome", nome); guardar("aur-chave", r.chave);   // já fica neste aparelho (Ver a minha chave), mesmo se passar direto
       telaChave(r.chave, async () => { await entrarComChave(r.email, r.chave); SESSAO = null; await iniciar(); });
     } catch (e) { aviso(m, erroTxt(e)); b.disabled = false; }
   });
@@ -414,11 +414,22 @@ function verChave() {
       <div class="duo"><button class="btn o" id="dCopia">Copiar</button><button class="btn a" id="dFecha">Fechar</button></div><div id="dM"></div>`
     : `<h3>A chave não está neste aparelho</h3>
       <p>Este celular não guardou a sua chave. Isso acontece quando os dados do navegador foram limpos ou, no iPhone, quando a conta foi criada no Safari e você abriu pelo ícone da tela de início (os dois guardam separado).</p>
-      <p class="hint">A chave está onde você anotou ou salvou (arquivo minha-chave-nvaura.txt). Se tiver aberto o NVAura em outro navegador ou aparelho, veja lá em Cartão → Ver a minha chave.</p>
-      <button class="btn a" id="dFecha">Fechar</button>`;
+      <p class="hint">A chave está onde você anotou ou salvou (arquivo minha-chave-nvaura.txt). Se não tiver anotado, gere uma chave nova agora, enquanto está dentro da conta: o cartão, a foto e as notas continuam; a chave antiga deixa de valer.</p>
+      <button class="btn a" id="dNova">Gerar uma chave nova</button><button class="btn o" id="dFecha">Fechar</button><div id="dM"></div>`;
   d.showModal();
   $("dFecha").onclick = () => d.close();
+  $("dNova")?.addEventListener("click", () => { d.close(); chaveNova(); });
   $("dCopia")?.addEventListener("click", async () => { try { await navigator.clipboard.writeText(k); aviso($("dM"), "Copiada.", true); } catch { aviso($("dM"), "Não deu para copiar: anote à mão."); } });
+}
+// gerar uma chave nova para a mesma conta (1.4: quem não anotou a chave e ainda está dentro da conta)
+function chaveNova() {
+  confirmar("Gerar uma chave nova? A chave antiga deixa de valer. O cartão, a foto e as notas continuam.", "Gerar chave nova", async () => {
+    try {
+      const r = await conta({ acao: "nova_chave", app: "aura" });
+      guardar("aur-chave", r.chave);
+      telaChave(r.chave, async () => { await sb.auth.signOut(); await entrarComChave(r.email, r.chave); SESSAO = null; await iniciar(); });
+    } catch (e) { const d = $("dlg"); d.innerHTML = `<p class="err">${esc(erroTxt(e))}</p><button class="btn o" id="dFecha">Fechar</button>`; d.showModal(); $("dFecha").onclick = () => d.close(); }
+  });
 }
 // cartão de visita impresso: foto, nome e QR (a nota não vai no papel porque muda com o tempo; aparece ao ler o QR)
 function imprimir() {
@@ -489,7 +500,8 @@ function telaConta() {
   const k = ler("aur-chave");
   tela.innerHTML = `<div class="card" style="border:2px solid var(--a)"><h2>Sua chave de acesso</h2>
   <p class="hint">É com ela que você entra em outro celular, no computador ou depois de sair (Já tenho a minha chave). Se perder, perde a conta.</p>
-  ${k ? `<p class="codigo" id="cK" hidden>${esc(k)}</p><button class="btn a" id="bVerK">Mostrar a chave</button>` : `<p class="hint"><b>Este aparelho não guardou a chave</b> (você entrou digitando ou limpou os dados do navegador): ela está onde você anotou.</p>`}</div>
+  ${k ? `<p class="codigo" id="cK" hidden>${esc(k)}</p><button class="btn a" id="bVerK">Mostrar a chave</button>` : `<p class="hint"><b>Este aparelho não guardou a chave</b> (você entrou digitando ou limpou os dados do navegador): ela está onde você anotou.</p>`}
+  <button class="btn o" id="bNovaK">Gerar uma chave nova</button><p class="hint" style="margin-top:6px">Perdeu ou não anotou? Gere outra enquanto está dentro da conta: tudo continua; a antiga deixa de valer.</p></div>
   <div class="card"><h2>Sua conta</h2>
   <p class="hint">Código no radar hoje: <b>${esc(CART.id_dia)}</b> (muda todo dia; não é a chave) · radar ${CART.mapa_visivel ? "ligado" : "desligado"}</p>
   <button class="btn o" id="bSair">Sair</button></div>
@@ -498,6 +510,7 @@ function telaConta() {
   <div class="card"><h3>Apagar meu cartão</h3><p class="hint">Apaga o cartão, a foto, as notas recebidas e a posição no radar. A chave continua valendo (e no NVSintonia, se você usa).</p><button class="btn r" id="bApaga">Apagar tudo do NVAura</button></div>
   <p class="lab">NVAura <span data-versao="aura"></span> · laboratório da Nervia Tecnologia</p>`;
   if (window.NERVIA_VERSOES?.aura) tela.querySelector("[data-versao]").textContent = "versão " + window.NERVIA_VERSOES.aura[0][0];
+  $("bNovaK").onclick = chaveNova;
   $("bVerK")?.addEventListener("click", () => { const c = $("cK"); c.hidden = !c.hidden; $("bVerK").textContent = c.hidden ? "Mostrar a chave" : "Esconder"; });
   $("bSair").onclick = () => confirmar("Sair? Para voltar você vai precisar da sua chave. Confira se ela está anotada.", "Sair", async () => {
     await sb.auth.signOut(); guardar("aur-chave", null); SESSAO = null; ABA = "cartao"; telaEntrar();
