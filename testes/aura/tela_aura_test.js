@@ -315,6 +315,44 @@ const semRolagem = async (pg) => pg.evaluate(() => document.documentElement.scro
       todosErros.push(...S.erros); await S.ctx.close();
     }
 
+    // ---------- 1.8: denúncia (3 celulares denunciam a foto → some; a gestão decide)
+    {
+      for (let i = 0; i < 3; i++) {
+        IP = 60 + i;
+        const D = await pagina(browser, null);
+        await D.pg.goto(BASE + "/aura/#a-" + cod); await D.pg.waitForSelector("#lDen");
+        await D.pg.click("#lDen"); await D.pg.waitForSelector("#dlg[open] #dEnv");
+        if (i === 0) {
+          await D.pg.click("#dEnv"); await D.pg.waitForSelector("#dM .err");
+          ok(/Escolha o motivo/.test(await D.pg.textContent("#dM")), "denúncia: precisa escolher o motivo");
+          await D.pg.screenshot({ path: path.join(SAIDA, "10-denuncia.png"), fullPage: true });
+        }
+        await D.pg.check('input[name="dMot"][value="foto"]');
+        if (i === 0) await D.pg.fill("#dTxt", "foto imprópria");
+        await D.pg.click("#dEnv"); await D.pg.waitForSelector("text=Denúncia enviada");
+        if (i === 1) ok(!!(await D.pg.$("#meuCartao .ft img")), "denúncia: com 2 denúncias a foto continua");
+        todosErros.push(...D.erros); await D.ctx.close();
+      }
+      const D4 = await pagina(browser, null); IP = 64;
+      await D4.pg.goto(BASE + "/aura/#a-" + cod); await D4.pg.waitForSelector("#meuCartao");
+      ok(!(await D4.pg.$("#meuCartao .ft img")) && /AL/.test(await D4.pg.textContent("#meuCartao .ft")), "denúncia: com 3 denúncias a foto some (ficam as iniciais)");
+      todosErros.push(...D4.erros); await D4.ctx.close();
+      await pa.reload(); await pa.waitForSelector("text=Sua foto está em revisão");
+      ok(true, "denúncia: a dona vê que a foto está em revisão");
+      const G = await pagina(browser, ADM, { email: "equipe@nervia.test", viewport: { width: 1200, height: 900 } });
+      await G.pg.goto(BASE + "/apps/aura/"); await G.pg.waitForSelector("#irDen");
+      ok((await G.pg.textContent(".aba[data-v=alertas] .n")).trim() === "1", "gestão: aviso de denúncia aberta e número na aba Alertas");
+      await G.pg.click("#irDen"); await G.pg.waitForSelector("[data-dman]");
+      const at = await G.pg.textContent("#tela");
+      ok(/3 de foto/.test(at) && /foto imprópria/.test(at) && /foto escondida/.test(at), "gestão: 3 denúncias de foto, o texto e a foto escondida");
+      await G.pg.screenshot({ path: path.join(SAIDA, "11-gestao-denuncias.png"), fullPage: true });
+      await G.pg.click("[data-dman]"); await G.pg.click("#dSim"); await G.pg.waitForSelector("text=Nenhuma denúncia aberta");
+      ok(!!(await um(pool, "select 1 from auditoria where acao = 'aura_denuncia_resolvida'")), "gestão: manter resolve a denúncia, com auditoria");
+      todosErros.push(...G.erros); await G.ctx.close();
+      await pa.reload(); await pa.waitForSelector("#meuCartao .ft img");
+      ok(!/Sua foto está em revisão/.test(await pa.textContent("main")), "manter: a foto volta para o cartão");
+    }
+
     // ---------- trocar o QR invalida o antigo
     await pa.click('#nav [data-aba="conta"]'); await pa.click("#bTroca"); await pa.click("#cSim"); await pa.waitForSelector("text=QR novo pronto");
     const V2 = await pagina(browser, null); IP = 40;

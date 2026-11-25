@@ -111,7 +111,7 @@ const pct = (a, b) => b ? Math.round(100 * a / b) + "%" : "—";
 const data = v => v ? new Date(String(v).length === 10 ? v + "T12:00:00" : v).toLocaleDateString("pt-BR", { timeZone: TZ }) : "—";
 const estrelas = m => m == null ? '<span class="mut">sem nota</span>' : `<span class="est">${"★".repeat(Math.round(m))}${"☆".repeat(5 - Math.round(m))}</span>`;
 const iniciais = n => String(n || "?").trim().split(/\s+/).slice(0, 2).map(p => p[0]).join("").toUpperCase();
-let P = null, VISTA = "geral", BUSCA = "", ORDEM = "total";
+let P = null, DEN = { abertas: [], resolvidas: [] }, VISTA = "geral", BUSCA = "", ORDEM = "total";
 
 async function rpc(nome, args) { const { data, error } = await sb.rpc(nome, args); if (error) throw new Error(error.message); return data; }
 function msg(t, ok) { const m = $("msg"); m.className = "msg " + (ok ? "ok" : "err"); m.textContent = t; m.classList.remove("oculto"); setTimeout(() => m.classList.add("oculto"), 6000); }
@@ -126,11 +126,11 @@ async function iniciar() {
     document.addEventListener("visibilitychange", () => { if (!document.hidden) carregar().then(render).catch(() => {}); });
   } catch (e) { $("aviso").textContent = /equipe Nervia/.test(e.message) ? "Gestão só da equipe Nervia." : "Não foi possível carregar: " + e.message; }
 }
-async function carregar() { P = await rpc("aur_admin_painel", { p_dias: Number($("selPer").value) }); }
+async function carregar() { [P, DEN] = await Promise.all([rpc("aur_admin_painel", { p_dias: Number($("selPer").value) }), rpc("aur_admin_denuncias")]); }
 function render() {
   document.querySelectorAll(".aba").forEach(b => b.classList.toggle("on", b.dataset.v === VISTA));
   $("nCa").textContent = P.pessoas.cartoes || "";
-  $("nAl").textContent = (P.picos.length + P.pessoas.bloqueados) || "";
+  $("nAl").textContent = (DEN.abertas.length + P.picos.length) || "";
   $("tela").innerHTML = ({ geral: vGeral, cartoes: vCartoes, alertas: vAlertas })[VISTA]();
   ligar();
 }
@@ -141,7 +141,7 @@ function vGeral() {
   const maxD = Math.max(1, ...P.por_dia.map(d => Math.max(d.avaliacoes, d.pedidos)));
   const est = av.estrelas || [0, 0, 0, 0, 0], maxE = Math.max(1, ...est), totE = est.reduce((a, b) => a + b, 0);
   const top = P.cartoes.filter(c => c.total).slice(0, 10);
-  return `<div class="kpis">
+  return `${DEN.abertas.length ? `<div class="msg err" style="cursor:pointer" id="irDen">⚠ ${DEN.abertas.length} ${DEN.abertas.length === 1 ? "cartão com denúncia aberta" : "cartões com denúncias abertas"}: veja em Alertas.</div>` : ""}<div class="kpis">
       <div class="kpi"><b>${num(pe.cartoes)}</b><span>pessoas com cartão</span></div>
       <div class="kpi ok"><b>${num(pe.ativos)}</b><span>ativas no período (pediram ou receberam avaliação)</span></div>
       <div class="kpi"><b>${num(pe.novos)}</b><span>cartões novos no período</span></div>
@@ -193,7 +193,20 @@ function vCartoes() {
 // ---------------------------------------------------------------- alertas
 function vAlertas() {
   const bl = P.cartoes.filter(c => c.bloqueado);
-  return `<div class="card"><h2>Picos de avaliações (10 ou mais num dia)</h2>
+  const mot = d => [d.foto_n && `${d.foto_n} de foto`, d.nome_n && `${d.nome_n} de nome`, d.outro_n && `${d.outro_n} outro`].filter(Boolean).join(" · ");
+  return `<div class="card"><h2>Denúncias abertas</h2>
+      ${DEN.abertas.length ? `<div class="tw"><table><tr><th>Cartão</th><th>Denúncias</th><th>O que disseram</th><th></th></tr>
+        ${DEN.abertas.map(d => `<tr><td><div class="pessoa">${d.foto ? `<img class="ft" src="${esc(d.foto)}" alt="" style="width:64px;height:64px">` : `<span class="ft">${esc(iniciais(d.nome))}</span>`}
+            <div><b>${esc(d.nome)}</b><div class="mut">${esc(d.id)}</div>${d.foto_oculta ? tag("foto escondida (3+ denúncias)", "t-warn") : ""}${d.bloqueado ? tag("bloqueado", "t-crit") : ""}</div></div></td>
+          <td><b>${mot(d)}</b><div class="mut">${data(d.primeira)}${d.ultima !== d.primeira ? " a " + data(d.ultima) : ""}</div></td>
+          <td>${d.textos.length ? d.textos.map(t => `<div class="mut">“${esc(t.texto)}”</div>`).join("") : '<span class="mut">—</span>'}</td>
+          <td style="white-space:nowrap"><button class="bt peq" data-dman="${d.user_id}">Manter</button> ${d.foto ? `<button class="bt peq" data-dfoto="${d.user_id}">Tirar foto</button> ` : ""}<button class="bt peq perigo" data-dbloq="${d.user_id}">Bloquear</button></td></tr>`).join("")}
+      </table></div><p class="mut">Manter = a denúncia não procede (a foto volta, se estava escondida). Tirar foto = o cartão fica com as iniciais. Bloquear = o QR para de funcionar. Tudo fica na auditoria.</p>`
+      : '<div class="vazio">Nenhuma denúncia aberta.</div>'}
+      ${DEN.resolvidas.length ? `<details><summary class="mut" style="cursor:pointer">Resolvidas recentemente (${DEN.resolvidas.length})</summary><div class="tw"><table><tr><th>Cartão</th><th>Motivo</th><th>Denúncia</th><th>Resolução</th></tr>
+        ${DEN.resolvidas.map(r => `<tr><td>${esc(r.nome || "—")}<div class="mut">${esc(r.id)}</div></td><td>${esc(r.motivo)}</td><td>${data(r.dia)}</td><td>${esc(r.resolucao)}<div class="mut">${data(r.resolvida_em)}</div></td></tr>`).join("")}</table></div></details>` : ""}
+    </div>
+    <div class="card"><h2>Picos de avaliações (10 ou mais num dia)</h2>
       ${P.picos.length ? `<div class="tw"><table><tr><th>Dia</th><th>Cartão</th><th class="num">Avaliações no dia</th></tr>
         ${P.picos.map(p => `<tr><td>${data(p.dia)}</td><td><b>${esc(p.nome)}</b><div class="mut">${esc(p.id)}</div></td><td class="num"><b>${p.avaliacoes}</b></td></tr>`).join("")}</table></div>
         <p class="mut">Muitas avaliações num dia podem ser um evento (palestra, atendimento em massa) ou o QR repassado em grupo. Cada celular só avalia o mesmo cartão uma vez por dia.</p>`
@@ -202,9 +215,9 @@ function vAlertas() {
 }
 
 // ---------------------------------------------------------------- ações
-function pedirMotivo(titulo, botao, acao) {
+function pedirMotivo(titulo, botao, acao, opcional) {
   const d = $("dlg");
-  d.innerHTML = `<h3 style="margin-top:0">${esc(titulo)}</h3><label class="mut" for="mot">Motivo (vai para a auditoria)</label><textarea id="mot" maxlength="300"></textarea>
+  d.innerHTML = `<h3 style="margin-top:0">${esc(titulo)}</h3><label class="mut" for="mot">Motivo (vai para a auditoria)${opcional ? " — opcional" : ""}</label><textarea id="mot" maxlength="300"></textarea>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px"><button class="bt" id="dNao">Cancelar</button><button class="bt pri" id="dSim">${esc(botao)}</button></div><div id="dM"></div>`;
   d.showModal();
   $("dNao").onclick = () => d.close();
@@ -214,6 +227,7 @@ function pedirMotivo(titulo, botao, acao) {
   };
 }
 function ligar() {
+  $("irDen")?.addEventListener("click", () => { VISTA = "alertas"; render(); });
   $("busca")?.addEventListener("input", e => { BUSCA = e.target.value; const pos = e.target.selectionStart; render(); const i = $("busca"); i.focus(); i.setSelectionRange(pos, pos); });
   if ($("ordem")) { $("ordem").value = ORDEM; $("ordem").onchange = e => { ORDEM = e.target.value; render(); }; }
   $("btCsv")?.addEventListener("click", () => {
@@ -224,6 +238,9 @@ function ligar() {
   });
   document.querySelectorAll("[data-bloq]").forEach(b => b.onclick = () => pedirMotivo("Bloquear este cartão?", "Bloquear", m => rpc("aur_admin_bloquear", { p_user: b.dataset.bloq, p_bloquear: true, p_motivo: m })));
   document.querySelectorAll("[data-desb]").forEach(b => b.onclick = () => pedirMotivo("Desbloquear este cartão?", "Desbloquear", m => rpc("aur_admin_bloquear", { p_user: b.dataset.desb, p_bloquear: false, p_motivo: m })));
+  document.querySelectorAll("[data-dman]").forEach(b => b.onclick = () => pedirMotivo("Manter o cartão como está? (a denúncia não procede)", "Manter", m => rpc("aur_admin_denuncia_resolver", { p_user: b.dataset.dman, p_acao: "manter", p_motivo: m }), true));
+  document.querySelectorAll("[data-dfoto]").forEach(b => b.onclick = () => pedirMotivo("Tirar a foto deste cartão?", "Tirar foto", m => rpc("aur_admin_denuncia_resolver", { p_user: b.dataset.dfoto, p_acao: "tirar_foto", p_motivo: m })));
+  document.querySelectorAll("[data-dbloq]").forEach(b => b.onclick = () => pedirMotivo("Bloquear este cartão?", "Bloquear", m => rpc("aur_admin_denuncia_resolver", { p_user: b.dataset.dbloq, p_acao: "bloquear", p_motivo: m })));
   document.querySelectorAll("[data-foto]").forEach(b => b.onclick = () => pedirMotivo("Tirar a foto deste cartão?", "Tirar foto", m => rpc("aur_admin_tirar_foto", { p_user: b.dataset.foto, p_motivo: m })));
 }
 document.querySelectorAll(".aba").forEach(b => b.addEventListener("click", () => { VISTA = b.dataset.v; render(); }));
