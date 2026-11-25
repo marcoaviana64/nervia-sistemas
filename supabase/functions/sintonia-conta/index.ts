@@ -1,6 +1,6 @@
 // NVSintonia: conta por CHAVE, sem e-mail (1.1, pedido do Marco em 24/11/2026). O cadastro aberto do Supabase Auth
 // continua desligado: só esta função cria logins do Sintonia, com o Auth admin.
-//   {acao:"criar", nome}      (sem login) → chave nova (sin_chave_nova) + usuário já confirmado com o e-mail derivado
+//   {acao:"criar", nome, app?} (sem login; app "aura" = conta do NVAura, mesma chave e mesmo jeito) → chave nova (sin_chave_nova) + usuário já confirmado com o e-mail derivado
 //                                           (s-…@sintonia.nervia.com.br, nunca recebe e-mail) e a senha derivada da chave.
 //                                           Devolve {chave, email}: a página mostra a chave UMA vez e entra com senha.
 //   {acao:"entrar", chave}    (sem login) → {email} derivado (não diz se a conta existe); a página entra com a senha.
@@ -21,7 +21,7 @@ export interface Contas {
   limiteEntrar(ip: string): Promise<boolean>;
   chaveNova(): Promise<{ chave: string; email: string }>;
   emailDaChave(chave: string): Promise<string | null>;
-  criarUsuario(email: string, senha: string, nome: string): Promise<string>;
+  criarUsuario(email: string, senha: string, nome: string, origem: string): Promise<string>;
   usuarioDoToken(token: string): Promise<{ id: string; email: string } | null>;
   trocarLogin(id: string, email: string, senha: string): Promise<void>;
   auditar(id: string, acao: string): Promise<void>;
@@ -32,14 +32,15 @@ const falha = (status: number, mensagem: string): Resposta => ({ status, corpo: 
 
 /** Regra da função (exportada para os testes). */
 export async function atender(corpo: unknown, ip: string, token: string, c: Contas): Promise<Resposta> {
-  const p = (corpo ?? {}) as { acao?: unknown; nome?: unknown; chave?: unknown };
+  const p = (corpo ?? {}) as { acao?: unknown; nome?: unknown; chave?: unknown; app?: unknown };
+  const aura = p.app === "aura";
   if (p.acao === "criar") {
     const nome = typeof p.nome === "string" ? p.nome.trim() : "";
     if (nome.length < 1 || nome.length > 40) return falha(400, "Informe como quer ser chamado (até 40 letras).");
     if (!(await c.limite(ip))) return falha(429, "Muitas contas criadas daqui agora. Tente de novo mais tarde.");
     const k = await c.chaveNova();
-    const id = await c.criarUsuario(k.email, senhaDaChave(k.chave), nome);
-    await c.auditar(id, "sintonia_conta_criada");
+    const id = await c.criarUsuario(k.email, senhaDaChave(k.chave), nome, aura ? "aura" : "sintonia");
+    await c.auditar(id, aura ? "aura_conta_criada" : "sintonia_conta_criada");
     return { status: 200, corpo: { ok: true, chave: k.chave, email: k.email } };
   }
   if (p.acao === "entrar") {
@@ -73,8 +74,8 @@ if (import.meta.main) {
     limiteEntrar: (ip) => rpc<boolean>("sin_entrar_limite", { p_ip: ip }),
     chaveNova: () => rpc<{ chave: string; email: string }>("sin_chave_nova"),
     emailDaChave: (chave) => rpc<string | null>("sin_chave_email", { p_chave: chave }),
-    async criarUsuario(email, senha, nome) {
-      const { data, error } = await sb.auth.admin.createUser({ email, password: senha, email_confirm: true, user_metadata: { nome, origem: "sintonia" } });
+    async criarUsuario(email, senha, nome, origem) {
+      const { data, error } = await sb.auth.admin.createUser({ email, password: senha, email_confirm: true, user_metadata: { nome, origem } });
       if (error || !data.user) throw new Error(error?.message ?? "usuário não criado");
       return data.user.id;
     },

@@ -4251,4 +4251,85 @@ select pg_temp.ok((select (public._sin_nota('53000000-0000-0000-0000-00000000000
   and (public._sin_nota('53000000-0000-0000-0000-000000000001') -> 'itens' ->> 0)::numeric
       = round((10 * (select case when count(notas[1]) >= 20 then avg(notas[1]) else 3.5 end from sin_enc_notas where liberada) + 25) / 15.0, 2)),
   'sintonia 1.2: em cada item só quem avaliou entra na média (o vazio não vira zero)');
+-- ---------------------------------------------------------------- NVAura 1.0: cartão com QR e nota da interação
+insert into auth.users (id, email) values ('54000000-0000-0000-0000-000000000001', 'a@aura.test'), ('54000000-0000-0000-0000-000000000002', 'b@aura.test');
+set role anon;
+reset request.jwt.claim.sub;
+select pg_temp.erro2($$select aur_cartao_salvar('Ana')$$, 'permission denied', 'aura: sem login não cria cartão');
+select pg_temp.erro2($$select * from aur_cartoes$$, 'permission denied', 'aura: tela não lê as tabelas');
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '54000000-0000-0000-0000-000000000001';
+select pg_temp.ok((aur_meu_cartao() ->> 'existe')::boolean = false, 'aura: cartão ainda não existe');
+select pg_temp.erro2($$select aur_cartao_salvar('Ana', 'http://x.com/foto.jpg')$$, 'Foto inválida', 'aura: foto só como imagem pequena embutida');
+select pg_temp.erro2($$select aur_cartao_salvar('Ana', 'data:image/webp;base64,' || repeat('A', 90000))$$, 'Foto inválida', 'aura: foto grande demais recusada');
+select pg_temp.erro2($$select aur_cartao_salvar('  ')$$, 'nome', 'aura: nome obrigatório');
+select aur_cartao_salvar('Ana', 'data:image/webp;base64,AAAA');
+create temp table aurc as select aur_meu_cartao() ->> 'codigo' as cod;
+grant select on aurc to anon, authenticated;
+select pg_temp.ok((select cod ~ '^[2-9A-HJ-NP-Z]{10}$' from aurc) and aur_meu_cartao() ->> 'foto' = 'data:image/webp;base64,AAAA'
+  and (aur_meu_cartao() -> 'nota' ->> 'n')::int = 0 and aur_meu_cartao() ->> 'id_dia' ~ '^AU-',
+  'aura: cartão criado com código do QR, foto e código do dia');
+select aur_cartao_salvar('Ana Maria');
+select pg_temp.ok(aur_meu_cartao() ->> 'foto' = 'data:image/webp;base64,AAAA' and aur_meu_cartao() ->> 'nome' = 'Ana Maria', 'aura: mudar o nome mantém a foto');
+select pg_temp.erro2($$select aur_avaliar((select cod from aurc), 'aparelho-da-ana-0001', 5)$$, 'seu cartão', 'aura: ninguém avalia o próprio cartão');
+reset role;
+select pg_temp.ok(exists (select 1 from auditoria where acao = 'aura_cartao_criado' and user_id = '54000000-0000-0000-0000-000000000001'), 'aura: criação do cartão na auditoria');
+set role anon;
+reset request.jwt.claim.sub;
+select pg_temp.ok(aur_cartao_ler((select cod from aurc)) ->> 'nome' = 'Ana Maria' and aur_cartao_ler(lower((select cod from aurc))) is not null
+  and aur_cartao_ler('NAOEXISTE2') is null, 'aura: o QR abre o cartão sem login (aceita minúsculas); código errado não abre');
+select aur_avaliar((select cod from aurc), 'aparelho-000000000001', 5);
+select pg_temp.erro2($$select aur_avaliar((select cod from aurc), 'aparelho-000000000001', 4)$$, 'já avaliou este cartão hoje', 'aura: o mesmo aparelho avalia o mesmo cartão 1 vez por dia');
+select pg_temp.erro2($$select aur_avaliar((select cod from aurc), 'aparelho-000000000009', 6)$$, '1 a 5', 'aura: nota de 1 a 5');
+select pg_temp.erro2($$select aur_avaliar((select cod from aurc), 'aparelho-000000000009', 0)$$, '1 a 5', 'aura: zero não vale');
+select pg_temp.erro2($$select aur_avaliar((select cod from aurc), 'curta', 3)$$, 'Aparelho', 'aura: marca do aparelho obrigatória');
+select aur_avaliar((select cod from aurc), 'aparelho-00000000000' || i, n) from (values (2, 4), (3, 3), (4, 5)) v(i, n);
+reset role;
+select pg_temp.ok(not exists (select 1 from information_schema.columns where table_name = 'aur_notas' and column_name in ('user_id','autor','criado_em','em','marca','ip')),
+  'aura: a nota não guarda autor, hora nem aparelho');
+select pg_temp.ok((select count(*) = 4 and bool_and(not liberada) from aur_notas) and (select count(*) from aur_avaliados) = 4
+  and not exists (select 1 from aur_avaliados where chave ~ 'aparelho'), 'aura: 4 notas esperando o lote; "já avaliou" só em hash');
+set role anon;
+select pg_temp.ok((aur_cartao_ler((select cod from aurc)) -> 'nota' ->> 'n')::int = 0, 'aura: com 4 notas o cartão ainda não muda');
+select aur_avaliar((select cod from aurc), 'aparelho-000000000005', 4);
+select pg_temp.ok((aur_cartao_ler((select cod from aurc)) -> 'nota' ->> 'n')::int = 5 and (aur_cartao_ler((select cod from aurc)) -> 'nota' ->> 'media')::numeric = 4.2,
+  'aura: na 5ª nota o lote fecha: 5 avaliações, média 4,2');
+select aur_avaliar((select cod from aurc), 'aparelho-000000000006', 1);
+select pg_temp.ok((aur_cartao_ler((select cod from aurc)) -> 'nota' ->> 'n')::int = 5, 'aura: a 6ª fica esperando o próximo lote');
+reset role;
+delete from aur_avaliados where true;   -- virada do dia: a chave do "já avaliou" leva a data, então no dia seguinte é outra
+set role anon;
+select aur_avaliar((select cod from aurc), 'aparelho-000000000001', 5);
+select pg_temp.ok(true, 'aura: no dia seguinte o mesmo aparelho avalia de novo');
+reset role;
+-- QR novo invalida o antigo
+set role authenticated;
+set request.jwt.claim.sub = '54000000-0000-0000-0000-000000000001';
+select aur_trocar_codigo();
+select pg_temp.ok(aur_cartao_ler((select cod from aurc)) is null and aur_meu_cartao() ->> 'codigo' <> (select cod from aurc), 'aura: trocar o QR invalida o antigo (cartão impresso)');
+-- mapa: quem vê aparece; só código do dia e nota
+select pg_temp.erro2($$select aur_mapa(-22.9, -43.2, 500)$$, 'Aparecer no mapa', 'aura: para ver o mapa é preciso aparecer');
+select aur_mapa_visivel(true);
+select aur_mapa(-22.90123, -43.20123, 500);
+set request.jwt.claim.sub = '54000000-0000-0000-0000-000000000002';
+select aur_cartao_salvar('Bia');
+select aur_mapa_visivel(true);
+create temp table aurm as select aur_mapa(-22.9015, -43.2010, 1000) m;
+reset role;
+select pg_temp.ok((select jsonb_array_length(m -> 'pessoas') = 1 and m -> 'pessoas' -> 0 ->> 'id' ~ '^AU-' and (m -> 'pessoas' -> 0 -> 'nota' ->> 'n')::int = 5
+  and not (m::text ~ 'Ana|foto|data:image|5400') from aurm), 'aura: no mapa só o código do dia e a nota, sem nome nem foto');
+select pg_temp.ok((select lat = -22.901 and lon = -43.201 from aur_posicoes where user_id = '54000000-0000-0000-0000-000000000001'), 'aura: grava só a quadra (3 casas)');
+set role authenticated;
+set request.jwt.claim.sub = '54000000-0000-0000-0000-000000000001';
+select aur_mapa_visivel(false);
+reset role;
+select pg_temp.ok(not exists (select 1 from aur_posicoes where user_id = '54000000-0000-0000-0000-000000000001'), 'aura: sair do mapa apaga a posição');
+set role authenticated;
+select aur_excluir_tudo();
+reset role;
+select pg_temp.ok(not exists (select 1 from aur_cartoes where user_id = '54000000-0000-0000-0000-000000000001')
+  and not exists (select 1 from aur_notas where alvo = '54000000-0000-0000-0000-000000000001')
+  and exists (select 1 from auth.users where id = '54000000-0000-0000-0000-000000000001'), 'aura: apagar tira cartão e notas e mantém o login');
+reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'

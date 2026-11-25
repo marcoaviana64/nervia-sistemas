@@ -49,3 +49,10 @@
   Referrer-Policy: no-referrer
 /sintonia/sw.js
   Cache-Control: no-cache
+
+# NVAura (laboratório, site/aura/): fora dos buscadores e sem Referer (o código do cartão fica depois do #)
+/aura/*
+  X-Robots-Tag: noindex, nofollow
+  Referrer-Policy: no-referrer
+/aura/sw.js
+  Cache-Control: no-cache
