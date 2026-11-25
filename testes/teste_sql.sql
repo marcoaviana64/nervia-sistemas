@@ -4337,4 +4337,31 @@ select sin_conta_auditar('54000000-0000-0000-0000-000000000002', 'aura_chave_tro
 select pg_temp.ok(exists (select 1 from auditoria where acao = 'aura_chave_trocada' and user_id = '54000000-0000-0000-0000-000000000002'),
   'aura 1.4: troca de chave vai para a auditoria');
 select pg_temp.erro2($$select sin_conta_auditar('54000000-0000-0000-0000-000000000002', 'qualquer_coisa')$$, 'Ação inválida', 'aura 1.4: auditoria da conta só aceita as ações conhecidas');
+-- ---------------------------------------------------------------- NVAura 1.6: pedidos (leituras do QR) e total de avaliações
+insert into auth.users (id, email) values ('54000000-0000-0000-0000-000000000003', 'c@aura.test');
+set role authenticated;
+set request.jwt.claim.sub = '54000000-0000-0000-0000-000000000003';
+select aur_cartao_salvar('Caio');
+create temp table aurc6 as select aur_meu_cartao() ->> 'codigo' as cod;
+grant select on aurc6 to anon, authenticated;
+select aur_cartao_ler((select cod from aurc6), 'aparelho-do-proprio-dono');
+reset role;
+set role anon;
+reset request.jwt.claim.sub;
+select aur_cartao_ler((select cod from aurc6), 'aparelho-leitor-00001');
+select aur_cartao_ler((select cod from aurc6), 'aparelho-leitor-00001');
+select aur_cartao_ler((select cod from aurc6), 'aparelho-leitor-00002');
+select aur_cartao_ler((select cod from aurc6));
+select aur_avaliar((select cod from aurc6), 'aparelho-leitor-00001', 5);
+select pg_temp.ok((aur_cartao_ler((select cod from aurc6)) -> 'nota' ->> 'total')::int = 1 and (aur_cartao_ler((select cod from aurc6)) -> 'nota' ->> 'n')::int = 0
+  and aur_cartao_ler((select cod from aurc6)) -> 'nota' -> 'media' = 'null'::jsonb and not (aur_cartao_ler((select cod from aurc6)) ? 'pedidos'),
+  'aura 1.6: quem lê vê o total de avaliações (antes do lote), sem nota e sem os pedidos');
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '54000000-0000-0000-0000-000000000003';
+select pg_temp.ok((aur_meu_cartao() ->> 'pedidos')::int = 2,
+  'aura 1.6: pedidos = leituras do QR, 1 por aparelho por dia; o dono e a leitura sem aparelho não contam');
+reset role;
+reset request.jwt.claim.sub;
+select pg_temp.ok(not exists (select 1 from aur_leituras where chave ~ 'aparelho'), 'aura 1.6: a leitura fica só em hash');
 \echo 'TODOS OS TESTES SQL OK'

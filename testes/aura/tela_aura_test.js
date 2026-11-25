@@ -197,7 +197,7 @@ const semRolagem = async (pg) => pg.evaluate(() => document.documentElement.scro
     ok(/Ana Lima/.test(await pa.textContent("#meuCartao")) && !!(await um(pool, "select 1 from auditoria where acao = 'aura_chave_trocada'")), "chave nova: mesmo cartão, troca na auditoria");
     chave = chave2;
     const txt = await pa.textContent("#meuCartao");
-    ok(/Ana Lima/.test(txt) && /Ainda sem nota/.test(txt) && !!(await pa.$("#meuCartao .qr svg")) && !!(await pa.$("#meuCartao .ft img")), "cartão: foto, nome, sem nota ainda e QR");
+    ok(/Ana Lima/.test(txt) && /0 avaliações de 0 pedidos/.test(txt) && /A nota aparece quando juntar 5/.test(txt) && !!(await pa.$("#meuCartao .qr svg")) && !!(await pa.$("#meuCartao .ft img")), "cartão: foto, nome, sem nota ainda e QR");
     await pa.screenshot({ path: path.join(SAIDA, "01-cartao.png"), fullPage: true });
     const cod = c1.codigo;
 
@@ -211,6 +211,7 @@ const semRolagem = async (pg) => pg.evaluate(() => document.documentElement.scro
         ok(/Como foi a nossa interação/.test(await V.pg.textContent("main")) && /Ana Lima/.test(await V.pg.textContent("#meuCartao")) && !(await V.pg.$("#meuCartao .qr")),
           "quem lê o QR: vê o cartão (sem o QR) e só a pergunta da interação");
         ok(await V.pg.isDisabled("#bEnvia"), "avaliar: enviar só depois de escolher as estrelas");
+        ok(/0 avaliações/.test(await V.pg.textContent("#meuCartao")) && !/pedido/.test(await V.pg.textContent("#meuCartao")), "quem avalia vê quantas avaliações, sem os pedidos (só do dono)");
         await V.pg.screenshot({ path: path.join(SAIDA, "02-avaliar.png"), fullPage: true });
       }
       await V.pg.click(`.grandes button[data-v="${notas[i]}"]`);
@@ -228,13 +229,14 @@ const semRolagem = async (pg) => pg.evaluate(() => document.documentElement.scro
       }
       if (i === 3) {
         await pa.reload(); await pa.waitForSelector("#meuCartao");
-        ok(/Ainda sem nota/.test(await pa.textContent("#meuCartao")), "lote: com 4 avaliações o cartão ainda não muda");
+        const t4 = await pa.textContent("#meuCartao");
+        ok(/4 avaliações de 4 pedidos/.test(t4) && (await pa.$$("#meuCartao .est i.on")).length === 0, "1.6: o dono vê 4 avaliações de 4 pedidos; a nota ainda não aparece (lote)");
       }
       todosErros.push(...V.erros); await V.ctx.close();
     }
     await pa.reload(); await pa.waitForSelector("#meuCartao");
     const t2 = await pa.textContent("#meuCartao");
-    ok(/4,2/.test(t2) && /5 avaliações/.test(t2) && (await pa.$$("#meuCartao .est i.on")).length === 4, "lote fechado: nota 4,2, 5 avaliações e 4 estrelas cheias");
+    ok(/4,2/.test(t2) && /5 avaliações de 5 pedidos/.test(t2) && (await pa.$$("#meuCartao .est i.on")).length === 4, "lote fechado: nota 4,2, 5 avaliações e 4 estrelas cheias");
     ok(!(await um(pool, "select 1 from information_schema.columns where table_name = 'aur_notas' and column_name in ('ip','marca','autor','em')")), "a nota não guarda autor, hora nem aparelho");
     await pa.screenshot({ path: path.join(SAIDA, "04-cartao-com-nota.png"), fullPage: true });
 
