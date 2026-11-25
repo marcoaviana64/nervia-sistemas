@@ -4411,4 +4411,47 @@ select pg_temp.ok((select not bloqueado from aur_cartoes where user_id = '540000
   'aura 1.7: desbloquear, tirar foto e tudo na auditoria com o motivo');
 select pg_temp.ok(exists (select 1 from apps where id = 'aura' and url = '/apps/aura/' and situacao = 'oculto'), 'aura 1.7: app de gestão na Área do Cliente, fora da vitrine');
 reset request.jwt.claim.sub;
+-- ---------------------------------------------------------------- NVAura 1.8: denúncias
+set role authenticated;
+set request.jwt.claim.sub = '54000000-0000-0000-0000-000000000003';
+select aur_cartao_salvar('Caio', 'data:image/webp;base64,BBBB');
+reset role;
+set role anon;
+reset request.jwt.claim.sub;
+select pg_temp.erro2($$select aur_denunciar((select cod from aurc6), 'aparelho-denuncia-0001', 'xyz')$$, 'motivo', 'aura 1.8: denúncia exige motivo válido');
+select pg_temp.erro2($$select aur_denunciar((select cod from aurc6), 'aparelho-denuncia-0001', 'outro', '  ')$$, 'Conte', 'aura 1.8: "outro" exige o texto');
+select aur_denunciar((select cod from aurc6), 'aparelho-denuncia-0001', 'foto', 'foto de nudez');
+select pg_temp.erro2($$select aur_denunciar((select cod from aurc6), 'aparelho-denuncia-0001', 'nome')$$, 'já denunciou', 'aura 1.8: 1 denúncia por celular por cartão por dia');
+select aur_denunciar((select cod from aurc6), 'aparelho-denuncia-0002', 'foto');
+select pg_temp.ok(aur_cartao_ler((select cod from aurc6)) ->> 'foto' = 'data:image/webp;base64,BBBB', 'aura 1.8: com 2 denúncias a foto continua');
+select aur_denunciar((select cod from aurc6), 'aparelho-denuncia-0003', 'foto');
+select pg_temp.ok(aur_cartao_ler((select cod from aurc6)) -> 'foto' = 'null'::jsonb, 'aura 1.8: com 3 denúncias de foto, a foto some do cartão');
+reset role;
+select pg_temp.ok(not exists (select 1 from information_schema.columns where table_name = 'aur_denuncias' and column_name in ('user_id','autor','marca','ip','em','criado_em'))
+  and not exists (select 1 from aur_denunciados where chave ~ 'aparelho'), 'aura 1.8: a denúncia não guarda quem denunciou');
+set role authenticated;
+set request.jwt.claim.sub = '54000000-0000-0000-0000-000000000003';
+select pg_temp.ok((aur_meu_cartao() ->> 'foto_oculta')::boolean and aur_meu_cartao() -> 'foto' = 'null'::jsonb, 'aura 1.8: o dono vê que a foto está em revisão');
+select pg_temp.erro2($$select aur_admin_denuncias()$$, 'equipe Nervia', 'aura 1.8: denúncias só para a equipe Nervia');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select pg_temp.ok((select (d -> 'abertas' -> 0 ->> 'foto_n')::int = 3 and d -> 'abertas' -> 0 -> 'textos' -> 0 ->> 'texto' = 'foto de nudez' and (d -> 'abertas' -> 0 ->> 'foto_oculta')::boolean
+  from (select aur_admin_denuncias() d) x), 'aura 1.8: a gestão vê as 3 denúncias, o texto e a foto escondida');
+select aur_admin_denuncia_resolver('54000000-0000-0000-0000-000000000003', 'manter', '');
+select pg_temp.ok(jsonb_array_length(aur_admin_denuncias() -> 'abertas') = 0 and aur_admin_denuncias() -> 'resolvidas' -> 0 ->> 'resolucao' = 'mantido',
+  'aura 1.8: manter resolve as denúncias');
+reset role;
+select pg_temp.ok((select not foto_oculta and foto is not null from aur_cartoes where user_id = '54000000-0000-0000-0000-000000000003')
+  and exists (select 1 from auditoria where acao = 'aura_denuncia_resolvida' and detalhes ->> 'acao' = 'manter'), 'aura 1.8: manter devolve a foto, com auditoria');
+-- trocar a foto encerra as denúncias de foto abertas
+delete from aur_denunciados where true;
+set role anon;
+select aur_denunciar((select cod from aurc6), 'aparelho-denuncia-0001', 'foto');
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '54000000-0000-0000-0000-000000000003';
+select aur_cartao_salvar('Caio', 'data:image/webp;base64,CCCC');
+reset role;
+select pg_temp.ok(not exists (select 1 from aur_denuncias where alvo = '54000000-0000-0000-0000-000000000003' and resolvida_em is null)
+  and exists (select 1 from aur_denuncias where resolucao = 'foto trocada'), 'aura 1.8: o dono trocar a foto encerra as denúncias de foto');
+reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'

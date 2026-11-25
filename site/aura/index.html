@@ -226,7 +226,9 @@ async function telaAvaliar(codigo) {
   <p class="rot" id="rot"></p>
   <button class="btn a" id="bEnvia" disabled>Enviar avaliação</button><div id="mEnv"></div>
   <p class="hint" style="text-align:center;margin-top:10px">É anônimo: ${esc(c.nome)} não fica sabendo quem deu cada nota. O cartão só muda quando juntam 5 avaliações novas.</p></div>
+  <p style="text-align:center"><a href="#" id="lDen" class="hint">Denunciar este cartão (foto ou nome impróprio)</a></p>
   <p class="lab"><a href="/aura/sobre.html">Como funciona o NVAura</a> · laboratório da Nervia Tecnologia</p>`;
+  $("lDen").onclick = (e) => { e.preventDefault(); denunciar(codigo); };
   const pinta = () => {
     tela.querySelectorAll(".grandes button").forEach((b) => b.classList.toggle("on", +b.dataset.v <= nota));
     $("rot").textContent = ROT[nota]; $("bEnvia").disabled = !nota;
@@ -245,6 +247,29 @@ function telaObrigado(c) {
   <div class="card m"><h3>Que tal ter o seu cartão?</h3><p>Com o NVAura você também pede uma avaliação rápida para quem interagiu com você (uma conversa, um encontro, um atendimento): mostra o QR no celular ou entrega o cartão impresso. Grátis, sem e-mail e sem telefone.</p>
   <button class="btn a" id="bCria">${SESSAO ? "Abrir o meu NVAura" : "Criar o meu cartão"}</button></div>`;
   $("bCria").onclick = irInicio;
+}
+// 1.8: denúncia de foto ou nome impróprio (anônima; 1 por celular por cartão por dia)
+function denunciar(codigo) {
+  const d = $("dlg");
+  d.innerHTML = `<h3>Denunciar este cartão</h3><p class="hint">A denúncia é anônima e vai para a equipe Nervia, que revisa. Com 3 denúncias de foto, a foto some até a revisão.</p>
+    <div role="radiogroup" style="display:grid;gap:6px;margin:8px 0">
+      ${[["foto", "A foto é imprópria ou não é da pessoa"], ["nome", "O nome é ofensivo ou falso"], ["outro", "Outro motivo"]].map(([v, t]) =>
+        `<label style="display:flex;gap:10px;align-items:center;font-size:15px;color:var(--ink);margin:0"><input type="radio" name="dMot" value="${v}" style="width:20px;height:20px"> ${t}</label>`).join("")}
+    </div>
+    <label for="dTxt">O que aconteceu (opcional; obrigatório em Outro motivo)</label><input type="text" id="dTxt" maxlength="300">
+    <div class="duo"><button class="btn o" id="dNao">Cancelar</button><button class="btn r" id="dEnv">Enviar denúncia</button></div><div id="dM"></div>`;
+  d.showModal();
+  $("dNao").onclick = () => d.close();
+  $("dEnv").onclick = async () => {
+    const m = d.querySelector('input[name="dMot"]:checked');
+    if (!m) return aviso($("dM"), "Escolha o motivo.");
+    $("dEnv").disabled = true;
+    try {
+      await rpc("aur_denunciar", { p_codigo: codigo, p_marca: aparelho(), p_motivo: m.value, p_texto: $("dTxt").value });
+      d.innerHTML = `<h3>Denúncia enviada</h3><p>Obrigado. A equipe Nervia vai olhar este cartão.</p><button class="btn a" id="dOk">Fechar</button>`;
+      $("dOk").onclick = () => d.close();
+    } catch (e) { aviso($("dM"), erroTxt(e)); $("dEnv").disabled = false; }
+  };
 }
 function irInicio() { history.replaceState(null, "", location.pathname); iniciar(); }
 
@@ -392,11 +417,12 @@ $("nav").addEventListener("click", (e) => { const b = e.target.closest("button[d
 
 function telaCartao() {
   const url = ENDERECO + "#a-" + CART.codigo;
+  const avisoFoto = CART.foto_oculta ? `<div class="card" style="border:2px solid var(--a3)"><h3>Sua foto está em revisão</h3><p class="hint" style="margin:0">Algumas pessoas denunciaram a foto do seu cartão, e ela ficou escondida até a equipe Nervia revisar. Se quiser, troque a foto em "Trocar foto ou nome": a nova aparece na hora.</p></div>` : "";
   if (CART.bloqueado) {
     tela.innerHTML = `<div class="card" style="border:2px solid var(--red)"><h2>Seu cartão está bloqueado</h2><p>A equipe Nervia bloqueou este cartão${CART.bloqueado_motivo ? `: <b>${esc(CART.bloqueado_motivo)}</b>` : ""}. Enquanto estiver bloqueado, o QR não recebe avaliações e você não aparece no radar.</p><p class="hint">Para falar sobre o bloqueio: atendimento@nervia.com.br.</p></div>${cartaoHtml(CART)}`;
     return;
   }
-  tela.innerHTML = `${cartaoHtml(CART, qrSvg(url))}
+  tela.innerHTML = `${avisoFoto}${cartaoHtml(CART, qrSvg(url))}
   <div class="duo"><button class="btn a" id="bQr">Mostrar o QR grande</button><button class="btn o" id="bImp">Imprimir cartão</button></div>
   <button class="btn o" id="bEdita">Trocar foto ou nome</button>
   <div class="card" style="margin-top:14px;border:1px dashed var(--a)"><h3>🔑 Para entrar em outro aparelho</h3><p class="hint" style="margin:0 0 4px">Use a sua chave de acesso (12 letras e números, XXXX-XXXX-XXXX). Ela não aparece aqui por segurança.</p><button class="btn o" id="bVerChave">Ver a minha chave</button></div>
