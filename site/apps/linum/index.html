@@ -1106,7 +1106,7 @@ function verVenda(id, abrirCv) {
     <div class="mut">${dataBR(v.data)} · ${esc(loja(v.loja_id).nome)} · vendedora ${esc(v.vendedora_nome)}</div>
     <div class="campo"><b>Cliente:</b> ${c ? `${esc(c.nome)}${c.telefone ? " · " + esc(fone(c.telefone)) : ""}` : '<span class="mut">não informado</span>'}</div>
     <div class="campo tw"><table><thead><tr><th>Peça</th><th class="num">Qtd</th><th class="num">Tabela</th><th class="num">Desc.</th><th class="num">Valor</th><th class="num">Total</th>${podeAjuste ? "<th></th>" : ""}</tr></thead><tbody>
-      ${its.map(i => `<tr><td><b>${esc(i.referencia)}</b> ${esc(i.descricao)}<br><span class="mut">${esc([i.cor, i.tamanho, i.edicao].filter(Boolean).join(" · "))}</span>${i.promocao_nome ? `<br><span class="tag ok">Promoção: ${esc(i.promocao_nome)}</span>` : ""}</td>
+      ${its.map(i => `<tr><td><b>${esc(i.referencia)}</b> ${esc(i.descricao)}<br><span class="mut">${esc([i.cor, i.tamanho, i.edicao].filter(Boolean).join(" · "))}</span>${i.promocao_nome ? `<br><span class="tag ok"${i.promocao_desconto_geral ? ' title="O preço da promoção veio do desconto geral da venda"' : ""}>Promoção: ${esc(i.promocao_nome)}${i.promocao_desconto_geral ? " (desconto na venda)" : ""}</span>` : ""}</td>
         <td class="num">${n(i.quantidade)}</td><td class="num">${brl(i.preco_tabela)}</td><td class="num">${Number(i.desconto_pct) ? decBR(Number(i.desconto_pct)) + "%" : "—"}</td>
         <td class="num">${brl(i.valor_unitario)}</td><td class="num">${brl(i.valor_total)}</td>${podeAjuste ? `<td><button type="button" class="lnk" data-ajuste="${i.id}" title="Mandar para a costureira (bainha, apertar…)">Ajuste</button></td>` : ""}</tr>`).join("")}
     </tbody></table></div>
@@ -1337,7 +1337,7 @@ async function novaVenda(pre = {}) {
   };
   const desenharItens = () => {
     $("nvitens").innerHTML = NV.itens.length ? `<div class="tw"><table><thead><tr><th>Peça</th><th class="num">Qtd</th><th class="num">Tabela</th><th class="num">Desc. %</th><th class="num">Valor</th><th class="num">Total</th><th></th></tr></thead><tbody>
-      ${NV.itens.map((it, i) => `<tr><td><b>${esc(it.ref)}</b> ${esc(it.desc)}<br><span class="mut">${esc(it.var)} · ${n(disp(it.vid))} na loja</span>${it.promo ? `<br><span class="tag ok" title="Preço da promoção já aplicado">Promoção: ${esc(it.promo)}</span>` : ""}</td>
+      ${NV.itens.map((it, i) => `<tr><td><b>${esc(it.ref)}</b> ${esc(it.desc)}<br><span class="mut">${esc(it.var)} · ${n(disp(it.vid))} na loja</span>${promoTag(it, i)}</td>
         <td class="num"><input data-i="${i}" data-k="q" type="number" min="1" max="${disp(it.vid)}" value="${it.q}" style="width:60px"></td>
         <td class="num">${brl(it.tab)}</td>
         <td class="num"><input data-i="${i}" data-k="pct" inputmode="decimal" value="${esc(it.pct)}" placeholder="0" style="width:64px"></td>
@@ -1351,12 +1351,21 @@ async function novaVenda(pre = {}) {
       totais();
     });
     $("nvitens").querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { NV.itens.splice(Number(b.dataset.rm), 1); desenharItens(); });
+    $("nvitens").querySelectorAll('input[data-k="vu"], input[data-k="pct"]').forEach(inp => inp.onchange = () => { if (NV.itens[inp.dataset.i] && NV.itens[inp.dataset.i].prPromo) setTimeout(desenharItens, 0); });
+    $("nvitens").querySelectorAll("[data-usapromo]").forEach(b => b.onclick = () => { const it = NV.itens[b.dataset.usapromo]; it.manual = false; aplicarPromo(it); desenharItens(); });
     totais();
   };
   // 2.58: preço da promoção válida na loja e na data da venda (o menor); a peça que a vendedora mudou à mão fica como está
+  // 2.64: a peça em promoção sempre mostra a promoção; preço acima do da promoção = aviso com "Usar o preço da promoção"
+  const promoTag = (it, i) => {
+    const pr = it.prPromo; if (!pr) return "";
+    if (numV(it.vu) <= pr.preco + 0.005) return `<br><span class="tag ok" title="Preço da promoção aplicado">Promoção: ${esc(pr.nome)}</span>`;
+    return `<br><span class="tag lento" title="Dê o desconto pelo preço da peça, não pelo desconto geral, para a venda registrar a promoção">Está na promoção ${esc(pr.nome)}: ${brl(pr.preco)}</span> <button type="button" class="lnk" data-usapromo="${i}">usar o preço da promoção</button>`;
+  };
   const aplicarPromo = it => {
-    if (it.manual) return;
     const pr = promoDa(it.vid, NV.loja, NV.data);
+    it.prPromo = pr && pr.preco < it.tab ? pr : null;
+    if (it.manual) return;
     if (pr && pr.preco < it.tab) { it.promo = pr.nome; it.vu = moeda(pr.preco); it.pct = it.tab > 0 ? decBR(r2((1 - pr.preco / it.tab) * 100)) : ""; }
     else if (it.promo) { it.promo = ""; it.vu = moeda(it.tab); it.pct = ""; }
   };
