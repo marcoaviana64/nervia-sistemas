@@ -8,7 +8,7 @@
 // controla, msg, moeda, numV, numBR, r2, decBR...).
 
 let PROMOS = [];          // [{id, nome, loja_id, inicio, fim, cancelada_em, ..., itens: [{produto_id, variante_id, preco}]}]
-const FPROMO = { sit: "vigentes" };
+const FPROMO = { sit: "vigentes", zerados: false };
 
 async function carregarPromos() {
   const [a, b] = await Promise.all([
@@ -60,22 +60,30 @@ async function telaPromocoes() {
   };
   $("tela").innerHTML = `<div class="cabtela"><h2>Promoções</h2>${controla() ? '<button type="button" class="bt pri" id="prnova">+ Nova promoção</button>' : ""}</div>
     <p class="mut" style="margin-top:0">Peças com preço de promoção por um período. Na venda, a peça entra sozinha com o preço da promoção da loja e da data da venda; se houver mais de uma promoção valendo, vale o <b>menor preço</b>. ${controla() ? "" : "Quem cadastra é a Dona ou o Estoque."}</p>
-    <div class="filtros">${pil("vigentes", `Valendo e próximas (${cont("vigente") + cont("futura")})`)}${pil("encerrada", `Encerradas (${cont("encerrada")})`)}${pil("cancelada", `Canceladas (${cont("cancelada")})`)}${pil("todas", "Todas")}</div>
+    <div class="filtros">${pil("vigentes", `Valendo e próximas (${cont("vigente") + cont("futura")})`)}${pil("encerrada", `Encerradas (${cont("encerrada")})`)}${pil("cancelada", `Canceladas (${cont("cancelada")})`)}${pil("todas", "Todas")}<button type="button" class="pilula ${FPROMO.zerados ? "on" : ""}" id="przero" title="Esconde as cores/tamanhos sem peça na loja">${FPROMO.zerados ? "Ocultar zerados: ativo" : "Ocultar zerados: inativo"}</button></div>
     ${vis.length ? vis.map(p => { const s = prSituacao(p), r = res[p.id];
       return `<div class="card" style="margin-bottom:10px">
         <div class="vlin" style="border:0"><span><b style="font-size:16px">${esc(p.nome)}</b> <span class="tag ${PR_SIT[s][1]}">${PR_SIT[s][0]}</span></span>
           <span class="mut">${p.loja_id ? "Loja " + esc(loja(p.loja_id).nome) : "Todas as lojas"} · ${dataBR(p.inicio)} a ${dataBR(p.fim)}</span></div>
         ${p.observacao ? `<div class="mut">${esc(p.observacao)}</div>` : ""}
-        <ul style="margin:6px 0 0;padding-left:18px">${p.itens.map(linhaItem).join("")}</ul>
+        <details class="prpecas" open><summary>Peças da promoção (${n(prVarsDaPromo(p).size)})</summary><div class="prlista">${prCartoes(p)}</div></details>
         ${r ? `<div class="vlin"><span>Vendido na promoção</span><span><b>${n(r.pecas)}</b> peça(s) em ${n(r.vendas)} venda(s) · ${brl(r.vendido)} · desconto dado ${brl(r.desconto)}</span></div>` : controla() ? '<div class="vlin mut"><span>Nenhuma peça vendida nesta promoção ainda.</span></div>' : ""}
         ${p.cancelada_em ? `<div class="msg err">Cancelada por ${esc(p.cancelada_nome || "")} em ${quando(p.cancelada_em)}: ${esc(p.motivo_cancelamento || "")}</div>` : ""}
-        ${controla() && !p.cancelada_em ? `<div class="acoes" style="justify-content:flex-start"><button type="button" class="bt" data-prrel="${p.id}" title="Lista das peças em ordem alfabética, por tamanho e cor, para imprimir ou salvar em PDF">Relatório (PDF)</button><button type="button" class="bt" data-pred="${p.id}">Editar</button>${s !== "encerrada" ? `<button type="button" class="bt" data-prenc="${p.id}">Encerrar hoje</button>` : ""}<button type="button" class="bt" data-prcanc="${p.id}" style="color:var(--crit);border-color:var(--crit)">Cancelar</button></div>` : ""}
+        ${controla() && !p.cancelada_em ? `<div class="acoes" style="justify-content:flex-start"><button type="button" class="bt" data-prrel="${p.id}" title="Lista das peças em ordem alfabética, por tamanho e cor, para imprimir ou salvar em PDF">Relatório (PDF)</button><button type="button" class="bt" data-prvend="${p.id}" title="Peças vendidas nesta promoção: consulta, PDF e CSV">Vendas da promoção</button><button type="button" class="bt" data-pred="${p.id}">Editar</button>${s !== "encerrada" ? `<button type="button" class="bt" data-prenc="${p.id}">Encerrar hoje</button>` : ""}<button type="button" class="bt" data-prcanc="${p.id}" style="color:var(--crit);border-color:var(--crit)">Cancelar</button></div>` : ""}
+        ${controla() && p.cancelada_em && r ? `<div class="acoes" style="justify-content:flex-start"><button type="button" class="bt" data-prvend="${p.id}">Vendas da promoção</button></div>` : ""}
         ${!controla() && !p.cancelada_em ? `<div class="acoes" style="justify-content:flex-start"><button type="button" class="bt" data-prrel="${p.id}" title="Lista das peças em ordem alfabética, por tamanho e cor, para imprimir ou salvar em PDF">Relatório (PDF)</button></div>` : ""}
         <div class="mut" style="font-size:12px">Criada por ${esc(p.criado_nome || "")} em ${quando(p.criado_em)}${p.alterado_em ? ` · alterada por ${esc(p.alterado_nome || "")} em ${quando(p.alterado_em)}` : ""}</div>
       </div>`; }).join("") : '<div class="card mut">Nenhuma promoção aqui.</div>'}`;
   document.querySelectorAll("[data-fpr]").forEach(b => b.onclick = () => { FPROMO.sit = b.dataset.fpr; telaPromocoes(); });
   if ($("prnova")) $("prnova").onclick = () => editarPromocao(null);
   document.querySelectorAll("[data-prrel]").forEach(b => b.onclick = () => relatorioPromocao(PROMOS.find(p => p.id === +b.dataset.prrel)));
+  $("przero").onclick = () => { FPROMO.zerados = !FPROMO.zerados; telaPromocoes(); };
+  document.querySelectorAll("[data-prvend]").forEach(b => b.onclick = () => vendasPromocao(PROMOS.find(p => p.id === +b.dataset.prvend)));
+  // quadrados como no Estoque: Dono/Estoque movimenta; vendedora transfere (com peça)
+  document.querySelectorAll(".prlista button.chip").forEach(b => b.onclick = () => controla() ? movimentar(b.dataset.p, b.dataset.v, b.dataset.l)
+    : novaTransferencia({ variante: b.dataset.v, loja: b.dataset.l }));
+  document.querySelectorAll(".prlista div.chip[data-bfinfo]").forEach(d => d.onclick = () => msg("info", d.dataset.bfinfo));
+  document.querySelectorAll(".prlista [data-vid]").forEach(b => b.onclick = () => mostrarCliente(b.dataset.vid));
   document.querySelectorAll("[data-pred]").forEach(b => b.onclick = () => editarPromocao(PROMOS.find(p => p.id === +b.dataset.pred)));
   document.querySelectorAll("[data-prenc]").forEach(b => b.onclick = async () => {
     const p = PROMOS.find(x => x.id === +b.dataset.prenc);
@@ -303,4 +311,130 @@ function promoSelo(pid) {
     return `<span class="tagpromo${pr.inicio > h ? " futura" : ""}" title="Promoção “${esc(pr.nome)}”${pr.inicio > h ? " (ainda não começou)" : ""}: ${esc(i.variante_id ? (v ? nomeVar(v) : "uma cor/tamanho") : "todas as cores e tamanhos")} por ${esc(brl(i.preco))}, ${esc(quando)}${esc(onde)}">`
       + `🏷 ${esc(pr.nome)}: ${i.variante_id && v ? esc(nomeVar(v)) + " " : ""}<b>${brl(i.preco)}</b> · ${quando}${onde}</span>`;
   }).join("")}</div>`;
+}
+
+
+// 2.65 (pedido do Marco: "a lista de produtos em promoção igual à lista do estoque, em quadros e separada por loja"):
+// variações da promoção (a peça toda = cores/tamanhos normais ativos) → Map produto → Map variação → preço da promoção
+function prVarsDaPromo(pr) {
+  const porProd = new Map();
+  for (const i of pr.itens) {
+    const p = prProduto(i.produto_id); if (!p) continue;
+    if (!porProd.has(p.id)) porProd.set(p.id, new Map());
+    const m = porProd.get(p.id);
+    for (const v of i.variante_id ? [prVariante(i.variante_id)[1]].filter(Boolean) : prNormais(p)) {
+      const atual = m.get(v.id); if (atual == null || Number(i.preco) < atual) m.set(v.id, Number(i.preco));
+    }
+  }
+  return porProd;
+}
+const prFaixa = (a, b) => a === b ? brl(a) : `${brl(a)} a ${brl(b)}`;
+function prCartoes(pr) {
+  const porProd = prVarsDaPromo(pr);
+  const lojas = pr.loja_id ? LOJAS.filter(l => l.id === pr.loja_id) : LOJAS;
+  const ps = [...porProd.keys()].map(prProduto).sort((a, b) => semAc(a.descricao || "").localeCompare(semAc(b.descricao || ""), "pt-BR") || (a.referencia || "").localeCompare(b.referencia || "", "pt-BR"));
+  const html = ps.map(p => {
+    const m = porProd.get(p.id), vars = (p.variantes || []).filter(v => m.has(v.id)).sort(ordemVar);
+    const grupos = lojas.map(l => [l, FPROMO.zerados ? vars.filter(v => qtd(v.id, l.id) > 0 || bfFora(v.id, l.id) > 0 || cdFora(v.id, l.id) > 0) : vars]).filter(([, vs]) => vs.length);
+    if (!grupos.length) return "";
+    const precos = vars.map(v => m.get(v.id)), tabs = vars.map(v => prTabela(p, v));
+    const pMin = Math.min(...precos), pMax = Math.max(...precos), tMin = Math.min(...tabs), tMax = Math.max(...tabs);
+    const pct = tMin === tMax && pMin === pMax && tMax > 0 ? ` <span class="tag ok">−${Math.round((1 - pMin / tMax) * 100)}%</span>` : "";
+    const pecas = lojas.reduce((s, l) => s + vars.reduce((t, v) => t + qtd(v.id, l.id), 0), 0);
+    const temEsp = vars.some(v => (v.edicao || "").trim());
+    return `<div class="prod">
+      <div class="cab"><h2 class="${temEsp ? "temesp" : ""}" title="${esc(p.descricao)}">${esc(p.descricao)}</h2><span class="preco"><s class="mut">${prFaixa(tMin, tMax)}</s> <b>${prFaixa(pMin, pMax)}</b>${pct}</span></div>
+      <div class="info"><span>Ref: ${esc(p.referencia || "—")}</span><span>·</span><span>${n(pecas)} peça(s) em estoque${pr.loja_id ? " em " + esc(loja(pr.loja_id).nome) : ""}</span>${pMin !== pMax ? '<span>·</span><span class="mut">preços diferentes por cor/tamanho</span>' : ""}${typeof VIDEOS !== "undefined" && VIDEOS[p.id] ? `<button type="button" class="bt vidbt" data-vid="${p.id}" title="Ficha com os vídeos para mostrar à cliente">▶ Mostrar à cliente</button>` : ""}</div>
+      ${grupos.map(([l, vs]) => { const [comuns, esp] = separarEsp(vs);
+        return `<div class="loja" data-loja="${l.id}"><span class="selo">${esc(l.nome)}</span>${comuns.length ? `<div class="chips">${chipsLoja(p, l, comuns)}</div>` : ""}
+          ${esp.length ? `<div class="esplinha"><div class="esptit">★ Peças especiais</div><div class="chips">${chipsLoja(p, l, esp)}</div></div>` : ""}</div>`; }).join("")}</div>`;
+  }).join("");
+  return html || `<div class="mut">${FPROMO.zerados ? "Nenhuma peça em estoque nesta promoção. Desligue “Ocultar zerados” para ver todas." : "Nenhuma peça."}</div>`;
+}
+
+// 2.65 (pedido do Marco: "consulta gerencial das vendas nas promoções, com relatório em PDF"): Dono e Estoque.
+// Dados da lin_promocao_vendas (peças vendidas com a promoção, vendas não canceladas); valor = líquido (desconto geral repartido).
+function pvResumo(pr, rows) {
+  const ag = (chave, rot) => {
+    const m = new Map();
+    for (const r of rows) {
+      const k = chave(r); if (k == null) continue;
+      const g = m.get(k) || { rot: rot(r), q: 0, tab: 0, vend: 0, vendas: new Set() };
+      g.q += r.quantidade; g.tab += r.preco_tabela * r.quantidade; g.vend += r.liquido * r.quantidade; g.vendas.add(r.venda); m.set(k, g);
+    }
+    return [...m.values()];
+  };
+  const porProd = prVarsDaPromo(pr), lojas = pr.loja_id ? LOJAS.filter(l => l.id === pr.loja_id) : LOJAS;
+  const estoque = pid => { const m = porProd.get(pid); if (!m) return null; return lojas.reduce((s, l) => s + [...m.keys()].reduce((t, v) => t + qtd(v, l.id), 0), 0); };
+  const pecas = ag(r => (r.produto_id || r.referencia) + "", r => ({ t: `${r.descricao} (${r.referencia})`, est: estoque(r.produto_id) }))
+    .sort((a, b) => b.q - a.q || a.rot.t.localeCompare(b.rot.t, "pt-BR"));
+  return {
+    q: rows.reduce((s, r) => s + r.quantidade, 0), vendas: new Set(rows.map(r => r.venda)).size,
+    tab: rows.reduce((s, r) => s + r.preco_tabela * r.quantidade, 0), vend: rows.reduce((s, r) => s + r.liquido * r.quantidade, 0),
+    geral: rows.filter(r => r.desconto_geral).length,
+    pecas,
+    cortam: ag(r => [r.descricao, r.cor, r.tamanho, r.edicao].join("|"), r => `${r.descricao} — ${[r.cor, r.tamanho, r.edicao].filter(Boolean).join(" · ")}`).sort((a, b) => b.q - a.q || a.rot.localeCompare(b.rot, "pt-BR")),
+    cores: ag(r => r.cor || "—", r => r.cor || "—").sort((a, b) => b.q - a.q),
+    tams: ag(r => r.tamanho || "—", r => r.tamanho || "—").sort((a, b) => ordemTam(a.rot, b.rot)),
+    lojas: ag(r => r.loja, r => r.loja).sort((a, b) => b.vend - a.vend),
+    vendedoras: rows.some(r => r.vendedora) ? ag(r => r.vendedora || "—", r => r.vendedora || "—").sort((a, b) => b.vend - a.vend) : null,
+    dias: ag(r => r.data, r => r.data).sort((a, b) => a.rot.localeCompare(b.rot))
+  };
+}
+function pvHtml(pr, rows, R) {
+  const pct = g => g.tab > 0 ? Math.round((1 - g.vend / g.tab) * 100) + "%" : "—";
+  const tab = (tit, l, rot = g => esc(g.rot), extra = null) => l.length ? `<h4>${tit}</h4><table class="pvt"><thead><tr><th>${tit.split(" ").pop() === "dia" ? "Dia" : ""}</th><th class="num">Peças</th><th class="num">Vendas</th><th class="num">Tabela</th><th class="num">Vendido</th><th class="num">Desconto</th>${extra ? `<th class="num">${extra[0]}</th>` : ""}</tr></thead><tbody>
+    ${l.map(g => `<tr><td>${rot(g)}</td><td class="num">${n(g.q)}</td><td class="num">${n(g.vendas.size)}</td><td class="num">${brl(g.tab)}</td><td class="num"><b>${brl(g.vend)}</b></td><td class="num">${brl(g.tab - g.vend)} (${pct(g)})</td>${extra ? `<td class="num">${extra[1](g)}</td>` : ""}</tr>`).join("")}</tbody></table>` : "";
+  const k = (rot, val, sub = "") => `<div class="pvk"><small>${rot}</small><b>${val}</b>${sub ? `<span>${sub}</span>` : ""}</div>`;
+  return `<div class="pvks">${k("Peças vendidas", n(R.q))}${k("Vendas", n(R.vendas), R.vendas ? "≈ " + (R.q / R.vendas).toFixed(1).replace(".", ",") + " peça(s) por venda" : "")}
+      ${k("Preço de tabela", brl(R.tab))}${k("Vendido (líquido)", brl(R.vend), R.vendas ? "ticket médio " + brl(R.vend / R.vendas) : "")}${k("Desconto dado", brl(R.tab - R.vend), pct(R) + " sobre a tabela")}</div>
+    ${R.geral ? `<p class="mut">${n(R.geral)} peça(s) com o desconto dado no total da venda (o valor é o líquido, com o desconto geral repartido pelas peças).</p>` : ""}
+    ${tab("Por peça", R.pecas, g => esc(g.rot.t), ["Em estoque hoje", g => g.rot.est == null ? "—" : n(g.rot.est)])}
+    ${tab("Por cor e tamanho", R.cortam)}
+    <div class="pvduas">${tab("Por cor", R.cores)}${tab("Por tamanho", R.tams)}</div>
+    ${tab("Por loja", R.lojas)}
+    ${R.vendedoras ? tab("Por vendedora", R.vendedoras) : ""}
+    ${tab("Por dia", R.dias, g => dataBR(g.rot))}
+    <h4>Peças vendidas</h4><table class="pvt"><thead><tr><th>Data</th><th>Venda</th><th>Loja</th>${R.vendedoras ? "<th>Vendedora</th>" : ""}<th>Peça</th><th>Cor / tamanho</th><th class="num">Qtd</th><th class="num">Tabela</th><th class="num">Vendido</th><th class="num">Desc.</th></tr></thead><tbody>
+    ${rows.map(r => `<tr><td>${dataBR(r.data)}</td><td>nº ${r.venda}</td><td>${esc(r.loja)}</td>${R.vendedoras ? `<td>${esc(r.vendedora || "")}</td>` : ""}<td>${esc(r.descricao)} <span class="mut">${esc(r.referencia)}</span></td>
+      <td>${esc([r.cor, r.tamanho, r.edicao].filter(Boolean).join(" · "))}</td><td class="num">${n(r.quantidade)}</td><td class="num">${brl(r.preco_tabela)}</td><td class="num">${brl(r.liquido)}${r.desconto_geral ? " *" : ""}</td>
+      <td class="num">${r.preco_tabela > 0 ? Math.round((1 - r.liquido / r.preco_tabela) * 100) + "%" : "—"}</td></tr>`).join("")}</tbody></table>
+    ${R.geral ? '<p class="mut">* desconto dado no total da venda.</p>' : ""}`;
+}
+const PV_CSS = `.pvks{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}.pvk{border:1px solid #ddd;border-radius:8px;padding:6px 10px;min-width:130px}.pvk small{display:block;color:#666}.pvk b{font-size:17px;display:block}.pvk span{font-size:11px;color:#666}
+  .pvt{border-collapse:collapse;width:100%;margin-bottom:6px;font-size:12px}.pvt th,.pvt td{border-bottom:1px solid #e5e5e5;padding:3px 5px;text-align:left;vertical-align:top}.pvt th{background:#f6f2f3}.pvt .num{text-align:right;white-space:nowrap}
+  .pvduas{display:grid;grid-template-columns:1fr 1fr;gap:12px}h4{margin:12px 0 4px;color:#9b1d3a}.mut{color:#777}`;
+async function vendasPromocao(pr) {
+  if (!pr) return;
+  let rows;
+  try { rows = (checar(await sb.rpc("lin_promocao_vendas", { p_promocao: pr.id })) || []).map(r => Object.assign(r, {
+    quantidade: Number(r.quantidade), preco_tabela: Number(r.preco_tabela), liquido: Number(r.liquido), valor_unitario: Number(r.valor_unitario) })); }
+  catch (e) { return msg("err", e.message); }
+  const R = pvResumo(pr, rows);
+  const onde = `${pr.loja_id ? "Loja " + loja(pr.loja_id).nome : "Todas as lojas"} · ${dataBR(pr.inicio)} a ${dataBR(pr.fim)} · ${PR_SIT[prSituacao(pr)][0]}`;
+  $("dlg").classList.add("largo");
+  $("dlgf").innerHTML = `<style>${PV_CSS}</style><h3>Vendas da promoção: ${esc(pr.nome)}</h3><div class="mut">${esc(onde)}</div>
+    ${rows.length ? pvHtml(pr, rows, R) : '<div class="card mut" style="margin-top:10px">Nenhuma peça vendida nesta promoção ainda.</div>'}
+    <div class="acoes">${rows.length ? '<button type="button" class="bt" id="pvcsv">Baixar CSV</button><button type="button" class="bt" id="pvpdf">Imprimir / PDF</button>' : ""}<button type="button" class="bt pri" id="pvfim">Fechar</button></div>`;
+  if (!$("dlg").open) $("dlg").showModal();
+  $("pvfim").onclick = () => $("dlg").close();
+  if (!rows.length) return;
+  $("pvcsv").onclick = () => {
+    const q = x => `"${String(x == null ? "" : x).replace(/"/g, '""')}"`, num = x => String(Number(x).toFixed(2)).replace(".", ",");
+    const lin = [["Promoção", "Data", "Venda", "Loja", ...(R.vendedoras ? ["Vendedora"] : []), "Referência", "Peça", "Cor", "Tamanho", "Edição", "Quantidade", "Preço de tabela", "Valor da peça", "Vendido (líquido)", "Desconto %", "Desconto no total da venda"].map(q).join(";"),
+      ...rows.map(r => [pr.nome, dataBR(r.data), r.venda, r.loja, ...(R.vendedoras ? [r.vendedora || ""] : []), r.referencia, r.descricao, r.cor, r.tamanho, r.edicao, r.quantidade,
+        num(r.preco_tabela), num(r.valor_unitario), num(r.liquido), r.preco_tabela > 0 ? Math.round((1 - r.liquido / r.preco_tabela) * 100) : "", r.desconto_geral ? "sim" : ""].map(q).join(";"))];
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob(["﻿" + lin.join("\r\n")], { type: "text/csv;charset=utf-8" }));
+    a.download = `vendas-promocao-${semAc(pr.nome).replace(/[^a-z0-9]+/g, "-")}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+  $("pvpdf").onclick = () => {
+    const w = window.open("", "_blank"); if (!w) return msg("err", "O navegador bloqueou a janela de impressão.");
+    w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Vendas da promoção ${esc(pr.nome)} — Linum</title>
+      <style>@page{size:A4;margin:10mm}body{font:12px system-ui,sans-serif;margin:0;color:#111}.topo{border-bottom:3px solid #9b1d3a;padding-bottom:6px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:flex-end}
+      .topo h1{margin:0;font-size:18px}${PV_CSS}tr{break-inside:avoid}h4{break-after:avoid}</style></head><body>
+      <div class="topo"><div><h1>LINUM — Vendas da promoção “${esc(pr.nome)}”</h1><div class="mut">${esc(onde)}</div></div><div class="mut">Emitido em ${esc(new Date().toLocaleString("pt-BR"))}</div></div>
+      ${pvHtml(pr, rows, R)}<script>setTimeout(() => print(), 300)<\/script></body></html>`);
+    w.document.close();
+  };
 }

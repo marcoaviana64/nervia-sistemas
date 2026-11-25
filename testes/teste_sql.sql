@@ -3925,6 +3925,14 @@ insert into lin_vd values ('pr4', lin_venda_registrar(jsonb_build_object('loja_i
   'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 439))))::text);
 select pg_temp.ok((lin_promocoes_resumo() -> (select v from lin_pr where k = 'b')::text ->> 'pecas')::int = 3
   and (lin_promocoes_resumo() -> (select v from lin_pr where k = 'b')::text ->> 'desconto')::numeric = 417, 'linum 2.64: resultado da promoção conta o desconto geral');
+-- 2.65: vendas da promoção (Dono e Estoque; o nome de quem vendeu só para o Dono)
+select pg_temp.ok((select jsonb_array_length(d) = 2 and (d -> 1 ->> 'liquido')::numeric = 350 and (d -> 1 ->> 'desconto_geral')::boolean and d -> 0 ->> 'vendedora' is null
+  from (select lin_promocao_vendas((select v from lin_pr where k = 'b')::bigint) d) x), 'linum 2.65: Estoque vê as peças vendidas na promoção, com o valor líquido, sem quem vendeu');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.erro2(format($$select lin_promocao_vendas(%s)$$, (select v from lin_pr where k = 'b')), 'Somente o Dono ou o Estoque', 'linum 2.65: vendedora não vê as vendas da promoção');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok((select d -> 0 ->> 'vendedora' is not null from (select lin_promocao_vendas((select v from lin_pr where k = 'b')::bigint) d) x), 'linum 2.65: o Dono vê quem vendeu');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
 reset role;
 select pg_temp.ok((select promocao_nome = 'Queima Gávea' and promocao_desconto_geral and valor_unitario = 489 from lin_venda_itens where venda_id = (select v from lin_vd where k = 'pr3')::bigint)
   and (select not promocao_desconto_geral from lin_venda_itens where venda_id = (select v from lin_vd where k = 'pr1')::bigint),
