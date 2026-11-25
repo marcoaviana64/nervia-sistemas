@@ -180,6 +180,14 @@ const somaD = (d, n) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.g
     ok(await v.pg.inputValue('[data-i="0"][data-k="vu"]') === '1799,00' && !(await v.pg.locator('#nvitens').innerText()).includes('Promoção'), 'venda com data fora da promoção volta ao preço de tabela');
     await v.pg.fill('#nvdata', hoje); await v.pg.dispatchEvent('#nvdata', 'change'); await v.pg.waitForTimeout(150);
     ok(await v.pg.inputValue('[data-i="0"][data-k="vu"]') === '1199,00', 'voltando a data, a promoção volta');
+    // 2.64: preço da peça mudado à mão (desconto no geral): aviso da promoção + "usar o preço da promoção"
+    await v.pg.fill('[data-i="0"][data-k="vu"]', '1799,00'); await v.pg.dispatchEvent('[data-i="0"][data-k="vu"]', 'change'); await v.pg.waitForTimeout(150);
+    const avs = await v.pg.locator('#nvitens').innerText();
+    ok(avs.includes('Está na promoção Queima Ipanema') && avs.includes('1.199,00') && await v.pg.locator('[data-usapromo="0"]').count() === 1,
+      '2.64: preço acima do da promoção mostra o aviso da promoção');
+    await v.pg.click('[data-usapromo="0"]'); await v.pg.waitForTimeout(150);
+    ok(await v.pg.inputValue('[data-i="0"][data-k="vu"]') === '1199,00' && (await v.pg.locator('#nvitens').innerText()).includes('Promoção: Queima Ipanema'),
+      '2.64: "usar o preço da promoção" volta ao preço da promoção');
     await v.pg.selectOption('[data-pg="0"][data-k="forma"]', 'pix'); await v.pg.waitForTimeout(100);
     await v.pg.click('#nvok'); await v.pg.waitForTimeout(500);
     const rv = await ultimaRpc(v.pg, 'lin_venda_registrar');

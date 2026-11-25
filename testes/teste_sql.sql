@@ -3916,6 +3916,31 @@ select pg_temp.erro2($$select lin_promocoes_resumo()$$, 'Somente o Dono ou o Est
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
 select pg_temp.ok((select (lin_promocoes_resumo() -> (select v from lin_pr where k = 'b')::text ->> 'pecas')::int = 2
   and (lin_promocoes_resumo() -> (select v from lin_pr where k = 'b')::text ->> 'desconto')::numeric = 278), 'linum 2.58: resultado da promoção (peças e desconto dado)');
+-- 2.64: peça pelo preço cheio + desconto geral que a deixa no preço da promoção = promoção marcada
+insert into lin_vd values ('pr3', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'data', ((now() at time zone 'America/Sao_Paulo')::date)::text,
+  'desconto', 139, 'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 1, 'valor_unitario', 489)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 350))))::text);
+insert into lin_vd values ('pr4', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'data', ((now() at time zone 'America/Sao_Paulo')::date)::text,
+  'desconto', 50, 'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 1, 'valor_unitario', 489)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 439))))::text);
+select pg_temp.ok((lin_promocoes_resumo() -> (select v from lin_pr where k = 'b')::text ->> 'pecas')::int = 3
+  and (lin_promocoes_resumo() -> (select v from lin_pr where k = 'b')::text ->> 'desconto')::numeric = 417, 'linum 2.64: resultado da promoção conta o desconto geral');
+reset role;
+select pg_temp.ok((select promocao_nome = 'Queima Gávea' and promocao_desconto_geral and valor_unitario = 489 from lin_venda_itens where venda_id = (select v from lin_vd where k = 'pr3')::bigint)
+  and (select not promocao_desconto_geral from lin_venda_itens where venda_id = (select v from lin_vd where k = 'pr1')::bigint),
+  'linum 2.64: desconto geral que deixa a peça no preço da promoção marca a promoção (valores não mudam)');
+select pg_temp.ok((select promocao_id is null from lin_venda_itens where venda_id = (select v from lin_vd where k = 'pr4')::bigint),
+  'linum 2.64: desconto geral menor que o da promoção não marca');
+select pg_temp.erro2(format($$update lin_venda_itens set valor_unitario = 1 where venda_id = %s$$, (select v from lin_vd where k = 'pr3')),
+  'Os itens não podem ser alterados', 'linum 2.64: os itens continuam sem alteração');
+select pg_temp.erro2(format($$update lin_venda_itens set promocao_nome = 'x' where venda_id = %s$$, (select v from lin_vd where k = 'pr4')),
+  'Os itens não podem ser alterados', 'linum 2.64: a promoção só é marcada pelo sistema');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';   -- Dono
+select lin_venda_cancelar((select v from lin_vd where k = 'pr3')::bigint, 'venda de teste da 2.64');
+select lin_venda_cancelar((select v from lin_vd where k = 'pr4')::bigint, 'venda de teste da 2.64');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
 -- alterar e cancelar
 select lin_promocao_salvar(jsonb_build_object('id', (select v from lin_pr where k = 'a'), 'nome', 'Semana do Linho', 'inicio', ((now() at time zone 'America/Sao_Paulo')::date - 1)::text,
   'fim', ((now() at time zone 'America/Sao_Paulo')::date + 2)::text, 'itens', jsonb_build_array(jsonb_build_object('produto_id', '10000000-0000-0000-0000-000000000001', 'preco', 380))));
