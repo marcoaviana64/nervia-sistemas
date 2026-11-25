@@ -141,7 +141,7 @@ end $$;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
 select pg_temp.ok((select count(*) = 0 from apps), 'login sem app liberado não vê apps');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
-select pg_temp.ok((select count(*) = 16 from apps), 'admin vê todos os apps, inclusive inativos');
+select pg_temp.ok((select count(*) = 17 from apps), 'admin vê todos os apps, inclusive inativos');
 insert into app_acessos values ('00000000-0000-0000-0000-00000000000c', 'chamados');
 update apps set ativo = false where id = 'chamados';
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
@@ -4364,4 +4364,51 @@ select pg_temp.ok((aur_meu_cartao() ->> 'pedidos')::int = 2,
 reset role;
 reset request.jwt.claim.sub;
 select pg_temp.ok(not exists (select 1 from aur_leituras where chave ~ 'aparelho'), 'aura 1.6: a leitura fica só em hash');
+-- ---------------------------------------------------------------- NVAura 1.7: gestão (só equipe Nervia) e moderação
+set role authenticated;
+set request.jwt.claim.sub = '54000000-0000-0000-0000-000000000003';
+select pg_temp.erro2($$select aur_admin_painel(30)$$, 'equipe Nervia', 'aura 1.7: gestão recusada para quem não é da equipe Nervia');
+select pg_temp.erro2($$select aur_admin_bloquear('54000000-0000-0000-0000-000000000003', true, 'teste de abuso')$$, 'equipe Nervia', 'aura 1.7: moderação recusada para quem não é da equipe Nervia');
+reset role;
+set role anon;
+reset request.jwt.claim.sub;
+select pg_temp.erro2($$select aur_admin_painel(30)$$, 'permission denied', 'aura 1.7: sem login não chega na gestão');
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+create temp table aurg as select aur_admin_painel(30) p;
+reset role;
+select pg_temp.ok((select (p -> 'pessoas' ->> 'cartoes')::int = (select count(*) from aur_cartoes)
+    and (p -> 'avaliacoes' ->> 'total')::int = (select count(*) from aur_notas)
+    and (p -> 'pedidos' ->> 'total')::int = (select count(*) from aur_leituras)
+    and jsonb_array_length(p -> 'por_dia') = 30 and jsonb_array_length(p -> 'avaliacoes' -> 'estrelas') = 5
+    and p -> 'cartoes' -> 0 ->> 'id' ~ '^AU#[0-9A-F]{6}$' from aurg),
+  'aura 1.7: painel com pessoas, avaliações, pedidos, 30 dias, estrelas e o ID da gestão');
+select pg_temp.ok((select not (p::text ~ 'codigo|marca|chave') from aurg), 'aura 1.7: o painel não traz QR, marca do aparelho nem chave');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select pg_temp.erro2($$select aur_admin_bloquear('54000000-0000-0000-0000-000000000003', true, 'x')$$, 'motivo', 'aura 1.7: bloquear exige motivo');
+select aur_admin_bloquear('54000000-0000-0000-0000-000000000003', true, 'nome ofensivo');
+reset role;
+set role anon;
+reset request.jwt.claim.sub;
+select pg_temp.ok((aur_cartao_ler((select cod from aurc6)) ->> 'bloqueado')::boolean and aur_cartao_ler((select cod from aurc6)) -> 'nome' is null,
+  'aura 1.7: cartão bloqueado não mostra nome nem foto para quem lê o QR');
+select pg_temp.erro2($$select aur_avaliar((select cod from aurc6), 'aparelho-leitor-00009', 4)$$, 'indisponível', 'aura 1.7: cartão bloqueado não recebe avaliação');
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '54000000-0000-0000-0000-000000000003';
+select pg_temp.ok((aur_meu_cartao() ->> 'bloqueado')::boolean and aur_meu_cartao() ->> 'bloqueado_motivo' = 'nome ofensivo', 'aura 1.7: o dono vê que está bloqueado e o motivo');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select aur_admin_bloquear('54000000-0000-0000-0000-000000000003', false, '');
+select aur_cartao_salvar('Admin com cartão', 'data:image/webp;base64,AAAA');
+select aur_admin_tirar_foto('00000000-0000-0000-0000-00000000000a', 'foto de teste');
+reset role;
+select pg_temp.ok((select not bloqueado from aur_cartoes where user_id = '54000000-0000-0000-0000-000000000003')
+    and (select foto is null from aur_cartoes where user_id = '00000000-0000-0000-0000-00000000000a')
+    and (select count(*) = 1 from auditoria where acao = 'aura_cartao_bloqueado' and detalhes ->> 'motivo' = 'nome ofensivo')
+    and exists (select 1 from auditoria where acao = 'aura_cartao_desbloqueado') and exists (select 1 from auditoria where acao = 'aura_foto_retirada'),
+  'aura 1.7: desbloquear, tirar foto e tudo na auditoria com o motivo');
+select pg_temp.ok(exists (select 1 from apps where id = 'aura' and url = '/apps/aura/' and situacao = 'oculto'), 'aura 1.7: app de gestão na Área do Cliente, fora da vitrine');
+reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'
