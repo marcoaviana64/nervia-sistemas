@@ -215,6 +215,7 @@ async function telaAvaliar(codigo) {
   let c;
   try { c = await rpc("aur_cartao_ler", { p_codigo: codigo, p_marca: aparelho() }); }
   catch (e) { tela.innerHTML = `<div class="card"><p class="err">${esc(erroTxt(e))}</p></div>`; return; }
+  if (c && c.bloqueado) { tela.innerHTML = `<div class="card"><h2>Cartão indisponível</h2><p>Este cartão está indisponível no momento e não recebe avaliações.</p><button class="btn o" id="bIr">Conhecer o NVAura</button></div>`; $("bIr").onclick = irInicio; return; }
   if (!c) { tela.innerHTML = `<div class="card"><h2>Cartão não encontrado</h2><p>O QR pode ter sido trocado pela pessoa. Peça para ela mostrar o cartão de novo.</p><button class="btn o" id="bIr">Conhecer o NVAura</button></div>`; $("bIr").onclick = irInicio; return; }
   if (c.meu) { tela.innerHTML = `${cartaoHtml(c)}<div class="card m"><p>Este é o seu cartão. Mostre o QR para a outra pessoa ler com o celular dela.</p><button class="btn a" id="bIr">Abrir o meu NVAura</button></div>`; $("bIr").onclick = irInicio; return; }
   let nota = 0;
@@ -225,7 +226,7 @@ async function telaAvaliar(codigo) {
   <p class="rot" id="rot"></p>
   <button class="btn a" id="bEnvia" disabled>Enviar avaliação</button><div id="mEnv"></div>
   <p class="hint" style="text-align:center;margin-top:10px">É anônimo: ${esc(c.nome)} não fica sabendo quem deu cada nota. O cartão só muda quando juntam 5 avaliações novas.</p></div>
-  <p class="lab">NVAura · laboratório da Nervia Tecnologia</p>`;
+  <p class="lab"><a href="/aura/sobre.html">Como funciona o NVAura</a> · laboratório da Nervia Tecnologia</p>`;
   const pinta = () => {
     tela.querySelectorAll(".grandes button").forEach((b) => b.classList.toggle("on", +b.dataset.v <= nota));
     $("rot").textContent = ROT[nota]; $("bEnvia").disabled = !nota;
@@ -288,7 +289,7 @@ function telaEntrar() {
     <button class="btn" id="bChave">Entrar</button><div id="mChave"></div>
   </form>
   ${anonimato()}
-  <p class="lab">NVAura · laboratório da Nervia Tecnologia</p>`;
+  <p class="lab"><a href="/aura/sobre.html">Como funciona o NVAura</a> · laboratório da Nervia Tecnologia</p>`;
   $("fCriar").addEventListener("submit", async (ev) => {
     ev.preventDefault();
     const nome = $("eNome").value.trim(), m = $("mCriar"), b = $("bCriar");
@@ -391,6 +392,10 @@ $("nav").addEventListener("click", (e) => { const b = e.target.closest("button[d
 
 function telaCartao() {
   const url = ENDERECO + "#a-" + CART.codigo;
+  if (CART.bloqueado) {
+    tela.innerHTML = `<div class="card" style="border:2px solid var(--red)"><h2>Seu cartão está bloqueado</h2><p>A equipe Nervia bloqueou este cartão${CART.bloqueado_motivo ? `: <b>${esc(CART.bloqueado_motivo)}</b>` : ""}. Enquanto estiver bloqueado, o QR não recebe avaliações e você não aparece no radar.</p><p class="hint">Para falar sobre o bloqueio: atendimento@nervia.com.br.</p></div>${cartaoHtml(CART)}`;
+    return;
+  }
   tela.innerHTML = `${cartaoHtml(CART, qrSvg(url))}
   <div class="duo"><button class="btn a" id="bQr">Mostrar o QR grande</button><button class="btn o" id="bImp">Imprimir cartão</button></div>
   <button class="btn o" id="bEdita">Trocar foto ou nome</button>
@@ -511,7 +516,7 @@ function telaConta() {
   <p class="hint">Código no radar hoje: <b>${esc(CART.id_dia)}</b> (muda todo dia; não é a chave) · radar ${CART.mapa_visivel ? "ligado" : "desligado"}</p>
   <button class="btn o" id="bSair">Sair</button></div>
   <div class="card"><h3>Trocar o QR</h3><p class="hint">Se o seu QR (ou o cartão impresso) foi copiado por quem não devia, gere um novo. O antigo deixa de funcionar; as suas notas continuam.</p><button class="btn o" id="bTroca">Gerar QR novo</button><div id="mTroca"></div></div>
-  ${anonimato()}<div class="card"><a href="/aura/ajuda/manual.html" target="_blank" rel="noopener">Manual</a> · <a href="/aura/ajuda/cartao.html" target="_blank" rel="noopener">Cartão rápido</a></div>
+  ${anonimato()}<div class="card"><a href="/aura/sobre.html" target="_blank" rel="noopener">Como funciona o NVAura</a> · <a href="/aura/ajuda/manual.html" target="_blank" rel="noopener">Manual</a> · <a href="/aura/ajuda/cartao.html" target="_blank" rel="noopener">Cartão rápido</a></div>
   <div class="card"><h3>Apagar meu cartão</h3><p class="hint">Apaga o cartão, a foto, as notas recebidas e a posição no radar. A chave continua valendo (e no NVSintonia, se você usa).</p><button class="btn r" id="bApaga">Apagar tudo do NVAura</button></div>
   <p class="lab">NVAura <span data-versao="aura"></span> · laboratório da Nervia Tecnologia</p>`;
   if (window.NERVIA_VERSOES?.aura) tela.querySelector("[data-versao]").textContent = "versão " + window.NERVIA_VERSOES.aura[0][0];

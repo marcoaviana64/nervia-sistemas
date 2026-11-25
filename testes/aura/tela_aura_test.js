@@ -11,7 +11,7 @@ const { Pool } = require("pg");
 const RAIZ = path.resolve(__dirname, "..", ".."), SITE = path.join(RAIZ, "site");
 const SAIDA = process.argv[2] || fs.mkdtempSync(path.join(os.tmpdir(), "aura-"));
 const PORTA = 8847, DB = "teste_aura", BASE = `http://127.0.0.1:${PORTA}`;
-const BIA = "71000000-0000-0000-0000-000000000002";
+const BIA = "71000000-0000-0000-0000-000000000002", ADM = "71000000-0000-0000-0000-00000000000a";
 const PGC = { host: process.env.PGHOST || "127.0.0.1", port: +(process.env.PGPORT || 5432), user: process.env.PGUSER || "postgres", password: process.env.PGPASSWORD };
 
 let falhas = 0, oks = 0;
@@ -28,7 +28,8 @@ async function prepararBanco() {
     { env: { ...process.env, PGPASSWORD: PGC.password }, stdio: ["ignore", "ignore", "pipe"] });
   fs.unlinkSync(tmp);
   const pool = new Pool({ ...PGC, database: DB });
-  await pool.query(`insert into auth.users (id, email, raw_user_meta_data) values ($1, 'bia@exemplo.test', '{"nome":"Bia"}')`, [BIA]);
+  await pool.query(`insert into auth.users (id, email, raw_user_meta_data) values ($1, 'bia@exemplo.test', '{"nome":"Bia"}'), ($2, 'equipe@nervia.test', '{"nome":"Equipe"}')`, [BIA, ADM]);
+  await pool.query("update perfis set admin = true where user_id = $1", [ADM]);
   return pool;
 }
 
@@ -277,6 +278,42 @@ const semRolagem = async (pg) => pg.evaluate(() => document.documentElement.scro
     const pos = await um(pool, "select lat::text, lon::text from aur_posicoes where user_id = $1", [BIA]);
     ok(pos.lat === "-22.903" && pos.lon === "-43.203", "radar: o banco guarda só a quadra");
     todosErros.push(...B.erros); await B.ctx.close();
+
+    // ---------- 1.7: gestão (login do ecossistema, só equipe Nervia) e moderação
+    {
+      const X = await pagina(browser, BIA, { email: "bia@exemplo.test" });
+      await X.pg.goto(BASE + "/apps/aura/"); await X.pg.waitForSelector("text=Gestão só da equipe Nervia");
+      ok(true, "gestão: login comum (sem ser da equipe Nervia) não abre");
+      todosErros.push(...X.erros); await X.ctx.close();
+      const G = await pagina(browser, ADM, { email: "equipe@nervia.test", viewport: { width: 1200, height: 900 } });
+      await G.pg.goto(BASE + "/apps/aura/"); await G.pg.waitForSelector(".kpis");
+      const kt = await G.pg.textContent(".kpis");
+      ok(/2\s*pessoas com cartão/.test(kt) && /5\s*avaliações/.test(kt) && /4,2/.test(kt), "gestão: pessoas, avaliações e nota média");
+      ok(/Ana Lima/.test(await G.pg.textContent("main, body")) && (await G.pg.$$(".colunas .d")).length === 30, "gestão: mais avaliados e gráfico de 30 dias");
+      await G.pg.screenshot({ path: path.join(SAIDA, "07-gestao.png"), fullPage: true });
+      await G.pg.click('.aba[data-v="cartoes"]'); await G.pg.waitForSelector("[data-bloq]");
+      const anaId = (await um(pool, "select user_id from aur_cartoes where nome = 'Ana Lima'")).user_id;
+      await G.pg.click(`[data-bloq="${anaId}"]`); await G.pg.click("#dSim"); await G.pg.waitForSelector("#dM .msg.err");
+      ok(/motivo/.test(await G.pg.textContent("#dM")), "gestão: bloquear sem motivo é recusado");
+      await G.pg.fill("#mot", "teste de moderação"); await G.pg.click("#dSim"); await G.pg.waitForSelector(`[data-desb="${anaId}"]`);
+      ok(/bloqueado: teste de moderação/.test(await G.pg.textContent("#tela")), "gestão: cartão bloqueado com o motivo");
+      await G.pg.screenshot({ path: path.join(SAIDA, "08-gestao-cartoes.png"), fullPage: true });
+      const V3 = await pagina(browser, null); IP = 50;
+      await V3.pg.goto(BASE + "/aura/#a-" + cod); await V3.pg.waitForSelector("text=Cartão indisponível");
+      ok(!/Ana Lima/.test(await V3.pg.textContent("main")), "bloqueado: quem lê o QR vê \"indisponível\", sem nome nem foto");
+      todosErros.push(...V3.erros); await V3.ctx.close();
+      await pa.reload(); await pa.waitForSelector("text=Seu cartão está bloqueado");
+      ok(/teste de moderação/.test(await pa.textContent("main")), "bloqueado: o dono vê o aviso e o motivo");
+      await G.pg.click(`[data-desb="${anaId}"]`); await G.pg.fill("#mot", "revisado"); await G.pg.click("#dSim"); await G.pg.waitForSelector(`[data-bloq="${anaId}"]`);
+      ok(!!(await um(pool, "select 1 from auditoria where acao = 'aura_cartao_bloqueado'")) && !!(await um(pool, "select 1 from auditoria where acao = 'aura_cartao_desbloqueado'")), "gestão: bloqueio e desbloqueio na auditoria");
+      todosErros.push(...G.erros); await G.ctx.close();
+      await pa.reload(); await pa.waitForSelector("#meuCartao .qr svg");
+      const S = await pagina(browser, null);
+      await S.pg.goto(BASE + "/aura/sobre.html"); await S.pg.waitForSelector("text=Inspirado em");
+      ok(/Queda Livre/.test(await S.pg.textContent("body")) && /Ninguém sabe quem deu cada nota/.test(await S.pg.textContent("body")) && await semRolagem(S.pg), "página de apresentação: como funciona, anonimato e Queda Livre, sem rolagem lateral");
+      await S.pg.screenshot({ path: path.join(SAIDA, "09-sobre.png"), fullPage: true });
+      todosErros.push(...S.erros); await S.ctx.close();
+    }
 
     // ---------- trocar o QR invalida o antigo
     await pa.click('#nav [data-aba="conta"]'); await pa.click("#bTroca"); await pa.click("#cSim"); await pa.waitForSelector("text=QR novo pronto");
