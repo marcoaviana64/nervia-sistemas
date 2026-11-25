@@ -12,7 +12,7 @@ function falso(op: { limite?: boolean; entrar?: boolean; usuario?: { id: string;
       limiteEntrar: async () => op.entrar ?? true,
       chaveNova: async () => ({ chave: "K7QM-4XPA-9TRD", email: "s-aaa@sintonia.nervia.com.br" }),
       emailDaChave: async (k: string) => (/^[2-9A-HJ-NP-Z]{12}$/.test(k.toUpperCase().replace(/[^0-9A-Z]/gi, "")) ? "s-bbb@sintonia.nervia.com.br" : null),
-      criarUsuario: async (e: string, s: string, n: string) => { log.push(`criar ${e} ${s} ${n}`); return "u1"; },
+      criarUsuario: async (e: string, s: string, n: string, o: string) => { log.push(`criar ${e} ${s} ${n} ${o}`); return "u1"; },
       usuarioDoToken: async () => op.usuario ?? null,
       trocarLogin: async (id: string, e: string, s: string) => { log.push(`trocar ${id} ${e} ${s}`); },
       auditar: async (id: string, a: string) => { log.push(`auditar ${id} ${a}`); },
@@ -28,7 +28,7 @@ Deno.test("criar: só com nome; devolve a chave uma vez; o usuário nasce com e-
   const f = falso();
   const r = await atender({ acao: "criar", nome: " Ana " }, "1.1.1.1", "", f.c);
   nodeAssert.deepStrictEqual([r.status, r.corpo.chave, r.corpo.email], [200, "K7QM-4XPA-9TRD", "s-aaa@sintonia.nervia.com.br"]);
-  nodeAssert.deepStrictEqual(f.log, ["criar s-aaa@sintonia.nervia.com.br Sn!K7QM4XPA9TRDk7qm4xpa9trd Ana", "auditar u1 sintonia_conta_criada"]);
+  nodeAssert.deepStrictEqual(f.log, ["criar s-aaa@sintonia.nervia.com.br Sn!K7QM4XPA9TRDk7qm4xpa9trd Ana sintonia", "auditar u1 sintonia_conta_criada"]);
   nodeAssert.equal((await atender({ acao: "criar", nome: "" }, "", "", falso().c)).status, 400);
   nodeAssert.equal((await atender({ acao: "criar", nome: "Ana" }, "", "", falso({ limite: false }).c)).status, 429);
 });
@@ -44,4 +44,10 @@ Deno.test("converter: só com login de e-mail; mesmo usuário ganha a chave e pe
   const r = await atender({ acao: "converter" }, "", "t", f.c);
   nodeAssert.equal(r.corpo.chave, "K7QM-4XPA-9TRD");
   nodeAssert.deepStrictEqual(f.log, ["trocar u9 s-aaa@sintonia.nervia.com.br Sn!K7QM4XPA9TRDk7qm4xpa9trd", "auditar u9 sintonia_email_trocado_por_chave"]);
+});
+Deno.test("NVAura: criar com app aura usa a mesma chave, marca a origem e audita aura_conta_criada", async () => {
+  const f = falso();
+  const r = await atender({ acao: "criar", nome: "Bia", app: "aura" }, "1.1.1.1", "", f.c);
+  nodeAssert.equal(r.status, 200);
+  nodeAssert.deepStrictEqual(f.log, ["criar s-aaa@sintonia.nervia.com.br Sn!K7QM4XPA9TRDk7qm4xpa9trd Bia aura", "auditar u1 aura_conta_criada"]);
 });

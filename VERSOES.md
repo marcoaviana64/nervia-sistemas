@@ -192,6 +192,12 @@ Ao publicar mudança num app: linha nova no topo do app aqui (com a data) e em `
 | 1.1 | 09/11/2026 | Foro por cliente: cada cliente tem o foro eleito e a sede da arbitragem do contrato (montados pela cidade e UF), para contratos fora do Rio de Janeiro; sem preencher, vale o padrão da Configuração. |
 | 1.0 | 09/11/2026 | Lançamento: contratos de prestação de serviço da Nervia, do Word ao recebimento — contrato gerado pelo modelo de mala direta, envio e assinatura com o PDF guardado, cobranças de cada mês (com a parcela extra de dezembro), NF até o dia 5, conferência com o extrato OFX do Nubank e resumo gerencial. |
 
+## NVAura (`aura`, laboratório em site/aura/)
+
+| Versão | Data | O que mudou |
+|---|---|---|
+| 1.0 | 25/11/2026 | Lançamento (laboratório): o seu cartão com foto, nome, estrelas e QR code. Quem conversou com você lê o QR e dá de 1 a 5 estrelas para a conversa, sem precisar de conta e sem se identificar. O cartão muda a cada 5 avaliações novas, pode ser impresso como cartão de visita, e o Radar mostra as auras por perto só pelo código do dia e pela nota. (pedido do Marco em 24/11/2026; app separado do NVSintonia; migração aura: aur_cartoes/aur_notas/aur_avaliados/aur_posicoes/aur_ids_dia, lote de 5, 1 avaliação por aparelho por cartão por dia, notas de 1 a 5; conta pela função sintonia-conta com app "aura") |
+
 ## NVSintonia (`sintonia`, laboratório em site/sintonia/)
 
 | Versão | Data | O que mudou |

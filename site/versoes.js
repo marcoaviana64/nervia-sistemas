@@ -39,6 +39,9 @@ window.NERVIA_VERSOES = {
     ["1.1", "O fornecedor envia a proposta sozinho, sem login, pelo link do convite (WhatsApp ou e-mail), com PDF opcional."],
     ["1.0", "Lançamento: requisição, propostas, mapa comparativo, aprovação por alçada (Gerente e Diretor), pedido e avaliação do fornecedor."],
   ],
+  "aura": [
+    ["1.0", "Lançamento (laboratório): o seu cartão com foto, nome, estrelas e QR code. Quem conversou com você lê o QR e dá de 1 a 5 estrelas para a conversa, sem precisar de conta e sem se identificar. O cartão muda a cada 5 avaliações novas, pode ser impresso como cartão de visita, e o Radar mostra as auras por perto só pelo código do dia e pela nota."],
+  ],
   "sintonia": [
     ["1.3", "360° profissional com 5 competências: Liderança e capacidade de decisão, Comunicação e relacionamento interpessoal, Comprometimento e responsabilidade, Iniciativa e resolução de problemas e Trabalho em equipe e desenvolvimento de pessoas. Escala de 0 (não demonstra essa competência) a 5 (é uma referência), a mesma do pessoal, com Não tenho condições de avaliar."],
     ["1.2", "Perguntas novas no modelo pessoal: Respeito e consideração, Confiança e credibilidade, Empatia e relacionamento, Comunicação e convivência e Influência e contribuição, cada uma escrita do jeito de quem responde (convite, autoavaliação ou encontro). Nova opção: Não tenho condições de avaliar, que não conta na média. As avaliações feitas com as perguntas antigas foram zeradas."],
