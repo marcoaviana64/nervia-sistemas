@@ -208,8 +208,8 @@ const semRolagem = async (pg) => pg.evaluate(() => document.documentElement.scro
       const V = await pagina(browser, null);
       await V.pg.goto(BASE + "/aura/#a-" + cod); await V.pg.waitForSelector("#bEnvia");
       if (i === 0) {
-        ok(/Como foi a nossa conversa/.test(await V.pg.textContent("main")) && /Ana Lima/.test(await V.pg.textContent("#meuCartao")) && !(await V.pg.$("#meuCartao .qr")),
-          "quem lê o QR: vê o cartão (sem o QR) e só a pergunta da conversa");
+        ok(/Como foi a nossa interação/.test(await V.pg.textContent("main")) && /Ana Lima/.test(await V.pg.textContent("#meuCartao")) && !(await V.pg.$("#meuCartao .qr")),
+          "quem lê o QR: vê o cartão (sem o QR) e só a pergunta da interação");
         ok(await V.pg.isDisabled("#bEnvia"), "avaliar: enviar só depois de escolher as estrelas");
         await V.pg.screenshot({ path: path.join(SAIDA, "02-avaliar.png"), fullPage: true });
       }
