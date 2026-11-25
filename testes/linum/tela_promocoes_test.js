@@ -55,6 +55,7 @@ const FALSO = `(() => {
       p.itens.forEach(i => S.pitens.push({ id: S.seq++, promocao_id: id, produto_id: i.produto_id, variante_id: i.variante_id, preco: Number(i.preco) })); return ok(id); },
     lin_promocao_cancelar: ({ p_id, p_motivo }) => { Object.assign(S.promos.find(x => x.id === p_id), { cancelada_em: new Date().toISOString(), cancelada_nome: 'Estoque', motivo_cancelamento: p_motivo }); return ok(null); },
     lin_promocoes_resumo: () => ok({}),
+    lin_promocao_vendas: () => ['dono', 'estoque'].includes(S.D.papel) ? ok(S.pvRows || []) : erro('Somente o Dono ou o Estoque vê as vendas das promoções'),
     lin_catalogo: () => ok({ produtos: S.D.produtos.map(p => ({ id: p.id, referencia: p.referencia, descricao: p.descricao, categoria: p.categoria, preco_venda: p.preco_venda, ativo: true })),
       variantes: S.D.produtos.flatMap(p => p.variantes.map(v => Object.assign({ produto_id: p.id, ativo: true }, v))) }),
     lin_venda_comprovante: ({ p_venda, p_cvs }) => { const v = S.vendas.find(x => x.id === p_venda);
@@ -149,7 +150,35 @@ const somaD = (d, n) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.g
     ok(r && r.p.nome === 'Semana do Linho' && r.p.loja_id === null && r.p.inicio === hoje && r.p.fim === somaD(hoje, 6) && r.p.itens[0].produto_id === 'p1' && r.p.itens[0].variante_id === null && r.p.itens[0].preco === '1349.90' && r.p.itens.length === 3,
       'grava nome, todas as lojas, 7 dias a partir de hoje e a peça com o preço');
     const t = await e.pg.locator('#tela').innerText();
-    ok(t.includes('Semana do Linho') && t.includes('Valendo') && t.includes('todas as cores e tamanhos') && t.includes('Todas as lojas'), 'lista mostra a promoção valendo');
+    ok(t.includes('Semana do Linho') && t.includes('Valendo') && t.includes('Todas as lojas'), 'lista mostra a promoção valendo');
+    // 2.65: peças da promoção em quadros, como no Estoque, uma faixa por loja
+    ok(await e.pg.locator('.prlista .prod').count() === 2 && await e.pg.locator('.prlista .prod').nth(1).locator('.loja').count() === 2
+      && await e.pg.locator('.prlista .prod').nth(1).locator('.chip').count() === 2 && (await e.pg.locator('.prlista .prod').nth(1).innerText()).includes('1.349,90')
+      && (await e.pg.locator('.prlista .prod').first().innerText()).startsWith('Blusa'),
+      '2.65: peças da promoção em quadros por loja (só as cores/tamanhos da promoção, com o preço)');
+    ok(await e.pg.locator('.prlista .prod').first().locator('.loja[data-loja="l-ipa"] .chip').count() === 2, '2.65: peça com cores marcadas mostra só elas');
+    await e.pg.click('#przero'); await e.pg.waitForTimeout(150);
+    ok(await e.pg.locator('.prlista .loja[data-loja="l-gav"]').count() === 1 && await e.pg.locator('.prlista .prod').first().locator('.loja[data-loja="l-gav"]').count() === 0,
+      '2.65: "Ocultar zerados" tira a loja sem peça');
+    await e.pg.click('#przero'); await e.pg.waitForTimeout(150);
+    // 2.65: vendas da promoção (consulta + PDF + CSV), Dono e Estoque
+    await e.pg.evaluate(() => { window.__S.pvRows = [
+      { venda: 31, data: '2026-11-24', loja_id: 'l-ipa', loja: 'Ipanema', vendedora: null, variante_id: 'v1', produto_id: 'p1', referencia: 'A25', descricao: 'Vestido Artesanal', cor: 'Natural', tamanho: 'G', edicao: '',
+        quantidade: 2, preco_tabela: 1799, valor_unitario: 1349.9, liquido: 1349.9, desconto_geral: false },
+      { venda: 32, data: '2026-11-25', loja_id: 'l-gav', loja: 'Gávea', vendedora: null, variante_id: 'w1', produto_id: 'p2', referencia: 'B10', descricao: 'Blusa Linho', cor: 'Cru', tamanho: 'P', edicao: '',
+        quantidade: 1, preco_tabela: 500, valor_unitario: 500, liquido: 399.9, desconto_geral: true }]; });
+    await e.pg.click('[data-prvend]'); await e.pg.waitForSelector('#dlg[open] #pvfim');
+    const pv = await e.pg.locator('#dlgf').innerText();
+    ok(pv.includes('Peças vendidas') && pv.includes('3') && pv.includes('3.099,70') && pv.includes('Por peça') && pv.includes('Por loja') && pv.includes('Gávea') && pv.includes('Por dia') && !pv.includes('Por vendedora'),
+      '2.65: vendas da promoção com totais, por peça, por loja e por dia (Estoque não vê vendedora)');
+    ok(pv.includes('desconto dado no total da venda'), '2.65: marca a peça com desconto geral');
+    const [dl] = await Promise.all([e.pg.waitForEvent('download'), e.pg.click('#pvcsv')]);
+    const csv = fs.readFileSync(await dl.path(), 'utf8');
+    ok(csv.includes('Vendido (líquido)') && csv.includes('"399,90"') && csv.split('\r\n').length === 3, '2.65: CSV das peças vendidas');
+    const [pop] = await Promise.all([e.pg.waitForEvent('popup'), e.pg.click('#pvpdf')]);
+    await pop.waitForLoadState(); const pt = await pop.locator('body').innerText();
+    ok(pt.includes('Vendas da promoção') && pt.includes('Semana do Linho') && pt.includes('Blusa Linho'), '2.65: relatório para imprimir/PDF');
+    await pop.close(); await e.pg.click('#pvfim');
     await print(e.pg, 'promo_lista');
     ok(e.erros.length === 0, 'sem erro de JavaScript (Estoque) ' + e.erros.join(' | '));
 

@@ -18,7 +18,7 @@ const DADOS = {
 };
 const venda = (id, vend, pags) => ({ id, data: hoje, loja_id: 'l-ipa', vendedora_id: vend, vendedora_nome: vend === 'u-vendedora' ? 'Beatriz' : 'Bia Outra',
   cliente_id: id === 6 ? 'c1' : null, valor_bruto: 849, valor_itens: 849, desconto: 0, valor_total: 849, credito_usado: 0, valor_nf: 849, comissao_pct: 0, comissao_valor: 0,
-  pagamentos: pags, observacao: '', criado_nome: 'Beatriz', criado_em: new Date().toISOString(), cancelada_em: null });
+  pagamentos: pags, observacao: id === 6 ? 'Nota interna: cliente difícil' : '', criado_nome: 'Beatriz', criado_em: new Date().toISOString(), cancelada_em: null });
 
 const FALSO = `(() => {
   const S = window.__S = { D: ${JSON.stringify(DADOS)}, rpc: [],
@@ -115,6 +115,8 @@ const bytesTexto = b => Buffer.from(b).toString('utf8');
     ok(prev.includes('EXTRATO DA VENDA Nº 6') && prev.includes('Não é documento fiscal') && prev.includes('Maria Fictícia') && prev.includes('CPF 111.222.333-44')
       && prev.includes('A25 Vestido Artesanal') && prev.includes('CV 189435334') && prev.includes('Rua Visconde de Pirajá') && prev.includes('22410-002') && prev.includes('3734-1350') && prev.includes('atendimento@linummm.com.br'), 'prévia do extrato com venda, cliente, peça, CV e endereço da loja');
     ok(!prev.includes('omiss'), 'extrato sem comissão');
+    ok(!prev.includes('Nota interna') && !prev.includes('Obs.'), '2.65: a observação da venda (só da Linum) não sai no extrato');
+    ok((await pg.locator('#dlg').innerText()).includes('Nota interna'), '2.65: a observação continua na boleta da tela');
     const largura = await pg.evaluate(() => Math.max(...[...document.querySelectorAll('#tmprev div:not(.g)')].map(d => d.textContent.length)));
     ok(largura <= 48, 'nenhuma linha passa de 48 colunas (' + largura + ')');
     await print(pg, 'termica_previa');

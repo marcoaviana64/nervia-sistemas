@@ -1573,7 +1573,7 @@ function imprimirVenda(v, its, c) {
       ${Number(v.credito_usado) ? cx("Crédito da cliente usado", brl(v.credito_usado)) + cx("Valor da nota fiscal", `<b>${brl(v.valor_nf)}</b>`) : ""}</div>
     <div class="tit">Pagamento</div>
     <div class="lin">${(v.pagamentos || []).length ? v.pagamentos.map(p => cx(esc(FORMAS[p.forma] || p.forma) + (p.forma === "credito" ? ` em ${p.parcelas}x` : "") + (eCartao(p) && p.cv ? ` · CV ${esc(p.cv)}` : ""), brl(p.valor))).join("") : cx("Forma", "—")}</div>
-    ${v.observacao ? `<div class="tit">Observações</div><div class="cx obs">${esc(v.observacao)}</div>` : ""}
+    ${""/* 2.65: a observação da venda é só da Linum: não sai na ficha */}
     ${v.cancelada_em ? `<div class="tit">Cancelamento</div><div class="cx">Cancelada por ${esc(v.cancelada_nome || "")} em ${quando(v.cancelada_em)}: ${esc(v.motivo_cancelamento || "")}</div>` : ""}
     <div class="ass"><div>Cliente</div><div>Vendedora</div></div>
     <div class="aviso" style="margin-top:10px">Emitida em ${quando(new Date().toISOString())} · Sistema Linum</div>

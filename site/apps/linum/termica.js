@@ -157,7 +157,7 @@ function termExtrato(v, its, c, w) {
     par((FORMAS[p.forma] || p.forma) + (p.forma === "credito" ? ` em ${p.parcelas}x` : ""), brl(p.valor));
     if (eCartao(p) && p.cv) linha("  CV " + p.cv);
   });
-  if (v.observacao) { sep(); quebra("Obs.: " + v.observacao); }
+  // 2.65: a observação da venda é só da Linum: não sai no papel da cliente
   sep();
   quebra("Prazo de troca: 30 dias, com esta via e a etiqueta na peça.", { c: 1 });
   linha(""); quebra("Obrigada pela preferência!", { c: 1, b: 1 });
