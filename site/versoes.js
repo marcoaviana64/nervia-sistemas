@@ -40,10 +40,12 @@ window.NERVIA_VERSOES = {
     ["1.0", "Lançamento: requisição, propostas, mapa comparativo, aprovação por alçada (Gerente e Diretor), pedido e avaliação do fornecedor."],
   ],
   "aura": [
+    ["1.2", "O app sempre confere a versão nova ao abrir, em vez de mostrar uma cópia antiga guardada no celular."],
     ["1.1", "A chave de acesso ficou mais clara: na criação, Salvar num arquivo e Enviar para mim; na aba Cartão, um lembrete com Ver a minha chave; o topo mostra o seu nome, e o código do Radar avisa que não é a chave."],
     ["1.0", "Lançamento (laboratório): o seu cartão com foto, nome, estrelas e QR code. Quem conversou com você lê o QR e dá de 1 a 5 estrelas para a conversa, sem precisar de conta e sem se identificar. O cartão muda a cada 5 avaliações novas, pode ser impresso como cartão de visita, e o Radar mostra as auras por perto só pelo código do dia e pela nota."],
   ],
   "sintonia": [
+    ["1.4", "O app sempre confere a versão nova ao abrir, em vez de mostrar uma cópia antiga guardada no celular."],
     ["1.3", "360° profissional com 5 competências: Liderança e capacidade de decisão, Comunicação e relacionamento interpessoal, Comprometimento e responsabilidade, Iniciativa e resolução de problemas e Trabalho em equipe e desenvolvimento de pessoas. Escala de 0 (não demonstra essa competência) a 5 (é uma referência), a mesma do pessoal, com Não tenho condições de avaliar."],
     ["1.2", "Perguntas novas no modelo pessoal: Respeito e consideração, Confiança e credibilidade, Empatia e relacionamento, Comunicação e convivência e Influência e contribuição, cada uma escrita do jeito de quem responde (convite, autoavaliação ou encontro). Nova opção: Não tenho condições de avaliar, que não conta na média. As avaliações feitas com as perguntas antigas foram zeradas."],
     ["1.1", "Conta sem e-mail: você recebe uma chave secreta para anotar e entra com ela em qualquer celular (perdeu a chave, perdeu a conta). Quem entrou pelo e-mail troca por uma chave em Conta. Novo: texto de como funciona o anonimato e Você na multidão, que mostra onde a sua nota fica entre todas as pessoas do Sintonia."],
