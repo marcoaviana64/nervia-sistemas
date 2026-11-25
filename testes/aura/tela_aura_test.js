@@ -176,9 +176,14 @@ const semRolagem = async (pg) => pg.evaluate(() => document.documentElement.scro
     ok(!!(await um(pool, "select 1 from auditoria where acao = 'aura_conta_criada'")) && !!(await um(pool, "select 1 from auditoria where acao = 'aura_cartao_criado'")), "auditoria: conta e cartão");
     ok((await pa.textContent("#topoInfo")).trim() === "Ana Lima", "topo: mostra o nome, não o código do dia");
     ok(/Para entrar em outro aparelho/.test(await pa.textContent("main")) && !(await pa.textContent("main")).includes(chave), "cartão: lembrete da chave, sem mostrar a chave");
-    await pa.click("#bVerChave"); await pa.waitForSelector("#bVerK"); await pa.click("#bVerK");
-    ok((await pa.textContent("#cK")).trim() === chave, "Ver a minha chave → Conta → Mostrar a chave");
-    await pa.click('#nav [data-aba="cartao"]'); await pa.waitForSelector("#meuCartao");
+    await pa.click("#bVerChave"); await pa.waitForSelector("#dlg[open] #dK");
+    ok((await pa.textContent("#dK")).trim() === chave, "Ver a minha chave: mostra a chave na hora, numa janela");
+    await pa.click("#dFecha");
+    await pa.evaluate(() => localStorage.removeItem("aur-chave"));
+    await pa.click("#bVerChave"); await pa.waitForSelector("#dlg[open]");
+    ok(/não está neste aparelho/.test(await pa.textContent("#dlg")) && /onde você anotou/.test(await pa.textContent("#dlg")), "Ver a minha chave sem a chave guardada: explica onde ela está");
+    await pa.click("#dFecha");
+    await pa.evaluate((k) => localStorage.setItem("aur-chave", k), chave);
     const txt = await pa.textContent("#meuCartao");
     ok(/Ana Lima/.test(txt) && /Ainda sem nota/.test(txt) && !!(await pa.$("#meuCartao .qr svg")) && !!(await pa.$("#meuCartao .ft img")), "cartão: foto, nome, sem nota ainda e QR");
     await pa.screenshot({ path: path.join(SAIDA, "01-cartao.png"), fullPage: true });
