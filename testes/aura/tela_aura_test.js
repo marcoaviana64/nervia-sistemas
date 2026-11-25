@@ -94,6 +94,13 @@ function servidor(pool) {
           await sr("select sin_conta_auditar($1, 'sintonia_email_trocado_por_chave')", [sub]);
           SENHAS.set(k.email, senha(k.chave)); return json(200, { ok: true, ...k });
         }
+        if (b.acao === "nova_chave") {
+          if (!sub) return json(401, { ok: false, mensagem: "Entre na sua conta para gerar uma chave nova." });
+          const k = (await sr("select sin_chave_nova() k")).k;
+          await pool.query("update auth.users set email = $1 where id = $2", [k.email, sub]);
+          await sr("select sin_conta_auditar($1, $2)", [sub, (b.app === "aura" ? "aura" : "sintonia") + "_chave_trocada"]);
+          SENHAS.set(k.email, senha(k.chave)); return json(200, { ok: true, ...k });
+        }
         return json(400, { ok: false, mensagem: "Ação desconhecida." });
       }
       if (url.pathname === "/auth/v1/token" && url.searchParams.get("grant_type") === "password") {
@@ -157,7 +164,7 @@ const semRolagem = async (pg) => pg.evaluate(() => document.documentElement.scro
     ok(/Você é um número/.test(await pa.textContent("main")), "entrada: explica o anonimato");
     await pa.fill("#eNome", "Ana Lima"); await pa.click("#bCriar");
     await pa.waitForSelector("text=Guarde a sua chave de acesso");
-    const chave = (await pa.textContent(".codigo")).trim();
+    let chave = (await pa.textContent(".codigo")).trim();
     ok(/^[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$/.test(chave) && PEDIDOS.contas[0].app === "aura", "conta: chave criada pela função de conta com app aura");
     ok(await pa.isDisabled("#bSegue"), "chave: só segue depois de marcar Guardei");
     ok(/em outro celular, no computador/.test(await pa.textContent("main")) && /não serve para entrar/.test(await pa.textContent("main")), "chave: explica que é o acesso em outro aparelho e que o código do radar não é a chave");
@@ -182,8 +189,13 @@ const semRolagem = async (pg) => pg.evaluate(() => document.documentElement.scro
     await pa.evaluate(() => localStorage.removeItem("aur-chave"));
     await pa.click("#bVerChave"); await pa.waitForSelector("#dlg[open]");
     ok(/não está neste aparelho/.test(await pa.textContent("#dlg")) && /onde você anotou/.test(await pa.textContent("#dlg")), "Ver a minha chave sem a chave guardada: explica onde ela está");
-    await pa.click("#dFecha");
-    await pa.evaluate((k) => localStorage.setItem("aur-chave", k), chave);
+    // sem a chave e dentro da conta: gerar uma chave nova (mesma conta, cartão e dados)
+    await pa.click("#dNova"); await pa.click("#cSim"); await pa.waitForSelector("text=Guarde a sua chave de acesso");
+    const chave2 = (await pa.textContent(".codigo")).trim();
+    ok(chave2 !== chave && /^[2-9A-HJ-NP-Z]{4}-/.test(chave2) && (await pa.evaluate(() => localStorage.getItem("aur-chave"))) === chave2, "chave nova: aparece na tela da chave e já fica guardada no aparelho");
+    await pa.check("#kOk"); await pa.click("#bSegue"); await pa.waitForSelector("#meuCartao");
+    ok(/Ana Lima/.test(await pa.textContent("#meuCartao")) && !!(await um(pool, "select 1 from auditoria where acao = 'aura_chave_trocada'")), "chave nova: mesmo cartão, troca na auditoria");
+    chave = chave2;
     const txt = await pa.textContent("#meuCartao");
     ok(/Ana Lima/.test(txt) && /Ainda sem nota/.test(txt) && !!(await pa.$("#meuCartao .qr svg")) && !!(await pa.$("#meuCartao .ft img")), "cartão: foto, nome, sem nota ainda e QR");
     await pa.screenshot({ path: path.join(SAIDA, "01-cartao.png"), fullPage: true });

@@ -51,3 +51,11 @@ Deno.test("NVAura: criar com app aura usa a mesma chave, marca a origem e audita
   nodeAssert.equal(r.status, 200);
   nodeAssert.deepStrictEqual(f.log, ["criar s-aaa@sintonia.nervia.com.br Sn!K7QM4XPA9TRDk7qm4xpa9trd Bia aura", "auditar u1 aura_conta_criada"]);
 });
+Deno.test("nova chave: só com login de chave; mesma conta ganha chave nova e a troca vai para a auditoria do app", async () => {
+  nodeAssert.equal((await atender({ acao: "nova_chave" }, "", "", falso().c)).status, 401);
+  nodeAssert.equal((await atender({ acao: "nova_chave" }, "", "t", falso({ usuario: { id: "u9", email: "marco@x.com" } }).c)).status, 400);
+  const f = falso({ usuario: { id: "u9", email: "s-x@sintonia.nervia.com.br" } });
+  const r = await atender({ acao: "nova_chave", app: "aura" }, "", "t", f.c);
+  nodeAssert.equal(r.corpo.chave, "K7QM-4XPA-9TRD");
+  nodeAssert.deepStrictEqual(f.log, ["trocar u9 s-aaa@sintonia.nervia.com.br Sn!K7QM4XPA9TRDk7qm4xpa9trd", "auditar u9 aura_chave_trocada"]);
+});
