@@ -129,11 +129,11 @@ function sessao(uid, email) {
     user: { id: uid, aud: "authenticated", role: "authenticated", email } };
 }
 async function pagina(browser, uid, opc = {}) {
-  const { email: _e, ...resto } = opc;
+  const { email: _e, chave = "sb-127-auth-token", ...resto } = opc;   // chave = onde a sessão fica guardada
   const ctx = await browser.newContext({ viewport: { width: 420, height: 860 }, ...resto });
   if (uid) {
     const s = sessao(uid, opc.email);
-    await ctx.addInitScript(`localStorage.setItem('sb-127-auth-token', ${JSON.stringify(JSON.stringify(s))});`);
+    await ctx.addInitScript(`localStorage.setItem(${JSON.stringify(chave)}, ${JSON.stringify(JSON.stringify(s))});`);
   }
   const pg = await ctx.newPage(), erros = [];
   pg.on("pageerror", e => erros.push(String(e)));
@@ -260,7 +260,7 @@ const semRolagem = async (pg) => pg.evaluate(() => document.documentElement.scro
     await pa.click("#bIr"); await pa.waitForSelector("#bQr");
 
     // ---------- radar: Bia cria o cartão (sem foto) e aparece; Ana vê só o código e a nota
-    const B = await pagina(browser, BIA, { email: "bia@exemplo.test", geolocation: { latitude: -22.9030, longitude: -43.2030 }, permissions: ["geolocation"] });
+    const B = await pagina(browser, BIA, { email: "bia@exemplo.test", chave: "nvaura-auth", geolocation: { latitude: -22.9030, longitude: -43.2030 }, permissions: ["geolocation"] });
     await B.pg.goto(BASE + "/aura/"); await B.pg.waitForSelector("text=Monte o seu cartão");
     ok(await B.pg.inputValue("#fNome") === "Bia", "login que já existia: nome do perfil já preenchido");
     await B.pg.click("#bSalva"); await B.pg.waitForSelector("#meuCartao");
@@ -278,6 +278,16 @@ const semRolagem = async (pg) => pg.evaluate(() => document.documentElement.scro
     const pos = await um(pool, "select lat::text, lon::text from aur_posicoes where user_id = $1", [BIA]);
     ok(pos.lat === "-22.903" && pos.lon === "-43.203", "radar: o banco guarda só a quadra");
     todosErros.push(...B.erros); await B.ctx.close();
+
+    // ---------- 1.9: estar entrado na Área do Cliente NÃO abre o NVAura com a conta da Nervia
+    {
+      const E = await pagina(browser, ADM, { email: "equipe@nervia.test" });
+      await E.pg.goto(BASE + "/aura/"); await E.pg.waitForSelector("#fCriar");
+      ok(!(await um(pool, "select 1 from aur_cartoes where user_id = $1", [ADM])), "isolamento: com a sessão da Área do Cliente, o NVAura abre na entrada (sem usar a conta da Nervia)");
+      await E.pg.goto(BASE + "/apps/aura/"); await E.pg.waitForSelector(".kpis");
+      ok(true, "isolamento: a gestão continua usando o login da Área do Cliente");
+      todosErros.push(...E.erros); await E.ctx.close();
+    }
 
     // ---------- 1.7: gestão (login do ecossistema, só equipe Nervia) e moderação
     {

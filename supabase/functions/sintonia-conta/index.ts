@@ -23,10 +23,16 @@ export interface Contas {
   chaveNova(): Promise<{ chave: string; email: string }>;
   emailDaChave(chave: string): Promise<string | null>;
   criarUsuario(email: string, senha: string, nome: string, origem: string): Promise<string>;
-  usuarioDoToken(token: string): Promise<{ id: string; email: string } | null>;
+  usuarioDoToken(token: string): Promise<{ id: string; email: string; origem: string } | null>;
   trocarLogin(id: string, email: string, senha: string): Promise<void>;
   auditar(id: string, acao: string): Promise<void>;
 }
+
+// Só contas criadas pelo NVSintonia/NVAura (user_metadata.origem) podem ter o login trocado aqui. Logins do ecossistema
+// (Área do Cliente, equipe Nervia, clientes) NUNCA: em 23–24/11/2026 a página usou a sessão da Nervia do Marco e trocou o
+// e-mail e a senha dele.
+const CONTAS_DOS_APPS = ["sintonia", "aura"];
+const CONTA_PROTEGIDA = "Esta conta é um login da Nervia: a chave não pode ser trocada por aqui. Saia e crie uma conta do NVAura (ou NVSintonia) só com o nome.";
 
 type Resposta = { status: number; corpo: Record<string, unknown> };
 const falha = (status: number, mensagem: string): Resposta => ({ status, corpo: { ok: false, mensagem } });
@@ -53,6 +59,7 @@ export async function atender(corpo: unknown, ip: string, token: string, c: Cont
   if (p.acao === "converter") {
     const u = token ? await c.usuarioDoToken(token) : null;
     if (!u) return falha(401, "Entre no NVSintonia para trocar o e-mail pela chave.");
+    if (!CONTAS_DOS_APPS.includes(u.origem)) return falha(403, CONTA_PROTEGIDA);
     if (u.email.endsWith("@sintonia.nervia.com.br")) return falha(400, "Esta conta já entra por chave.");
     if (!(await c.limite(ip))) return falha(429, "Muitos pedidos seguidos. Tente de novo mais tarde.");
     const k = await c.chaveNova();
@@ -64,6 +71,7 @@ export async function atender(corpo: unknown, ip: string, token: string, c: Cont
     // quem está dentro da conta troca a chave (perdeu ou não anotou): mesmo usuário e dados; a chave antiga deixa de valer
     const u = token ? await c.usuarioDoToken(token) : null;
     if (!u) return falha(401, "Entre na sua conta para gerar uma chave nova.");
+    if (!CONTAS_DOS_APPS.includes(u.origem)) return falha(403, CONTA_PROTEGIDA);
     if (!u.email.endsWith("@sintonia.nervia.com.br")) return falha(400, "Esta conta entra pelo e-mail: use Trocar o e-mail por uma chave.");
     if (!(await c.limite(ip))) return falha(429, "Muitos pedidos seguidos. Tente de novo mais tarde.");
     const k = await c.chaveNova();
@@ -93,7 +101,7 @@ if (import.meta.main) {
     },
     async usuarioDoToken(token) {
       const { data } = await sb.auth.getUser(token);
-      return data?.user ? { id: data.user.id, email: data.user.email ?? "" } : null;
+      return data?.user ? { id: data.user.id, email: data.user.email ?? "", origem: String(data.user.user_metadata?.origem ?? "") } : null;
     },
     async trocarLogin(id, email, senha) {
       const { error } = await sb.auth.admin.updateUserById(id, { email, password: senha, email_confirm: true });
