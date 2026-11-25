@@ -4108,22 +4108,24 @@ select pg_temp.erro2($$select sin_auto_salvar('p', '{1,1,1,1,1}')$$, 'nova rodad
 select pg_temp.erro2($$select sin_nova_rodada('p')$$, '90 dias', 'sintonia: nova rodada só depois de 90 dias quando já há respostas');
 select sin_nova_rodada('r');
 select pg_temp.ok((sin_espelho('r') ->> 'rodada')::int = 2, 'sintonia: rodada sem respostas pode recomeçar na hora');
--- 360°: gestor aparece com 1 resposta; pares com 3; "não observei" não conta na média
+-- 360° (1.3, 5 competências de 0 a 5): gestor aparece com 1 resposta; pares com 3; "não tenho condições de avaliar" não conta
 reset role;
 set role anon;
 reset request.jwt.claim.sub;
-select pg_temp.erro2($$select sin_responder((select gest from sinc), 'aparelho-g0000000001', '{1,2,3,4,5,null,null,3,4}')$$, 'todos os itens', 'sintonia: 360° exige os 10 itens');
-select pg_temp.erro2($$select sin_responder((select gest from sinc), 'aparelho-g0000000001', '{0,2,3,4,5,null,null,3,4,5}')$$, 'todos os itens', 'sintonia: 360° vai de 1 a 5');
-select sin_responder((select gest from sinc), 'aparelho-g0000000001', '{5,4,4,4,4,null,null,4,4,4}');
-select sin_responder((select pares from sinc), 'aparelho-p000000000' || i, ('{3,3,3,3,3,' || case when i = 1 then 'null' else '5' end || ',3,3,3,3}')::smallint[]) from generate_series(1, 3) i;
+select pg_temp.erro2($$select sin_responder((select gest from sinc), 'aparelho-g0000000001', '{1,2,3,4}')$$, 'todos os itens', 'sintonia: 360° exige as 5 competências');
+select pg_temp.erro2($$select sin_responder((select gest from sinc), 'aparelho-g0000000001', '{1,2,3,4,5,null,null,3,4,5}')$$, 'todos os itens', 'sintonia: 360° antigo de 10 itens recusado');
+select pg_temp.erro2($$select sin_responder((select gest from sinc), 'aparelho-g0000000001', '{0,2,3,4,6}')$$, 'todos os itens', 'sintonia: 360° vai de 0 a 5');
+select pg_temp.erro2($$select sin_responder((select gest from sinc), 'aparelho-g0000000001', '{null,null,null,null,null}')$$, 'todos os itens', 'sintonia: 360° precisa de ao menos uma nota');
+select sin_responder((select gest from sinc), 'aparelho-g0000000001', '{5,4,0,4,null}');
+select sin_responder((select pares from sinc), 'aparelho-p000000000' || i, ('{3,3,3,' || case when i = 1 then 'null' else '5' end || ',3}')::smallint[]) from generate_series(1, 3) i;
 reset role;
 set role authenticated;
 set request.jwt.claim.sub = '51000000-0000-0000-0000-000000000001';
-select sin_auto_salvar('r', '{5,5,5,5,5,5,5,5,5,5}');
-select pg_temp.ok((select (c -> 'medias' ->> 0)::numeric = 5 and c -> 'medias' -> 5 = 'null'::jsonb from jsonb_array_elements(sin_espelho('r') -> 'circulos') c where c ->> 'nome' = 'Gestor'),
-  'sintonia: gestor aparece com 1 resposta; item "não observei" fica vazio');
-select pg_temp.ok((select (c -> 'medias' ->> 5)::numeric = 5 and (c ->> 'liberadas')::int = 3 from jsonb_array_elements(sin_espelho('r') -> 'circulos') c where c ->> 'nome' = 'Pares'),
-  'sintonia: pares aparecem com 3 respostas; "não observei" fica fora da média');
+select sin_auto_salvar('r', '{5,5,5,5,5}');
+select pg_temp.ok((select (c -> 'medias' ->> 0)::numeric = 5 and (c -> 'medias' ->> 2)::numeric = 0 and c -> 'medias' -> 4 = 'null'::jsonb and jsonb_array_length(c -> 'medias') = 5 from jsonb_array_elements(sin_espelho('r') -> 'circulos') c where c ->> 'nome' = 'Gestor'),
+  'sintonia: gestor aparece com 1 resposta; nota 0 conta e "não tenho condições" fica vazio');
+select pg_temp.ok((select (c -> 'medias' ->> 3)::numeric = 5 and (c ->> 'liberadas')::int = 3 from jsonb_array_elements(sin_espelho('r') -> 'circulos') c where c ->> 'nome' = 'Pares'),
+  'sintonia: pares aparecem com 3 respostas; "não tenho condições" fica fora da média');
 -- encontros por QR
 set request.jwt.claim.sub = '51000000-0000-0000-0000-000000000002';
 select sin_perfil_salvar('Bia');
