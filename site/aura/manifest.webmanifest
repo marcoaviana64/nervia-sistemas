@@ -1,7 +1,7 @@
 {
   "name": "NVAura",
   "short_name": "NVAura",
-  "description": "Seu cartão com QR: quem conversou com você dá de 1 a 5 estrelas, de forma anônima. Laboratório da Nervia.",
+  "description": "Seu cartão com QR: quem interagiu com você dá de 1 a 5 estrelas para a interação, de forma anônima. Laboratório da Nervia.",
   "lang": "pt-BR",
   "start_url": "/aura/",
   "scope": "/aura/",
