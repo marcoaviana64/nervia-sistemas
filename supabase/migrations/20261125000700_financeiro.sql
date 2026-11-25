@@ -12,8 +12,9 @@
 --   * saldo na fase 1 = saldo inicial informado + o que for pago/recebido pelo app (e os recebimentos do Contratos na
 --     conta dos contratos) + "Acertar saldo" (motivo obrigatório) para conferir com o banco; extratos na fase 2;
 --   * o imposto (DAS) é uma conta a pagar de verdade (recorrente); o imposto estimado do Contratos é só referência;
---   * CUSTOS RECORRENTES de qualquer tipo, cada um num grupo; o grupo "Plataforma" é o que entra no custo por CNPJ e
---     na margem dos apps (comparação com preco_itens). Toda mudança de custo vai para fin_custos_hist (SOMENTE INCLUSÃO);
+--   * CUSTOS RECORRENTES de qualquer tipo, cada um num grupo; os marcados "plataforma" (como o "Uso" ≠ Empresa da
+--     planilha) entram no custo da plataforma, no custo por CNPJ e na margem dos apps (comparação com preco_itens);
+--     custo em dólar = valor × câmbio × (1 + IOF), como na planilha (IOF 3,5%, Decreto 12.499/2025). Toda mudança de custo vai para fin_custos_hist (SOMENTE INCLUSÃO);
 --   * a planilha "Plataforma Nervia - Investimento.xlsx" vem para o app pela carga (_fin_carga, só pelo SQL do Supabase,
 --     auditoria financeiro_carga); os dados reais não vão para o GitHub.
 --
@@ -58,19 +59,21 @@ create table if not exists public.fin_custos (
   nome            text not null check (length(trim(nome)) > 0),
   fornecedor      text not null default '',
   grupo           text not null default 'Plataforma' check (length(trim(grupo)) > 0),
+  plataforma      boolean not null default true,              -- entra no custo da plataforma (custo por CNPJ, margem dos apps)
   categoria_id    bigint references public.fin_categorias,
   conta_id        bigint references public.fin_contas,          -- conta em que costuma ser pago
   moeda           text not null default 'BRL' check (moeda in ('BRL', 'USD')),
   valor           numeric(12,2) not null check (valor >= 0),      -- na moeda, por período
   cambio          numeric(10,4) check (cambio is null or cambio > 0),   -- R$ por US$ (informado)
+  iof             numeric(5,2) not null default 0 check (iof >= 0 and iof < 100),   -- % de IOF da compra em dólar no cartão
   periodicidade   text not null default 'mensal' check (periodicidade in ('mensal', 'anual')),
   desde           date not null,
   ate             date,                                           -- vazio = continua
   obs             text not null default '',
   criado_em       timestamptz not null default now(),
   atualizado_em   timestamptz not null default now(),
-  valor_brl       numeric(12,2) generated always as (round(valor * case when moeda = 'USD' then coalesce(cambio, 0) else 1 end, 2)) stored,
-  mensal_brl      numeric(12,2) generated always as (round(valor * case when moeda = 'USD' then coalesce(cambio, 0) else 1 end
+  valor_brl       numeric(12,2) generated always as (round(valor * case when moeda = 'USD' then coalesce(cambio, 0) * (1 + iof / 100) else 1 end, 2)) stored,
+  mensal_brl      numeric(12,2) generated always as (round(valor * case when moeda = 'USD' then coalesce(cambio, 0) * (1 + iof / 100) else 1 end
                                                           / case when periodicidade = 'anual' then 12 else 1 end, 2)) stored,
   check (moeda = 'BRL' or cambio is not null),
   check (ate is null or ate >= desde)
@@ -378,10 +381,10 @@ begin
     if public._fin_t(p, 'nome') is null then raise exception 'Informe o nome do custo.'; end if;
     if public._fin_t(p, 'valor') is null then raise exception 'Informe o valor.'; end if;
     if public._fin_t(p, 'moeda') = 'USD' and public._fin_t(p, 'cambio') is null then raise exception 'Custo em dólar: informe o câmbio (R$ por US$).'; end if;
-    insert into public.fin_custos (nome, fornecedor, grupo, categoria_id, conta_id, moeda, valor, cambio, periodicidade, desde, ate, obs)
-    values (public._fin_t(p, 'nome'), coalesce(p ->> 'fornecedor', ''), coalesce(public._fin_t(p, 'grupo'), 'Plataforma'),
+    insert into public.fin_custos (nome, fornecedor, grupo, plataforma, categoria_id, conta_id, moeda, valor, cambio, iof, periodicidade, desde, ate, obs)
+    values (public._fin_t(p, 'nome'), coalesce(p ->> 'fornecedor', ''), coalesce(public._fin_t(p, 'grupo'), 'Plataforma'), coalesce((p ->> 'plataforma')::boolean, true),
             public._fin_t(p, 'categoria_id')::bigint, public._fin_t(p, 'conta_id')::bigint, coalesce(public._fin_t(p, 'moeda'), 'BRL'),
-            public._fin_t(p, 'valor')::numeric, public._fin_t(p, 'cambio')::numeric, coalesce(public._fin_t(p, 'periodicidade'), 'mensal'),
+            public._fin_t(p, 'valor')::numeric, public._fin_t(p, 'cambio')::numeric, coalesce(public._fin_t(p, 'iof')::numeric, 0), coalesce(public._fin_t(p, 'periodicidade'), 'mensal'),
             coalesce(public._fin_t(p, 'desde')::date, public._fin_hoje()), public._fin_t(p, 'ate')::date, coalesce(p ->> 'obs', ''))
     returning * into d;
     insert into public.fin_custos_hist (custo_id, quem, motivo, antes, depois)
@@ -395,11 +398,13 @@ begin
     nome = coalesce(public._fin_t(p, 'nome'), nome),
     fornecedor = coalesce(p ->> 'fornecedor', fornecedor),
     grupo = coalesce(public._fin_t(p, 'grupo'), grupo),
+    plataforma = coalesce((p ->> 'plataforma')::boolean, plataforma),
     categoria_id = case when p ? 'categoria_id' then public._fin_t(p, 'categoria_id')::bigint else categoria_id end,
     conta_id = case when p ? 'conta_id' then public._fin_t(p, 'conta_id')::bigint else conta_id end,
     moeda = coalesce(public._fin_t(p, 'moeda'), moeda),
     valor = coalesce(public._fin_t(p, 'valor')::numeric, valor),
     cambio = case when p ? 'cambio' then public._fin_t(p, 'cambio')::numeric else cambio end,
+    iof = case when p ? 'iof' then coalesce(public._fin_t(p, 'iof')::numeric, 0) else iof end,
     periodicidade = coalesce(public._fin_t(p, 'periodicidade'), periodicidade),
     desde = coalesce(public._fin_t(p, 'desde')::date, desde),
     ate = case when p ? 'ate' then public._fin_t(p, 'ate')::date else ate end,
@@ -623,7 +628,8 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------- carga da planilha (só pelo SQL do Supabase)
--- p = {"custos": [{nome, fornecedor, grupo, categoria, moeda, valor, cambio, periodicidade, desde, ate, obs, historico:[{em, motivo, antes, depois}]}],
+-- p = {"custos": [{nome, fornecedor, grupo, plataforma, categoria, conta, moeda, valor, cambio, iof, periodicidade, desde, ate, obs,
+--                  historico:[{em, motivo, antes, depois}]}],
 --      "abas": [{aba, dados}], "arquivo": "nome do arquivo"}
 -- recusa se já houver custos; tudo numa transação; auditoria financeiro_carga com as contagens
 create or replace function public._fin_carga(p jsonb) returns jsonb
@@ -633,18 +639,16 @@ begin
   if exists (select 1 from public.fin_custos) then raise exception 'Carga recusada: já há custos cadastrados.'; end if;
   for c in select * from jsonb_array_elements(coalesce(p -> 'custos', '[]')) loop
     select id into v_cat from public.fin_categorias where lower(nome) = lower(coalesce(c ->> 'categoria', 'Infraestrutura / plataforma'));
-    insert into public.fin_custos (nome, fornecedor, grupo, categoria_id, conta_id, moeda, valor, cambio, periodicidade, desde, ate, obs)
-    values (c ->> 'nome', coalesce(c ->> 'fornecedor', ''), coalesce(nullif(c ->> 'grupo', ''), 'Plataforma'), v_cat,
+    insert into public.fin_custos (nome, fornecedor, grupo, plataforma, categoria_id, conta_id, moeda, valor, cambio, iof, periodicidade, desde, ate, obs)
+    values (c ->> 'nome', coalesce(c ->> 'fornecedor', ''), coalesce(nullif(c ->> 'grupo', ''), 'Plataforma'), coalesce((c ->> 'plataforma')::boolean, true), v_cat,
             (select id from public.fin_contas where lower(nome) = lower(coalesce(c ->> 'conta', ''))),
-            coalesce(nullif(c ->> 'moeda', ''), 'BRL'), (c ->> 'valor')::numeric, nullif(c ->> 'cambio', '')::numeric,
+            coalesce(nullif(c ->> 'moeda', ''), 'BRL'), (c ->> 'valor')::numeric, nullif(c ->> 'cambio', '')::numeric, coalesce(nullif(c ->> 'iof', '')::numeric, 0),
             coalesce(nullif(c ->> 'periodicidade', ''), 'mensal'), (c ->> 'desde')::date, nullif(c ->> 'ate', '')::date, coalesce(c ->> 'obs', ''))
     returning id into v_id;
     n_c := n_c + 1;
-    if jsonb_array_length(coalesce(c -> 'historico', '[]')) = 0 then
-      insert into public.fin_custos_hist (custo_id, em, quem, motivo, depois)
-      select v_id, now(), 'carga da planilha', 'carga da planilha', to_jsonb(x) - array['criado_em', 'atualizado_em', 'valor_brl', 'mensal_brl'] from public.fin_custos x where x.id = v_id;
-      n_h := n_h + 1;
-    end if;
+    insert into public.fin_custos_hist (custo_id, em, quem, motivo, depois)
+    select v_id, now(), 'carga da planilha', 'cadastro trazido da planilha', to_jsonb(x) - array['criado_em', 'atualizado_em', 'valor_brl', 'mensal_brl'] from public.fin_custos x where x.id = v_id;
+    n_h := n_h + 1;
     for h in select * from jsonb_array_elements(coalesce(c -> 'historico', '[]')) loop
       insert into public.fin_custos_hist (custo_id, em, quem, motivo, antes, depois)
       values (v_id, coalesce((h ->> 'em')::timestamptz, now()), 'carga da planilha', coalesce(h ->> 'motivo', ''), h -> 'antes', h -> 'depois');
@@ -655,7 +659,7 @@ begin
     insert into public.fin_planilha (aba, dados) values (c ->> 'aba', c -> 'dados'); n_a := n_a + 1;
   end loop;
   perform public.auditar('financeiro_carga', null, jsonb_build_object('arquivo', coalesce(p ->> 'arquivo', ''), 'custos', n_c, 'historico', n_h, 'abas', n_a,
-    'mensal_plataforma', (select sum(mensal_brl) from public.fin_custos where grupo = 'Plataforma' and ate is null)));
+    'mensal_plataforma', (select sum(mensal_brl) from public.fin_custos where plataforma and ate is null)));
   return jsonb_build_object('custos', n_c, 'historico', n_h, 'abas', n_a);
 end $$;
 revoke execute on function public._fin_carga(jsonb) from public, anon, authenticated;

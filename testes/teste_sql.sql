@@ -4497,10 +4497,12 @@ select pg_temp.erro2($$update fin_contas set saldo_inicial = 1$$, 'permission', 
 select pg_temp.erro2($$select fin_custo_salvar('{"nome":"Google","valor":10,"moeda":"USD"}')$$, 'câmbio', 'financeiro: custo em dólar exige câmbio');
 select set_config('fin.c1', fin_custo_salvar('{"nome":"Supabase Pro","fornecedor":"Supabase","grupo":"Plataforma","moeda":"USD","valor":25,"cambio":5.5,"periodicidade":"mensal","desde":"2026-10-13"}')::text, false);
 select set_config('fin.c2', fin_custo_salvar('{"nome":"Domínio nvaura.com.br","grupo":"Plataforma","valor":40,"periodicidade":"anual","desde":"2026-11-25"}')::text, false);
-select set_config('fin.c3', fin_custo_salvar('{"nome":"Contador","grupo":"Administrativo","valor":300,"desde":"2026-01-01"}')::text, false);
+select set_config('fin.c3', fin_custo_salvar('{"nome":"Contador","grupo":"Administrativo","plataforma":false,"valor":300,"desde":"2026-01-01"}')::text, false);
+select set_config('fin.c4', fin_custo_salvar('{"nome":"Google Cloud","grupo":"Buscador","moeda":"USD","valor":10,"cambio":5.2502,"iof":3.5,"desde":"2026-10-13"}')::text, false);
+select pg_temp.ok((select valor_brl = 54.34 and mensal_brl = 54.34 from fin_custos where id = current_setting('fin.c4')::bigint), 'financeiro: dólar com IOF = valor × câmbio × 1,035 (como a planilha)');
 select pg_temp.ok((select valor_brl = 137.50 and mensal_brl = 137.50 from fin_custos where id = current_setting('fin.c1')::bigint)
   and (select mensal_brl = 3.33 from fin_custos where id = current_setting('fin.c2')::bigint), 'financeiro: equivalente mensal (US$ × câmbio; anual ÷ 12)');
-select pg_temp.ok((select sum(mensal_brl) from fin_custos where grupo = 'Plataforma') = 140.83, 'financeiro: custo mensal da plataforma não soma outros grupos');
+select pg_temp.ok((select sum(mensal_brl) from fin_custos where plataforma) = 140.83 + 54.34, 'financeiro: custo da plataforma soma os marcados (Plataforma e Buscador), não o custo da empresa');
 select fin_custo_salvar(jsonb_build_object('id', current_setting('fin.c1')::bigint, 'cambio', 5.8, 'motivo', 'câmbio de novembro'));
 select fin_custo_salvar(jsonb_build_object('id', current_setting('fin.c1')::bigint, 'cambio', 5.8));
 select pg_temp.ok((select count(*) = 2 from fin_custos_hist where custo_id = current_setting('fin.c1')::bigint)

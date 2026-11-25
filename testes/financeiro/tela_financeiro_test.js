@@ -180,14 +180,16 @@ const BR = d => d.slice(8, 10) + "/" + d.slice(5, 7) + "/" + d.slice(0, 4);
     // ------------------------------------------------ custos: um em dólar (mensal) e o domínio (anual)
     await aba(pg, "custos"); await pg.click("#novoCusto");
     await pg.fill("#cNome", "Supabase Pro"); await pg.fill("#cForn", "Supabase"); await pg.selectOption("#cMoeda", "USD");
-    await pg.fill("#cValor", "25"); await pg.fill("#cCambio", "5,50"); await pg.fill("#cDesde", "2026-10-13"); await pg.click("#cSalvar");
+    await pg.fill("#cValor", "25"); await pg.fill("#cCambio", "5,50");
+    ok(await pg.$eval("#cIof", e => e.value) === "3,5", "custos: em dólar, o IOF de 3,5% já vem preenchido"); await pg.fill("#cDesde", "2026-10-13"); await pg.click("#cSalvar");
     await pg.waitForFunction(() => !document.querySelector("#dlg").open);
     await pg.click("#novoCusto"); await pg.fill("#cNome", "Domínio nvaura.com.br"); await pg.fill("#cValor", "40,00"); await pg.selectOption("#cPer", "anual");
     await pg.fill("#cDesde", "2026-11-25"); await pg.click("#cSalvar"); await pg.waitForFunction(() => !document.querySelector("#dlg").open);
-    await pg.click("#novoCusto"); await pg.fill("#cNome", "Contador"); await pg.fill("#cGrupo", "Administrativo"); await pg.fill("#cValor", "300"); await pg.fill("#cDesde", "2026-01-01");
+    await pg.click("#novoCusto"); await pg.fill("#cNome", "Contador"); await pg.fill("#cGrupo", "Administrativo"); await pg.uncheck("#cPlat"); await pg.fill("#cValor", "300"); await pg.fill("#cDesde", "2026-01-01");
     await pg.click("#cSalvar"); await pg.waitForFunction(() => !document.querySelector("#dlg").open);
     k = await kp();
-    ok(k["Plataforma"] === "R$ 140,83" && k["Administrativo"] === "R$ 300,00", "custos: equivalente mensal por grupo (US$ × câmbio; anual ÷ 12) — " + k["Plataforma"]);
+    ok(k["Plataforma"] === "R$ 145,64" && k["Administrativo"] === "R$ 300,00", "custos: equivalente mensal por grupo (US$ × câmbio × IOF; anual ÷ 12) — " + k["Plataforma"]);
+    ok(k["Custo da plataforma"] === "R$ 145,64" && (await texto(pg, "#tab-custos")).includes("fora da plataforma"), "custos: o que não é da plataforma fica fora do custo da plataforma");
     // alterar o câmbio com motivo → histórico
     await pg.click("#tab-custos tbody tr:has-text('Supabase Pro')"); await preencher(pg, "#cCambio", "5,80"); await pg.fill("#cMotivo", "câmbio de novembro");
     await pg.click("#cSalvar"); await pg.waitForFunction(() => !document.querySelector("#dlg").open);
@@ -196,8 +198,7 @@ const BR = d => d.slice(8, 10) + "/" + d.slice(5, 7) + "/" + d.slice(0, 4);
     // gerar a conta a pagar do Supabase (mensal)
     await pg.fill("#cVenc", dias(5)); await pg.click("#cGerar"); await pg.waitForFunction(() => !document.querySelector("#dlg").open);
     const l1 = await um(pool, "select * from fin_lancamentos where descricao = 'Supabase Pro'");
-    ok(l1 && Number(l1.valor) === 145 && l1.recorrencia === "mensal" && l1.vencimento.toISOString ? true : !!l1, "custos: conta a pagar criada com o valor em reais e a recorrência do custo");
-    ok(Number(l1.valor) === 145 && l1.recorrencia === "mensal", "custos: valor 25 × 5,80 = R$ 145,00, todo mês");
+    ok(Number(l1.valor) === 150.08 && l1.recorrencia === "mensal", "custos: conta a pagar com o valor em reais (25 × 5,80 × 1,035 = R$ 150,08), todo mês");
     // ------------------------------------------------ contas a pagar
     await aba(pg, "pagar");
     ok(await pg.$eval("#tab-pagar", t => t.textContent.includes("Supabase Pro")), "a pagar: conta do custo aparece em aberto");
