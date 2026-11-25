@@ -1,16 +1,21 @@
 // Worker do site da Nervia (nervia-site). As páginas continuam servidas direto como arquivos estáticos
-// (site/); o worker só roda para /registrar-acesso (run_worker_first em wrangler.jsonc).
+// (site/); o worker só roda para /registrar-acesso e para a raiz "/" (run_worker_first em wrangler.jsonc).
+//
+// nvaura.com.br (domínio próprio do NVAura, origem separada da Área do Cliente): a raiz vai para /aura/
+// (o # do cartão é mantido pelo navegador) e www.nvaura.com.br vai para nvaura.com.br.
 //
 // /registrar-acesso: a página (site/acesso.js) avisa que foi aberta; aqui se acrescentam IP, país,
 // estado e cidade que a Cloudflare entrega (CF-Connecting-IP, request.cf) e grava no Supabase
 // (rpc site_registrar_acesso, com o segredo ACESSOS_SEGREDO). Responde 204 na hora; a gravação segue
 // em segundo plano. Qualquer falha só perde a contagem: o site não é afetado.
 
-const ORIGENS = /^https:\/\/(www\.)?nervia\.com\.br$|^https:\/\/nervia-site\.[a-z0-9-]+\.workers\.dev$/;
+const ORIGENS = /^https:\/\/(www\.)?nervia\.com\.br$|^https:\/\/nvaura\.com\.br$|^https:\/\/nervia-site\.[a-z0-9-]+\.workers\.dev$/;
 
 export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
+    if (url.hostname === "www.nvaura.com.br") return Response.redirect("https://nvaura.com.br" + url.pathname + url.search, 301);
+    if (url.hostname === "nvaura.com.br" && url.pathname === "/") return Response.redirect("https://nvaura.com.br/aura/" + url.search, 302);
     if (url.pathname !== "/registrar-acesso") return env.ASSETS.fetch(req);
     const vazio = (status) => new Response(null, { status, headers: { "cache-control": "no-store" } });
     if (req.method !== "POST") return vazio(405);

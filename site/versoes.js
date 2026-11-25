@@ -40,6 +40,7 @@ window.NERVIA_VERSOES = {
     ["1.0", "Lançamento: requisição, propostas, mapa comparativo, aprovação por alçada (Gerente e Diretor), pedido e avaliação do fornecedor."],
   ],
   "aura": [
+    ["1.10", "O NVAura ganhou endereço próprio: nvaura.com.br. O endereço antigo e os cartões já impressos continuam funcionando."],
     ["1.9", "Correção de segurança: o NVAura guarda a própria entrada e nunca mais usa (nem derruba) o login da Área do Cliente aberto no mesmo navegador; trocar a chave só vale para contas criadas no NVAura ou no NVSintonia."],
     ["1.8", "Denunciar este cartão: quem lê o QR avisa a Nervia sobre foto ou nome impróprio, sem se identificar. Com 3 denúncias de foto, a foto some do cartão até a revisão."],
     ["1.7", "Página Como funciona o NVAura (a ideia, o anonimato e a comparação com Queda Livre, de Black Mirror). Gestão pela equipe Nervia, com moderação: um cartão pode ser bloqueado (o QR mostra cartão indisponível e o dono vê o motivo)."],

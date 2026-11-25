@@ -112,7 +112,8 @@ if (import.meta.main) {
   };
   Deno.serve(async (req) => {
     const cab = {
-      "Access-Control-Allow-Origin": origemPermitida(req.headers.get("Origin")), "Vary": "Origin",
+      // nvaura.com.br = domínio próprio do NVAura (só esta função; o resto do ecossistema segue o SITE_ORIGEM)
+      "Access-Control-Allow-Origin": req.headers.get("Origin") === "https://nvaura.com.br" ? "https://nvaura.com.br" : origemPermitida(req.headers.get("Origin")), "Vary": "Origin",
       "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
       "Access-Control-Allow-Methods": "POST, OPTIONS", "Content-Type": "application/json",
     };
