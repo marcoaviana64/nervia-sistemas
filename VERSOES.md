@@ -196,6 +196,7 @@ Ao publicar mudança num app: linha nova no topo do app aqui (com a data) e em `
 
 | Versão | Data | O que mudou |
 |---|---|---|
+| 1.3 | 25/11/2026 | Ver a minha chave mostra a chave na hora, numa janela com Copiar; se o aparelho não tiver a chave guardada, explica onde ela está. (o Marco tocou em Ver a minha chave e a chave não apareceu: o botão só levava à Conta) |
 | 1.2 | 25/11/2026 | O app sempre confere a versão nova ao abrir, em vez de mostrar uma cópia antiga guardada no celular. (o Marco não via a 1.1 do NVAura até recarregar: sw.js com fetch cache "no-cache" e cache v2) |
 | 1.1 | 25/11/2026 | A chave de acesso ficou mais clara: na criação, Salvar num arquivo e Enviar para mim; na aba Cartão, um lembrete com Ver a minha chave; o topo mostra o seu nome, e o código do Radar avisa que não é a chave. (o Marco achou que o código AU-XXXX do topo era a chave; só tela) |
 | 1.0 | 25/11/2026 | Lançamento (laboratório): o seu cartão com foto, nome, estrelas e QR code. Quem conversou com você lê o QR e dá de 1 a 5 estrelas para a conversa, sem precisar de conta e sem se identificar. O cartão muda a cada 5 avaliações novas, pode ser impresso como cartão de visita, e o Radar mostra as auras por perto só pelo código do dia e pela nota. (pedido do Marco em 24/11/2026; app separado do NVSintonia; migração aura: aur_cartoes/aur_notas/aur_avaliados/aur_posicoes/aur_ids_dia, lote de 5, 1 avaliação por aparelho por cartão por dia, notas de 1 a 5; conta pela função sintonia-conta com app "aura") |

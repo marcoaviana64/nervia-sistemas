@@ -40,6 +40,7 @@ window.NERVIA_VERSOES = {
     ["1.0", "Lançamento: requisição, propostas, mapa comparativo, aprovação por alçada (Gerente e Diretor), pedido e avaliação do fornecedor."],
   ],
   "aura": [
+    ["1.3", "Ver a minha chave mostra a chave na hora, numa janela com Copiar; se o aparelho não tiver a chave guardada, explica onde ela está."],
     ["1.2", "O app sempre confere a versão nova ao abrir, em vez de mostrar uma cópia antiga guardada no celular."],
     ["1.1", "A chave de acesso ficou mais clara: na criação, Salvar num arquivo e Enviar para mim; na aba Cartão, um lembrete com Ver a minha chave; o topo mostra o seu nome, e o código do Radar avisa que não é a chave."],
     ["1.0", "Lançamento (laboratório): o seu cartão com foto, nome, estrelas e QR code. Quem conversou com você lê o QR e dá de 1 a 5 estrelas para a conversa, sem precisar de conta e sem se identificar. O cartão muda a cada 5 avaliações novas, pode ser impresso como cartão de visita, e o Radar mostra as auras por perto só pelo código do dia e pela nota."],
