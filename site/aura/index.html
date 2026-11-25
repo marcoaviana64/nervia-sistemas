@@ -307,14 +307,24 @@ function telaEntrar() {
 // a chave aparece UMA vez: só segue depois de "Anotei"
 function telaChave(chave, depois) {
   $("nav").hidden = true;
-  tela.innerHTML = `<h1>Esta é a sua chave</h1>
-  <div class="card"><p class="codigo" style="font-size:30px">${esc(chave)}</p><button class="btn o" id="bCopiaK">Copiar</button><div id="mK"></div></div>
-  <div class="card"><p><b>Anote em um lugar seguro.</b> É com ela que você entra de novo, em qualquer celular.</p>
-  <p><b>Se perder a chave, perde a conta.</b> Ninguém consegue recuperar, nem a Nervia: ela não fica guardada em lugar nenhum.</p>
-  <p class="hint">Não mostre a chave para ninguém: quem tiver a chave entra como você.</p>
-  <label style="display:flex;gap:10px;align-items:center;font-size:16px;color:var(--ink)"><input type="checkbox" id="kOk" style="width:22px;height:22px"> Anotei a minha chave</label>
+  const txt = `Minha chave do NVAura (e do NVSintonia): ${chave}\nPara entrar: ${ENDERECO} → "Já tenho a minha chave".\nNão mostre para ninguém. Se perder, perde a conta.`;
+  tela.innerHTML = `<h1>Guarde a sua chave de acesso</h1>
+  <p><b>É com esta chave que você entra no NVAura</b> em outro celular, no computador ou depois de sair. Não existe senha nem e-mail: só ela.</p>
+  <div class="card" style="border:2px solid var(--a)"><p class="hint" style="text-align:center;margin:0">Sua chave de acesso</p><p class="codigo" id="kTexto" style="font-size:30px">${esc(chave)}</p>
+  <div class="duo"><button class="btn o" id="bCopiaK">Copiar</button><button class="btn o" id="bArqK">Salvar num arquivo</button></div>
+  ${navigator.share ? `<button class="btn o" id="bEnvK">Enviar para mim (WhatsApp, e-mail…)</button>` : ""}<div id="mK"></div></div>
+  <div class="card"><p><b>Se perder a chave, perde a conta.</b> Ninguém consegue recuperar, nem a Nervia: ela não fica guardada em lugar nenhum.</p>
+  <p class="hint">Neste celular ela fica em Conta → Mostrar a chave. Não mostre para ninguém: quem tiver a chave entra como você. O código AU-XXXX do Radar é outra coisa: muda todo dia e não serve para entrar.</p>
+  <label style="display:flex;gap:10px;align-items:center;font-size:16px;color:var(--ink)"><input type="checkbox" id="kOk" style="width:22px;height:22px"> Guardei a minha chave</label>
   <button class="btn a" id="bSegue" disabled>Continuar</button><div id="mSegue"></div></div>`;
-  $("bCopiaK").onclick = async () => { try { await navigator.clipboard.writeText(chave); aviso($("mK"), "Copiada. Cole num lugar seguro.", true); } catch { aviso($("mK"), "Não deu para copiar: anote à mão."); } };
+  $("bCopiaK").onclick = async () => { try { await navigator.clipboard.writeText(chave); aviso($("mK"), "Copiada. Cole num lugar seguro (bloco de notas, gerenciador de senhas).", true); } catch { aviso($("mK"), "Não deu para copiar: anote à mão."); } };
+  $("bArqK").onclick = () => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([txt + "\n"], { type: "text/plain" })); a.download = "minha-chave-nvaura.txt";
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    aviso($("mK"), "Arquivo baixado: minha-chave-nvaura.txt. Guarde num lugar seguro.", true);
+  };
+  $("bEnvK")?.addEventListener("click", async () => { try { await navigator.share({ title: "Minha chave do NVAura", text: txt }); } catch { /* cancelou */ } });
   $("kOk").onchange = () => { $("bSegue").disabled = !$("kOk").checked; };
   $("bSegue").onclick = async () => { $("bSegue").disabled = true; try { await depois(); } catch (e) { aviso($("mSegue"), erroTxt(e)); $("bSegue").disabled = false; } };
 }
@@ -368,7 +378,7 @@ function abrir(aba) {
   ABA = aba; clearInterval(mapaTimer);
   $("nav").hidden = false;
   for (const b of document.querySelectorAll("#nav button")) b.dataset.aba === aba ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current");
-  $("topoInfo").textContent = CART.id_dia;
+  $("topoInfo").textContent = CART.nome;
   scrollTo(0, 0);
   return ({ cartao: telaCartao, mapa: telaMapa, conta: telaConta })[aba]();
 }
@@ -379,6 +389,7 @@ function telaCartao() {
   tela.innerHTML = `${cartaoHtml(CART, qrSvg(url))}
   <div class="duo"><button class="btn a" id="bQr">Mostrar o QR grande</button><button class="btn o" id="bImp">Imprimir cartão</button></div>
   <button class="btn o" id="bEdita">Trocar foto ou nome</button>
+  <div class="card" style="margin-top:14px;border:1px dashed var(--a)"><h3>🔑 Para entrar em outro aparelho</h3><p class="hint" style="margin:0 0 4px">Use a sua chave de acesso (12 letras e números, XXXX-XXXX-XXXX). Ela não aparece aqui por segurança.</p><button class="btn o" id="bVerChave">Ver a minha chave</button></div>
   <div class="card m" style="margin-top:14px"><h3>Como pedir uma avaliação</h3><p class="hint" style="margin:0">Mostre o QR para a pessoa ler com a câmera do celular dela. Ela vê o seu cartão e dá de 1 a 5 estrelas, sem precisar de conta. O cartão muda quando juntam 5 avaliações novas, para ninguém saber quem deu cada nota.</p></div>`;
   $("bQr").onclick = () => {
     const d = $("dlg");
@@ -387,6 +398,7 @@ function telaCartao() {
     d.showModal(); $("bFecha").onclick = () => d.close();
   };
   $("bImp").onclick = imprimir;
+  $("bVerChave").onclick = () => abrir("conta");
   $("bEdita").onclick = () => {
     tela.innerHTML = `<h2>Trocar foto ou nome</h2><div class="card">${formCartao(CART.nome, CART.foto, "Salvar")}</div><button class="btn o" id="bVolta">Voltar</button>`;
     ligarForm(async () => abrir("cartao"));
@@ -416,7 +428,7 @@ function telaMapa() {
   <div class="fig"><svg id="mapa" role="img" aria-label="Auras por perto"></svg></div>
   <div class="leg"><span><i style="background:${cor(4.6)}"></i>4,5 a 5</span><span><i style="background:${cor(4.1)}"></i>4 a 4,4</span><span><i style="background:${cor(3.2)}"></i>3 a 3,9</span><span><i style="background:${cor(2)}"></i>abaixo de 3</span><span><i style="background:${cor(null)}"></i>sem nota</span></div>
   <div id="mMapa"></div><div class="lista" id="lista"></div><div id="det"></div></div>
-  <p class="hint">Atualiza sozinho a cada minuto com esta tela aberta. O seu código hoje: <b>${esc(CART.id_dia)}</b>.</p>`;
+  <p class="hint">Atualiza sozinho a cada minuto com esta tela aberta. O seu código no radar hoje: <b>${esc(CART.id_dia)}</b> (muda todo dia; não é a sua chave).</p>`;
   $("bDesliga").onclick = async () => { CART = await rpc("aur_mapa_visivel", { p_visivel: false }); MAPA = null; telaMapa(); };
   $("raio").oninput = () => { RAIO = RAIOS[+$("raio").value]; $("raioV").textContent = RAIO >= 1000 ? RAIO / 1000 + " km" : RAIO + " m"; };
   $("raio").onchange = buscarMapa;
@@ -460,9 +472,11 @@ tela.addEventListener("click", (e) => { const g = e.target.closest("[data-id]");
 // ------------------------------------------------------------ conta
 function telaConta() {
   const k = ler("aur-chave");
-  tela.innerHTML = `<div class="card"><h2>Sua conta</h2>
-  <p class="hint">Seu código no radar hoje: <b>${esc(CART.id_dia)}</b> · radar ${CART.mapa_visivel ? "ligado" : "desligado"}</p>
-  ${k ? `<p class="codigo" id="cK" hidden>${esc(k)}</p><button class="btn o" id="bVerK">Mostrar a chave</button>` : `<p class="hint">Este aparelho não guardou a chave: ela está onde você anotou.</p>`}
+  tela.innerHTML = `<div class="card" style="border:2px solid var(--a)"><h2>Sua chave de acesso</h2>
+  <p class="hint">É com ela que você entra em outro celular, no computador ou depois de sair (Já tenho a minha chave). Se perder, perde a conta.</p>
+  ${k ? `<p class="codigo" id="cK" hidden>${esc(k)}</p><button class="btn a" id="bVerK">Mostrar a chave</button>` : `<p class="hint"><b>Este aparelho não guardou a chave</b> (você entrou digitando ou limpou os dados do navegador): ela está onde você anotou.</p>`}</div>
+  <div class="card"><h2>Sua conta</h2>
+  <p class="hint">Código no radar hoje: <b>${esc(CART.id_dia)}</b> (muda todo dia; não é a chave) · radar ${CART.mapa_visivel ? "ligado" : "desligado"}</p>
   <button class="btn o" id="bSair">Sair</button></div>
   <div class="card"><h3>Trocar o QR</h3><p class="hint">Se o seu QR (ou o cartão impresso) foi copiado por quem não devia, gere um novo. O antigo deixa de funcionar; as suas notas continuam.</p><button class="btn o" id="bTroca">Gerar QR novo</button><div id="mTroca"></div></div>
   ${anonimato()}<div class="card"><a href="/aura/ajuda/manual.html" target="_blank" rel="noopener">Manual</a> · <a href="/aura/ajuda/cartao.html" target="_blank" rel="noopener">Cartão rápido</a></div>
