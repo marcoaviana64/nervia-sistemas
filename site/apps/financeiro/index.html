@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Financeiro Nervia | Ecossistema Nervia</title>
+<script src="/config.js"></script>
+<script src="/versoes.js"></script>
+<script src="/moeda.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<link rel="stylesheet" href="/fichario.css">
+<style>
+/* Financeiro Nervia (app "financeiro", tabelas fin_): custos recorrentes, contas a pagar, contas a receber (as cobranças do
+   app Contratos, só leitura, + recebimentos avulsos) e saldo das contas. Só a equipe Nervia. A tela só lê as tabelas;
+   toda gravação é por função (fin_*) e vai para a auditoria. Valores em reais pelo /moeda.js (nunca type="number"). */
+[hidden]{display:none!important}
+:root{--bg:#f4f7f9;--surface:#fff;--surface-2:#eaf1f4;--border:#dde6ec;--line:#dde6ec;--ink:#0f1b2d;--ink-soft:#4f5f73;--muted:#6b7a8c;
+  --accent:#107d9a;--accent-soft:#e1f1f5;--ok:#1d7a46;--ok-soft:#e2f4e9;--warn:#9a5b00;--warn-soft:#fbebd2;--crit:#b3261e;--crit-soft:#f9e0de;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1240px;margin:0 auto;padding:14px 16px 48px}
+.topo{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.marca{width:38px;height:38px;border-radius:10px;background:var(--ink);color:#fff;display:grid;place-items:center;font-weight:700;letter-spacing:.04em}
+.topo b{font-size:16px}.topo span{color:var(--muted);font-size:12.5px}
+.embutido .topo{display:none}
+h2{font-size:15px;margin:0 0 10px}h3{font-size:14px;margin:14px 0 8px}
+.painel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:12px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.kpi .l{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.kpi .v{font-family:var(--mono);font-size:21px;margin-top:4px}
+.kpi .h{color:var(--muted);font-size:12px}
+.kpi.alerta .v{color:var(--crit)}.kpi.atencao .v{color:var(--warn)}.kpi.bom .v{color:var(--ok)}
+.kpi.clica{cursor:pointer}.kpi.clica:hover{border-color:var(--accent)}
+.grade2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.grade2>*{min-width:0}
+.filtros{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:10px}
+.campo{display:flex;flex-direction:column;gap:4px;min-width:0}
+.campo label{font-size:12px;color:var(--ink-soft);font-weight:600}
+input,select,textarea,button{font:inherit;color:inherit}
+input[type=text],input[type=date],input[type=search],input[type=file],select,textarea{background:#fff;border:1px solid #c5d2db;border-radius:8px;padding:7px 9px;min-height:36px;width:100%}
+input:invalid{border-color:var(--crit)}
+textarea{min-height:60px;resize:vertical}
+.btn{display:inline-flex;align-items:center;gap:6px;border-radius:8px;padding:7px 13px;border:1px solid transparent;font-weight:600;cursor:pointer;min-height:34px;background:var(--accent);color:#fff;white-space:nowrap}
+.btn.sec{background:#fff;border-color:#c5d2db;color:var(--ink-soft)}.btn.sec:hover{background:var(--surface-2)}
+.btn.perigo{background:var(--crit-soft);color:var(--crit)}
+.btn.lnk{background:none;border:0;padding:2px 4px;min-height:0;color:var(--accent)}
+.btn:disabled{opacity:.5;cursor:default}
+.acoes{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.msg{font-size:12.5px;font-weight:600;color:var(--ok)}.msg.erro{color:var(--crit)}
+.tab{width:100%;border-collapse:collapse;font-size:13px}
+.tab th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:7px 6px;border-bottom:1px solid var(--border);white-space:nowrap;background:var(--surface)}
+.tab td{padding:7px 6px;border-bottom:1px solid var(--border);vertical-align:top}
+.tab td.n,.tab th.n{text-align:right;font-family:var(--mono);white-space:nowrap}
+.tab tr.clica{cursor:pointer}.tab tr.clica:hover td{background:var(--surface-2)}
+.tab tfoot td{font-weight:700;border-top:2px solid var(--border)}
+.tab tr.cancelado td{color:var(--muted);text-decoration:line-through}
+.rolar{overflow:auto;max-height:70vh}.rolar thead th{position:sticky;top:0;z-index:1}
+.pill{display:inline-block;font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:999px;white-space:nowrap;background:var(--surface-2);color:var(--ink-soft)}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}.pill.atencao{background:var(--warn-soft);color:var(--warn)}.pill.alerta{background:var(--crit-soft);color:var(--crit)}.pill.info{background:var(--accent-soft);color:var(--accent)}
+.mut{color:var(--muted);font-size:12.5px}.mono{font-family:var(--mono)}
+.neg{color:var(--crit)}.pos{color:var(--ok)}
+.aviso{padding:10px 14px;border-radius:10px;background:var(--warn-soft);color:var(--warn);font-weight:500;margin-bottom:12px}
+.info{padding:10px 14px;border-radius:10px;background:var(--accent-soft);color:var(--ink-soft);margin-bottom:12px;font-size:13px}
+.form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.form .dois{grid-column:span 2}.form .tudo{grid-column:1/-1}
+dialog{border:0;border-radius:14px;padding:18px;width:min(860px,calc(100% - 24px));max-height:calc(100vh - 32px);background:var(--surface);color:var(--ink)}
+dialog.peq{width:min(520px,calc(100% - 24px))}
+dialog::backdrop{background:#0008}
+.dlgtopo{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:6px}
+.fechar{background:none;border:0;font-size:22px;line-height:1;cursor:pointer;color:var(--muted)}
+.dados{display:grid;grid-template-columns:160px 1fr;gap:4px 12px;font-size:13.5px;margin:6px 0 14px}.dados dt{color:var(--muted)}.dados dd{margin:0}
+.chk{display:flex;gap:8px;align-items:center;font-size:13px}
+#toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:9px 16px;border-radius:10px;font-weight:600;z-index:100;box-shadow:0 6px 24px #0004}
+@media (max-width:860px){.grade2{grid-template-columns:1fr}.form{grid-template-columns:1fr}.form .dois{grid-column:auto}.dados{grid-template-columns:1fr}}
+@media print{.barra,.filtros,.acoes,button{display:none!important}body{background:#fff}.painel{border:0;padding:0}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topo"><div class="marca">FN</div><div><b>Financeiro Nervia</b><br><span>Custos, contas a pagar, contas a receber e saldo das contas</span><br><span data-versao="financeiro"></span></div></div>
+  <div id="aviso" class="painel">Carregando…</div>
+  <div id="app" hidden>
+    <div class="barra fichario">
+      <div class="orelhas">
+        <button class="aba on" data-v="painel" title="Painel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg><span>Painel</span></button>
+        <button class="aba" data-v="pagar" title="Contas a pagar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M12 3v14M6 11l6 6 6-6"/><path d="M4 21h16"/></svg><span>A pagar</span></button>
+        <button class="aba" data-v="receber" title="Contas a receber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M12 21V7M6 13l6-6 6 6"/><path d="M4 3h16"/></svg><span>A receber</span></button>
+        <button class="aba" data-v="custos" title="Custos recorrentes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/><path d="M12 8v4l3 2"/></svg><span>Custos</span></button>
+        <button class="aba" data-v="contas" title="Contas e saldos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg><span>Contas</span></button>
+        <button class="aba" data-v="config" title="Configuração"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><span>Configuração</span></button>
+      </div>
+      <div class="ficha"><span class="mut" id="fichaTxt"></span></div>
+    </div>
+    <div id="conteudo"></div>
+  </div>
+</div>
+<div id="toast" role="status" hidden></div>
+<dialog id="dlg"></dialog>
+<dialog id="dlg2" class="peq"></dialog>
+
+<script>
+(() => {
+"use strict";
+const $ = s => document.querySelector(s);
+const el = (tag, attrs = {}, ...kids) => {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    if (k === "class") n.className = v;
+    else if (k === "text") n.textContent = v;
+    else if (k === "value") n.value = v;
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+    else n.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of kids.flat(Infinity)) if (c != null && c !== false) n.append(c.nodeType ? c : document.createTextNode(String(c)));
+  return n;
+};
+const CFG = window.NERVIA_CONFIG || {};
+const M = window.NERVIA_MOEDA;
+if (window.self !== window.top) document.documentElement.classList.add("embutido");
+const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
+const checar = r => { if (r.error) throw r.error; return r.data; };
+async function todos(mk) { const out = []; for (let i = 0; ; i += 1000) { const d = checar(await mk().range(i, i + 999)); out.push(...d); if (d.length < 1000) return out; } }
+const rpc = async (f, args) => checar(await sb.rpc(f, args));
+
+const hoje = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+const addDias = (iso, n) => { const d = new Date(iso + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const R = v => (Number(v) < 0 ? "− " : "") + "R$ " + Math.abs(Number(v || 0)).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const br = d => d ? d.slice(8, 10) + "/" + d.slice(5, 7) + "/" + d.slice(0, 4) : "";
+const semAc = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const erroTxt = e => { if (e && e.mostrado) e = e.erro; return (e && (e.message || e.error_description)) || String(e); };
+const MES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+function csv(nome, cab, linhas) {
+  const q = v => { const s = v == null ? "" : String(v); return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const url = URL.createObjectURL(new Blob(["﻿" + [cab, ...linhas].map(l => l.map(q).join(";")).join("\r\n")], { type: "text/csv;charset=utf-8" }));
+  const a = el("a", { href: url, download: nome }); document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+const num = v => v == null ? "" : String(Number(v)).replace(".", ",");
+const TIPO_CONTA = { banco: "Banco", cartao_pessoal: "Cartão pessoal", dinheiro: "Dinheiro / fora do banco" };
+const SIT = { aberta: ["Em aberto", "info"], atrasada: ["Atrasada", "alerta"], paga: ["Paga", "ok"], recebida: ["Recebida", "ok"], cancelada: ["Cancelada", ""] };
+const REC = { nenhuma: "Não se repete", mensal: "Todo mês", anual: "Todo ano" };
+const pill = k => { const [t, c] = SIT[k] || [k, ""]; return el("span", { class: "pill " + c }, t); };
+
+const S = { contas: [], cats: [], custos: [], hist: [], lanc: [], transf: [], ajustes: [], cob: [], saldos: [], movs: [], cfg: {}, cnpjs: 0, precos: [],
+  view: "painel", fp: { sit: "abertas", cat: "", conta: "", q: "", de: "", ate: "" }, fr: { sit: "abertas" }, fcu: { grupo: "", ativos: true },
+  fm: { conta: "", de: hoje().slice(0, 8) + "01", ate: hoje() } };
+
+async function carregar() {
+  const [contas, cats, custos, hist, lanc, transf, ajustes, cfg, saldos, movs, cnpj, precos] = await Promise.all([
+    todos(() => sb.from("fin_contas").select("*").order("ordem").order("nome")),
+    todos(() => sb.from("fin_categorias").select("*").order("ordem").order("nome")),
+    todos(() => sb.from("fin_custos").select("*").order("grupo").order("nome")),
+    todos(() => sb.from("fin_custos_hist").select("*").order("id", { ascending: false })),
+    todos(() => sb.from("fin_lancamentos").select("*").order("vencimento").order("id")),
+    todos(() => sb.from("fin_transferencias").select("*").order("data", { ascending: false })),
+    todos(() => sb.from("fin_ajustes").select("*").order("data", { ascending: false })),
+    todos(() => sb.from("fin_config").select("*")),
+    rpc("fin_saldos", {}),
+    todos(() => sb.from("fin_movimentos_v").select("*").order("data", { ascending: false })),
+    todos(() => sb.from("nf_empresas").select("cnpj").eq("ativo", true)),
+    todos(() => sb.from("preco_itens").select("*").eq("ativo", true).order("ordem"))]);
+  Object.assign(S, { contas, cats, custos, hist, lanc, transf, ajustes, cfg: cfg[0] || {}, saldos, movs, cnpjs: cnpj.length, precos });
+  S.cob = S.cfg.ctr_empresa_id == null ? [] : await todos(() => sb.from("ctr_cobrancas_v").select("*").eq("empresa_id", S.cfg.ctr_empresa_id).order("vencimento"));
+}
+const conta = id => S.contas.find(c => c.id === id) || {};
+const cat = id => S.cats.find(c => c.id === id) || {};
+const situacao = l => l.cancelado_em ? "cancelada" : l.pago_em ? (l.tipo === "pagar" ? "paga" : "recebida") : l.vencimento < hoje() ? "atrasada" : "aberta";
+const ativoHoje = c => c.desde <= hoje() && (!c.ate || c.ate >= hoje());
+const custoPlataforma = () => S.custos.filter(c => c.grupo === "Plataforma" && ativoHoje(c)).reduce((s, c) => s + Number(c.mensal_brl), 0);
+// recebimentos do Contratos em aberto (situação da view do Contratos)
+const cobAberta = c => !c.pago_em;
+
+// ---------------------------------------------------------------- navegação e utilidades
+document.querySelector(".orelhas").addEventListener("click", e => { const b = e.target.closest(".aba"); if (b) ir(b.dataset.v); });
+function ir(v) { S.view = v; render(); }
+function render() {
+  for (const b of document.querySelectorAll(".orelhas .aba")) b.classList.toggle("on", b.dataset.v === S.view);
+  $("#fichaTxt").textContent = "Hoje: " + br(hoje()) + " · só a equipe Nervia";
+  const c = $("#conteudo"); c.replaceChildren();
+  ({ painel: vPainel, pagar: vPagar, receber: vReceber, custos: vCustos, contas: vContas, config: vConfig })[S.view](c);
+}
+let toastT;
+function toast(txt) { const t = $("#toast"); t.textContent = txt; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 5000); }
+async function salvar(fn, msgEl, okTxt) {
+  try { if (msgEl) { msgEl.className = "msg"; msgEl.textContent = "Gravando…"; } const r = await fn(); await carregar(); render();
+    if (msgEl && msgEl.isConnected) msgEl.textContent = okTxt || "Gravado."; else toast(okTxt || "Gravado."); return r; }
+  catch (e) { if (msgEl && msgEl.isConnected) { msgEl.className = "msg erro"; msgEl.textContent = erroTxt(e); } else alert(erroTxt(e)); throw { mostrado: true, erro: e }; }
+}
+window.addEventListener("unhandledrejection", e => { if (e.reason && e.reason.mostrado) e.preventDefault(); });
+function dialogo(titulo, corpo, { peq = false } = {}) {
+  const d = peq ? $("#dlg2") : $("#dlg");
+  d.replaceChildren(el("div", { class: "dlgtopo" }, el("h2", {}, titulo), el("button", { class: "fechar", type: "button", "aria-label": "Fechar", onclick: () => d.close() }, "×")), corpo);
+  if (!d.open) d.showModal();
+  return d;
+}
+const campo = (rot, inp, cls) => el("div", { class: "campo " + (cls || "") }, el("label", {}, rot), inp);
+const sel = (opcoes, valor, attrs = {}) => { const s = el("select", attrs); for (const [v, t] of opcoes) s.append(el("option", { value: v, selected: String(v) === String(valor ?? "") }, t)); return s; };
+const moeda = (valor, attrs = {}) => { const i = el("input", { type: "text", inputmode: "decimal", "data-moeda": "", value: M.fmt(valor), ...attrs }); i.addEventListener("input", () => M.conferir(i)); return i; };
+const lerMoeda = (i, rot, obrig = true) => { const v = M.ler(i.value); if (v === null && !obrig) return null; if (v === null || Number.isNaN(v)) throw new Error("Confira o valor de " + rot + " (formato 1.234,56)."); return v; };
+const optContas = (vazio) => [...(vazio ? [["", vazio]] : []), ...S.contas.filter(c => c.ativo).map(c => [c.id, c.nome])];
+const optCats = (tipo, vazio = "— sem categoria —") => [["", vazio], ...S.cats.filter(c => c.ativo && (c.tipo === "ambos" || c.tipo === tipo)).map(c => [c.id, c.nome])];
+const kpi = (rot, val, dica, cls, onclick) => el("div", { class: "kpi " + (cls || "") + (onclick ? " clica" : ""), onclick }, el("div", { class: "l" }, rot), el("div", { class: "v" }, val), dica ? el("div", { class: "h" }, dica) : null);
+
+// ---------------------------------------------------------------- Painel
+function vPainel(c) {
+  const h = hoje(), ate30 = addDias(h, 30), mes = h.slice(0, 7);
+  const ab = S.lanc.filter(l => !l.pago_em && !l.cancelado_em);
+  const pag30 = ab.filter(l => l.tipo === "pagar" && l.vencimento >= h && l.vencimento <= ate30);
+  const rec30 = ab.filter(l => l.tipo === "receber" && l.vencimento >= h && l.vencimento <= ate30);
+  const cob30 = S.cob.filter(x => cobAberta(x) && x.vencimento >= h && x.vencimento <= ate30);
+  const pagAtr = ab.filter(l => l.tipo === "pagar" && l.vencimento < h);
+  const recAtr = ab.filter(l => l.tipo === "receber" && l.vencimento < h), cobAtr = S.cob.filter(x => cobAberta(x) && x.vencimento < h);
+  const soma = (a, f = x => x.valor) => a.reduce((s, x) => s + Number(f(x)), 0);
+  // resultado do mês: o que entrou e saiu de verdade (pago/recebido), sem transferências, acertos e categorias fora do resultado
+  const noMes = S.movs.filter(m => m.data && m.data.startsWith(mes) && (m.tipo === "pagar" || m.tipo === "receber") && (m.categoria_id == null || cat(m.categoria_id).entra_resultado !== false));
+  const ent = soma(noMes.filter(m => m.valor > 0), m => m.valor), sai = -soma(noMes.filter(m => m.valor < 0), m => m.valor);
+  const plat = custoPlataforma(), porCnpj = S.cnpjs ? plat / S.cnpjs : 0;
+  c.append(el("h3", {}, "Saldo das contas"),
+    el("div", { class: "kpis" }, S.saldos.map(s => s.tipo === "cartao_pessoal"
+      ? kpi(s.nome, R(-Math.min(0, s.saldo)), Number(s.saldo) < 0 ? "a Nervia deve ao Marco" : "nada a reembolsar", Number(s.saldo) < 0 ? "atencao" : "bom", () => { S.fm.conta = s.conta_id; ir("contas"); })
+      : kpi(s.nome, R(s.saldo), s.ultimo_acerto ? "conferido com o banco em " + br(s.ultimo_acerto) : "ainda não conferido com o banco", Number(s.saldo) < 0 ? "alerta" : "", () => { S.fm.conta = s.conta_id; ir("contas"); }))),
+    el("h3", {}, "Próximos 30 dias"),
+    el("div", { class: "kpis" },
+      kpi("A pagar", R(soma(pag30)), pag30.length + " conta(s)", "", () => { Object.assign(S.fp, { sit: "abertas" }); ir("pagar"); }),
+      kpi("A receber", R(soma(rec30) + soma(cob30)), (cob30.length + rec30.length) + " cobrança(s), " + cob30.length + " do Contratos", "", () => { S.fr.sit = "abertas"; ir("receber"); }),
+      kpi("Pagar atrasado", R(soma(pagAtr)), pagAtr.length + " conta(s)", pagAtr.length ? "alerta" : "bom", () => { S.fp.sit = "atrasadas"; ir("pagar"); }),
+      kpi("Receber atrasado", R(soma(recAtr) + soma(cobAtr)), (recAtr.length + cobAtr.length) + " cobrança(s)", recAtr.length + cobAtr.length ? "alerta" : "bom", () => { S.fr.sit = "atrasadas"; ir("receber"); })),
+    el("h3", {}, "Resultado de " + MES[+mes.slice(5) - 1] + " (pago e recebido de fato)"),
+    el("div", { class: "kpis" }, kpi("Entrou", R(ent), "recebimentos do mês", "bom"), kpi("Saiu", R(sai), "pagamentos do mês"),
+      kpi("Resultado", R(ent - sai), "sem aportes, transferências e acertos", ent - sai < 0 ? "alerta" : "bom")),
+    el("h3", {}, "Custo da plataforma"),
+    el("div", { class: "kpis" }, kpi("Custo mensal", R(plat), "custos do grupo Plataforma em vigor", "", () => { S.fcu.grupo = "Plataforma"; ir("custos"); }),
+      kpi("CNPJs ativos", String(S.cnpjs), "empresas ativas no Buscador"), kpi("Custo por CNPJ", R(porCnpj), "custo mensal ÷ CNPJs ativos")));
+  // próximos vencimentos
+  const prox = [...pag30.map(l => ({ d: l.vencimento, t: "A pagar", desc: l.descricao, quem: l.contraparte, v: -l.valor, l })),
+    ...rec30.map(l => ({ d: l.vencimento, t: "A receber", desc: l.descricao, quem: l.contraparte, v: +l.valor, l })),
+    ...cob30.map(x => ({ d: x.vencimento, t: "Contratos", desc: x.descricao || "Competência " + x.competencia, quem: x.cliente, v: +x.valor }))].sort((a, b) => a.d < b.d ? -1 : 1);
+  c.append(el("div", { class: "grade2" },
+    el("div", { class: "painel" }, el("h2", {}, "Vencimentos dos próximos 30 dias"),
+      prox.length ? el("div", { class: "rolar" }, el("table", { class: "tab" }, el("thead", {}, el("tr", {}, el("th", {}, "Vence"), el("th", {}, "Tipo"), el("th", {}, "Descrição"), el("th", { class: "n" }, "Valor"))),
+        el("tbody", {}, prox.map(p => el("tr", { class: p.l ? "clica" : "", onclick: p.l ? () => fichaLanc(p.l) : null }, el("td", {}, br(p.d)), el("td", {}, p.t), el("td", {}, p.desc, p.quem ? el("div", { class: "mut" }, p.quem) : null),
+          el("td", { class: "n " + (p.v < 0 ? "neg" : "pos") }, R(p.v))))))) : el("p", { class: "mut" }, "Nada vence nos próximos 30 dias.")),
+    el("div", { class: "painel" }, el("h2", {}, "Margem dos apps sobre o custo por CNPJ"),
+      el("p", { class: "mut" }, "Preço aprovado de cada item (Administração → Preços) menos o custo da plataforma por CNPJ (" + R(porCnpj) + "). É uma referência: o custo é dividido igualmente entre os CNPJs."),
+      el("div", { class: "rolar" }, el("table", { class: "tab" }, el("thead", {}, el("tr", {}, el("th", {}, "Item"), el("th", {}, "Unidade"), el("th", { class: "n" }, "Preço"), el("th", { class: "n" }, "Margem"))),
+        el("tbody", {}, S.precos.filter(p => p.valor != null && p.cobranca === "mensal").map(p => { const m = Number(p.valor) - porCnpj;
+          return el("tr", {}, el("td", {}, p.nome), el("td", { class: "mut" }, p.unidade), el("td", { class: "n" }, R(p.valor)),
+            el("td", { class: "n " + (m < 0 ? "neg" : "") }, R(m), el("div", { class: "mut" }, Number(p.valor) ? Math.round(m / Number(p.valor) * 100) + "%" : ""))); })))))));
+}
+
+// ---------------------------------------------------------------- Contas a pagar
+function filtrarLanc(tipo, f) {
+  const q = semAc(f.q || "");
+  return S.lanc.filter(l => l.tipo === tipo).filter(l => {
+    const s = situacao(l);
+    if (f.sit === "abertas" && !(s === "aberta" || s === "atrasada")) return false;
+    if (f.sit === "atrasadas" && s !== "atrasada") return false;
+    if (f.sit === "pagas" && !(s === "paga" || s === "recebida")) return false;
+    if (f.sit === "canceladas" && s !== "cancelada") return false;
+    if (f.cat && String(l.categoria_id) !== String(f.cat)) return false;
+    if (f.conta && String(l.pago_em ? l.conta_pago_id : l.conta_id) !== String(f.conta)) return false;
+    const d = l.pago_em || l.vencimento;
+    if (f.de && d < f.de) return false; if (f.ate && d > f.ate) return false;
+    if (q && !semAc(l.descricao + " " + l.contraparte + " " + (cat(l.categoria_id).nome || "")).includes(q)) return false;
+    return true;
+  });
+}
+const optSit = [["abertas", "Em aberto"], ["atrasadas", "Atrasadas"], ["pagas", "Pagas / recebidas"], ["canceladas", "Canceladas"], ["todas", "Todas"]];
+function filtros(f, extra) {
+  const mud = k => e => { f[k] = e.target.value; render(); };
+  return el("div", { class: "filtros" },
+    campo("Situação", sel(optSit, f.sit, { id: "fSit", onchange: mud("sit") })),
+    campo("Categoria", sel([["", "Todas"], ...S.cats.map(c => [c.id, c.nome])], f.cat, { onchange: mud("cat") })),
+    campo("Conta", sel([["", "Todas"], ...S.contas.map(c => [c.id, c.nome])], f.conta, { onchange: mud("conta") })),
+    campo("De", el("input", { type: "date", value: f.de, onchange: mud("de") })), campo("Até", el("input", { type: "date", value: f.ate, onchange: mud("ate") })),
+    campo("Buscar", el("input", { type: "search", value: f.q || "", placeholder: "descrição, fornecedor…", onchange: mud("q") })), extra);
+}
+function tabelaLanc(lista, tipo) {
+  const tot = lista.filter(l => !l.cancelado_em).reduce((s, l) => s + Number(l.valor_pago || l.valor), 0);
+  return el("div", { class: "rolar" }, el("table", { class: "tab", id: "tab-" + tipo },
+    el("thead", {}, el("tr", {}, el("th", {}, "Vencimento"), el("th", {}, "Descrição"), el("th", {}, "Categoria"), el("th", {}, "Conta"), el("th", {}, "Situação"), el("th", { class: "n" }, "Valor"))),
+    el("tbody", {}, lista.map(l => el("tr", { class: "clica " + (l.cancelado_em ? "cancelado" : ""), onclick: () => fichaLanc(l) },
+      el("td", {}, br(l.vencimento)), el("td", {}, l.descricao, l.recorrencia !== "nenhuma" ? el("span", { class: "mut" }, " · " + REC[l.recorrencia].toLowerCase()) : null, l.anexo ? " 📎" : null,
+        l.contraparte ? el("div", { class: "mut" }, l.contraparte) : null),
+      el("td", {}, cat(l.categoria_id).nome || el("span", { class: "mut" }, "—")),
+      el("td", {}, conta(l.pago_em ? l.conta_pago_id : l.conta_id).nome || el("span", { class: "mut" }, "—")),
+      el("td", {}, pill(situacao(l)), l.pago_em ? el("div", { class: "mut" }, "em " + br(l.pago_em)) : null),
+      el("td", { class: "n" }, R(l.valor_pago || l.valor))))),
+    el("tfoot", {}, el("tr", {}, el("td", { colspan: 5 }, lista.length + " lançamento(s)"), el("td", { class: "n" }, R(tot))))));
+}
+function vPagar(c) {
+  const lista = filtrarLanc("pagar", S.fp);
+  c.append(el("div", { class: "painel" },
+    el("div", { class: "acoes", style: "justify-content:space-between;margin-bottom:10px" }, el("h2", { style: "margin:0" }, "Contas a pagar"),
+      el("div", { class: "acoes" }, el("button", { class: "btn", id: "novaPagar", onclick: () => editarLanc({ tipo: "pagar" }) }, "+ Nova conta a pagar"),
+        el("button", { class: "btn sec", id: "jaPaga", onclick: () => editarLanc({ tipo: "pagar" }, { jaPaga: true }) }, "+ Despesa já paga (cartão pessoal, dinheiro)"),
+        el("button", { class: "btn sec", onclick: () => csv("contas-a-pagar.csv", ["Vencimento", "Descrição", "Fornecedor", "Categoria", "Conta", "Situação", "Valor", "Pago em", "Valor pago"],
+          lista.map(l => [br(l.vencimento), l.descricao, l.contraparte, cat(l.categoria_id).nome || "", conta(l.pago_em ? l.conta_pago_id : l.conta_id).nome || "", SIT[situacao(l)][0], num(l.valor), br(l.pago_em), num(l.valor_pago)])) }, "CSV"))),
+    filtros(S.fp), tabelaLanc(lista, "pagar")));
+}
+
+// ---------------------------------------------------------------- Contas a receber (Contratos + avulsos)
+function vReceber(c) {
+  const f = S.fr, h = hoje();
+  const cob = S.cob.filter(x => f.sit === "todas" ? true : f.sit === "pagas" ? !!x.pago_em : f.sit === "atrasadas" ? cobAberta(x) && x.vencimento < h : f.sit === "canceladas" ? false : cobAberta(x));
+  const avulsos = filtrarLanc("receber", { sit: f.sit });
+  const sitCob = { a_vencer: ["A vencer", "info"], atrasada: ["Atrasada", "alerta"], paga: ["Recebida", "ok"], paga_atraso: ["Recebida com atraso", "atencao"], diferenca: ["Diferença", "atencao"] };
+  c.append(el("div", { class: "filtros" }, campo("Situação", sel(optSit, f.sit, { id: "fSitR", onchange: e => { f.sit = e.target.value; render(); } }))),
+    el("div", { class: "painel" }, el("h2", {}, "Cobranças dos contratos"),
+      el("div", { class: "info" }, "Vêm do app Contratos (empresa ", el("b", {}, S.cfg.ctr_empresa_id ? "Nervia" : "não definida"), "). Aqui é só consulta: a baixa, a NF e a conferência com o extrato continuam no ",
+        el("a", { href: "/apps/contratos/", target: "_top" }, "Contratos"), ". Os recebimentos entram no saldo da conta ", el("b", {}, conta(S.cfg.conta_contratos).nome || "—"), "."),
+      cob.length ? el("div", { class: "rolar" }, el("table", { class: "tab", id: "tab-contratos" },
+        el("thead", {}, el("tr", {}, el("th", {}, "Vencimento"), el("th", {}, "Cliente"), el("th", {}, "Competência"), el("th", {}, "Situação"), el("th", { class: "n" }, "Valor"), el("th", { class: "n" }, "Recebido"))),
+        el("tbody", {}, cob.map(x => { const [t, k] = sitCob[x.situacao] || [x.situacao, ""];
+          return el("tr", {}, el("td", {}, br(x.vencimento)), el("td", {}, x.cliente), el("td", {}, x.competencia.endsWith("/13") ? "extra " + x.competencia.slice(0, 4) : x.competencia.slice(5) + "/" + x.competencia.slice(0, 4)),
+            el("td", {}, el("span", { class: "pill " + k }, t), x.pago_em ? el("div", { class: "mut" }, "em " + br(x.pago_em)) : null), el("td", { class: "n" }, R(x.valor)), el("td", { class: "n" }, x.pago_em ? R(x.valor_pago) : "")); })),
+        el("tfoot", {}, el("tr", {}, el("td", { colspan: 4 }, cob.length + " cobrança(s)"), el("td", { class: "n" }, R(cob.reduce((s, x) => s + Number(x.valor), 0))), el("td", { class: "n" }, R(cob.reduce((s, x) => s + Number(x.valor_pago || 0), 0)))))))
+        : el("p", { class: "mut" }, "Nenhuma cobrança nesta situação.")),
+    el("div", { class: "painel" },
+      el("div", { class: "acoes", style: "justify-content:space-between;margin-bottom:10px" }, el("h2", { style: "margin:0" }, "Recebimentos avulsos (fora de contrato)"),
+        el("button", { class: "btn", id: "novoReceber", onclick: () => editarLanc({ tipo: "receber" }) }, "+ Novo recebimento avulso")),
+      avulsos.length ? tabelaLanc(avulsos, "receber") : el("p", { class: "mut" }, "Nenhum recebimento avulso nesta situação.")));
+}
+
+// ---------------------------------------------------------------- lançamento: ficha, novo/editar, baixa
+function editarLanc(l, { jaPaga = false } = {}) {
+  const novo = !l.id, pagar = l.tipo === "pagar";
+  const desc = el("input", { type: "text", id: "lDesc", value: l.descricao || "" }), quem = el("input", { type: "text", id: "lQuem", value: l.contraparte || "" });
+  const venc = el("input", { type: "date", id: "lVenc", value: l.vencimento || hoje() }), valor = moeda(l.valor, { id: "lValor" });
+  const ct = sel(optCats(l.tipo === "pagar" ? "despesa" : "receita"), l.categoria_id, { id: "lCat" }), cn = sel(optContas("— a definir —"), l.conta_id ?? (jaPaga ? (S.contas.find(c => c.tipo === "cartao_pessoal") || {}).id : ""), { id: "lConta" });
+  const rec = sel(Object.entries(REC), l.recorrencia || "nenhuma", { id: "lRec" }), obs = el("textarea", { id: "lObs" }, l.obs || "");
+  const msg = el("span", { class: "msg" });
+  const corpo = el("div", {},
+    jaPaga ? el("div", { class: "info" }, "Despesa que já foi paga (ex.: no seu cartão pessoal ou em dinheiro): entra como paga na conta escolhida. No cartão pessoal, o saldo mostra quanto a Nervia lhe deve.") : null,
+    el("div", { class: "form" },
+      campo("Descrição", desc, "dois"), campo(pagar ? "Fornecedor" : "Quem paga", quem),
+      campo(jaPaga ? "Data do pagamento" : "Vencimento", venc), campo("Valor (R$)", valor), campo("Categoria", ct),
+      campo(jaPaga ? "Pago pela conta" : "Conta prevista", cn), jaPaga ? null : campo("Repete", rec), campo("Observação", obs, "tudo")),
+    !novo && l.recorrencia !== "nenhuma" ? el("p", { class: "mut" }, "Se repete: ao dar baixa, a próxima é criada sozinha com o mesmo valor (ou o valor atual do custo, se veio de um custo recorrente).") : null,
+    el("div", { class: "acoes", style: "margin-top:12px" }, el("button", { class: "btn", id: "lSalvar", onclick: async () => {
+      let v; try { v = lerMoeda(valor, "valor"); } catch (e) { msg.className = "msg erro"; msg.textContent = e.message; return; }
+      const p = { tipo: l.tipo, descricao: desc.value, contraparte: quem.value, vencimento: venc.value, valor: v, categoria_id: ct.value, conta_id: cn.value, obs: obs.value };
+      if (!jaPaga) p.recorrencia = rec.value;
+      if (!novo) p.id = l.id;
+      if (jaPaga) { if (!cn.value) { msg.className = "msg erro"; msg.textContent = "Escolha a conta pela qual foi pago."; return; } p.pago_em = venc.value; p.conta_pago_id = cn.value; }
+      await salvar(() => rpc("fin_lancamento_salvar", { p }), msg, novo ? "Lançado." : "Alterado.");
+      $("#dlg").close();
+    } }, novo ? "Lançar" : "Gravar alteração"), msg));
+  dialogo(novo ? (jaPaga ? "Despesa já paga" : pagar ? "Nova conta a pagar" : "Novo recebimento avulso") : "Alterar lançamento", corpo);
+}
+function fichaLanc(l) {
+  l = S.lanc.find(x => x.id === l.id) || l;
+  const s = situacao(l), pagar = l.tipo === "pagar", msg = el("span", { class: "msg" });
+  const serie = S.lanc.filter(x => x.serie_id === l.serie_id && x.id !== l.id);
+  const dd = (k, v) => [el("dt", {}, k), el("dd", {}, v)];
+  const corpo = el("div", {},
+    el("dl", { class: "dados" }, dd("Situação", pill(s)), dd(pagar ? "Fornecedor" : "Quem paga", l.contraparte || "—"), dd("Vencimento", br(l.vencimento)), dd("Valor", R(l.valor)),
+      dd("Categoria", cat(l.categoria_id).nome || "—"), dd("Conta prevista", conta(l.conta_id).nome || "—"), dd("Repete", REC[l.recorrencia]),
+      l.custo_id ? dd("Custo recorrente", (S.custos.find(c => c.id === l.custo_id) || {}).nome || "") : [],
+      l.pago_em ? [dd(pagar ? "Pago em" : "Recebido em", br(l.pago_em)), dd("Valor pago", R(l.valor_pago)), dd("Conta", conta(l.conta_pago_id).nome)] : [],
+      l.cancelado_em ? dd("Cancelado", br(l.cancelado_em.slice(0, 10)) + " — " + l.cancelado_motivo) : [],
+      l.obs ? dd("Observação", l.obs) : [], dd("Lançado por", (l.criado_nome || "") + " em " + br(l.criado_em.slice(0, 10))),
+      dd("Anexo", l.anexo ? el("button", { class: "btn lnk", id: "verAnexo", onclick: () => verAnexo(l.anexo) }, "ver " + l.anexo.split("/").pop().replace(/^\d+-/, "")) : el("span", { class: "mut" }, "nenhum"))),
+    serie.length ? el("p", { class: "mut" }, "Outros da mesma série: " + serie.map(x => br(x.vencimento) + " (" + SIT[situacao(x)][0].toLowerCase() + ")").join(", ")) : null,
+    el("div", { class: "acoes" },
+      s === "aberta" || s === "atrasada" ? [
+        el("button", { class: "btn", id: "baixar", onclick: () => baixa(l) }, pagar ? "Registrar pagamento" : "Registrar recebimento"),
+        el("button", { class: "btn sec", id: "alterar", onclick: () => editarLanc(l) }, "Alterar"),
+        el("button", { class: "btn perigo", id: "cancelar", onclick: () => motivo("Cancelar lançamento", "Por que cancelar? (o lançamento continua no histórico)", m => rpc("fin_lancamento_cancelar", { p_id: l.id, p_motivo: m }), "Cancelado.") }, "Cancelar")] : null,
+      l.pago_em ? el("button", { class: "btn perigo", id: "desfazer", onclick: () => motivo("Desfazer baixa", "Por que desfazer a baixa?", m => rpc("fin_lancamento_desfazer", { p_id: l.id, p_motivo: m }), "Baixa desfeita.") }, "Desfazer baixa") : null,
+      !l.cancelado_em ? el("label", { class: "btn sec" }, l.anexo ? "Trocar anexo" : "Anexar (PDF, foto)", el("input", { type: "file", id: "anexo", accept: "application/pdf,image/jpeg,image/png", hidden: true,
+        onchange: e => anexar(l, e.target.files[0], msg) })) : null, msg));
+  dialogo((pagar ? "A pagar: " : "A receber: ") + l.descricao, corpo);
+}
+function baixa(l) {
+  const data = el("input", { type: "date", id: "bData", value: hoje() }), valor = moeda(l.valor, { id: "bValor" });
+  const ct = sel(optContas(), l.conta_id || S.contas[0]?.id, { id: "bConta" }), obs = el("input", { type: "text", id: "bObs", placeholder: "opcional (ex.: com multa)" }), msg = el("span", { class: "msg" });
+  dialogo(l.tipo === "pagar" ? "Registrar pagamento" : "Registrar recebimento", el("div", {},
+    el("p", { class: "mut" }, l.descricao + " · vence " + br(l.vencimento) + " · " + R(l.valor)),
+    el("div", { class: "form" }, campo("Data", data), campo("Valor", valor), campo("Conta", ct), campo("Observação", obs, "tudo")),
+    el("div", { class: "acoes", style: "margin-top:12px" }, el("button", { class: "btn", id: "bOk", onclick: async () => {
+      let v; try { v = lerMoeda(valor, "valor"); } catch (e) { msg.className = "msg erro"; msg.textContent = e.message; return; }
+      const prox = await salvar(() => rpc("fin_lancamento_pagar", { p_id: l.id, p_pago_em: data.value, p_valor: v, p_conta: ct.value, p_obs: obs.value }), msg);
+      $("#dlg2").close(); $("#dlg").close(); toast(prox ? "Baixa registrada. A próxima da série já está lançada." : "Baixa registrada.");
+    } }, "Registrar"), msg)), { peq: true });
+}
+function motivo(titulo, pergunta, fn, okTxt) {
+  const t = el("textarea", { id: "motivo" }), msg = el("span", { class: "msg" });
+  dialogo(titulo, el("div", {}, campo(pergunta, t), el("div", { class: "acoes", style: "margin-top:12px" },
+    el("button", { class: "btn perigo", id: "motivoOk", onclick: async () => { await salvar(() => fn(t.value), msg, okTxt); $("#dlg2").close(); $("#dlg").close(); } }, "Confirmar"), msg)), { peq: true });
+}
+async function anexar(l, f, msg) {
+  if (!f) return;
+  if (f.size > 10 * 1024 * 1024) { msg.className = "msg erro"; msg.textContent = "Arquivo maior que 10 MB."; return; }
+  const nome = Date.now() + "-" + semAc(f.name).replace(/[^a-z0-9.]+/g, "-");
+  await salvar(async () => {
+    checar(await sb.storage.from("fin-arquivos").upload("lancamentos/" + l.id + "/" + nome, new Blob([f], { type: f.type })));
+    await rpc("fin_lancamento_anexo", { p_id: l.id, p_caminho: "lancamentos/" + l.id + "/" + nome });
+  }, msg, "Anexo guardado.");
+  fichaLanc(l);
+}
+async function verAnexo(caminho) {
+  try { const d = checar(await sb.storage.from("fin-arquivos").createSignedUrl(caminho, 120)); window.open(d.signedUrl, "_blank", "noopener"); }
+  catch (e) { alert(erroTxt(e)); }
+}
+
+// ---------------------------------------------------------------- Custos recorrentes
+function vCustos(c) {
+  const f = S.fcu, grupos = [...new Set(S.custos.map(x => x.grupo))].sort();
+  const lista = S.custos.filter(x => (!f.grupo || x.grupo === f.grupo) && (!f.ativos || ativoHoje(x)));
+  const porGrupo = grupos.map(g => [g, S.custos.filter(x => x.grupo === g && ativoHoje(x)).reduce((s, x) => s + Number(x.mensal_brl), 0)]);
+  const aberta = id => S.lanc.find(l => l.custo_id === id && !l.pago_em && !l.cancelado_em);
+  c.append(el("div", { class: "kpis" }, porGrupo.map(([g, v]) => kpi(g, R(v), "por mês (custos em vigor)", "", () => { f.grupo = g; render(); })),
+      kpi("Total", R(porGrupo.reduce((s, x) => s + x[1], 0)), "por mês")),
+    el("div", { class: "painel" },
+      el("div", { class: "acoes", style: "justify-content:space-between;margin-bottom:10px" }, el("h2", { style: "margin:0" }, "Custos recorrentes"),
+        el("div", { class: "acoes" }, el("button", { class: "btn", id: "novoCusto", onclick: () => editarCusto({}) }, "+ Novo custo"),
+          el("button", { class: "btn sec", onclick: () => csv("custos.csv", ["Custo", "Grupo", "Fornecedor", "Moeda", "Valor", "Câmbio", "Periodicidade", "Equivalente mensal (R$)", "Desde", "Até"],
+            lista.map(x => [x.nome, x.grupo, x.fornecedor, x.moeda, num(x.valor), num(x.cambio), x.periodicidade, num(x.mensal_brl), br(x.desde), br(x.ate)])) }, "CSV"))),
+      el("div", { class: "filtros" }, campo("Grupo", sel([["", "Todos"], ...grupos.map(g => [g, g])], f.grupo, { id: "fGrupo", onchange: e => { f.grupo = e.target.value; render(); } })),
+        el("label", { class: "chk" }, el("input", { type: "checkbox", checked: f.ativos, onchange: e => { f.ativos = e.target.checked; render(); } }), "Só os em vigor hoje")),
+      el("div", { class: "rolar" }, el("table", { class: "tab", id: "tab-custos" },
+        el("thead", {}, el("tr", {}, el("th", {}, "Custo"), el("th", {}, "Grupo"), el("th", { class: "n" }, "Valor"), el("th", {}, "Período"), el("th", { class: "n" }, "Por mês"), el("th", {}, "Vigência"), el("th", {}, "Conta a pagar"))),
+        el("tbody", {}, lista.map(x => { const a = aberta(x.id);
+          return el("tr", { class: "clica", onclick: () => editarCusto(x) }, el("td", {}, x.nome, x.fornecedor ? el("div", { class: "mut" }, x.fornecedor) : null), el("td", {}, x.grupo),
+            el("td", { class: "n" }, x.moeda === "USD" ? "US$ " + Number(x.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : R(x.valor), x.moeda === "USD" ? el("div", { class: "mut" }, "× " + String(x.cambio).replace(".", ",") + " = " + R(x.valor_brl)) : null),
+            el("td", {}, x.periodicidade === "anual" ? "anual" : "mensal"), el("td", { class: "n" }, R(x.mensal_brl)),
+            el("td", {}, "desde " + br(x.desde), x.ate ? el("div", { class: "mut" }, "até " + br(x.ate)) : null),
+            el("td", {}, a ? el("span", { class: "pill info" }, "vence " + br(a.vencimento)) : el("span", { class: "mut" }, "—"))); })),
+        el("tfoot", {}, el("tr", {}, el("td", { colspan: 4 }, lista.length + " custo(s)"), el("td", { class: "n" }, R(lista.filter(ativoHoje).reduce((s, x) => s + Number(x.mensal_brl), 0))), el("td", { colspan: 2 })))))));
+}
+function editarCusto(x) {
+  const novo = !x.id, grupos = [...new Set(["Plataforma", ...S.custos.map(c => c.grupo)])];
+  const nome = el("input", { type: "text", id: "cNome", value: x.nome || "" }), forn = el("input", { type: "text", id: "cForn", value: x.fornecedor || "" });
+  const grupo = el("input", { type: "text", id: "cGrupo", value: x.grupo || "Plataforma", list: "cGrupos" });
+  const md = sel([["BRL", "Real (R$)"], ["USD", "Dólar (US$)"]], x.moeda || "BRL", { id: "cMoeda" }), valor = moeda(x.valor, { id: "cValor" }), cambio = moeda(x.cambio, { id: "cCambio" });
+  const per = sel([["mensal", "Mensal"], ["anual", "Anual"]], x.periodicidade || "mensal", { id: "cPer" });
+  const desde = el("input", { type: "date", id: "cDesde", value: x.desde || hoje() }), ate = el("input", { type: "date", id: "cAte", value: x.ate || "" });
+  const ct = sel(optCats("despesa"), x.categoria_id ?? (S.cats.find(c => /plataforma/i.test(c.nome)) || {}).id, { id: "cCat" }), cn = sel(optContas("— a definir —"), x.conta_id, { id: "cConta" });
+  const obs = el("textarea", { id: "cObs" }, x.obs || ""), mot = el("input", { type: "text", id: "cMotivo", placeholder: "ex.: reajuste, câmbio do mês" }), msg = el("span", { class: "msg" });
+  const camb = campo("Câmbio (R$ por US$)", cambio); const vis = () => { camb.hidden = md.value !== "USD"; }; md.addEventListener("change", vis); vis();
+  const hist = S.hist.filter(h => h.custo_id === x.id);
+  const fmtH = o => o ? Object.entries(o).map(([k, v]) => k + ": " + (v == null ? "—" : v)).join(" · ") : "";
+  const aberta = S.lanc.find(l => l.custo_id === x.id && !l.pago_em && !l.cancelado_em);
+  const venc = el("input", { type: "date", id: "cVenc", value: hoje() });
+  dialogo(novo ? "Novo custo recorrente" : x.nome, el("div", {},
+    el("datalist", { id: "cGrupos" }, grupos.map(g => el("option", { value: g }))),
+    el("div", { class: "form" }, campo("Nome", nome, "dois"), campo("Grupo", grupo), campo("Fornecedor", forn), campo("Moeda", md), campo("Valor por período", valor), camb, campo("Período", per),
+      campo("Desde", desde), campo("Até (vazio = continua)", ate), campo("Categoria", ct), campo("Conta em que é pago", cn), campo("Observação", obs, "tudo"),
+      novo ? null : campo("Motivo da mudança (vai para o histórico)", mot, "tudo")),
+    el("p", { class: "mut" }, "O grupo Plataforma entra no custo por CNPJ e na margem dos apps. Mudanças ficam registradas no histórico, que não se altera."),
+    el("div", { class: "acoes", style: "margin-top:10px" }, el("button", { class: "btn", id: "cSalvar", onclick: async () => {
+      let v, cb; try { v = lerMoeda(valor, "valor"); cb = md.value === "USD" ? lerMoeda(cambio, "câmbio") : null; } catch (e) { msg.className = "msg erro"; msg.textContent = e.message; return; }
+      const p = { nome: nome.value, fornecedor: forn.value, grupo: grupo.value, moeda: md.value, valor: v, cambio: cb, periodicidade: per.value, desde: desde.value, ate: ate.value,
+        categoria_id: ct.value, conta_id: cn.value, obs: obs.value, motivo: mot.value };
+      if (!novo) p.id = x.id;
+      await salvar(() => rpc("fin_custo_salvar", { p }), msg, novo ? "Custo cadastrado." : "Custo alterado.");
+      $("#dlg").close();
+    } }, novo ? "Cadastrar" : "Gravar alteração"), msg),
+    novo ? null : el("div", { class: "painel", style: "margin-top:14px" }, el("h2", {}, "Conta a pagar"),
+      aberta ? el("p", {}, "Em aberto: vence ", el("b", {}, br(aberta.vencimento)), " · " + R(aberta.valor) + " ", el("button", { class: "btn lnk", onclick: () => fichaLanc(aberta) }, "abrir"))
+        : el("div", { class: "acoes" }, campo("Primeiro vencimento", venc), el("button", { class: "btn sec", id: "cGerar", onclick: async () => {
+          await salvar(() => rpc("fin_custo_gerar_conta", { p_custo: x.id, p_vencimento: venc.value }), msg, "Conta a pagar criada; a próxima nasce a cada pagamento."); $("#dlg").close(); } }, "Criar conta a pagar"))),
+    novo ? null : el("div", {}, el("h3", {}, "Histórico"), hist.length ? el("ul", { class: "mut", id: "cHist" }, hist.map(h => el("li", {}, br(h.em.slice(0, 10)) + " · " + (h.quem || "") + (h.motivo ? " · " + h.motivo : "") + " — ",
+      h.antes ? fmtH(h.antes) + " → " + fmtH(h.depois) : "cadastrado"))) : el("p", { class: "mut" }, "Sem mudanças."))));
+}
+
+// ---------------------------------------------------------------- Contas e saldos
+function vContas(c) {
+  const f = S.fm; if (!f.conta && S.contas[0]) f.conta = S.contas[0].id;
+  const k = conta(+f.conta), sd = S.saldos.find(s => s.conta_id === +f.conta) || {};
+  const movs = S.movs.filter(m => m.conta_id === +f.conta && (!f.de || m.data >= f.de) && (!f.ate || m.data <= f.ate) && m.data >= (k.saldo_inicial_em || ""));
+  c.append(el("div", { class: "kpis" }, S.saldos.map(s => kpi(s.nome, R(s.saldo), TIPO_CONTA[s.tipo] + (s.tipo === "cartao_pessoal" && s.saldo < 0 ? " · a Nervia deve ao Marco" : ""), +f.conta === s.conta_id ? "bom" : "", () => { f.conta = s.conta_id; render(); }))),
+    el("div", { class: "painel" },
+      el("div", { class: "acoes", style: "justify-content:space-between;margin-bottom:10px" }, el("h2", { style: "margin:0" }, k.nome || "Conta"),
+        el("div", { class: "acoes" }, el("button", { class: "btn", id: "transferir", onclick: () => transferir() }, "Transferência"),
+          el("button", { class: "btn sec", id: "acertar", onclick: () => acertar(k, sd) }, "Acertar saldo com o banco"),
+          el("button", { class: "btn sec", id: "editarConta", onclick: () => editarConta(k) }, "Editar conta"),
+          el("button", { class: "btn sec", onclick: () => editarConta({}) }, "+ Nova conta"))),
+      el("p", { class: "mut" }, "Saldo inicial " + R(k.saldo_inicial) + " em " + br(k.saldo_inicial_em) + ". Saldo de hoje: ", el("b", { id: "saldoHoje" }, R(sd.saldo)),
+        k.tipo === "cartao_pessoal" ? ". Negativo = quanto a Nervia deve ao Marco pelo que foi pago no cartão pessoal; o reembolso é uma transferência do banco para esta conta." : "."),
+      el("div", { class: "filtros" }, campo("De", el("input", { type: "date", value: f.de, onchange: e => { f.de = e.target.value; render(); } })),
+        campo("Até", el("input", { type: "date", value: f.ate, onchange: e => { f.ate = e.target.value; render(); } }))),
+      movs.length ? el("div", { class: "rolar" }, el("table", { class: "tab", id: "tab-movs" },
+        el("thead", {}, el("tr", {}, el("th", {}, "Data"), el("th", {}, "Origem"), el("th", {}, "Descrição"), el("th", { class: "n" }, "Valor"))),
+        el("tbody", {}, movs.map(m => el("tr", { class: m.origem === "lancamento" || m.origem === "transferencia" ? "clica" : "", onclick: () => {
+          if (m.origem === "lancamento") fichaLanc(S.lanc.find(l => l.id === m.origem_id));
+          if (m.origem === "transferencia") fichaTransf(S.transf.find(t => t.id === m.origem_id)); } },
+          el("td", {}, br(m.data)), el("td", {}, { lancamento: "Lançamento", transferencia: "Transferência", ajuste: "Acerto", contratos: "Contratos" }[m.origem]),
+          el("td", {}, m.descricao, m.contraparte ? el("div", { class: "mut" }, m.contraparte) : null), el("td", { class: "n " + (m.valor < 0 ? "neg" : "pos") }, R(m.valor))))),
+        el("tfoot", {}, el("tr", {}, el("td", { colspan: 3 }, "Movimento no período"), el("td", { class: "n" }, R(movs.reduce((s, m) => s + Number(m.valor), 0)))))))
+        : el("p", { class: "mut" }, "Nenhum movimento no período.")));
+}
+function transferir() {
+  const de = sel(optContas(), (S.contas.find(c => c.tipo === "banco") || {}).id, { id: "tDe" }), para = sel(optContas(), (S.contas.find(c => c.tipo === "cartao_pessoal") || {}).id, { id: "tPara" });
+  const data = el("input", { type: "date", id: "tData", value: hoje() }), valor = moeda(null, { id: "tValor" }), desc = el("input", { type: "text", id: "tDesc", placeholder: "ex.: reembolso ao Marco do cartão" }), msg = el("span", { class: "msg" });
+  dialogo("Transferência entre contas", el("div", {}, el("p", { class: "mut" }, "Reembolso do cartão pessoal: do Nubank para o cartão. Não entra no resultado do mês."),
+    el("div", { class: "form" }, campo("De", de), campo("Para", para), campo("Data", data), campo("Valor", valor), campo("Descrição", desc, "dois")),
+    el("div", { class: "acoes", style: "margin-top:12px" }, el("button", { class: "btn", id: "tOk", onclick: async () => {
+      let v; try { v = lerMoeda(valor, "valor"); } catch (e) { msg.className = "msg erro"; msg.textContent = e.message; return; }
+      await salvar(() => rpc("fin_transferir", { p: { de_conta: de.value, para_conta: para.value, data: data.value, valor: v, descricao: desc.value } }), msg, "Transferência registrada.");
+      $("#dlg2").close(); } }, "Registrar"), msg)), { peq: true });
+}
+function fichaTransf(t) {
+  if (!t) return;
+  dialogo("Transferência", el("div", {}, el("p", {}, br(t.data) + " · " + conta(t.de_conta).nome + " → " + conta(t.para_conta).nome + " · " + R(t.valor)), t.descricao ? el("p", { class: "mut" }, t.descricao) : null,
+    t.cancelado_em ? el("p", { class: "aviso" }, "Cancelada: " + t.cancelado_motivo) :
+      el("button", { class: "btn perigo", id: "tCancelar", onclick: () => motivo("Cancelar transferência", "Por que cancelar?", m => rpc("fin_transferencia_cancelar", { p_id: t.id, p_motivo: m }), "Transferência cancelada.") }, "Cancelar transferência")));
+}
+function acertar(k, sd) {
+  const data = el("input", { type: "date", id: "aData", value: hoje() }), saldo = moeda(null, { id: "aSaldo" }), mot = el("input", { type: "text", id: "aMotivo", value: "conferido com o extrato do banco" }), msg = el("span", { class: "msg" });
+  dialogo("Acertar saldo: " + k.nome, el("div", {}, el("p", { class: "mut" }, "Informe o saldo que o banco mostra nesta data. A diferença para o saldo do app (hoje " + R(sd.saldo) + ") vira um acerto, guardado com o motivo."),
+    el("div", { class: "form" }, campo("Data", data), campo("Saldo no banco", saldo), campo("Motivo", mot, "tudo")),
+    el("div", { class: "acoes", style: "margin-top:12px" }, el("button", { class: "btn", id: "aOk", onclick: async () => {
+      let v; try { v = M.ler(saldo.value.replace(/^-/, "")); if (v == null || Number.isNaN(v)) throw new Error("Confira o saldo (formato 1.234,56; negativo com − na frente)."); if (/^\s*-/.test(saldo.value)) v = -v; }
+      catch (e) { msg.className = "msg erro"; msg.textContent = e.message; return; }
+      const dif = await salvar(() => rpc("fin_saldo_acertar", { p_conta: k.id, p_data: data.value, p_saldo: v, p_motivo: mot.value }), msg);
+      $("#dlg2").close(); toast(Number(dif) ? "Saldo acertado (diferença de " + R(dif) + ")." : "Saldo conferido: sem diferença."); } }, "Acertar"), msg)), { peq: true });
+}
+function editarConta(k) {
+  const novo = !k.id, nome = el("input", { type: "text", id: "kNome", value: k.nome || "" }), tipo = sel(Object.entries(TIPO_CONTA), k.tipo || "banco", { id: "kTipo" });
+  const si = moeda(k.saldo_inicial ?? 0, { id: "kSaldo" }), sie = el("input", { type: "date", id: "kSaldoEm", value: k.saldo_inicial_em || hoje() });
+  const ativo = el("input", { type: "checkbox", checked: novo || k.ativo }), obs = el("textarea", {}, k.obs || ""), msg = el("span", { class: "msg" });
+  dialogo(novo ? "Nova conta" : "Editar conta", el("div", {}, el("div", { class: "form" }, campo("Nome", nome, "dois"), campo("Tipo", tipo), campo("Saldo inicial (R$)", si), campo("Saldo inicial no dia", sie),
+      el("label", { class: "chk" }, ativo, "Conta em uso"), campo("Observação", obs, "tudo")),
+    el("p", { class: "mut" }, "O saldo conta a partir do dia do saldo inicial (o que foi pago ou recebido antes não muda o saldo, mas continua no resultado)."),
+    el("div", { class: "acoes", style: "margin-top:10px" }, el("button", { class: "btn", id: "kOk", onclick: async () => {
+      let v; try { v = M.ler(si.value.replace(/^-/, "")); if (v == null || Number.isNaN(v)) throw new Error("Confira o saldo inicial."); if (/^\s*-/.test(si.value)) v = -v; } catch (e) { msg.className = "msg erro"; msg.textContent = e.message; return; }
+      const p = { nome: nome.value, tipo: tipo.value, saldo_inicial: v, saldo_inicial_em: sie.value, ativo: ativo.checked, obs: obs.value }; if (!novo) p.id = k.id;
+      await salvar(() => rpc("fin_conta_salvar", { p }), msg, "Conta gravada."); $("#dlg2").close(); } }, "Gravar"), msg)), { peq: true });
+}
+
+// ---------------------------------------------------------------- Configuração
+function vConfig(c) {
+  const msg = el("span", { class: "msg" });
+  const cc = sel(optContas("— nenhuma (não somar no saldo) —"), S.cfg.conta_contratos, { id: "cfgConta" });
+  c.append(el("div", { class: "grade2" },
+    el("div", { class: "painel" }, el("h2", {}, "Recebimentos do Contratos"),
+      el("p", { class: "mut" }, "As cobranças pagas no app Contratos (empresa Nervia) entram no saldo desta conta. Na fase 2 a conferência será pelo extrato."),
+      campo("Conta dos recebimentos", cc),
+      el("div", { class: "acoes", style: "margin-top:10px" }, el("button", { class: "btn", id: "cfgOk", onclick: () => salvar(() => rpc("fin_config_salvar", { p: { conta_contratos: cc.value } }), msg, "Configuração gravada.") }, "Gravar"), msg)),
+    el("div", { class: "painel" }, el("div", { class: "acoes", style: "justify-content:space-between;margin-bottom:8px" }, el("h2", { style: "margin:0" }, "Categorias"),
+        el("button", { class: "btn sec", id: "novaCat", onclick: () => editarCat({}) }, "+ Nova categoria")),
+      el("table", { class: "tab", id: "tab-cats" }, el("thead", {}, el("tr", {}, el("th", {}, "Categoria"), el("th", {}, "Tipo"), el("th", {}, "No resultado"))),
+        el("tbody", {}, S.cats.map(k => el("tr", { class: "clica " + (k.ativo ? "" : "cancelado"), onclick: () => editarCat(k) }, el("td", {}, k.nome),
+          el("td", {}, { despesa: "Despesa", receita: "Receita", ambos: "Despesa e receita" }[k.tipo]), el("td", {}, k.entra_resultado ? "sim" : el("span", { class: "pill atencao" }, "fora")))))))));
+}
+function editarCat(k) {
+  const novo = !k.id, nome = el("input", { type: "text", id: "kcNome", value: k.nome || "" });
+  const tipo = sel([["despesa", "Despesa"], ["receita", "Receita"], ["ambos", "Despesa e receita"]], k.tipo || "despesa", { id: "kcTipo" });
+  const res = el("input", { type: "checkbox", id: "kcRes", checked: novo || k.entra_resultado }), ativo = el("input", { type: "checkbox", checked: novo || k.ativo }), msg = el("span", { class: "msg" });
+  dialogo(novo ? "Nova categoria" : "Categoria", el("div", {}, el("div", { class: "form" }, campo("Nome", nome, "dois"), campo("Tipo", tipo)),
+    el("label", { class: "chk" }, res, "Entra no resultado do mês (desmarque para aportes do sócio, por exemplo)"), el("label", { class: "chk" }, ativo, "Em uso"),
+    el("div", { class: "acoes", style: "margin-top:10px" }, el("button", { class: "btn", id: "kcOk", onclick: async () => {
+      const p = { nome: nome.value, tipo: tipo.value, entra_resultado: res.checked, ativo: ativo.checked }; if (!novo) p.id = k.id;
+      await salvar(() => rpc("fin_categoria_salvar", { p }), msg, "Categoria gravada."); $("#dlg2").close(); } }, "Gravar"), msg)), { peq: true });
+}
+
+// ---------------------------------------------------------------- início
+(async () => {
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { $("#aviso").innerHTML = 'Entre pela <a href="/cliente/" target="_top">Área do Cliente</a> para usar o Financeiro.'; return; }
+    const adm = checar(await sb.from("perfis").select("admin").eq("user_id", session.user.id))[0];
+    if (!adm || !adm.admin) { $("#aviso").textContent = "O Financeiro é só da equipe Nervia."; return; }
+    await carregar();
+    $("#aviso").hidden = true; $("#app").hidden = false; render();
+  } catch (e) { $("#aviso").textContent = "Não foi possível carregar o Financeiro: " + erroTxt(e); }
+})();
+})();
+</script>
+</body>
+</html>
