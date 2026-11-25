@@ -196,6 +196,7 @@ Ao publicar mudança num app: linha nova no topo do app aqui (com a data) e em `
 
 | Versão | Data | O que mudou |
 |---|---|---|
+| 1.6 | 25/11/2026 | O cartão mostra sempre quantas avaliações você recebeu e quantos pedidos de avaliação houve (cada leitura do seu QR, uma por celular por dia; só você vê os pedidos). A nota e as estrelas continuam mudando a cada 5 avaliações. (pedido do Marco: "não estou vendo o número de avaliações… solicitação de avaliação/avaliação"; migração aura_contagem: aur_leituras, _aur_nota com total, aur_meu_cartao com pedidos, aur_cartao_ler(código, marca)) |
 | 1.5 | 25/11/2026 | A avaliação fala em interação (conversa, encontro, atendimento), não só em conversa: "Como foi a nossa interação?". (pedido do Marco: no futuro uma empresa pode usar para cada funcionário avaliar o atendimento; só texto) |
 | 1.4 | 25/11/2026 | Gerar uma chave nova: quem está dentro da conta e não anotou a chave gera outra, com o cartão, a foto e as notas mantidos; a antiga deixa de valer. A chave também fica guardada no celular assim que a conta é criada. (o Marco criou a conta, não viu a chave e ficou sem ela; migração chave_nova: sin_conta_auditar aceita aura/sintonia_chave_trocada; função sintonia-conta {acao:"nova_chave"}) |
 | 1.3 | 25/11/2026 | Ver a minha chave mostra a chave na hora, numa janela com Copiar; se o aparelho não tiver a chave guardada, explica onde ela está. (o Marco tocou em Ver a minha chave e a chave não apareceu: o botão só levava à Conta) |

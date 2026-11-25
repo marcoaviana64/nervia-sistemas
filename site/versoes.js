@@ -40,6 +40,7 @@ window.NERVIA_VERSOES = {
     ["1.0", "Lançamento: requisição, propostas, mapa comparativo, aprovação por alçada (Gerente e Diretor), pedido e avaliação do fornecedor."],
   ],
   "aura": [
+    ["1.6", "O cartão mostra sempre quantas avaliações você recebeu e quantos pedidos de avaliação houve (cada leitura do seu QR, uma por celular por dia; só você vê os pedidos). A nota e as estrelas continuam mudando a cada 5 avaliações."],
     ["1.5", "A avaliação fala em interação (conversa, encontro, atendimento), não só em conversa: \"Como foi a nossa interação?\"."],
     ["1.4", "Gerar uma chave nova: quem está dentro da conta e não anotou a chave gera outra, com o cartão, a foto e as notas mantidos; a antiga deixa de valer. A chave também fica guardada no celular assim que a conta é criada."],
     ["1.3", "Ver a minha chave mostra a chave na hora, numa janela com Copiar; se o aparelho não tiver a chave guardada, explica onde ela está."],

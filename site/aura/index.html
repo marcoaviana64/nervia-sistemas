@@ -173,13 +173,18 @@ function estrelas(m) {
   return `<span class="est" role="img" aria-label="${fmt(m)} de 5 estrelas">${[1, 2, 3, 4, 5].map((i) => `<i class="${v >= i ? "on" : v >= i - 0.5 ? "meia" : ""}">★</i>`).join("")}</span>`;
 }
 const iniciais = (n) => String(n || "?").trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join("").toUpperCase();
+// c.pedidos só vem para o dono (leituras do QR); total = avaliações recebidas, inclusive as que esperam o lote de 5
+const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
 function cartaoHtml(c, qr) {
-  const n = c.nota?.n || 0;
+  const n = c.nota?.n || 0, total = c.nota?.total ?? n, dono = c.pedidos != null;
+  const contagem = `${plural(total, "avaliação", "avaliações")}${dono ? ` de ${plural(c.pedidos, "pedido", "pedidos")}` : ""}`;
+  const espera = total - n;
   return `<div class="aura" id="meuCartao"><div class="in">
     <div class="ft">${c.foto ? `<img src="${esc(c.foto)}" alt="">` : `<span>${esc(iniciais(c.nome))}</span>`}</div>
     <div><div class="marca">NVAura</div><div class="nm">${esc(c.nome)}</div>
       ${estrelas(n ? c.nota.media : null)}
-      <div class="nota">${n ? `<b>${fmt(c.nota.media)}</b><span>${n} ${n === 1 ? "avaliação" : "avaliações"}</span>` : `<span>Ainda sem nota: aparece com as primeiras 5 avaliações</span>`}</div></div>
+      <div class="nota">${n ? `<b>${fmt(c.nota.media)}</b><span>${contagem}</span>` : `<span><b style="font-size:16px">${contagem}</b></span>`}</div>
+      <p class="hint" style="margin:4px 0 0">${!n ? "A nota aparece quando juntar 5 avaliações." : dono && espera ? `${plural(espera, "avaliação nova entra", "avaliações novas entram")} na nota quando juntar 5.` : ""}</p></div>
     ${qr ? `<div class="qr"><div class="q">${qr}</div><div><b>Me avalie</b><p class="hint" style="margin:4px 0 0">Aponte a câmera do celular para o QR e dê de 1 a 5 estrelas para a nossa interação. Não precisa de conta e é anônimo.</p></div></div>` : ""}
   </div></div>`;
 }
@@ -208,7 +213,7 @@ async function telaAvaliar(codigo) {
   $("nav").hidden = true; $("topoInfo").textContent = "";
   tela.innerHTML = `<p class="hint">Carregando o cartão…</p>`;
   let c;
-  try { c = await rpc("aur_cartao_ler", { p_codigo: codigo }); }
+  try { c = await rpc("aur_cartao_ler", { p_codigo: codigo, p_marca: aparelho() }); }
   catch (e) { tela.innerHTML = `<div class="card"><p class="err">${esc(erroTxt(e))}</p></div>`; return; }
   if (!c) { tela.innerHTML = `<div class="card"><h2>Cartão não encontrado</h2><p>O QR pode ter sido trocado pela pessoa. Peça para ela mostrar o cartão de novo.</p><button class="btn o" id="bIr">Conhecer o NVAura</button></div>`; $("bIr").onclick = irInicio; return; }
   if (c.meu) { tela.innerHTML = `${cartaoHtml(c)}<div class="card m"><p>Este é o seu cartão. Mostre o QR para a outra pessoa ler com o celular dela.</p><button class="btn a" id="bIr">Abrir o meu NVAura</button></div>`; $("bIr").onclick = irInicio; return; }
