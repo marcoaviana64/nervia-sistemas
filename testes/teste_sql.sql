@@ -141,7 +141,7 @@ end $$;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
 select pg_temp.ok((select count(*) = 0 from apps), 'login sem app liberado não vê apps');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
-select pg_temp.ok((select count(*) = 17 from apps), 'admin vê todos os apps, inclusive inativos');
+select pg_temp.ok((select count(*) = 18 from apps), 'admin vê todos os apps, inclusive inativos');
 insert into app_acessos values ('00000000-0000-0000-0000-00000000000c', 'chamados');
 update apps set ativo = false where id = 'chamados';
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
@@ -4478,5 +4478,100 @@ select aur_cartao_salvar('Caio', 'data:image/webp;base64,CCCC');
 reset role;
 select pg_temp.ok(not exists (select 1 from aur_denuncias where alvo = '54000000-0000-0000-0000-000000000003' and resolvida_em is null)
   and exists (select 1 from aur_denuncias where resolucao = 'foto trocada'), 'aura 1.8: o dono trocar a foto encerra as denúncias de foto');
+reset request.jwt.claim.sub;
+
+-- ---------------------------------------------------------------- Financeiro Nervia (fin_)
+reset role;
+select pg_temp.ok((select situacao = 'oculto' and manual_url = '/apps/financeiro/ajuda/manual.html' from apps where id = 'financeiro'), 'financeiro: app oculto, com cartão e manual');
+select pg_temp.ok((select count(*) = 3 from fin_contas) and exists (select 1 from fin_contas where tipo = 'cartao_pessoal'), 'financeiro: 3 contas iniciais, com o cartão pessoal');
+select pg_temp.ok((select ctr_empresa_id from fin_config) = (select id from ctr_empresas where nome = 'Nervia'), 'financeiro: a empresa do Contratos é a Nervia');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok((select count(*) = 0 from fin_contas) and (select count(*) = 0 from fin_movimentos_v), 'financeiro: cliente não lê nada do financeiro');
+select pg_temp.erro2($$select fin_custo_salvar('{"nome":"X","valor":1}')$$, 'equipe Nervia', 'financeiro: cliente não grava custo');
+select pg_temp.erro2($$select * from fin_saldos()$$, 'equipe Nervia', 'financeiro: cliente não vê saldos');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select pg_temp.erro2($$insert into fin_custos (nome, valor, desde) values ('X', 1, current_date)$$, 'permission', 'financeiro: a tela não grava direto na tabela');
+select pg_temp.erro2($$update fin_contas set saldo_inicial = 1$$, 'permission', 'financeiro: nem altera conta direto');
+-- custos recorrentes
+select pg_temp.erro2($$select fin_custo_salvar('{"nome":"Google","valor":10,"moeda":"USD"}')$$, 'câmbio', 'financeiro: custo em dólar exige câmbio');
+select set_config('fin.c1', fin_custo_salvar('{"nome":"Supabase Pro","fornecedor":"Supabase","grupo":"Plataforma","moeda":"USD","valor":25,"cambio":5.5,"periodicidade":"mensal","desde":"2026-10-13"}')::text, false);
+select set_config('fin.c2', fin_custo_salvar('{"nome":"Domínio nvaura.com.br","grupo":"Plataforma","valor":40,"periodicidade":"anual","desde":"2026-11-25"}')::text, false);
+select set_config('fin.c3', fin_custo_salvar('{"nome":"Contador","grupo":"Administrativo","plataforma":false,"valor":300,"desde":"2026-01-01"}')::text, false);
+select set_config('fin.c4', fin_custo_salvar('{"nome":"Google Cloud","grupo":"Buscador","moeda":"USD","valor":10,"cambio":5.2502,"iof":3.5,"desde":"2026-10-13"}')::text, false);
+select pg_temp.ok((select valor_brl = 54.34 and mensal_brl = 54.34 from fin_custos where id = current_setting('fin.c4')::bigint), 'financeiro: dólar com IOF = valor × câmbio × 1,035 (como a planilha)');
+select pg_temp.ok((select valor_brl = 137.50 and mensal_brl = 137.50 from fin_custos where id = current_setting('fin.c1')::bigint)
+  and (select mensal_brl = 3.33 from fin_custos where id = current_setting('fin.c2')::bigint), 'financeiro: equivalente mensal (US$ × câmbio; anual ÷ 12)');
+select pg_temp.ok((select sum(mensal_brl) from fin_custos where plataforma) = 140.83 + 54.34, 'financeiro: custo da plataforma soma os marcados (Plataforma e Buscador), não o custo da empresa');
+select fin_custo_salvar(jsonb_build_object('id', current_setting('fin.c1')::bigint, 'cambio', 5.8, 'motivo', 'câmbio de novembro'));
+select fin_custo_salvar(jsonb_build_object('id', current_setting('fin.c1')::bigint, 'cambio', 5.8));
+select pg_temp.ok((select count(*) = 2 from fin_custos_hist where custo_id = current_setting('fin.c1')::bigint)
+  and (select antes = '{"cambio": 5.5}'::jsonb and depois = '{"cambio": 5.8}'::jsonb and motivo = 'câmbio de novembro' from fin_custos_hist where custo_id = current_setting('fin.c1')::bigint and antes is not null),
+  'financeiro: histórico do custo só com o que mudou (salvar igual não grava)');
+reset role;
+select pg_temp.erro2($$update fin_custos_hist set motivo = 'x'$$, 'somente inclusão', 'financeiro: histórico de custos é somente inclusão');
+select pg_temp.erro2($$delete from fin_custos$$, 'Não se apaga', 'financeiro: custo não se apaga');
+select pg_temp.ok(exists (select 1 from auditoria where acao = 'financeiro_custo_alterado' and (detalhes -> 'depois' ->> 'cambio')::numeric = 5.8), 'financeiro: auditoria do custo');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+-- contas: saldo desde 01/01/2026
+select fin_conta_salvar(jsonb_build_object('id', id, 'saldo_inicial', case when tipo = 'banco' then 1000 else 0 end, 'saldo_inicial_em', '2026-01-01')) from fin_contas;
+select set_config('fin.nu', (select id::text from fin_contas where tipo = 'banco'), false);
+select set_config('fin.cartao', (select id::text from fin_contas where tipo = 'cartao_pessoal'), false);
+select set_config('fin.ctr', coalesce((select sum(valor_pago) from ctr_cobrancas where empresa_id = current_setting('ctr.nervia')::bigint and pago_em between '2026-01-01' and current_date), 0)::text, false);
+select pg_temp.ok((select saldo from fin_saldos() where conta_id = current_setting('fin.nu')::bigint) = 1000 + current_setting('fin.ctr')::numeric,
+  'financeiro: saldo do Nubank = saldo inicial + recebimentos do Contratos');
+-- conta a pagar recorrente (mensal, fim do mês)
+select set_config('fin.l1', fin_lancamento_salvar(jsonb_build_object('tipo', 'pagar', 'descricao', 'DAS', 'vencimento', '2026-01-31', 'valor', 250,
+  'recorrencia', 'mensal', 'conta_id', current_setting('fin.nu')::bigint, 'categoria_id', (select id from fin_categorias where nome = 'Impostos')))::text, false);
+select pg_temp.erro2($$select fin_lancamento_pagar(current_setting('fin.l1')::bigint, current_date + 1, 250, current_setting('fin.nu')::bigint)$$, 'futura', 'financeiro: pagamento com data futura recusado');
+select fin_lancamento_pagar(current_setting('fin.l1')::bigint, '2026-02-02', 251.30, current_setting('fin.nu')::bigint, 'com multa');
+select pg_temp.ok((select vencimento = '2026-02-28' and valor = 250 and pago_em is null and serie_id = current_setting('fin.l1')::bigint from fin_lancamentos
+  where serie_id = current_setting('fin.l1')::bigint and id <> current_setting('fin.l1')::bigint), 'financeiro: a baixa gera a próxima da série (31/01 → 28/02)');
+select pg_temp.erro2($$select fin_lancamento_pagar(current_setting('fin.l1')::bigint, '2026-02-02', 1, current_setting('fin.nu')::bigint)$$, 'já foi baixado', 'financeiro: não baixa duas vezes');
+select pg_temp.erro2($$select fin_lancamento_salvar(jsonb_build_object('id', current_setting('fin.l1')::bigint, 'valor', 1))$$, 'desfaça a baixa', 'financeiro: baixado não se altera');
+select pg_temp.erro2($$select fin_lancamento_desfazer(current_setting('fin.l1')::bigint, 'x')$$, 'motivo', 'financeiro: desfazer exige motivo');
+select fin_lancamento_desfazer(current_setting('fin.l1')::bigint, 'paguei pela conta errada');
+select fin_lancamento_pagar(current_setting('fin.l1')::bigint, '2026-02-02', 251.30, current_setting('fin.nu')::bigint);
+select pg_temp.ok((select count(*) = 2 from fin_lancamentos where serie_id = current_setting('fin.l1')::bigint), 'financeiro: baixar de novo não duplica a próxima');
+select pg_temp.ok((select saldo from fin_saldos() where conta_id = current_setting('fin.nu')::bigint) = 1000 + current_setting('fin.ctr')::numeric - 251.30, 'financeiro: o pagamento sai do saldo');
+-- custo → conta a pagar com a recorrência do custo; a próxima usa o valor atual do custo
+select set_config('fin.l2', fin_custo_gerar_conta(current_setting('fin.c2')::bigint, '2026-11-25')::text, false);
+select pg_temp.erro2($$select fin_custo_gerar_conta(current_setting('fin.c2')::bigint, '2026-12-25')$$, 'já tem uma conta', 'financeiro: um custo, uma conta aberta');
+select fin_custo_salvar(jsonb_build_object('id', current_setting('fin.c2')::bigint, 'valor', 45, 'motivo', 'reajuste'));
+select fin_lancamento_pagar(current_setting('fin.l2')::bigint, '2026-11-25', 40, current_setting('fin.nu')::bigint);
+select pg_temp.ok((select vencimento = '2027-11-25' and valor = 45 and custo_id = current_setting('fin.c2')::bigint from fin_lancamentos
+  where serie_id = current_setting('fin.l2')::bigint and pago_em is null), 'financeiro: custo anual gera a conta do ano seguinte, pelo valor atual');
+-- cancelar
+select set_config('fin.l3', fin_lancamento_salvar(jsonb_build_object('tipo', 'receber', 'descricao', 'Consultoria avulsa', 'vencimento', '2026-12-10', 'valor', 800))::text, false);
+select pg_temp.erro2($$select fin_lancamento_cancelar(current_setting('fin.l3')::bigint, '')$$, 'motivo', 'financeiro: cancelar exige motivo');
+select fin_lancamento_cancelar(current_setting('fin.l3')::bigint, 'cliente desistiu');
+select pg_temp.erro2($$select fin_lancamento_pagar(current_setting('fin.l3')::bigint, current_date, 800, current_setting('fin.nu')::bigint)$$, 'cancelado', 'financeiro: cancelado não recebe baixa');
+reset role;
+select pg_temp.erro2($$delete from fin_lancamentos$$, 'Não se apaga', 'financeiro: lançamento não se apaga');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+-- cartão pessoal: compra lançada já paga → a Nervia deve ao Marco; reembolso por transferência
+select fin_lancamento_salvar(jsonb_build_object('tipo', 'pagar', 'descricao', 'Google Workspace', 'vencimento', '2026-11-10', 'valor', 120,
+  'pago_em', '2026-11-10', 'conta_pago_id', current_setting('fin.cartao')::bigint));
+select pg_temp.ok((select saldo from fin_saldos() where conta_id = current_setting('fin.cartao')::bigint) = -120, 'financeiro: compra no cartão pessoal = a Nervia deve ao Marco');
+select pg_temp.erro2($$select fin_transferir(jsonb_build_object('de_conta', current_setting('fin.nu')::bigint, 'para_conta', current_setting('fin.nu')::bigint, 'valor', 1))$$, 'mesma', 'financeiro: transferência para a mesma conta recusada');
+select set_config('fin.t1', fin_transferir(jsonb_build_object('de_conta', current_setting('fin.nu')::bigint, 'para_conta', current_setting('fin.cartao')::bigint, 'valor', 120, 'data', '2026-11-20', 'descricao', 'Reembolso ao Marco'))::text, false);
+select pg_temp.ok((select saldo from fin_saldos() where conta_id = current_setting('fin.cartao')::bigint) = 0
+  and (select saldo from fin_saldos() where conta_id = current_setting('fin.nu')::bigint) = 1000 + current_setting('fin.ctr')::numeric - 251.30 - 40 - 120,
+  'financeiro: reembolso zera o cartão e sai do Nubank');
+select fin_transferencia_cancelar(current_setting('fin.t1')::bigint, 'lançada em dobro');
+select pg_temp.ok((select saldo from fin_saldos() where conta_id = current_setting('fin.cartao')::bigint) = -120, 'financeiro: transferência cancelada sai do saldo');
+-- acertar saldo
+select pg_temp.erro2($$select fin_saldo_acertar(current_setting('fin.nu')::bigint, current_date, 5000, '')$$, 'motivo', 'financeiro: acerto exige motivo');
+select pg_temp.ok(fin_saldo_acertar(current_setting('fin.nu')::bigint, current_date, 5000, 'conferido com o app do banco')
+  = 5000 - (1000 + current_setting('fin.ctr')::numeric - 251.30 - 40), 'financeiro: acerto devolve a diferença');
+select pg_temp.ok((select saldo from fin_saldos() where conta_id = current_setting('fin.nu')::bigint) = 5000, 'financeiro: depois do acerto o saldo é o do banco');
+-- movimentos: transferência e acerto fora do resultado (tipo próprio)
+select pg_temp.ok((select count(*) = 0 from fin_movimentos_v where tipo in ('pagar', 'receber') and origem in ('transferencia', 'ajuste')), 'financeiro: transferência e acerto não entram como receita/despesa');
+reset role;
+select pg_temp.erro2($$update fin_ajustes set motivo = 'x'$$, 'somente inclusão', 'financeiro: acerto de saldo é somente inclusão');
+select pg_temp.erro2($$select _fin_carga('{"custos":[]}')$$, 'já há custos', 'financeiro: carga só com o app vazio');
+select pg_temp.ok((select count(distinct acao) >= 9 from auditoria where acao like 'financeiro_%'), 'financeiro: ações gravadas na auditoria');
 reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'

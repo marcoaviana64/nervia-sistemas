@@ -98,6 +98,9 @@ window.NERVIA_VERSOES = {
     ["1.1", "Roteiro de instalação na TV para imprimir, com a conferência antes de sair e a ficha da instalação."],
     ["1.0", "Lançamento: vídeos e imagens nas TVs da empresa a partir de uma pasta do Google Drive (cada subpasta é uma playlist), TVs vinculadas por código, status online/offline e conferência automática dos arquivos."],
   ],
+  "financeiro": [
+    ["1.0", "Primeira versão: painel com o saldo de cada conta, o que vence nos próximos 30 dias, o que está atrasado, o resultado do mês e o custo da plataforma por CNPJ; custos recorrentes (em reais ou dólar com câmbio e IOF, mensais ou anuais), marcando o que é custo da plataforma, com histórico de cada mudança e margem dos apps; os custos da planilha de investimento já vêm carregados; contas a pagar com recorrência, baixa, anexo e cancelamento com motivo; despesas pagas no cartão pessoal com o valor a reembolsar; contas a receber com as cobranças do app Contratos e os recebimentos avulsos; transferências entre contas e acerto do saldo com o banco."]
+  ],
   "contratos": [
     ["2.1", "Quem assina o contrato pelo nome: no contrato, o representante do cliente que assina (nome e CPF); em Configuração, quem assina pela sua empresa. O modelo novo diz quem assina por cada parte e vale para assinatura à mão ou eletrônica; os e-mails ficam só para a plataforma de assinatura."],
     ["2.0", "Várias empresas: cada empresa usa o app com os próprios clientes, contratos, cobranças, extrato, impostos e modelo do Word, e cada pessoa entra como gestor (faz tudo) ou consulta (só lê); seletor de empresa no topo. Nova aba Dashboard, a primeira: cobrado × recebido por mês, previsão dos próximos meses, atraso ao longo do tempo, concentração da receita e prazo de recebimento por cliente, contratos que terminam. O Painel virou Resumo e o extrato aceita o OFX de qualquer banco."],

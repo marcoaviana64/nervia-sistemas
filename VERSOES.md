@@ -183,6 +183,12 @@ Ao publicar mudança num app: linha nova no topo do app aqui (com a data) e em `
 | 1.1 | 04/11/2026 | Roteiro de instalação na TV para imprimir, com a conferência antes de sair e a ficha da instalação. |
 | 1.0 | 04/11/2026 | Lançamento: vídeos e imagens nas TVs da empresa a partir de uma pasta do Google Drive (cada subpasta é uma playlist), TVs vinculadas por código, status online/offline e conferência automática dos arquivos. |
 
+## Financeiro Nervia (`financeiro`)
+
+| Versão | Data | O que mudou |
+|---|---|---|
+| 1.0 | 25/11/2026 | Primeira versão: painel com o saldo de cada conta, o que vence nos próximos 30 dias, o que está atrasado, o resultado do mês e o custo da plataforma por CNPJ; custos recorrentes (em reais ou dólar com câmbio e IOF, mensais ou anuais), marcando o que é custo da plataforma, com histórico de cada mudança e margem dos apps; os custos da planilha de investimento já vêm carregados; contas a pagar com recorrência, baixa, anexo e cancelamento com motivo; despesas pagas no cartão pessoal com o valor a reembolsar; contas a receber com as cobranças do app Contratos e os recebimentos avulsos; transferências entre contas e acerto do saldo com o banco. (pedido do Marco; migração financeiro, prefixo fin_; só a equipe Nervia, oculto) |
+
 ## Contratos (`contratos`)
 
 | Versão | Data | O que mudou |
