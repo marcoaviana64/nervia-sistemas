@@ -137,11 +137,12 @@ function fichaBeneficiamento(b, its, rs, val) {
     <div class="acoes" style="flex-wrap:wrap">
       ${controla() && b.situacao === "no_beneficiamento" ? '<button type="button" class="bt pri" id="bffret">Registrar retorno</button><button type="button" class="bt" id="bffedit">Editar previsão</button>' : ""}
       ${bfValores() ? '<button type="button" class="bt" id="bffval">Valor pago</button>' : ""}
-      <button type="button" class="bt" id="bffimp">Imprimir / PDF</button><button type="button" class="bt" id="bffx">Fechar</button></div>`;
+      <button type="button" class="bt" id="bffterm">Comprovante (térmica)</button><button type="button" class="bt" id="bffimp">Imprimir / PDF</button><button type="button" class="bt" id="bffx">Fechar</button></div>`;
   if ($("bffret")) $("bffret").onclick = () => retornoBeneficiamento(b, its, () => fichaBeneficiamento(b, its, rs, val));
   if ($("bffedit")) $("bffedit").onclick = () => editarPrevisaoBenef(b, () => abrirFichaBenef(b.id).catch(e => msg("err", e.message)), () => fichaBeneficiamento(b, its, rs, val));
   if ($("bffval")) $("bffval").onclick = () => valoresBeneficiamento(b, its, val || new Map());
   $("bffimp").onclick = () => imprimirBeneficiamento(b, its, rs, val);
+  $("bffterm").onclick = () => comprovanteBeneficiamento(b, its, { voltar: () => $("dlg2").close() });   // 2.63
   $("bffx").onclick = () => $("dlg").close();
   if (!$("dlg").open) $("dlg").showModal();
 }
@@ -256,7 +257,7 @@ async function novoBeneficiamento(ini, anteriores) {
       FBF.sit = "no_beneficiamento";
       if (VISTA === "beneficiamento") telaBeneficiamento(); else render();
       msg("ok", `Beneficiamento nº ${id}: ${tot} peça(s) enviadas para ${T.serv.trim()}. Imprima a ficha para ir junto com as peças.`);
-      abrirFichaBenef(id).catch(() => {});
+      abrirFichaBenef(id).then(() => document.getElementById("bffterm") && document.getElementById("bffterm").click()).catch(() => {});   // 2.63: já abre o comprovante
     } catch (e) { desenhar(e.message); }
   };
   desenhar();

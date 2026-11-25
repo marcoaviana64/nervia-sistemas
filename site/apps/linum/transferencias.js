@@ -60,13 +60,15 @@ async function telaTransferencias() {
         ${t.recebido_em ? `<div class="mut">Recebida por ${esc(t.recebido_nome || "—")} em ${quando(t.recebido_em)}${t.situacao === "recebida_com_falta" ? ` · <b style="color:var(--crit)">faltaram ${n(tot - pecas(t.id, "recebida"))}</b>` : ""}${t.recebimento_obs ? " · " + esc(t.recebimento_obs) : ""}</div>` : ""}
         ${t.cancelado_em ? `<div class="mut">Cancelada por ${esc(t.cancelado_nome || "—")} em ${quando(t.cancelado_em)} · ${esc(t.cancelamento_motivo || "")}</div>` : ""}
         <ul style="margin:8px 0 0;padding-left:18px">${l.map(i => `<li>${i.quantidade}× ${trPeca(i)}${i.recebida != null && i.recebida < i.quantidade ? ` · <b style="color:var(--crit)">chegaram ${i.recebida}</b>` : ""}</li>`).join("")}</ul>
-        ${t.situacao === "em_transito" ? `<div class="acoes" style="justify-content:flex-start;margin-top:10px">
-          <button type="button" class="bt pri" data-trrec="${t.id}">Conferir e receber em ${esc(loja(t.destino_id).nome)}</button>
-          ${podeCancelar(t) ? `<button type="button" class="bt" data-trcan="${t.id}">Cancelar (voltam para ${esc(loja(t.origem_id).nome)})</button>` : ""}</div>` : ""}
+        <div class="acoes" style="justify-content:flex-start;margin-top:10px">
+          ${t.situacao === "em_transito" ? `<button type="button" class="bt pri" data-trrec="${t.id}">Conferir e receber em ${esc(loja(t.destino_id).nome)}</button>
+          ${podeCancelar(t) ? `<button type="button" class="bt" data-trcan="${t.id}">Cancelar (voltam para ${esc(loja(t.origem_id).nome)})</button>` : ""}` : ""}
+          <button type="button" class="bt" data-trterm="${t.id}">Comprovante (térmica)</button></div>
       </div>`; }).join("") : `<div class="vazio">${FTR.sit === "em_transito" ? "Nenhuma transferência em trânsito." : "Nenhuma transferência aqui."}</div>`}</div>`;
   $("trnova").onclick = () => novaTransferencia();
   document.querySelectorAll("[data-ftr]").forEach(b => b.onclick = () => { FTR.sit = b.dataset.ftr; telaTransferencias(); });
   document.querySelectorAll("[data-trrec]").forEach(b => b.onclick = () => { const t = ts.find(x => x.id === +b.dataset.trrec); receberTransferencia(t, itensDe(t.id)); });
+  document.querySelectorAll("[data-trterm]").forEach(b => b.onclick = () => { const t = ts.find(x => x.id === +b.dataset.trterm); comprovanteTransferencia(t, itensDe(t.id)); });
   document.querySelectorAll("[data-trcan]").forEach(b => b.onclick = () => cancelarTransferencia(ts.find(x => x.id === +b.dataset.trcan)));
 }
 
@@ -150,6 +152,7 @@ function novaTransferencia(ini) {
       FTR.sit = "em_transito";
       if (VISTA === "transferencias") telaTransferencias(); else render();
       msg("ok", `Transferência nº ${id} enviada: ${tot} peça(s) em trânsito para ${loja(T.destino).nome}.`);
+      comprovanteTransferenciaId(id, { titulo: `Transferência nº ${id} enviada` }).catch(e => msg("err", `Transferência nº ${id} enviada, mas não consegui abrir o comprovante: ${e.message}`));   // 2.63
     } catch (e) { desenhar(e.message); }
   };
   desenhar();
