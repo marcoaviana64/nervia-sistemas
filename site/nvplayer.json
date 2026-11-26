@@ -3,9 +3,9 @@
     "http://p.urldata.gy"
   ],
   "versao": {
-    "codigo": 36,
-    "nome": "2.34",
+    "codigo": 37,
+    "nome": "2.35",
     "apk": "https://nervia.com.br/nvplayer.apk",
-    "novidades": "O menu do topo não passa mais por cima da data nem do logo: as abas ficam dentro do próprio espaço e a aba \"TV ao vivo\" virou só \"TV\"."
+    "novidades": "O app passa a usar primeiro o DNS da internet do local para achar o servidor (o DNS alternativo fica só de reserva). Isso evita cair num servidor de outro país, que fazia alguns provedores bloquearem a conta por \"país não permitido\"."
   }
 }

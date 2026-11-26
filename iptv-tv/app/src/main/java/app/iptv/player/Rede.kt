@@ -40,10 +40,13 @@ class DnsAlternativo(
         } catch (_: Exception) { emptyList() }
         if (doSistema.isEmpty() && doAlternativo.isEmpty())
             throw UnknownHostException("$hostname não foi encontrado (nem pelo DNS da internet deste local, nem pelo DNS alternativo)")
-        // Se os dois concordam em algum endereço, vale a ordem do sistema (servidor mais próximo); se não concordam,
-        // o DNS do local pode estar desviando o nome: tenta primeiro o do DNS alternativo.
-        val concordam = doSistema.any { it in doAlternativo }
-        return (if (concordam || doAlternativo.isEmpty()) doSistema + doAlternativo else doAlternativo + doSistema).distinct()
+        // 2.35: o endereço do DNS do LOCAL vem sempre primeiro; o alternativo fica só de reserva (usado quando o do
+        // local falha, está vazio ou aponta para um endereço que não responde — os casos que o 2.4 queria resolver,
+        // pois a conexão tenta os endereços em ordem e passa ao próximo quando um não responde). Antes, quando os dois
+        // discordavam, o alternativo vinha na frente: num provedor atrás de CDN (Cloudflare/Google resolvem o nome por
+        // um nó de OUTRO país, ex.: Los Angeles), o app conectava por fora do país e o provedor bloqueava a conta
+        // por "país não permitido". O DNS do local resolve para o nó do país certo.
+        return (doSistema + doAlternativo).distinct()
     }
 
     /** Resposta do alternativo ainda válida (10 min; a falha também fica guardada 10 min). */

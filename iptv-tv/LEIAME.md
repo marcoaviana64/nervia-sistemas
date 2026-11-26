@@ -115,6 +115,14 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
   configuração sempre relê o `nvplayer.json` ao abrir — então o portal mostra o endereço atual se o provedor trocou
   (antes ficava fixo no embutido). A TV já ligada continua trocando sozinha pelo failover (2.5): quando o servidor
   salvo não responde, relê o `nvplayer.json` e passa para o 1º que faz login. Teste `TelaTest.portalMostraServidorDoSite`.
+- **DNS do local primeiro** (2.35, 26/11/2026, o Marco com foto do painel do provedor (bitpanel.vip): a conta foi
+  bloqueada por "país não permitido", acesso visto de **Los Angeles, EUA**, aparelho **Android TV**, tentando canal ao
+  vivo; as violações começaram em 19/11, logo depois do DNS alternativo da 2.4): `DnsAlternativo.lookup` passou a pôr o
+  endereço do **DNS do local SEMPRE primeiro**; o alternativo (Cloudflare/Google por HTTPS) fica só de reserva (a
+  conexão tenta os endereços em ordem e passa ao próximo quando um não responde — cobre os casos do 2.4: nome não
+  encontrado ou endereço que não responde). Antes, quando os dois discordavam, o alternativo vinha na frente; num
+  provedor atrás de CDN, o Cloudflare/Google resolviam o nome por um nó de **outro país**, o app conectava por fora do
+  Brasil e o provedor bloqueava a conta por país. Teste `DnsTest.dnsLocalPrimeiro_alternativoDeReserva`.
 - **Trilho das abas recortado + "TV"** (2.34, 23/11/2026, o Marco: a 2.33 mostrou a data, mas o menu (grande pelos
   números) passava POR CIMA da data e, ao navegar, por cima do logo): o `HorizontalScrollView` das abas estava com
   `clipChildren=false` e as abas transbordavam sobre o relógio/logo; agora `clipChildren=true` (com `clipToPadding=false`
