@@ -10,7 +10,7 @@
 
 const LINUM_CNPJ = "46469501000112";   // CNPJ da Linum no Buscador de NF (nf_empresas)
 let GPAG = null;   // {contas, notas, lido}
-const FGP = { de: null, meses: 12, ver: "aberta", q: "" };
+const FGP = { de: null, meses: 12, ver: "aberta", q: "", tipo: "", cat: "", forns: new Set(JSON.parse(localStorage.getItem("linum-pagar-forns") || "[]")) };
 let GP_PREV = null;   // parcelas lidas das NF-e, em conferência antes de gravar
 
 (function () {
@@ -30,6 +30,10 @@ let GP_PREV = null;   // parcelas lidas das NF-e, em conferência antes de grava
 .gpsug{max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:6px;margin-top:6px}
 .gpsug label{display:flex;gap:8px;align-items:flex-start;padding:4px 2px;font-size:13px}
 .gpprev input[type=date]{font:inherit;font-size:12.5px}
+.gpfkpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:10px 0}
+.gpfkpi>div{border:1px solid var(--border);border-radius:10px;padding:8px 10px}.gpfkpi small,.gpfkpi span{display:block;color:var(--ink-soft);font-size:12px}.gpfkpi b{font-size:17px}
+#dlgf h4{margin:14px 0 6px}.gpnf{border:1px solid var(--border);border-radius:8px;margin-bottom:8px;overflow-x:auto}
+.gpnfcab{display:flex;flex-wrap:wrap;gap:12px;align-items:baseline;background:var(--surface-2,#f4f5f7);padding:6px 10px;font-size:13px}
 @media print{.gpgrade th:first-child,.gpgrade td:first-child{position:static}}`;
   document.head.appendChild(s);
 })();
@@ -80,7 +84,9 @@ function gerPagar() {
   const q = semAc(FGP.q);
   const visivel = c => c.situacao !== "cancelada" && (FGP.ver === "todas" || (FGP.ver === "paga" ? c.situacao === "paga" : c.situacao === "aberta"))
     && (!q || semAc(c.fornecedor + " " + c.categoria + " " + c.historico + " " + c.documento).includes(q) || c.fornecedor_doc.includes(FGP.q.replace(/\D/g, "") || "§"));
-  const todas_ = GPAG.contas.filter(visivel);
+  const comNf = c => !!(c.documento || c.nfe_chave);
+  const todas_ = GPAG.contas.filter(visivel).filter(c => (!FGP.tipo || (FGP.tipo === "nf" ? comNf(c) : !comNf(c)))
+    && (!FGP.cat || c.categoria === FGP.cat) && (!FGP.forns.size || FGP.forns.has(gpChaveForn(c))));
   const naJanela = todas_.filter(c => { const m = gpMes(c.vencimento); return m >= FGP.de && m < ate; });
   const vencAntes = FGP.ver !== "paga" ? todas_.filter(c => gpVencida(c) && gpMes(c.vencimento) < FGP.de) : [];
   const usa = naJanela.concat(vencAntes);
@@ -148,9 +154,12 @@ function gerPagar() {
       <label>A partir de <select id="gpde">${opMes.map(m => `<option value="${m}" ${m === FGP.de ? "selected" : ""}>${gpMesCurto(m)}</option>`).join("")}</select></label>
       <select id="gpqt" aria-label="Meses">${[6, 12, 18, 24].map(x => `<option value="${x}" ${x === FGP.meses ? "selected" : ""}>${x} meses</option>`).join("")}</select>
       <select id="gpver" aria-label="Mostrar"><option value="aberta" ${FGP.ver === "aberta" ? "selected" : ""}>Em aberto</option><option value="todas" ${FGP.ver === "todas" ? "selected" : ""}>Em aberto e pagas</option><option value="paga" ${FGP.ver === "paga" ? "selected" : ""}>Só pagas</option></select>
+      <select id="gptipo" aria-label="Tipo"><option value="">Todas as contas</option><option value="nf" ${FGP.tipo === "nf" ? "selected" : ""}>Só com NF (fornecedores)</option><option value="sem" ${FGP.tipo === "sem" ? "selected" : ""}>Sem NF (aluguel, contas)</option></select>
+      <select id="gpcat" aria-label="Categoria"><option value="">Todas as categorias</option>${[...new Set(GPAG.contas.map(c => c.categoria).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR")).map(c => `<option ${c === FGP.cat ? "selected" : ""}>${esc(c)}</option>`).join("")}</select>
+      <button type="button" class="bt ${FGP.forns.size ? "pri" : ""}" id="gpfs">${FGP.forns.size ? `Fornecedores escolhidos (${FGP.forns.size})` : "Escolher fornecedores"}</button>
       <input id="gpq" placeholder="Buscar fornecedor, categoria, NF…" value="${esc(FGP.q)}">
     </div>
-    <div class="mut" style="margin-bottom:6px">Valores em R$ de cada fornecedor no mês do vencimento. Clique no valor para ver as parcelas, dar baixa ou corrigir. <span style="color:var(--crit);font-weight:700">Vermelho</span> = vencida em aberto; <span style="color:var(--ok)">verde</span> = paga; “~” = valor estimado (conta recorrente, a confirmar).${vencAntes.length ? " A coluna Vencidas junta o que venceu antes de " + gpMesCurto(FGP.de) + " e não foi pago." : ""}</div>
+    <div class="mut" style="margin-bottom:6px">Valores em R$ de cada fornecedor no mês do vencimento. Clique no valor para ver as parcelas, dar baixa ou corrigir; clique no nome para a ficha do fornecedor. <span style="color:var(--crit);font-weight:700">Vermelho</span> = vencida em aberto; <span style="color:var(--ok)">verde</span> = paga; “~” = valor estimado (conta recorrente, a confirmar).${vencAntes.length ? " A coluna Vencidas junta o que venceu antes de " + gpMesCurto(FGP.de) + " e não foi pago." : ""}</div>
     <div class="card"><div class="tw">${ord.length ? `<table class="gpgrade"><thead><tr><th>Fornecedor</th>${vencAntes.length ? '<th class="v" style="color:var(--crit)">Vencidas</th>' : ""}
       ${meses.map(m => `<th class="v ${m === gpMes(hoje()) ? "mesatual" : ""}">${gpMesCurto(m)}</th>`).join("")}<th class="v">Total</th></tr></thead>
       <tbody>${corpo}</tbody><tfoot>${rod}</tfoot></table>` : `<div class="vazio">Nenhuma conta ${FGP.ver === "paga" ? "paga" : "a pagar"} nesse período.${GPAG.contas.length ? "" : " Comece importando as NF-e, lançando uma conta ou gerando as contas recorrentes."}</div>`}</div></div>`;
@@ -158,8 +167,12 @@ function gerPagar() {
   $("gpde").onchange = e => { FGP.de = e.target.value; gerPagar(); };
   $("gpqt").onchange = e => { FGP.meses = Number(e.target.value); gerPagar(); };
   $("gpver").onchange = e => { FGP.ver = e.target.value; gerPagar(); };
+  $("gptipo").onchange = e => { FGP.tipo = e.target.value; gerPagar(); };
+  $("gpcat").onchange = e => { FGP.cat = e.target.value; gerPagar(); };
+  $("gpfs").onclick = gpEscolherForns;
   $("gpq").oninput = e => { FGP.q = e.target.value; clearTimeout(gerPagar.t); gerPagar.t = setTimeout(() => { gerPagar(); const i = $("gpq"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }, 300); };
-  document.querySelectorAll("[data-gp]").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".gpforn[data-gp]").forEach(b => b.onclick = () => gpFicha(gpChaveForn(GRUPOS[b.dataset.gp][0])));
+  document.querySelectorAll(".gpcel[data-gp]").forEach(b => b.onclick = () => {
     const ls = GRUPOS[b.dataset.gp]; const k = b.dataset.gp;
     const forn = k.startsWith("f") || k.startsWith("c") ? ls[0].fornecedor : "Todos os fornecedores";
     const per = k.startsWith("c") || k.startsWith("t") && k !== "tv" ? gpMesCurto(gpMes(ls[0].vencimento)) : k.endsWith("v") || k.startsWith("fv") ? "vencidas antes de " + gpMesCurto(FGP.de) : "";
@@ -424,7 +437,7 @@ function gpConferir(parc, arquivo, erros) {
       const venc = {}; document.querySelectorAll(".gppv").forEach(x => venc[x.dataset.i] = x.value);
       const contas = [...document.querySelectorAll(".gpps:checked")].map(x => { const i = x.dataset.i, p = parc[i];
         return { chave: p.chave, fornecedor: p.fornecedor, fornecedor_doc: p.fornecedor_doc, documento: p.documento, nfe_chave: p.nfe_chave, parcela: p.parcela,
-          vencimento: venc[i] || "", valor: p.valor, categoria: $("gppc").value, historico: `NF ${p.documento}${p.parcela ? " · parcela " + p.parcela : ""} · emitida em ${dataBR(p.nota.emissao)}` }; });
+          vencimento: venc[i] || "", valor: p.valor, emissao: p.nota.emissao || "", categoria: $("gppc").value, historico: `NF ${p.documento}${p.parcela ? " · parcela " + p.parcela : ""} · emitida em ${dataBR(p.nota.emissao)}` }; });
       if (!contas.length) throw new Error("Marque ao menos uma parcela");
       const r = checar(await sb.rpc("lin_ger_pagar_importar", { p: { origem: "nfe", arquivo: arquivo.slice(0, 200), contas } }));
       $("dlg").close(); await gpCarregar(true);
@@ -500,4 +513,132 @@ function gpTelaRecorrentes() {
       depois: gpTelaRecorrentes });
   });
   $("dlg").classList.add("largo"); if (!$("dlg").open) $("dlg").showModal();
+}
+
+// ---------------------------------------------------------------- escolher fornecedores (ex.: só os de linho), guardado no aparelho
+function gpFornecedores() {
+  const m = new Map();
+  GPAG.contas.filter(c => c.situacao !== "cancelada").forEach(c => {
+    const k = gpChaveForn(c), F = m.get(k) || { k, nome: c.fornecedor, doc: c.fornecedor_doc, nf: false, aberto: 0, ult: "" };
+    if (c.vencimento >= F.ult) { F.nome = c.fornecedor; F.ult = c.vencimento; }
+    if (c.documento || c.nfe_chave) F.nf = true;
+    if (c.situacao === "aberta") F.aberto += Number(c.valor);
+    m.set(k, F);
+  });
+  return [...m.values()].sort((a, b) => (b.nf - a.nf) || a.nome.localeCompare(b.nome, "pt-BR"));
+}
+function gpEscolherForns() {
+  const fs = gpFornecedores(), g = $("dlg2f");
+  const sel = new Set(FGP.forns);
+  g.innerHTML = `<h3>Escolher fornecedores</h3>
+    <div class="mut">A grade mostra só os marcados. A escolha fica guardada neste aparelho (ex.: os fornecedores de linho).</div>
+    <div class="acoes" style="justify-content:flex-start;margin-top:8px"><button type="button" class="bt" id="gpfst">Todos</button><button type="button" class="bt" id="gpfsn">Nenhum</button><button type="button" class="bt" id="gpfsnf">Só os com NF</button></div>
+    <div class="gpsug" style="max-height:360px">${fs.map(F => `<label><input type="checkbox" class="gpfck" value="${esc(F.k)}" ${sel.has(F.k) ? "checked" : ""}>
+      <span><b>${esc(F.nome)}</b>${F.nf ? ' <span class="tag">NF</span>' : ""}<br><span class="mut">${esc(gpDocTxt(F.doc))}${F.aberto ? ` · em aberto ${brl(F.aberto)}` : ""}</span></span></label>`).join("")}</div>
+    <div class="acoes"><button type="button" class="bt" id="gpfsx">Cancelar</button><button type="button" class="bt" id="gpfslimpa">Mostrar todos</button><button type="button" class="bt pri" id="gpfsok">Mostrar os marcados</button></div>`;
+  const marcar = f => g.querySelectorAll(".gpfck").forEach(x => { x.checked = f(fs.find(F => F.k === x.value)); });
+  $("gpfst").onclick = () => marcar(() => true);
+  $("gpfsn").onclick = () => marcar(() => false);
+  $("gpfsnf").onclick = () => marcar(F => F.nf);
+  $("gpfsx").onclick = () => $("dlg2").close();
+  const aplicar = ks => { FGP.forns = new Set(ks); localStorage.setItem("linum-pagar-forns", JSON.stringify(ks)); $("dlg2").close(); gerPagar(); };
+  $("gpfslimpa").onclick = () => aplicar([]);
+  $("gpfsok").onclick = () => aplicar([...g.querySelectorAll(".gpfck:checked")].map(x => x.value));
+  $("dlg2").showModal();
+}
+
+// ---------------------------------------------------------------- ficha do fornecedor (como a do painel antigo)
+// resumo, o que vence nos próximos meses, notas agrupadas por NF (parcelas, situação, pagamento), pagamentos do extrato e
+// NF-e do Buscador com o mesmo CNPJ; imprime em A4.
+function gpFichaDados(k) {
+  const cs = GPAG.contas.filter(c => gpChaveForn(c) === k).sort((a, b) => a.vencimento.localeCompare(b.vencimento) || a.id - b.id);
+  const vivo = cs.filter(c => c.situacao !== "cancelada");
+  const ult = cs.reduce((m, c) => !m || c.vencimento >= m.vencimento ? c : m, null);
+  const nome = ult ? ult.fornecedor : "", doc = cs.map(c => c.fornecedor_doc).find(Boolean) || "";
+  const notasBusc = (GPAG.notas || []).filter(nf => doc && (nf.emit_cnpj === doc));
+  const notaDe = c => (GPAG.notas || []).find(nf => (c.nfe_chave && nf.chave === c.nfe_chave)
+    || (c.documento && String(nf.numero).replace(/^0+/, "") === c.documento.replace(/^0+/, "") && (nf.emit_cnpj === doc || gpForn1(nf.emit_nome) === gpForn1(nome))));
+  // notas: uma por documento (sem documento = cada conta sozinha)
+  const grupos = new Map();
+  cs.forEach(c => { const g = c.documento ? "nf:" + c.documento.replace(/^0+/, "") : "c:" + c.id; (grupos.get(g) || grupos.set(g, []).get(g)).push(c); });
+  const notas = [...grupos.values()].map(ps => {
+    const nf = notaDe(ps[0]);
+    const emi = ps.map(c => c.emissao).find(Boolean) || (nf && String(nf.data_emissao).slice(0, 10))
+      || ((ps.map(c => (c.historico.match(/emitida em (\d{2})\/(\d{2})\/(\d{4})/) || [])).find(m => m.length)) || []).slice(1).reverse().join("-") || "";
+    return { ps, nf, emi, doc: ps[0].documento, total: ps.filter(c => c.situacao !== "cancelada").reduce((a, c) => a + Number(c.valor), 0),
+      prim: ps.map(c => c.vencimento).sort()[0] };
+  }).sort((a, b) => a.prim.localeCompare(b.prim));
+  const nomes = [gpForn1(nome)].filter(x => x.length >= 3);
+  const lancs = (GER ? GER.lanc : []).filter(l => Number(l.debito) > 0 && (
+    (doc && (l.descricao.replace(/\D/g, "").includes(doc) || (doc.length === 14 && l.descricao.replace(/\D/g, "").includes(doc.slice(0, 8)))))
+    || cs.some(c => c.lancamento_id === l.id) || nomes.some(x => semAc(l.descricao).toUpperCase().includes(x)))).sort((a, b) => a.data.localeCompare(b.data));
+  const ab = vivo.filter(c => c.situacao === "aberta"), pagas = vivo.filter(c => c.situacao === "paga");
+  const meses = Array.from({ length: 12 }, (_, i) => gpSomaMes(gpMes(hoje()), i));
+  return { k, cs, nome, doc, notas, notasBusc, lancs, ab, pagas, meses,
+    comprado: vivo.reduce((a, c) => a + Number(c.valor), 0), pago: pagas.reduce((a, c) => a + Number(c.valor_pago), 0),
+    aberto: ab.reduce((a, c) => a + Number(c.valor), 0), vencido: ab.filter(gpVencida).reduce((a, c) => a + Number(c.valor), 0),
+    prox: ab.filter(c => !gpVencida(c))[0] || null,
+    porMes: meses.map(m => ab.filter(c => gpMes(c.vencimento) === m).reduce((a, c) => a + Number(c.valor), 0)),
+    depois: ab.filter(c => gpMes(c.vencimento) > meses[11]).reduce((a, c) => a + Number(c.valor), 0),
+    pagoExtrato: lancs.reduce((a, l) => a + Number(l.debito), 0) };
+}
+function gpFichaHtml(D, imp) {
+  const sit = c => imp ? ({ paga: "Paga", cancelada: "Cancelada" }[c.situacao] || (gpVencida(c) ? "Vencida" : "A vencer")) : gpSituacao(c);
+  const fora = new Set(D.notas.map(n => n.nf && n.nf.id).filter(Boolean));
+  const naoImp = D.notasBusc.filter(nf => !fora.has(nf.id) && nf.situacao !== "cancelada");
+  return `
+    <div class="gpfkpi">
+      <div><small>Comprado (NF e contas)</small><b>${brl(D.comprado)}</b><span>${n(D.notas.length)} nota(s)/conta(s)</span></div>
+      <div><small>Pago</small><b class="gpos">${brl(D.pago)}</b><span>${n(D.pagas.length)} parcela(s)</span></div>
+      <div><small>Em aberto</small><b>${brl(D.aberto)}</b><span>${n(D.ab.length)} parcela(s)</span></div>
+      <div><small>Vencido</small><b class="${D.vencido ? "gneg" : ""}">${brl(D.vencido)}</b><span>${D.prox ? "próxima: " + dataBR(D.prox.vencimento) + " · " + brl(D.prox.valor) : "nada a vencer"}</span></div>
+    </div>
+    <h4>A pagar nos próximos meses</h4>
+    <div class="tw"><table class="gpgrade"><thead><tr>${D.meses.map(m => `<th class="v">${gpMesCurto(m)}</th>`).join("")}<th class="v">Depois</th></tr></thead>
+      <tbody><tr>${D.porMes.map(v => `<td class="v">${v ? gpNum(v) : "—"}</td>`).join("")}<td class="v">${D.depois ? gpNum(D.depois) : "—"}</td></tr></tbody></table></div>
+    <h4>Notas e parcelas</h4>
+    ${D.notas.map(N => `<div class="gpnf"><div class="gpnfcab"><b>${N.doc ? "NF nº " + esc(N.doc) : esc(N.ps[0].historico || "Conta sem NF")}</b>
+        <span>Emitida em ${N.emi ? dataBR(N.emi) : "—"}</span><span>${N.ps.length} parcela${N.ps.length > 1 ? "s" : ""} · total ${brl(N.total)}</span>
+        ${!imp && N.nf && N.nf.xml_path ? `<a class="lnk" href="/apps/notas/espelho.html?ids=${N.nf.id}" target="_blank" rel="noopener">espelho da nota</a>` : ""}</div>
+      <table><thead><tr><th>Vencimento</th><th>Parcela</th><th class="num">Valor</th><th>Situação</th><th>Pagamento</th>${imp ? "" : "<th></th>"}</tr></thead><tbody>
+      ${N.ps.map(c => `<tr><td>${dataBR(c.vencimento)}</td><td>${esc(c.parcela || "—")}</td><td class="num">${c.estimado && c.situacao === "aberta" ? "~ " : ""}${brl(c.valor)}</td><td>${sit(c)}</td>
+        <td>${c.situacao === "paga" ? `${dataBR(c.pago_em)} · ${brl(c.valor_pago)}${c.lancamento_id ? "" : ' <span class="mut">(sem extrato)</span>'}` : c.situacao === "cancelada" ? esc(c.cancelado_motivo) : "—"}</td>
+        ${imp ? "" : `<td><button type="button" class="lnk" data-gpfd="${c.id}">abrir</button></td>`}</tr>`).join("")}
+      </tbody></table></div>`).join("") || '<div class="mut">Nenhuma conta deste fornecedor.</div>'}
+    ${naoImp.length ? `<h4>NF-e no Buscador ainda fora das contas a pagar</h4><table><thead><tr><th>Emissão</th><th>NF</th><th class="num">Valor</th><th></th></tr></thead><tbody>
+      ${naoImp.map(nf => `<tr><td>${dataBR(nf.data_emissao)}</td><td>${esc(nf.numero || "")}</td><td class="num">${brl(nf.valor)}</td><td>${nf.completo ? "" : "só resumo: falta a ciência"}</td></tr>`).join("")}</tbody></table>` : ""}
+    <h4>Pagamentos no extrato <span class="mut" style="font-weight:400">(Itaú/Nubank do Gerencial, pelo CNPJ ou pelo nome)</span></h4>
+    ${D.lancs.length ? `<table><thead><tr><th>Data</th><th>Conta</th><th>Descrição</th><th class="num">Valor</th></tr></thead><tbody>
+      ${D.lancs.map(l => `<tr><td>${dataBR(l.data)}</td><td>${GER_CONTAS[l.conta] || l.conta}</td><td>${esc(l.descricao)}${D.cs.some(c => c.lancamento_id === l.id) ? "" : ' <span class="mut">(não ligado a parcela)</span>'}</td><td class="num">${brl(l.debito)}</td></tr>`).join("")}
+      </tbody><tfoot><tr><td colspan="3"><b>Total pago no extrato</b></td><td class="num"><b>${brl(D.pagoExtrato)}</b></td></tr></tfoot></table>` : '<div class="mut">Nenhum pagamento achado nos extratos importados.</div>'}`;
+}
+function gpFicha(k) {
+  const D = gpFichaDados(k), g = $("dlgf");
+  g.innerHTML = `<h3>${esc(D.nome)}</h3><div class="mut">${D.doc ? (D.doc.length === 11 ? "CPF " : "CNPJ ") + esc(gpDocTxt(D.doc)) : "sem CNPJ cadastrado"}</div>
+    ${gpFichaHtml(D, false)}
+    <div class="acoes"><button type="button" class="bt" id="gpfx">Fechar</button><button type="button" class="bt" id="gpfimp">Imprimir / PDF</button>${D.ab.length ? `<button type="button" class="bt pri" id="gpfab">Pagar parcelas em aberto</button>` : ""}</div>`;
+  $("gpfx").onclick = () => $("dlg").close();
+  $("gpfimp").onclick = () => gpFichaImprimir(D);
+  if ($("gpfab")) $("gpfab").onclick = () => gpDetalhe(D.ab.map(c => c.id), D.nome + " · em aberto");
+  g.querySelectorAll("[data-gpfd]").forEach(b => b.onclick = () => gpDetalhe([Number(b.dataset.gpfd)], D.nome));
+  $("dlg").classList.add("largo"); if (!$("dlg").open) $("dlg").showModal();
+}
+function gpFichaImprimir(D) {
+  const w = window.open("", "_blank");
+  if (!w) { alert("O navegador bloqueou a janela de impressão. Permita janelas para este site e tente de novo."); return; }
+  w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Ficha do fornecedor - ${esc(D.nome)}</title><style>
+    @page{size:A4;margin:12mm} body{font-family:Arial,Helvetica,sans-serif;color:#1b1b1b;font-size:12px;margin:0}
+    .cab{display:flex;justify-content:space-between;border-bottom:3px solid #0b2545;padding-bottom:8px;margin-bottom:10px}.cab b{font-size:18px}
+    h3{margin:6px 0 2px;font-size:16px}h4{font-size:13px;margin:16px 0 6px;border-bottom:1px solid #ccc;padding-bottom:3px;break-after:avoid}
+    table{width:100%;border-collapse:collapse;margin-bottom:6px}th,td{text-align:left;padding:4px 6px;border-bottom:1px solid #e3e3e3;vertical-align:top}
+    th{background:#0b2545;color:#fff;font-size:11px}.num,.v{text-align:right}tr{break-inside:avoid}.mut{color:#666;font-size:11px}
+    .gpfkpi{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.gpfkpi div{border:1px solid #ddd;border-radius:6px;padding:8px;text-align:center}
+    .gpfkpi small,.gpfkpi span{display:block;color:#666;font-size:10px}.gpfkpi b{font-size:14px}.gneg{color:#b3261e}.gpos{color:#2e6b3a}
+    .gpnf{break-inside:avoid;margin-bottom:8px}.gpnfcab{display:flex;gap:14px;background:#eef2f7;padding:5px 8px;font-size:11.5px}
+    .tw{overflow:visible}</style></head><body>
+    <div class="cab"><div><b>LINUM</b><div class="mut">Ficha do fornecedor · Gerencial</div></div><div class="mut" style="text-align:right">Emitida em ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</div></div>
+    <h3>${esc(D.nome)}</h3><div class="mut">${D.doc ? (D.doc.length === 11 ? "CPF " : "CNPJ ") + esc(gpDocTxt(D.doc)) : ""}</div>
+    ${gpFichaHtml(D, true)}
+    <script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>`);
+  w.document.close();
 }

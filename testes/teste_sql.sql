@@ -4632,5 +4632,9 @@ select pg_temp.ok((select count(*) = 0 from lin_ger_pagar), 'linum pagar: quem n
 select pg_temp.erro2($$select lin_ger_pagar_salvar('{"fornecedor":"X","vencimento":"2027-01-01","valor":1}')$$, 'Somente o Dono', 'linum pagar: quem não é Dono não grava');
 reset role;
 select pg_temp.ok((select count(distinct acao) = 6 from auditoria where acao like 'linum_gerencial_pagar_%'), 'linum pagar: auditoria de todas as ações');
+set role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+select lin_ger_pagar_importar('{"origem":"nfe","contas":[{"chave":"nfe|EMI|1","fornecedor":"Linho Emissão","documento":"9","parcela":"1/1","vencimento":"2026-12-20","valor":10,"emissao":"2026-11-20"}]}');
+select pg_temp.ok((select emissao = '2026-11-20' from lin_ger_pagar where chave = 'nfe|EMI|1'), 'linum pagar 2.71: grava a emissão da NF');
+reset role;
 reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'
