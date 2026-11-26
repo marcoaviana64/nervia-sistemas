@@ -114,6 +114,7 @@ window.NERVIA_VERSOES = {
     ["1.0", "Lançamento na Plataforma: os chamados de suporte de TI da Nervia por empreendimento, com o histórico de andamentos, a ficha do atendimento em PDF e os equipamentos com código e histórico de usuários."],
   ],
   "linum": [
+    ["2.68", "Nas peças da promoção, o preço do alto do cartão é o das peças normais e cada peça especial mostra o próprio preço no bloco dela; o preço não sai mais do cartão."],
     ["2.67", "Nas peças da promoção aparecem só as cores e tamanhos que têm peça na loja; o que está zerado não aparece mais."],
     ["2.66", "Peças da promoção em cartões pequenos, só para consulta: em cada loja, um bloco por tamanho com as cores e a quantidade, cabendo muito mais peças na tela."],
     ["2.65", "A observação da venda passa a ser só para a Linum: não sai mais no extrato da térmica nem na ficha impressa. Na aba Promoções, as peças aparecem em quadros como no Estoque, com cada loja separada e o estoque de cada cor e tamanho. Nova consulta Vendas da promoção (Dona e Estoque): peças vendidas, valor, desconto dado, por peça, cor, tamanho, loja e dia, com relatório para imprimir ou salvar em PDF e planilha CSV."],

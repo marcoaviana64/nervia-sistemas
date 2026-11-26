@@ -162,6 +162,15 @@ const somaD = (d, n) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.g
     ok(await e.pg.locator('.prlista button, .prlista [data-p], .prlista .chip').count() === 0 && await e.pg.locator('#przero').count() === 0, '2.66: só visualização, sem botão');
     ok(await cards.first().locator('.lj[data-loja="l-gav"]').count() === 0 && !(await cards.first().innerText()).includes(' 0'),
       '2.67: cor/tamanho sem peça não aparece (a loja sem peça some)');
+    // 2.68: peça especial com preço próprio: o alto mostra o preço das normais; a especial mostra o dela no bloco
+    await e.pg.evaluate(() => { const S = window.__S; S.pitens.push({ id: 999, promocao_id: S.promos[0].id, produto_id: 'p1', variante_id: 'v2', preco: 1900 }); });
+    await e.pg.click('[data-fpr="vigentes"]'); await e.pg.waitForTimeout(300);
+    const vest = e.pg.locator('.prlista .prc').nth(1);
+    const cab = await vest.locator('.pp').innerText(), espT = await vest.locator('.tb.esp').innerText();
+    ok(!cab.includes(' a ') && cab.includes('1.349,90') && !cab.includes('1.900') && espT.includes('1.900,00') && espT.includes('2.400,00'),
+      '2.68: preço da especial no bloco dela, sem faixa de preço no alto');
+    const larg = await vest.evaluate(c => [...c.querySelectorAll('*')].every(x => x.getBoundingClientRect().right <= c.getBoundingClientRect().right + 1));
+    ok(larg, '2.68: nada sai do cartão');
     // 2.65: vendas da promoção (consulta + PDF + CSV), Dono e Estoque
     await e.pg.evaluate(() => { window.__S.pvRows = [
       { venda: 31, data: '2026-11-24', loja_id: 'l-ipa', loja: 'Ipanema', vendedora: null, variante_id: 'v1', produto_id: 'p1', referencia: 'A25', descricao: 'Vestido Artesanal', cor: 'Natural', tamanho: 'G', edicao: '',
