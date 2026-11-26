@@ -105,7 +105,7 @@ async function pagina(ctx, papel, valores, preset) {
   pg.on('pageerror', e => erros.push(String(e.stack || e).slice(0, 300)));
   const corpo = FALSO.replace('__PAPEL__', papel).replace('__PRESET__', JSON.stringify(preset || {}));
   await pg.route('**/supabase-js@*/**', r => r.fulfill({ body: corpo, contentType: 'text/javascript' }));
-  await pg.goto(`http://127.0.0.1:${PORTA}/apps/linum/`);
+  await pg.goto(`http://127.0.0.1:${PORTA}/apps/linum/?aba=estoque`);
   await pg.waitForSelector('#app:not(.oculto)');
   return { pg, erros };
 }
@@ -155,6 +155,19 @@ const hojeBR = (d = 0) => { const x = new Date(new Date().toLocaleDateString('en
       'manda tipo, cliente, loja, prazo, observação e peças');
     ok((await pg.locator('#dlgf').innerText()).includes('Malinha nº 1 · Maria Souza'), 'a ficha abre depois de registrar (para imprimir e mandar junto)');
     await print(pg, 'cond_ficha');
+    // 2.57: comprovante na térmica abre sozinho por cima da ficha (2 vias; a da loja com a assinatura)
+    await pg.waitForSelector('#dlg2[open] #tmprev');
+    const cp = await pg.locator('#tmprev').innerText();
+    ok(cp.includes('MALINHA (CONDICIONAL) Nº 1') && cp.includes('VIA DA LOJA') && cp.includes('VIA DA CLIENTE') && cp.includes('Maria Souza') && cp.includes('Devolver até: ')
+      && cp.includes('Recebi as peças acima') && cp.split('\n').filter(l => /^\s*_{10,}\s*$/.test(l)).length === 1 && cp.includes('destaque aqui'), '2.57: comprovante da malinha com 2 vias e a assinatura só na via da loja');
+    await pg.uncheck('#tmvias'); await pg.waitForTimeout(100);
+    ok(!(await pg.locator('#tmprev').innerText()).includes('VIA DA CLIENTE'), '2.57: com 1 via só, sai sem "via da cliente"');
+    await pg.check('#tmvias');
+    await print(pg, 'cond_comprovante');
+    await pg.click('#tmfechar'); await pg.waitForTimeout(100);
+    await pg.click('#cdfterm'); await pg.waitForSelector('#dlg2[open] #tmprev');
+    ok((await pg.locator('#tmprev').innerText()).includes('MALINHA (CONDICIONAL) Nº 1'), '2.57: botão "Comprovante (térmica)" na ficha');
+    await pg.click('#tmfechar'); await pg.waitForTimeout(100);
     await pg.click('#cdfx');
     // Estoque: marca com cliente
     await aba(pg, '.barra .aba[data-v="estoque"]'); await pg.waitForTimeout(300);
@@ -188,6 +201,9 @@ const hojeBR = (d = 0) => { const x = new Date(new Date().toLocaleDateString('en
     await pg.fill('#cdqc', 'joana'); await pg.waitForTimeout(150); await pg.click('[data-cdcli="c2"]'); await pg.waitForTimeout(100);
     await pg.fill('#cdq', 'calca'); await pg.waitForTimeout(150); await pg.locator('#cdpres button').first().click(); await pg.waitForTimeout(100);
     await pg.click('#cdok'); await pg.waitForSelector('#dlg[open] #cdfprazo');
+    await pg.waitForSelector('#dlg2[open] #tmprev');
+    ok((await pg.locator('#tmprev').innerText()).includes('RESERVA DE PEÇAS Nº 2') && (await pg.locator('#tmprev').innerText()).includes('Retirar até: '), '2.57: comprovante da reserva');
+    await pg.click('#tmfechar'); await pg.waitForTimeout(100);
     await pg.click('#cdfprazo'); await pg.waitForSelector('#cdnp'); await pg.fill('#cdnp', hojeBR(12)); await pg.click('#cdnpok'); await pg.waitForTimeout(300);
     const pz = await ultimaRpc(pg, 'lin_condicional_prazo');
     ok(pz && pz.p_id === 2 && pz.p_prazo === hojeBR(12), 'mudar o prazo da reserva');

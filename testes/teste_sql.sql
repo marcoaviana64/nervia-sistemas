@@ -141,7 +141,7 @@ end $$;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
 select pg_temp.ok((select count(*) = 0 from apps), 'login sem app liberado não vê apps');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
-select pg_temp.ok((select count(*) = 16 from apps), 'admin vê todos os apps, inclusive inativos');
+select pg_temp.ok((select count(*) = 18 from apps), 'admin vê todos os apps, inclusive inativos');
 insert into app_acessos values ('00000000-0000-0000-0000-00000000000c', 'chamados');
 update apps set ativo = false where id = 'chamados';
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
@@ -1363,6 +1363,9 @@ set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
 select pg_temp.erro2($$select lin_membro_salvar('00000000-0000-0000-0000-00000000000c', 'vendedora', null, 120)$$, 'de 0 a 100', 'linum comissão: % acima de 100 recusado');
 select lin_membro_salvar('00000000-0000-0000-0000-00000000000c', 'vendedora', (select v from lin_ids where k = 'gav'), 3.5);
 select lin_membro_salvar('00000000-0000-0000-0000-00000000000c', 'vendedora', null);   -- sem informar a comissão: mantém 3,5%
+-- desde a 2.61 a comissão vem das regras por loja e período (lin_comissoes), não mais do % da equipe
+select lin_comissao_salvar(jsonb_build_object('user_id', '00000000-0000-0000-0000-00000000000c', 'pct', 3.5,
+  'lojas', jsonb_build_array((select v from lin_ids where k = 'gav'), (select v from lin_ids where k = 'ipa')), 'inicio', '2000-01-01'));
 select pg_temp.ok((select (e->>'comissao_pct')::numeric = 3.5 from jsonb_array_elements(lin_equipe()) e where e->>'user_id' = '00000000-0000-0000-0000-00000000000c')
   and (select count(*) = 3 from jsonb_array_elements(lin_vendedoras())), 'linum comissão: % salvo na equipe; todos os membros aparecem entre quem vende');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora, sem loja principal
@@ -1488,7 +1491,7 @@ select pg_temp.erro2($$select lin_venda_registrar(jsonb_build_object('loja_id', 
 insert into lin_tr values ('vc', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'cliente_id', (select v from lin_vd where k = 'cli'),
   'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000001', 'quantidade', 1, 'valor_unitario', 300)),
   'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'credito_loja', 'valor', 200), jsonb_build_object('forma', 'pix', 'valor', 100))))::text);
-select pg_temp.ok((select valor_total = 300 and credito_usado = 200 and valor_nf = 100 and comissao_valor = 5 from lin_vendas where id = (select v from lin_tr where k = 'vc')::bigint)
+select pg_temp.ok((select valor_total = 300 and credito_usado = 200 and valor_nf = 100 and comissao_valor = 3.5 from lin_vendas where id = (select v from lin_tr where k = 'vc')::bigint)
   and (lin_cliente_credito((select v from lin_vd where k = 'cli')::uuid)->>'saldo')::numeric = 41,
   'linum crédito: venda de R$ 300 com R$ 200 de crédito: paga R$ 100, nota fiscal de R$ 100, comissão só sobre R$ 100, saldo fica R$ 41');
 select pg_temp.erro2($$select lin_credito_ajustar((select v from lin_vd where k = 'cli')::uuid, 50, 'vale de papel')$$, 'Somente o Dono', 'linum crédito: só o Dono ajusta');
@@ -3867,4 +3870,771 @@ do $$ begin
 exception when insufficient_privilege then null;
 end $$;
 select pg_temp.ok(true, 'carga NFS-e: tela não chama a lista');
+
+-- ---------------------------------------------------------------- linum 2.58: promoções
+reset role;
+reset request.jwt.claim.sub;
+insert into lin_estoque (variante_id, loja_id, quantidade) values ('20000000-0000-0000-0000-000000000002', (select v from lin_ids where k = 'gav'), 10)
+  on conflict (variante_id, loja_id) do update set quantidade = excluded.quantidade;
+create temp table lin_pr (k text primary key, v bigint); grant all on lin_pr to authenticated;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora
+select pg_temp.erro2($$select lin_promocao_salvar('{}')$$, 'Somente o Dono ou o Estoque', 'linum 2.58: vendedora não cria promoção');
+select pg_temp.erro2($$insert into lin_promocoes (nome, inicio, fim) values ('x', current_date, current_date)$$, 'permission denied', 'linum 2.58: a tela não grava direto');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';   -- Estoque
+select pg_temp.erro2($$select lin_promocao_salvar(jsonb_build_object('nome', 'Semana', 'inicio', '2026-11-20', 'fim', '2026-11-10',
+  'itens', jsonb_build_array(jsonb_build_object('produto_id', '10000000-0000-0000-0000-000000000001', 'preco', 400))))$$, 'não pode ser antes do início', 'linum 2.58: fim antes do início');
+select pg_temp.erro2($$select lin_promocao_salvar(jsonb_build_object('nome', 'Semana', 'inicio', '2026-11-01', 'fim', '2026-11-30', 'itens', '[]'::jsonb))$$, 'pelo menos uma peça', 'linum 2.58: sem peça');
+select pg_temp.erro2($$select lin_promocao_salvar(jsonb_build_object('nome', 'Semana', 'inicio', '2026-11-01', 'fim', '2026-11-30',
+  'itens', jsonb_build_array(jsonb_build_object('produto_id', '10000000-0000-0000-0000-000000000001', 'preco', 489))))$$, 'menor que o preço de tabela', 'linum 2.58: preço da promoção tem de ser menor');
+-- duas promoções válidas hoje para a peça: vale o menor preço
+insert into lin_pr values ('a', lin_promocao_salvar(jsonb_build_object('nome', 'Semana do Linho', 'inicio', ((now() at time zone 'America/Sao_Paulo')::date - 1)::text,
+  'fim', ((now() at time zone 'America/Sao_Paulo')::date + 5)::text, 'itens', jsonb_build_array(jsonb_build_object('produto_id', '10000000-0000-0000-0000-000000000001', 'preco', 400)))));
+insert into lin_pr values ('b', lin_promocao_salvar(jsonb_build_object('nome', 'Queima Gávea', 'loja_id', (select v from lin_ids where k = 'gav'),
+  'inicio', ((now() at time zone 'America/Sao_Paulo')::date)::text, 'fim', ((now() at time zone 'America/Sao_Paulo')::date)::text,
+  'itens', jsonb_build_array(jsonb_build_object('produto_id', '10000000-0000-0000-0000-000000000001', 'variante_id', '20000000-0000-0000-0000-000000000002', 'preco', 350)))));
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora lê
+select pg_temp.ok((select count(*) = 2 from lin_promocoes) and (select count(*) = 2 from lin_promo_itens), 'linum 2.58: a equipe vê as promoções (a venda precisa)');
+insert into lin_vd values ('pr1', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'data', ((now() at time zone 'America/Sao_Paulo')::date)::text,
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 2, 'valor_unitario', 350, 'desconto_pct', 28.43)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 700))))::text);
+insert into lin_vd values ('pr2', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'data', ((now() at time zone 'America/Sao_Paulo')::date)::text,
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 1, 'valor_unitario', 489)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 489))))::text);
+reset role;
+select pg_temp.ok((select promocao_nome = 'Queima Gávea' and promocao_id = (select v from lin_pr where k = 'b') from lin_venda_itens where venda_id = (select v from lin_vd where k = 'pr1')::bigint),
+  'linum 2.58: peça vendida pelo menor preço válido fica marcada com essa promoção');
+select pg_temp.ok((select promocao_id is null from lin_venda_itens where venda_id = (select v from lin_vd where k = 'pr2')::bigint),
+  'linum 2.58: vendida pelo preço cheio não fica marcada');
+select pg_temp.ok((select nome = 'Queima Gávea' and preco = 350 from _lin_promo_da('20000000-0000-0000-0000-000000000002', (select v from lin_ids where k = 'gav'), (now() at time zone 'America/Sao_Paulo')::date))
+  and (select nome = 'Semana do Linho' and preco = 400 from _lin_promo_da('20000000-0000-0000-0000-000000000002', (select v from lin_ids where k = 'ipa'), (now() at time zone 'America/Sao_Paulo')::date))
+  and not exists (select 1 from _lin_promo_da('20000000-0000-0000-0000-000000000002', (select v from lin_ids where k = 'gav'), '2026-01-01')),
+  'linum 2.58: promoção só na loja e nas datas dela; a de todas as lojas vale em Ipanema');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.erro2($$select lin_promocoes_resumo()$$, 'Somente o Dono ou o Estoque', 'linum 2.58: vendedora não vê o resultado');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+select pg_temp.ok((select (lin_promocoes_resumo() -> (select v from lin_pr where k = 'b')::text ->> 'pecas')::int = 2
+  and (lin_promocoes_resumo() -> (select v from lin_pr where k = 'b')::text ->> 'desconto')::numeric = 278), 'linum 2.58: resultado da promoção (peças e desconto dado)');
+-- 2.64: peça pelo preço cheio + desconto geral que a deixa no preço da promoção = promoção marcada
+insert into lin_vd values ('pr3', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'data', ((now() at time zone 'America/Sao_Paulo')::date)::text,
+  'desconto', 139, 'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 1, 'valor_unitario', 489)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 350))))::text);
+insert into lin_vd values ('pr4', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'data', ((now() at time zone 'America/Sao_Paulo')::date)::text,
+  'desconto', 50, 'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000002', 'quantidade', 1, 'valor_unitario', 489)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 439))))::text);
+select pg_temp.ok((lin_promocoes_resumo() -> (select v from lin_pr where k = 'b')::text ->> 'pecas')::int = 3
+  and (lin_promocoes_resumo() -> (select v from lin_pr where k = 'b')::text ->> 'desconto')::numeric = 417, 'linum 2.64: resultado da promoção conta o desconto geral');
+-- 2.65: vendas da promoção (Dono e Estoque; o nome de quem vendeu só para o Dono)
+select pg_temp.ok((select jsonb_array_length(d) = 2 and (d -> 1 ->> 'liquido')::numeric = 350 and (d -> 1 ->> 'desconto_geral')::boolean and d -> 0 ->> 'vendedora' is null
+  from (select lin_promocao_vendas((select v from lin_pr where k = 'b')::bigint) d) x), 'linum 2.65: Estoque vê as peças vendidas na promoção, com o valor líquido, sem quem vendeu');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.erro2(format($$select lin_promocao_vendas(%s)$$, (select v from lin_pr where k = 'b')), 'Somente o Dono ou o Estoque', 'linum 2.65: vendedora não vê as vendas da promoção');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok((select d -> 0 ->> 'vendedora' is not null from (select lin_promocao_vendas((select v from lin_pr where k = 'b')::bigint) d) x), 'linum 2.65: o Dono vê quem vendeu');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+reset role;
+select pg_temp.ok((select promocao_nome = 'Queima Gávea' and promocao_desconto_geral and valor_unitario = 489 from lin_venda_itens where venda_id = (select v from lin_vd where k = 'pr3')::bigint)
+  and (select not promocao_desconto_geral from lin_venda_itens where venda_id = (select v from lin_vd where k = 'pr1')::bigint),
+  'linum 2.64: desconto geral que deixa a peça no preço da promoção marca a promoção (valores não mudam)');
+select pg_temp.ok((select promocao_id is null from lin_venda_itens where venda_id = (select v from lin_vd where k = 'pr4')::bigint),
+  'linum 2.64: desconto geral menor que o da promoção não marca');
+select pg_temp.erro2(format($$update lin_venda_itens set valor_unitario = 1 where venda_id = %s$$, (select v from lin_vd where k = 'pr3')),
+  'Os itens não podem ser alterados', 'linum 2.64: os itens continuam sem alteração');
+select pg_temp.erro2(format($$update lin_venda_itens set promocao_nome = 'x' where venda_id = %s$$, (select v from lin_vd where k = 'pr4')),
+  'Os itens não podem ser alterados', 'linum 2.64: a promoção só é marcada pelo sistema');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';   -- Dono
+select lin_venda_cancelar((select v from lin_vd where k = 'pr3')::bigint, 'venda de teste da 2.64');
+select lin_venda_cancelar((select v from lin_vd where k = 'pr4')::bigint, 'venda de teste da 2.64');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+-- alterar e cancelar
+select lin_promocao_salvar(jsonb_build_object('id', (select v from lin_pr where k = 'a'), 'nome', 'Semana do Linho', 'inicio', ((now() at time zone 'America/Sao_Paulo')::date - 1)::text,
+  'fim', ((now() at time zone 'America/Sao_Paulo')::date + 2)::text, 'itens', jsonb_build_array(jsonb_build_object('produto_id', '10000000-0000-0000-0000-000000000001', 'preco', 380))));
+select pg_temp.erro2(format($$select lin_promocao_cancelar(%s, 'x')$$, (select v from lin_pr where k = 'b')), 'motivo do cancelamento', 'linum 2.58: cancelar exige motivo');
+select lin_promocao_cancelar((select v from lin_pr where k = 'b'), 'acabou o estoque da promoção');
+reset role;
+select pg_temp.ok((select preco = 380 from lin_promo_itens where promocao_id = (select v from lin_pr where k = 'a'))
+  and (select nome = 'Semana do Linho' and preco = 380 from _lin_promo_da('20000000-0000-0000-0000-000000000002', (select v from lin_ids where k = 'gav'), (now() at time zone 'America/Sao_Paulo')::date))
+  and (select count(*) = 4 from auditoria where acao in ('linum_promocao_criada', 'linum_promocao_alterada', 'linum_promocao_cancelada') and detalhes ->> 'nome' in ('Semana do Linho', 'Queima Gávea'))
+  and exists (select 1 from auditoria where acao = 'linum_promocao_criada') and exists (select 1 from auditoria where acao = 'linum_promocao_cancelada'),
+  'linum 2.58: alterar troca o preço; cancelada deixa de valer; auditoria');
+reset request.jwt.claim.sub;
+
+-- ---------------------------------------------------------------- linum 2.59: crédito da devolução = valor líquido (desconto geral repartido)
+reset role;
+reset request.jwt.claim.sub;
+insert into lin_estoque (variante_id, loja_id, quantidade) values ('20000000-0000-0000-0000-000000000003', (select v from lin_ids where k = 'gav'), 10)
+  on conflict (variante_id, loja_id) do update set quantidade = excluded.quantidade;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora
+insert into lin_vd values ('dg1', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'data', ((now() at time zone 'America/Sao_Paulo')::date)::text,
+  'desconto', 100,
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000003', 'quantidade', 2, 'valor_unitario', 300)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 500))))::text);
+select pg_temp.ok((lin_venda_trocavel((select v from lin_vd where k = 'dg1')::bigint) -> 'itens' -> 0 ->> 'valor_unitario')::numeric = 250
+  and (lin_venda_trocavel((select v from lin_vd where k = 'dg1')::bigint) ->> 'desconto_geral')::numeric = 100,
+  'linum 2.59: peça devolvida vale o líquido pago (desconto geral de R$ 100 repartido: 2 × R$ 300 → R$ 250 cada)');
+insert into lin_vd values ('dg2', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'), 'data', ((now() at time zone 'America/Sao_Paulo')::date)::text,
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000003', 'quantidade', 1, 'valor_unitario', 280, 'desconto_pct', 22)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 280))))::text);
+select pg_temp.ok((lin_venda_trocavel((select v from lin_vd where k = 'dg2')::bigint) -> 'itens' -> 0 ->> 'valor_unitario')::numeric = 280,
+  'linum 2.59: sem desconto geral, vale o preço cobrado na peça');
+reset role;
+reset request.jwt.claim.sub;
+-- ---------------------------------------------------------------- linum 2.61: regras de comissão por loja e período
+reset role;
+reset request.jwt.claim.sub;
+insert into lin_estoque (variante_id, loja_id, quantidade) values ('20000000-0000-0000-0000-000000000003', (select v from lin_ids where k = 'gav'), 20),
+  ('20000000-0000-0000-0000-000000000003', (select v from lin_ids where k = 'ipa'), 20)
+  on conflict (variante_id, loja_id) do update set quantidade = excluded.quantidade;
+create temp table cm (k text primary key, v text); grant all on cm to authenticated;
+insert into cm values ('hoje', ((now() at time zone 'America/Sao_Paulo')::date)::text);
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';   -- Estoque
+select pg_temp.erro2($$select lin_comissao_salvar(jsonb_build_object('user_id', '00000000-0000-0000-0000-00000000000d', 'pct', 2,
+  'lojas', jsonb_build_array((select v from lin_ids where k = 'gav')), 'inicio', '2000-01-01'))$$, 'Só a Dona', 'linum 2.61: Estoque não cadastra regra de comissão');
+-- sem regra = sem comissão
+insert into cm values ('s1', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'),
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000003', 'quantidade', 1, 'valor_unitario', 200)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 200))))::text);
+insert into cm values ('s2', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'ipa'),
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000003', 'quantidade', 1, 'valor_unitario', 300)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 300))))::text);
+reset role;
+select pg_temp.ok((select comissao_pct = 0 and comissao_valor = 0 from lin_vendas where id = (select v from cm where k = 's1')::bigint),
+  'linum 2.61: sem regra, a venda sai sem comissão');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';   -- Dona
+select pg_temp.erro2($$select lin_comissao_salvar(jsonb_build_object('user_id', '00000000-0000-0000-0000-00000000000d', 'pct', 0,
+  'lojas', jsonb_build_array((select v from lin_ids where k = 'gav')), 'inicio', '2000-01-01'))$$, 'maior que zero', 'linum 2.61: 0% recusado (sem comissão = sem regra)');
+select pg_temp.erro2($$select lin_comissao_salvar(jsonb_build_object('user_id', '00000000-0000-0000-0000-00000000000d', 'pct', 2,
+  'lojas', '[]'::jsonb, 'inicio', '2000-01-01'))$$, 'pelo menos uma loja', 'linum 2.61: regra sem loja recusada');
+select pg_temp.erro2($$select lin_comissao_salvar(jsonb_build_object('user_id', '00000000-0000-0000-0000-00000000000d', 'pct', 2,
+  'lojas', jsonb_build_array((select v from lin_ids where k = 'gav')), 'inicio', '2026-11-10', 'fim', '2026-11-01'))$$, 'antes do início', 'linum 2.61: fim antes do início recusado');
+-- regra retroativa só na Gávea: recalcula a venda da Gávea, não a de Ipanema
+insert into cm values ('r1', (lin_comissao_salvar(jsonb_build_object('user_id', '00000000-0000-0000-0000-00000000000d', 'pct', 2,
+  'lojas', jsonb_build_array((select v from lin_ids where k = 'gav')), 'inicio', '2000-01-01', 'observacao', 'só Gávea'))) ->> 'id');
+reset role;
+select pg_temp.ok((select comissao_pct = 2 and comissao_valor = 4 from lin_vendas where id = (select v from cm where k = 's1')::bigint)
+  and (select comissao_pct = 0 from lin_vendas where id = (select v from cm where k = 's2')::bigint),
+  'linum 2.61: regra com início no passado recalcula as vendas daquela loja (Gávea 2% = R$ 4) e não as da outra loja');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.erro2($$select lin_comissao_salvar(jsonb_build_object('user_id', '00000000-0000-0000-0000-00000000000d', 'pct', 3,
+  'lojas', jsonb_build_array((select v from lin_ids where k = 'gav'), (select v from lin_ids where k = 'ipa')), 'inicio', (select v from cm where k = 'hoje')))$$,
+  'Já existe regra', 'linum 2.61: duas regras na mesma loja e no mesmo dia recusadas');
+-- Ipanema com outro %, de hoje em diante sem fim
+select lin_comissao_salvar(jsonb_build_object('user_id', '00000000-0000-0000-0000-00000000000d', 'pct', 5,
+  'lojas', jsonb_build_array((select v from lin_ids where k = 'ipa')), 'inicio', (select v from cm where k = 'hoje')));
+reset role;
+select pg_temp.ok((select comissao_pct = 5 and comissao_valor = 15 from lin_vendas where id = (select v from cm where k = 's2')::bigint),
+  'linum 2.61: outra loja com outro % (Ipanema 5% = R$ 15)');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+insert into cm values ('s3', lin_venda_registrar(jsonb_build_object('loja_id', (select v from lin_ids where k = 'gav'),
+  'itens', jsonb_build_array(jsonb_build_object('variante_id', '20000000-0000-0000-0000-000000000003', 'quantidade', 1, 'valor_unitario', 100)),
+  'pagamentos', jsonb_build_array(jsonb_build_object('forma', 'pix', 'valor', 100))))::text);
+select pg_temp.ok((select count(*) = 2 from jsonb_array_elements(lin_comissoes_ler() -> 'regras')) and jsonb_array_length(lin_comissoes_ler() -> 'pessoas') = 0,
+  'linum 2.61: a pessoa vê as próprias regras e não a lista da equipe');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.ok((select count(*) = 0 from jsonb_array_elements(lin_comissoes_ler() -> 'regras') r where r ->> 'user_id' <> '00000000-0000-0000-0000-00000000000c')
+  and (select count(*) = 0 from lin_comissoes where user_id <> '00000000-0000-0000-0000-00000000000c'),
+  'linum 2.61: vendedora não vê as regras das outras');
+reset role;
+select pg_temp.ok((select comissao_pct = 2 and comissao_valor = 2 from lin_vendas where id = (select v from cm where k = 's3')::bigint),
+  'linum 2.61: venda nova usa a regra da loja e da data');
+-- editar: a regra da Gávea termina ontem → a venda de hoje volta a ficar sem comissão
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok((lin_comissao_salvar(jsonb_build_object('id', (select v from cm where k = 'r1'), 'pct', 2,
+  'lojas', jsonb_build_array((select v from lin_ids where k = 'gav')), 'inicio', '2000-01-01', 'fim', ((select v from cm where k = 'hoje')::date - 1)::text)) ->> 'recalculadas')::int = 2,
+  'linum 2.61: encurtar o período recalcula as vendas que saíram dele');
+reset role;
+select pg_temp.ok((select comissao_pct = 0 and comissao_valor = 0 from lin_vendas where id = (select v from cm where k = 's1')::bigint),
+  'linum 2.61: venda fora do período fica sem comissão');
+-- excluir a regra de Ipanema (motivo obrigatório) → venda de Ipanema volta a 0
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.erro2($$select lin_comissao_excluir((select max(id) from lin_comissoes where user_id = '00000000-0000-0000-0000-00000000000d'), 'x')$$, 'motivo', 'linum 2.61: excluir exige motivo');
+select lin_comissao_excluir((select max(id) from lin_comissoes where user_id = '00000000-0000-0000-0000-00000000000d'), 'cadastrada errado');
+reset role;
+select pg_temp.ok((select comissao_pct = 0 from lin_vendas where id = (select v from cm where k = 's2')::bigint),
+  'linum 2.61: excluir a regra recalcula as vendas dela');
+select pg_temp.ok((select count(*) = 3 from auditoria where acao = 'linum_comissao_regra_criada' and detalhes ->> 'pessoa' is not null)
+  and (select count(*) = 1 from auditoria where acao = 'linum_comissao_regra_alterada' and jsonb_array_length(detalhes -> 'vendas_recalculadas') = 2)
+  and (select count(*) = 1 from auditoria where acao = 'linum_comissao_regra_excluida' and detalhes ->> 'motivo' = 'cadastrada errado'),
+  'linum 2.61: regras criadas, alteradas e excluídas na auditoria, com as vendas recalculadas');
+select pg_temp.erro2($$update lin_vendas set comissao_pct = 9 where id = (select v from cm where k = 's1')::bigint$$, 'Não pode ser alterada',
+  'linum 2.61: a comissão da venda só muda pelo recálculo das regras');
+reset role;
+reset request.jwt.claim.sub;
+-- ---------------------------------------------------------------- linum 2.62: aba Início — o que mais vende (só Dona e Estoque, só em peças)
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';   -- vendedora
+select pg_temp.erro2($$select lin_mais_vendidos(30)$$, 'Só a Dona e o Estoque', 'linum 2.62: vendedora não vê o que mais vende');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';   -- Estoque (lê as vendas de todos só por esta função)
+insert into cm values ('mv', lin_mais_vendidos(30)::text);
+reset role;
+select pg_temp.ok(((select v from cm where k = 'mv')::jsonb ->> 'pecas')::int = (select sum(i.quantidade) from lin_venda_itens i join lin_vendas v on v.id = i.venda_id
+    where v.cancelada_em is null and v.data >= (now() at time zone 'America/Sao_Paulo')::date - 29)
+  and jsonb_array_length((select v from cm where k = 'mv')::jsonb -> 'cores') >= 1 and not ((select v from cm where k = 'mv') ~ 'valor|vendedora'),
+  'linum 2.62: Estoque vê as peças vendidas de todas as vendas, por cor e tamanho, sem valores nem quem vendeu');
+select pg_temp.ok((select count(*) from (select jsonb_array_elements(lin_mais_vendidos(30) -> 'produtos')) x) <= 10, 'linum 2.62: até 10 peças no ranking');
+reset request.jwt.claim.sub;
+-- ---------------------------------------------------------------- NVSintonia (laboratório)
+insert into auth.users (id, email) values ('51000000-0000-0000-0000-000000000001', 'ana@sin.test'), ('51000000-0000-0000-0000-000000000002', 'bia@sin.test'),
+  ('51000000-0000-0000-0000-000000000003', 'caio@sin.test');
+select pg_temp.ok(not exists (select 1 from information_schema.role_table_grants where grantee in ('anon','authenticated') and table_name like 'sin\_%'),
+  'sintonia: tela não lê nem grava as tabelas (só pelas funções)');
+set role anon;
+reset request.jwt.claim.sub;
+select pg_temp.erro2($$select sin_espelho('p')$$, 'permission denied', 'sintonia: sem login não abre espelho');
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '51000000-0000-0000-0000-000000000001';
+select pg_temp.erro2($$select sin_espelho('p')$$, 'perfil', 'sintonia: precisa criar o perfil antes');
+select pg_temp.ok((sin_perfil() ->> 'existe')::boolean = false, 'sintonia: perfil ainda não existe');
+select sin_perfil_salvar('Ana');
+select pg_temp.ok((sin_perfil() ->> 'id_dia') ~ '^SN-[A-Z0-9]{4}$', 'sintonia: ID do dia no formato SN-XXXX');
+select pg_temp.ok(jsonb_array_length(sin_espelho('r') -> 'circulos') = 4 and (sin_espelho('r') -> 'circulos' -> 0 ->> 'gestor')::boolean,
+  'sintonia: 360° nasce com gestor, pares, liderados e clientes internos');
+select sin_circulo_criar('p', 'Família');
+select pg_temp.erro2($$select sin_circulo_criar('p', 'família')$$, 'Já existe', 'sintonia: círculo com nome repetido recusado');
+create temp table sinc as select (sin_espelho('p') -> 'circulos' -> 0 ->> 'codigo') as fam,
+  (select c ->> 'codigo' from jsonb_array_elements(sin_espelho('r') -> 'circulos') c where c ->> 'nome' = 'Gestor') as gest,
+  (select c ->> 'codigo' from jsonb_array_elements(sin_espelho('r') -> 'circulos') c where c ->> 'nome' = 'Pares') as pares;
+select pg_temp.erro2($$select sin_responder((select fam from sinc), 'aparelho-da-ana-123456', '{4,4,4,4,4}')$$, 'é seu', 'sintonia: dono não responde o próprio convite');
+reset role;
+grant select on sinc to anon, authenticated;
+set role anon;
+reset request.jwt.claim.sub;
+select pg_temp.ok(sin_convite_ler((select fam from sinc)) ->> 'dono' = 'Ana' and sin_convite_ler((select fam from sinc)) ->> 'circulo' = 'Família',
+  'sintonia: convite abre sem login com o nome de quem pediu');
+select sin_responder((select fam from sinc), 'aparelho-0000000001', '{5,5,4,4,5}');
+select pg_temp.erro2($$select sin_responder((select fam from sinc), 'aparelho-0000000001', '{1,1,1,1,1}')$$, 'já respondeu', 'sintonia: o mesmo aparelho não responde duas vezes');
+select pg_temp.erro2($$select sin_responder((select fam from sinc), 'aparelho-0000000009', '{1,1,1,1}')$$, 'todos os itens', 'sintonia: faltando item recusado');
+select pg_temp.erro2($$select sin_responder((select fam from sinc), 'aparelho-0000000009', '{1,1,1,1,6}')$$, 'todos os itens', 'sintonia: nota acima de 5 recusada');
+select sin_responder((select fam from sinc), 'aparelho-000000000' || i, '{3,4,3,4,3}') from generate_series(2, 4) i;
+reset role;
+select pg_temp.ok(not exists (select 1 from information_schema.columns where table_name = 'sin_respostas' and column_name in ('user_id','autor','criado_em','em','marca')),
+  'sintonia: a resposta não guarda autor nem hora');
+select pg_temp.ok((select count(*) = 4 and bool_and(not liberada) from sin_respostas), 'sintonia: 4 respostas esperando o lote, nenhuma liberada');
+set role authenticated;
+set request.jwt.claim.sub = '51000000-0000-0000-0000-000000000001';
+select pg_temp.ok((sin_espelho('p') -> 'circulos' -> 0 ->> 'liberadas')::int = 0 and sin_espelho('p') -> 'circulos' -> 0 -> 'medias' = 'null'::jsonb,
+  'sintonia: com 4 respostas o dono não vê nada nem a contagem');
+reset role;
+set role anon;
+reset request.jwt.claim.sub;
+select sin_responder((select fam from sinc), 'aparelho-0000000005', '{2,2,2,2,2}');
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '51000000-0000-0000-0000-000000000001';
+select pg_temp.ok((sin_espelho('p') -> 'circulos' -> 0 ->> 'liberadas')::int = 5 and sin_espelho('p') -> 'circulos' -> 0 -> 'medias' = 'null'::jsonb,
+  'sintonia: lote fechado, mas sem autoavaliação o resultado fica escondido');
+select pg_temp.erro2($$select sin_auto_salvar('p', '{4,4,4}')$$, 'todos os itens', 'sintonia: autoavaliação incompleta recusada');
+select sin_auto_salvar('p', '{4,5,5,4,4}');
+select pg_temp.ok((sin_espelho('p') -> 'circulos' -> 0 -> 'medias' ->> 0)::numeric = 3.2, 'sintonia: depois da autoavaliação aparece a média do círculo (3,2)');
+select pg_temp.erro2($$select sin_auto_salvar('p', '{1,1,1,1,1}')$$, 'nova rodada', 'sintonia: autoavaliação não se refaz na mesma rodada');
+select pg_temp.erro2($$select sin_nova_rodada('p')$$, '90 dias', 'sintonia: nova rodada só depois de 90 dias quando já há respostas');
+select sin_nova_rodada('r');
+select pg_temp.ok((sin_espelho('r') ->> 'rodada')::int = 2, 'sintonia: rodada sem respostas pode recomeçar na hora');
+-- 360° (1.3, 5 competências de 0 a 5): gestor aparece com 1 resposta; pares com 3; "não tenho condições de avaliar" não conta
+reset role;
+set role anon;
+reset request.jwt.claim.sub;
+select pg_temp.erro2($$select sin_responder((select gest from sinc), 'aparelho-g0000000001', '{1,2,3,4}')$$, 'todos os itens', 'sintonia: 360° exige as 5 competências');
+select pg_temp.erro2($$select sin_responder((select gest from sinc), 'aparelho-g0000000001', '{1,2,3,4,5,null,null,3,4,5}')$$, 'todos os itens', 'sintonia: 360° antigo de 10 itens recusado');
+select pg_temp.erro2($$select sin_responder((select gest from sinc), 'aparelho-g0000000001', '{0,2,3,4,6}')$$, 'todos os itens', 'sintonia: 360° vai de 0 a 5');
+select pg_temp.erro2($$select sin_responder((select gest from sinc), 'aparelho-g0000000001', '{null,null,null,null,null}')$$, 'todos os itens', 'sintonia: 360° precisa de ao menos uma nota');
+select sin_responder((select gest from sinc), 'aparelho-g0000000001', '{5,4,0,4,null}');
+select sin_responder((select pares from sinc), 'aparelho-p000000000' || i, ('{3,3,3,' || case when i = 1 then 'null' else '5' end || ',3}')::smallint[]) from generate_series(1, 3) i;
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '51000000-0000-0000-0000-000000000001';
+select sin_auto_salvar('r', '{5,5,5,5,5}');
+select pg_temp.ok((select (c -> 'medias' ->> 0)::numeric = 5 and (c -> 'medias' ->> 2)::numeric = 0 and c -> 'medias' -> 4 = 'null'::jsonb and jsonb_array_length(c -> 'medias') = 5 from jsonb_array_elements(sin_espelho('r') -> 'circulos') c where c ->> 'nome' = 'Gestor'),
+  'sintonia: gestor aparece com 1 resposta; nota 0 conta e "não tenho condições" fica vazio');
+select pg_temp.ok((select (c -> 'medias' ->> 3)::numeric = 5 and (c ->> 'liberadas')::int = 3 from jsonb_array_elements(sin_espelho('r') -> 'circulos') c where c ->> 'nome' = 'Pares'),
+  'sintonia: pares aparecem com 3 respostas; "não tenho condições" fica fora da média');
+-- encontros por QR
+set request.jwt.claim.sub = '51000000-0000-0000-0000-000000000002';
+select sin_perfil_salvar('Bia');
+create temp table sinq (cod text);
+reset role; grant all on sinq to authenticated; set role authenticated;
+set request.jwt.claim.sub = '51000000-0000-0000-0000-000000000001';
+insert into sinq select sin_qr_gerar() ->> 'codigo';
+select pg_temp.erro2($$select sin_qr_usar((select cod from sinq))$$, 'próprio', 'sintonia: não lê o próprio QR');
+set request.jwt.claim.sub = '51000000-0000-0000-0000-000000000002';
+select pg_temp.ok(sin_qr_usar((select lower(cod) from sinq)) ->> 'nome' = 'Ana', 'sintonia: Bia lê o QR da Ana e o encontro é registrado');
+select pg_temp.erro2($$select sin_qr_usar((select cod from sinq))$$, 'inválido', 'sintonia: código do QR vale uma vez');
+select pg_temp.ok(jsonb_array_length(sin_fichas()) = 1 and sin_fichas() -> 0 ->> 'nome' = 'Ana', 'sintonia: Bia tem uma ficha para avaliar a Ana');
+set request.jwt.claim.sub = '51000000-0000-0000-0000-000000000001';
+select pg_temp.ok(sin_fichas() -> 0 ->> 'nome' = 'Bia', 'sintonia: e a Ana uma para avaliar a Bia');
+truncate sinq; insert into sinq select sin_qr_gerar() ->> 'codigo';
+set request.jwt.claim.sub = '51000000-0000-0000-0000-000000000002';
+select pg_temp.ok((sin_qr_usar((select cod from sinq)) ->> 'ok')::boolean = false, 'sintonia: a mesma dupla só se avalia uma vez a cada 30 dias');
+select sin_avaliar((sin_fichas() -> 0 ->> 'id')::bigint, '{5,5,5,5,5}');
+select pg_temp.ok(jsonb_array_length(sin_fichas()) = 0, 'sintonia: ficha some depois de usada');
+reset role;
+select pg_temp.ok((select count(*) = 1 from sin_enc_notas) and not exists (select 1 from information_schema.columns where table_name = 'sin_enc_notas' and column_name in ('avaliador','ficha_id','em')),
+  'sintonia: nota do encontro guardada sem quem avaliou');
+set role authenticated;
+set request.jwt.claim.sub = '51000000-0000-0000-0000-000000000001';
+select pg_temp.ok(sin_minha_nota() -> 'geral' = 'null'::jsonb and (sin_minha_nota() ->> 'n')::int = 0, 'sintonia: uma nota sozinha não aparece (lote de 5)');
+reset role;
+insert into sin_enc_notas (alvo, notas) select '51000000-0000-0000-0000-000000000001', '{4,4,4,4,4}' from generate_series(1, 3);
+insert into sin_fichas (avaliador, alvo) values ('51000000-0000-0000-0000-000000000002', '51000000-0000-0000-0000-000000000001');
+set role authenticated;
+set request.jwt.claim.sub = '51000000-0000-0000-0000-000000000002';
+select sin_avaliar((sin_fichas() -> 0 ->> 'id')::bigint, '{3,3,3,3,3}');
+set request.jwt.claim.sub = '51000000-0000-0000-0000-000000000001';
+select pg_temp.ok((sin_minha_nota() ->> 'n')::int = 5 and (sin_minha_nota() ->> 'geral')::numeric = round((10 * 3.5 + 20)::numeric / 15, 2),
+  'sintonia: lote de 5 fechado; média com peso da dúvida ((10×3,5 + 20) ÷ 15)');
+-- mapa
+select pg_temp.erro2($$select sin_mapa(-22.98, -43.2, 300)$$, 'Visível no mapa', 'sintonia: só vê o mapa quem está visível');
+select sin_mapa_visivel(true);
+select sin_mapa(-22.98321, -43.20111, 300);
+set request.jwt.claim.sub = '51000000-0000-0000-0000-000000000002';
+select sin_mapa_visivel(true);
+create temp table sinm as select sin_mapa(-22.98410, -43.20240, 500) as m;
+reset role;
+select pg_temp.ok((select jsonb_array_length(m -> 'pessoas') = 1 and (m -> 'pessoas' -> 0 -> 'nota' ->> 'n')::int = 5 and not (m::text ~ 'Ana|51000000') from sinm),
+  'sintonia: no mapa aparece o ID do dia e a nota, nunca o nome');
+select pg_temp.ok((select lat = -22.983 and lon = -43.201 from sin_posicoes where user_id = '51000000-0000-0000-0000-000000000001'), 'sintonia: guarda só a quadra (3 casas)');
+set role authenticated;
+set request.jwt.claim.sub = '51000000-0000-0000-0000-000000000001';
+select sin_mapa_visivel(false);
+reset role;
+select pg_temp.ok(not exists (select 1 from sin_posicoes where user_id = '51000000-0000-0000-0000-000000000001'), 'sintonia: desligar o mapa apaga a posição');
+-- excluir tudo
+set role authenticated;
+select sin_excluir_tudo();
+reset role;
+select pg_temp.ok(not exists (select 1 from sin_espelhos where dono = '51000000-0000-0000-0000-000000000001') and not exists (select 1 from sin_enc_notas where alvo = '51000000-0000-0000-0000-000000000001')
+  and exists (select 1 from auth.users where id = '51000000-0000-0000-0000-000000000001'), 'sintonia: excluir apaga os dados do NVSintonia e mantém o login');
+select pg_temp.ok((select count(*) >= 3 from auditoria where acao like 'sintonia_%') and not exists (select 1 from auditoria where acao like 'sintonia_%' and detalhes::text ~ 'notas'),
+  'sintonia: ações na auditoria, sem nenhuma nota');
+set role service_role;
+select pg_temp.ok(sin_conta_limite('1.2.3.4') and sin_usuario_existe('BIA@sin.test') and not sin_usuario_existe('ninguem@sin.test'), 'sintonia: limite de contas e procura do e-mail (service role)');
+reset role;
+reset request.jwt.claim.sub;
+-- ---------------------------------------------------------------- NVSintonia 1.1: conta por chave, sem e-mail
+set role authenticated;
+select pg_temp.erro2($$select sin_chave_nova()$$, 'permission denied', 'sintonia 1.1: a tela não gera chave (só a função, service role)');
+reset role;
+set role anon;
+select pg_temp.erro2($$select sin_chave_email('ABCD-EFGH-JKMN')$$, 'permission denied', 'sintonia 1.1: sem login não descobre o e-mail da chave direto no banco');
+reset role;
+set role service_role;
+create temp table sink as select sin_chave_nova() as a, sin_chave_nova() as b;
+reset role;
+select pg_temp.ok((select (a ->> 'chave') ~ '^[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$' and (a ->> 'email') ~ '^s-[0-9a-f]{40}@sintonia\.nervia\.com\.br$'
+  and a ->> 'chave' <> b ->> 'chave' and a ->> 'email' <> b ->> 'email' from sink), 'sintonia 1.1: chave XXXX-XXXX-XXXX sem letras confusas e e-mail derivado, cada uma diferente');
+set role service_role;
+select pg_temp.ok((select sin_chave_email(lower(replace(a ->> 'chave', '-', ' '))) = a ->> 'email' from sink), 'sintonia 1.1: a chave digitada com minúsculas e espaços leva ao mesmo login');
+select pg_temp.ok(sin_chave_email('ABCD-EFGH-IJKL') is null and sin_chave_email('123') is null, 'sintonia 1.1: chave com letra fora do alfabeto ou curta é inválida');
+reset role;
+select pg_temp.ok((select count(*) = 2 from sin_chaves) and not exists (select 1 from sin_chaves k, sink where k.hash ilike '%' || replace(sink.a ->> 'chave', '-', '') || '%'),
+  'sintonia 1.1: o banco guarda só o resumo da chave, nunca a chave');
+select pg_temp.erro2($$insert into sin_chaves (hash) select hash from sin_chaves limit 1$$, 'duplicate', 'sintonia 1.1: a mesma chave nunca existe duas vezes');
+set role service_role;
+select pg_temp.ok((select count(*) filter (where sin_entrar_limite('9.9.9.9')) = 20 from generate_series(1, 22)), 'sintonia 1.1: até 20 tentativas de entrar por hora por IP');
+reset role;
+insert into auth.users (id, email, raw_user_meta_data) values ('51000000-0000-0000-0000-000000000009', 'velho@sin.test', '{"nome":"Velho"}');
+set role service_role;
+select sin_perfil_email('51000000-0000-0000-0000-000000000009', 's-abc@sintonia.nervia.com.br');
+select sin_conta_auditar('51000000-0000-0000-0000-000000000009', 'sintonia_email_trocado_por_chave');
+reset role;
+select pg_temp.ok((select email = 's-abc@sintonia.nervia.com.br' from perfis where user_id = '51000000-0000-0000-0000-000000000009')
+  and exists (select 1 from auditoria where acao = 'sintonia_email_trocado_por_chave' and user_id = '51000000-0000-0000-0000-000000000009' and email is null),
+  'sintonia 1.1: trocar o e-mail pela chave apaga o e-mail do perfil e fica na auditoria (sem e-mail nem chave)');
+-- ---------------------------------------------------------------- NVSintonia 1.1: você na multidão
+insert into auth.users (id, email) select ('52000000-0000-0000-0000-0000000000' || lpad(i::text, 2, '0'))::uuid, 'm' || i || '@sin.test' from generate_series(1, 12) i;
+insert into sin_pessoas (user_id, nome) select ('52000000-0000-0000-0000-0000000000' || lpad(i::text, 2, '0'))::uuid, 'M' || i from generate_series(1, 12) i;
+-- 9 pessoas com 5 notas liberadas (notas i/2 arredondadas) → ainda abaixo de 10
+insert into sin_enc_notas (alvo, notas, liberada) select ('52000000-0000-0000-0000-0000000000' || lpad(i::text, 2, '0'))::uuid, array_fill(least(5, i / 2)::smallint, array[5]), true
+  from generate_series(1, 9) i, generate_series(1, 5);
+set role authenticated;
+set request.jwt.claim.sub = '52000000-0000-0000-0000-000000000009';
+select pg_temp.ok((sin_multidao() ->> 'com_nota')::int = 9 and sin_multidao() -> 'percentil' is null, 'sintonia 1.1: com menos de 10 pessoas com nota, só a contagem');
+reset role;
+insert into sin_enc_notas (alvo, notas, liberada) select ('52000000-0000-0000-0000-0000000000' || lpad(i::text, 2, '0'))::uuid, array_fill(5::smallint, array[5]), true
+  from generate_series(10, 11) i, generate_series(1, 5);
+set role authenticated;
+create temp table sinmu as select sin_multidao() m;
+reset role;
+select pg_temp.ok((select (m ->> 'com_nota')::int = 11 and (m ->> 'percentil') is not null and jsonb_array_length(m -> 'faixas') = 10 and jsonb_array_length(m -> 'itens') = 5
+  and (select sum(x::int) from jsonb_array_elements_text(m -> 'faixas') x) = 11 and not (m::text ~ 'M[0-9]|52000000|SN-') from sinmu),
+  'sintonia 1.1: com 10 ou mais, percentil, itens e faixas, sem nome nem código de ninguém');
+select pg_temp.ok((select (m ->> 'percentil')::int = round(100.0 * (select count(*) from generate_series(1, 11) i where i <> 9 and least(10, i / 2 * 2) / 2.0 * 0 + (select (public._sin_nota(('52000000-0000-0000-0000-0000000000' || lpad(i::text, 2, '0'))::uuid) ->> 'geral')::numeric) < (m ->> 'eu')::numeric) / 10) from sinmu),
+  'sintonia 1.1: percentil = outras pessoas com nota menor ÷ outras pessoas com nota');
+reset request.jwt.claim.sub;
+-- ---------------------------------------------------------------- NVSintonia 1.2: perguntas novas + "não tenho condições de avaliar"
+select pg_temp.ok(exists (select 1 from auditoria where acao = 'sintonia_avaliacoes_zeradas'), 'sintonia 1.2: a troca das perguntas zera as avaliações e fica na auditoria');
+select pg_temp.ok(public._sin_notas_ok('p', '{5,null,4,null,3}') and not public._sin_notas_ok('p', '{null,null,null,null,null}')
+  and not public._sin_notas_ok('p', '{5,null,4,null}'), 'sintonia 1.2: item vazio = não tenho condições de avaliar; ao menos uma nota; os 5 itens');
+insert into auth.users (id, email) values ('53000000-0000-0000-0000-000000000001', 'z@sin.test');
+insert into sin_pessoas (user_id, nome) values ('53000000-0000-0000-0000-000000000001', 'Z');
+insert into sin_enc_notas (alvo, notas, liberada) select '53000000-0000-0000-0000-000000000001', case when g = 1 then '{5,2,5,5,5}' else '{5,null,5,5,5}' end::smallint[], true from generate_series(1, 5) g;
+select pg_temp.ok((select (public._sin_nota('53000000-0000-0000-0000-000000000001') -> 'itens' ->> 1)::numeric
+      = round((10 * (select case when count(notas[2]) >= 20 then avg(notas[2]) else 3.5 end from sin_enc_notas where liberada) + 2) / 11.0, 2)
+  and (public._sin_nota('53000000-0000-0000-0000-000000000001') -> 'itens' ->> 0)::numeric
+      = round((10 * (select case when count(notas[1]) >= 20 then avg(notas[1]) else 3.5 end from sin_enc_notas where liberada) + 25) / 15.0, 2)),
+  'sintonia 1.2: em cada item só quem avaliou entra na média (o vazio não vira zero)');
+-- ---------------------------------------------------------------- NVAura 1.0: cartão com QR e nota da interação
+insert into auth.users (id, email) values ('54000000-0000-0000-0000-000000000001', 'a@aura.test'), ('54000000-0000-0000-0000-000000000002', 'b@aura.test');
+set role anon;
+reset request.jwt.claim.sub;
+select pg_temp.erro2($$select aur_cartao_salvar('Ana')$$, 'permission denied', 'aura: sem login não cria cartão');
+select pg_temp.erro2($$select * from aur_cartoes$$, 'permission denied', 'aura: tela não lê as tabelas');
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '54000000-0000-0000-0000-000000000001';
+select pg_temp.ok((aur_meu_cartao() ->> 'existe')::boolean = false, 'aura: cartão ainda não existe');
+select pg_temp.erro2($$select aur_cartao_salvar('Ana', 'http://x.com/foto.jpg')$$, 'Foto inválida', 'aura: foto só como imagem pequena embutida');
+select pg_temp.erro2($$select aur_cartao_salvar('Ana', 'data:image/webp;base64,' || repeat('A', 90000))$$, 'Foto inválida', 'aura: foto grande demais recusada');
+select pg_temp.erro2($$select aur_cartao_salvar('  ')$$, 'nome', 'aura: nome obrigatório');
+select aur_cartao_salvar('Ana', 'data:image/webp;base64,AAAA');
+create temp table aurc as select aur_meu_cartao() ->> 'codigo' as cod;
+grant select on aurc to anon, authenticated;
+select pg_temp.ok((select cod ~ '^[2-9A-HJ-NP-Z]{10}$' from aurc) and aur_meu_cartao() ->> 'foto' = 'data:image/webp;base64,AAAA'
+  and (aur_meu_cartao() -> 'nota' ->> 'n')::int = 0 and aur_meu_cartao() ->> 'id_dia' ~ '^AU-',
+  'aura: cartão criado com código do QR, foto e código do dia');
+select aur_cartao_salvar('Ana Maria');
+select pg_temp.ok(aur_meu_cartao() ->> 'foto' = 'data:image/webp;base64,AAAA' and aur_meu_cartao() ->> 'nome' = 'Ana Maria', 'aura: mudar o nome mantém a foto');
+select pg_temp.erro2($$select aur_avaliar((select cod from aurc), 'aparelho-da-ana-0001', 5)$$, 'seu cartão', 'aura: ninguém avalia o próprio cartão');
+reset role;
+select pg_temp.ok(exists (select 1 from auditoria where acao = 'aura_cartao_criado' and user_id = '54000000-0000-0000-0000-000000000001'), 'aura: criação do cartão na auditoria');
+set role anon;
+reset request.jwt.claim.sub;
+select pg_temp.ok(aur_cartao_ler((select cod from aurc)) ->> 'nome' = 'Ana Maria' and aur_cartao_ler(lower((select cod from aurc))) is not null
+  and aur_cartao_ler('NAOEXISTE2') is null, 'aura: o QR abre o cartão sem login (aceita minúsculas); código errado não abre');
+select aur_avaliar((select cod from aurc), 'aparelho-000000000001', 5);
+select pg_temp.erro2($$select aur_avaliar((select cod from aurc), 'aparelho-000000000001', 4)$$, 'já avaliou este cartão hoje', 'aura: o mesmo aparelho avalia o mesmo cartão 1 vez por dia');
+select pg_temp.erro2($$select aur_avaliar((select cod from aurc), 'aparelho-000000000009', 6)$$, '1 a 5', 'aura: nota de 1 a 5');
+select pg_temp.erro2($$select aur_avaliar((select cod from aurc), 'aparelho-000000000009', 0)$$, '1 a 5', 'aura: zero não vale');
+select pg_temp.erro2($$select aur_avaliar((select cod from aurc), 'curta', 3)$$, 'Aparelho', 'aura: marca do aparelho obrigatória');
+select aur_avaliar((select cod from aurc), 'aparelho-00000000000' || i, n) from (values (2, 4), (3, 3), (4, 5)) v(i, n);
+reset role;
+select pg_temp.ok(not exists (select 1 from information_schema.columns where table_name = 'aur_notas' and column_name in ('user_id','autor','criado_em','em','marca','ip')),
+  'aura: a nota não guarda autor, hora nem aparelho');
+select pg_temp.ok((select count(*) = 4 and bool_and(not liberada) from aur_notas) and (select count(*) from aur_avaliados) = 4
+  and not exists (select 1 from aur_avaliados where chave ~ 'aparelho'), 'aura: 4 notas esperando o lote; "já avaliou" só em hash');
+set role anon;
+select pg_temp.ok((aur_cartao_ler((select cod from aurc)) -> 'nota' ->> 'n')::int = 0, 'aura: com 4 notas o cartão ainda não muda');
+select aur_avaliar((select cod from aurc), 'aparelho-000000000005', 4);
+select pg_temp.ok((aur_cartao_ler((select cod from aurc)) -> 'nota' ->> 'n')::int = 5 and (aur_cartao_ler((select cod from aurc)) -> 'nota' ->> 'media')::numeric = 4.2,
+  'aura: na 5ª nota o lote fecha: 5 avaliações, média 4,2');
+select aur_avaliar((select cod from aurc), 'aparelho-000000000006', 1);
+select pg_temp.ok((aur_cartao_ler((select cod from aurc)) -> 'nota' ->> 'n')::int = 5, 'aura: a 6ª fica esperando o próximo lote');
+reset role;
+delete from aur_avaliados where true;   -- virada do dia: a chave do "já avaliou" leva a data, então no dia seguinte é outra
+set role anon;
+select aur_avaliar((select cod from aurc), 'aparelho-000000000001', 5);
+select pg_temp.ok(true, 'aura: no dia seguinte o mesmo aparelho avalia de novo');
+reset role;
+-- QR novo invalida o antigo
+set role authenticated;
+set request.jwt.claim.sub = '54000000-0000-0000-0000-000000000001';
+select aur_trocar_codigo();
+select pg_temp.ok(aur_cartao_ler((select cod from aurc)) is null and aur_meu_cartao() ->> 'codigo' <> (select cod from aurc), 'aura: trocar o QR invalida o antigo (cartão impresso)');
+-- mapa: quem vê aparece; só código do dia e nota
+select pg_temp.erro2($$select aur_mapa(-22.9, -43.2, 500)$$, 'Aparecer no mapa', 'aura: para ver o mapa é preciso aparecer');
+select aur_mapa_visivel(true);
+select aur_mapa(-22.90123, -43.20123, 500);
+set request.jwt.claim.sub = '54000000-0000-0000-0000-000000000002';
+select aur_cartao_salvar('Bia');
+select aur_mapa_visivel(true);
+create temp table aurm as select aur_mapa(-22.9015, -43.2010, 1000) m;
+reset role;
+select pg_temp.ok((select jsonb_array_length(m -> 'pessoas') = 1 and m -> 'pessoas' -> 0 ->> 'id' ~ '^AU-' and (m -> 'pessoas' -> 0 -> 'nota' ->> 'n')::int = 5
+  and not (m::text ~ 'Ana|foto|data:image|5400') from aurm), 'aura: no mapa só o código do dia e a nota, sem nome nem foto');
+select pg_temp.ok((select lat = -22.901 and lon = -43.201 from aur_posicoes where user_id = '54000000-0000-0000-0000-000000000001'), 'aura: grava só a quadra (3 casas)');
+set role authenticated;
+set request.jwt.claim.sub = '54000000-0000-0000-0000-000000000001';
+select aur_mapa_visivel(false);
+reset role;
+select pg_temp.ok(not exists (select 1 from aur_posicoes where user_id = '54000000-0000-0000-0000-000000000001'), 'aura: sair do mapa apaga a posição');
+set role authenticated;
+select aur_excluir_tudo();
+reset role;
+select pg_temp.ok(not exists (select 1 from aur_cartoes where user_id = '54000000-0000-0000-0000-000000000001')
+  and not exists (select 1 from aur_notas where alvo = '54000000-0000-0000-0000-000000000001')
+  and exists (select 1 from auth.users where id = '54000000-0000-0000-0000-000000000001'), 'aura: apagar tira cartão e notas e mantém o login');
+reset request.jwt.claim.sub;
+-- ---------------------------------------------------------------- NVAura 1.4: gerar uma chave nova
+select sin_conta_auditar('54000000-0000-0000-0000-000000000002', 'aura_chave_trocada');
+select pg_temp.ok(exists (select 1 from auditoria where acao = 'aura_chave_trocada' and user_id = '54000000-0000-0000-0000-000000000002'),
+  'aura 1.4: troca de chave vai para a auditoria');
+select pg_temp.erro2($$select sin_conta_auditar('54000000-0000-0000-0000-000000000002', 'qualquer_coisa')$$, 'Ação inválida', 'aura 1.4: auditoria da conta só aceita as ações conhecidas');
+-- ---------------------------------------------------------------- NVAura 1.6: pedidos (leituras do QR) e total de avaliações
+insert into auth.users (id, email) values ('54000000-0000-0000-0000-000000000003', 'c@aura.test');
+set role authenticated;
+set request.jwt.claim.sub = '54000000-0000-0000-0000-000000000003';
+select aur_cartao_salvar('Caio');
+create temp table aurc6 as select aur_meu_cartao() ->> 'codigo' as cod;
+grant select on aurc6 to anon, authenticated;
+select aur_cartao_ler((select cod from aurc6), 'aparelho-do-proprio-dono');
+reset role;
+set role anon;
+reset request.jwt.claim.sub;
+select aur_cartao_ler((select cod from aurc6), 'aparelho-leitor-00001');
+select aur_cartao_ler((select cod from aurc6), 'aparelho-leitor-00001');
+select aur_cartao_ler((select cod from aurc6), 'aparelho-leitor-00002');
+select aur_cartao_ler((select cod from aurc6));
+select aur_avaliar((select cod from aurc6), 'aparelho-leitor-00001', 5);
+select pg_temp.ok((aur_cartao_ler((select cod from aurc6)) -> 'nota' ->> 'total')::int = 1 and (aur_cartao_ler((select cod from aurc6)) -> 'nota' ->> 'n')::int = 0
+  and aur_cartao_ler((select cod from aurc6)) -> 'nota' -> 'media' = 'null'::jsonb and not (aur_cartao_ler((select cod from aurc6)) ? 'pedidos'),
+  'aura 1.6: quem lê vê o total de avaliações (antes do lote), sem nota e sem os pedidos');
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '54000000-0000-0000-0000-000000000003';
+select pg_temp.ok((aur_meu_cartao() ->> 'pedidos')::int = 2,
+  'aura 1.6: pedidos = leituras do QR, 1 por aparelho por dia; o dono e a leitura sem aparelho não contam');
+reset role;
+reset request.jwt.claim.sub;
+select pg_temp.ok(not exists (select 1 from aur_leituras where chave ~ 'aparelho'), 'aura 1.6: a leitura fica só em hash');
+-- ---------------------------------------------------------------- NVAura 1.7: gestão (só equipe Nervia) e moderação
+set role authenticated;
+set request.jwt.claim.sub = '54000000-0000-0000-0000-000000000003';
+select pg_temp.erro2($$select aur_admin_painel(30)$$, 'equipe Nervia', 'aura 1.7: gestão recusada para quem não é da equipe Nervia');
+select pg_temp.erro2($$select aur_admin_bloquear('54000000-0000-0000-0000-000000000003', true, 'teste de abuso')$$, 'equipe Nervia', 'aura 1.7: moderação recusada para quem não é da equipe Nervia');
+reset role;
+set role anon;
+reset request.jwt.claim.sub;
+select pg_temp.erro2($$select aur_admin_painel(30)$$, 'permission denied', 'aura 1.7: sem login não chega na gestão');
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+create temp table aurg as select aur_admin_painel(30) p;
+reset role;
+select pg_temp.ok((select (p -> 'pessoas' ->> 'cartoes')::int = (select count(*) from aur_cartoes)
+    and (p -> 'avaliacoes' ->> 'total')::int = (select count(*) from aur_notas)
+    and (p -> 'pedidos' ->> 'total')::int = (select count(*) from aur_leituras)
+    and jsonb_array_length(p -> 'por_dia') = 30 and jsonb_array_length(p -> 'avaliacoes' -> 'estrelas') = 5
+    and p -> 'cartoes' -> 0 ->> 'id' ~ '^AU#[0-9A-F]{6}$' from aurg),
+  'aura 1.7: painel com pessoas, avaliações, pedidos, 30 dias, estrelas e o ID da gestão');
+select pg_temp.ok((select not (p::text ~ 'codigo|marca|chave') from aurg), 'aura 1.7: o painel não traz QR, marca do aparelho nem chave');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select pg_temp.erro2($$select aur_admin_bloquear('54000000-0000-0000-0000-000000000003', true, 'x')$$, 'motivo', 'aura 1.7: bloquear exige motivo');
+select aur_admin_bloquear('54000000-0000-0000-0000-000000000003', true, 'nome ofensivo');
+reset role;
+set role anon;
+reset request.jwt.claim.sub;
+select pg_temp.ok((aur_cartao_ler((select cod from aurc6)) ->> 'bloqueado')::boolean and aur_cartao_ler((select cod from aurc6)) -> 'nome' is null,
+  'aura 1.7: cartão bloqueado não mostra nome nem foto para quem lê o QR');
+select pg_temp.erro2($$select aur_avaliar((select cod from aurc6), 'aparelho-leitor-00009', 4)$$, 'indisponível', 'aura 1.7: cartão bloqueado não recebe avaliação');
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '54000000-0000-0000-0000-000000000003';
+select pg_temp.ok((aur_meu_cartao() ->> 'bloqueado')::boolean and aur_meu_cartao() ->> 'bloqueado_motivo' = 'nome ofensivo', 'aura 1.7: o dono vê que está bloqueado e o motivo');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select aur_admin_bloquear('54000000-0000-0000-0000-000000000003', false, '');
+select aur_cartao_salvar('Admin com cartão', 'data:image/webp;base64,AAAA');
+select aur_admin_tirar_foto('00000000-0000-0000-0000-00000000000a', 'foto de teste');
+reset role;
+select pg_temp.ok((select not bloqueado from aur_cartoes where user_id = '54000000-0000-0000-0000-000000000003')
+    and (select foto is null from aur_cartoes where user_id = '00000000-0000-0000-0000-00000000000a')
+    and (select count(*) = 1 from auditoria where acao = 'aura_cartao_bloqueado' and detalhes ->> 'motivo' = 'nome ofensivo')
+    and exists (select 1 from auditoria where acao = 'aura_cartao_desbloqueado') and exists (select 1 from auditoria where acao = 'aura_foto_retirada'),
+  'aura 1.7: desbloquear, tirar foto e tudo na auditoria com o motivo');
+select pg_temp.ok(exists (select 1 from apps where id = 'aura' and url = '/apps/aura/' and situacao = 'oculto'), 'aura 1.7: app de gestão na Área do Cliente, fora da vitrine');
+reset request.jwt.claim.sub;
+-- ---------------------------------------------------------------- NVAura 1.8: denúncias
+set role authenticated;
+set request.jwt.claim.sub = '54000000-0000-0000-0000-000000000003';
+select aur_cartao_salvar('Caio', 'data:image/webp;base64,BBBB');
+reset role;
+set role anon;
+reset request.jwt.claim.sub;
+select pg_temp.erro2($$select aur_denunciar((select cod from aurc6), 'aparelho-denuncia-0001', 'xyz')$$, 'motivo', 'aura 1.8: denúncia exige motivo válido');
+select pg_temp.erro2($$select aur_denunciar((select cod from aurc6), 'aparelho-denuncia-0001', 'outro', '  ')$$, 'Conte', 'aura 1.8: "outro" exige o texto');
+select aur_denunciar((select cod from aurc6), 'aparelho-denuncia-0001', 'foto', 'foto de nudez');
+select pg_temp.erro2($$select aur_denunciar((select cod from aurc6), 'aparelho-denuncia-0001', 'nome')$$, 'já denunciou', 'aura 1.8: 1 denúncia por celular por cartão por dia');
+select aur_denunciar((select cod from aurc6), 'aparelho-denuncia-0002', 'foto');
+select pg_temp.ok(aur_cartao_ler((select cod from aurc6)) ->> 'foto' = 'data:image/webp;base64,BBBB', 'aura 1.8: com 2 denúncias a foto continua');
+select aur_denunciar((select cod from aurc6), 'aparelho-denuncia-0003', 'foto');
+select pg_temp.ok(aur_cartao_ler((select cod from aurc6)) -> 'foto' = 'null'::jsonb, 'aura 1.8: com 3 denúncias de foto, a foto some do cartão');
+reset role;
+select pg_temp.ok(not exists (select 1 from information_schema.columns where table_name = 'aur_denuncias' and column_name in ('user_id','autor','marca','ip','em','criado_em'))
+  and not exists (select 1 from aur_denunciados where chave ~ 'aparelho'), 'aura 1.8: a denúncia não guarda quem denunciou');
+set role authenticated;
+set request.jwt.claim.sub = '54000000-0000-0000-0000-000000000003';
+select pg_temp.ok((aur_meu_cartao() ->> 'foto_oculta')::boolean and aur_meu_cartao() -> 'foto' = 'null'::jsonb, 'aura 1.8: o dono vê que a foto está em revisão');
+select pg_temp.erro2($$select aur_admin_denuncias()$$, 'equipe Nervia', 'aura 1.8: denúncias só para a equipe Nervia');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select pg_temp.ok((select (d -> 'abertas' -> 0 ->> 'foto_n')::int = 3 and d -> 'abertas' -> 0 -> 'textos' -> 0 ->> 'texto' = 'foto de nudez' and (d -> 'abertas' -> 0 ->> 'foto_oculta')::boolean
+  from (select aur_admin_denuncias() d) x), 'aura 1.8: a gestão vê as 3 denúncias, o texto e a foto escondida');
+select aur_admin_denuncia_resolver('54000000-0000-0000-0000-000000000003', 'manter', '');
+select pg_temp.ok(jsonb_array_length(aur_admin_denuncias() -> 'abertas') = 0 and aur_admin_denuncias() -> 'resolvidas' -> 0 ->> 'resolucao' = 'mantido',
+  'aura 1.8: manter resolve as denúncias');
+reset role;
+select pg_temp.ok((select not foto_oculta and foto is not null from aur_cartoes where user_id = '54000000-0000-0000-0000-000000000003')
+  and exists (select 1 from auditoria where acao = 'aura_denuncia_resolvida' and detalhes ->> 'acao' = 'manter'), 'aura 1.8: manter devolve a foto, com auditoria');
+-- trocar a foto encerra as denúncias de foto abertas
+delete from aur_denunciados where true;
+set role anon;
+select aur_denunciar((select cod from aurc6), 'aparelho-denuncia-0001', 'foto');
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '54000000-0000-0000-0000-000000000003';
+select aur_cartao_salvar('Caio', 'data:image/webp;base64,CCCC');
+reset role;
+select pg_temp.ok(not exists (select 1 from aur_denuncias where alvo = '54000000-0000-0000-0000-000000000003' and resolvida_em is null)
+  and exists (select 1 from aur_denuncias where resolucao = 'foto trocada'), 'aura 1.8: o dono trocar a foto encerra as denúncias de foto');
+reset request.jwt.claim.sub;
+
+-- ---------------------------------------------------------------- Financeiro Nervia (fin_)
+reset role;
+select pg_temp.ok((select situacao = 'oculto' and manual_url = '/apps/financeiro/ajuda/manual.html' from apps where id = 'financeiro'), 'financeiro: app oculto, com cartão e manual');
+select pg_temp.ok((select count(*) = 3 from fin_contas) and exists (select 1 from fin_contas where tipo = 'cartao_pessoal'), 'financeiro: 3 contas iniciais, com o cartão pessoal');
+select pg_temp.ok((select ctr_empresa_id from fin_config) = (select id from ctr_empresas where nome = 'Nervia'), 'financeiro: a empresa do Contratos é a Nervia');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok((select count(*) = 0 from fin_contas) and (select count(*) = 0 from fin_movimentos_v), 'financeiro: cliente não lê nada do financeiro');
+select pg_temp.erro2($$select fin_custo_salvar('{"nome":"X","valor":1}')$$, 'equipe Nervia', 'financeiro: cliente não grava custo');
+select pg_temp.erro2($$select * from fin_saldos()$$, 'equipe Nervia', 'financeiro: cliente não vê saldos');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select pg_temp.erro2($$insert into fin_custos (nome, valor, desde) values ('X', 1, current_date)$$, 'permission', 'financeiro: a tela não grava direto na tabela');
+select pg_temp.erro2($$update fin_contas set saldo_inicial = 1$$, 'permission', 'financeiro: nem altera conta direto');
+-- custos recorrentes
+select pg_temp.erro2($$select fin_custo_salvar('{"nome":"Google","valor":10,"moeda":"USD"}')$$, 'câmbio', 'financeiro: custo em dólar exige câmbio');
+select set_config('fin.c1', fin_custo_salvar('{"nome":"Supabase Pro","fornecedor":"Supabase","grupo":"Plataforma","moeda":"USD","valor":25,"cambio":5.5,"periodicidade":"mensal","desde":"2026-10-13"}')::text, false);
+select set_config('fin.c2', fin_custo_salvar('{"nome":"Domínio nvaura.com.br","grupo":"Plataforma","valor":40,"periodicidade":"anual","desde":"2026-11-25"}')::text, false);
+select set_config('fin.c3', fin_custo_salvar('{"nome":"Contador","grupo":"Administrativo","plataforma":false,"valor":300,"desde":"2026-01-01"}')::text, false);
+select set_config('fin.c4', fin_custo_salvar('{"nome":"Google Cloud","grupo":"Buscador","moeda":"USD","valor":10,"cambio":5.2502,"iof":3.5,"desde":"2026-10-13"}')::text, false);
+select pg_temp.ok((select valor_brl = 54.34 and mensal_brl = 54.34 from fin_custos where id = current_setting('fin.c4')::bigint), 'financeiro: dólar com IOF = valor × câmbio × 1,035 (como a planilha)');
+select pg_temp.ok((select valor_brl = 137.50 and mensal_brl = 137.50 from fin_custos where id = current_setting('fin.c1')::bigint)
+  and (select mensal_brl = 3.33 from fin_custos where id = current_setting('fin.c2')::bigint), 'financeiro: equivalente mensal (US$ × câmbio; anual ÷ 12)');
+select pg_temp.ok((select sum(mensal_brl) from fin_custos where plataforma) = 140.83 + 54.34, 'financeiro: custo da plataforma soma os marcados (Plataforma e Buscador), não o custo da empresa');
+select fin_custo_salvar(jsonb_build_object('id', current_setting('fin.c1')::bigint, 'cambio', 5.8, 'motivo', 'câmbio de novembro'));
+select fin_custo_salvar(jsonb_build_object('id', current_setting('fin.c1')::bigint, 'cambio', 5.8));
+select pg_temp.ok((select count(*) = 2 from fin_custos_hist where custo_id = current_setting('fin.c1')::bigint)
+  and (select antes = '{"cambio": 5.5}'::jsonb and depois = '{"cambio": 5.8}'::jsonb and motivo = 'câmbio de novembro' from fin_custos_hist where custo_id = current_setting('fin.c1')::bigint and antes is not null),
+  'financeiro: histórico do custo só com o que mudou (salvar igual não grava)');
+reset role;
+select pg_temp.erro2($$update fin_custos_hist set motivo = 'x'$$, 'somente inclusão', 'financeiro: histórico de custos é somente inclusão');
+select pg_temp.erro2($$delete from fin_custos$$, 'Não se apaga', 'financeiro: custo não se apaga');
+select pg_temp.ok(exists (select 1 from auditoria where acao = 'financeiro_custo_alterado' and (detalhes -> 'depois' ->> 'cambio')::numeric = 5.8), 'financeiro: auditoria do custo');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+-- contas: saldo desde 01/01/2026
+select fin_conta_salvar(jsonb_build_object('id', id, 'saldo_inicial', case when tipo = 'banco' then 1000 else 0 end, 'saldo_inicial_em', '2026-01-01')) from fin_contas;
+select set_config('fin.nu', (select id::text from fin_contas where tipo = 'banco'), false);
+select set_config('fin.cartao', (select id::text from fin_contas where tipo = 'cartao_pessoal'), false);
+select set_config('fin.ctr', coalesce((select sum(valor_pago) from ctr_cobrancas where empresa_id = current_setting('ctr.nervia')::bigint and pago_em between '2026-01-01' and current_date), 0)::text, false);
+select pg_temp.ok((select saldo from fin_saldos() where conta_id = current_setting('fin.nu')::bigint) = 1000 + current_setting('fin.ctr')::numeric,
+  'financeiro: saldo do Nubank = saldo inicial + recebimentos do Contratos');
+-- conta a pagar recorrente (mensal, fim do mês)
+select set_config('fin.l1', fin_lancamento_salvar(jsonb_build_object('tipo', 'pagar', 'descricao', 'DAS', 'vencimento', '2026-01-31', 'valor', 250,
+  'recorrencia', 'mensal', 'conta_id', current_setting('fin.nu')::bigint, 'categoria_id', (select id from fin_categorias where nome = 'Impostos')))::text, false);
+select pg_temp.erro2($$select fin_lancamento_pagar(current_setting('fin.l1')::bigint, current_date + 1, 250, current_setting('fin.nu')::bigint)$$, 'futura', 'financeiro: pagamento com data futura recusado');
+select fin_lancamento_pagar(current_setting('fin.l1')::bigint, '2026-02-02', 251.30, current_setting('fin.nu')::bigint, 'com multa');
+select pg_temp.ok((select vencimento = '2026-02-28' and valor = 250 and pago_em is null and serie_id = current_setting('fin.l1')::bigint from fin_lancamentos
+  where serie_id = current_setting('fin.l1')::bigint and id <> current_setting('fin.l1')::bigint), 'financeiro: a baixa gera a próxima da série (31/01 → 28/02)');
+select pg_temp.erro2($$select fin_lancamento_pagar(current_setting('fin.l1')::bigint, '2026-02-02', 1, current_setting('fin.nu')::bigint)$$, 'já foi baixado', 'financeiro: não baixa duas vezes');
+select pg_temp.erro2($$select fin_lancamento_salvar(jsonb_build_object('id', current_setting('fin.l1')::bigint, 'valor', 1))$$, 'desfaça a baixa', 'financeiro: baixado não se altera');
+select pg_temp.erro2($$select fin_lancamento_desfazer(current_setting('fin.l1')::bigint, 'x')$$, 'motivo', 'financeiro: desfazer exige motivo');
+select fin_lancamento_desfazer(current_setting('fin.l1')::bigint, 'paguei pela conta errada');
+select fin_lancamento_pagar(current_setting('fin.l1')::bigint, '2026-02-02', 251.30, current_setting('fin.nu')::bigint);
+select pg_temp.ok((select count(*) = 2 from fin_lancamentos where serie_id = current_setting('fin.l1')::bigint), 'financeiro: baixar de novo não duplica a próxima');
+select pg_temp.ok((select saldo from fin_saldos() where conta_id = current_setting('fin.nu')::bigint) = 1000 + current_setting('fin.ctr')::numeric - 251.30, 'financeiro: o pagamento sai do saldo');
+-- custo → conta a pagar com a recorrência do custo; a próxima usa o valor atual do custo
+select set_config('fin.l2', fin_custo_gerar_conta(current_setting('fin.c2')::bigint, '2026-11-25')::text, false);
+select pg_temp.erro2($$select fin_custo_gerar_conta(current_setting('fin.c2')::bigint, '2026-12-25')$$, 'já tem uma conta', 'financeiro: um custo, uma conta aberta');
+select fin_custo_salvar(jsonb_build_object('id', current_setting('fin.c2')::bigint, 'valor', 45, 'motivo', 'reajuste'));
+select fin_lancamento_pagar(current_setting('fin.l2')::bigint, '2026-11-25', 40, current_setting('fin.nu')::bigint);
+select pg_temp.ok((select vencimento = '2027-11-25' and valor = 45 and custo_id = current_setting('fin.c2')::bigint from fin_lancamentos
+  where serie_id = current_setting('fin.l2')::bigint and pago_em is null), 'financeiro: custo anual gera a conta do ano seguinte, pelo valor atual');
+-- cancelar
+select set_config('fin.l3', fin_lancamento_salvar(jsonb_build_object('tipo', 'receber', 'descricao', 'Consultoria avulsa', 'vencimento', '2026-12-10', 'valor', 800))::text, false);
+select pg_temp.erro2($$select fin_lancamento_cancelar(current_setting('fin.l3')::bigint, '')$$, 'motivo', 'financeiro: cancelar exige motivo');
+select fin_lancamento_cancelar(current_setting('fin.l3')::bigint, 'cliente desistiu');
+select pg_temp.erro2($$select fin_lancamento_pagar(current_setting('fin.l3')::bigint, current_date, 800, current_setting('fin.nu')::bigint)$$, 'cancelado', 'financeiro: cancelado não recebe baixa');
+reset role;
+select pg_temp.erro2($$delete from fin_lancamentos$$, 'Não se apaga', 'financeiro: lançamento não se apaga');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+-- cartão pessoal: compra lançada já paga → a Nervia deve ao Marco; reembolso por transferência
+select fin_lancamento_salvar(jsonb_build_object('tipo', 'pagar', 'descricao', 'Google Workspace', 'vencimento', '2026-11-10', 'valor', 120,
+  'pago_em', '2026-11-10', 'conta_pago_id', current_setting('fin.cartao')::bigint));
+select pg_temp.ok((select saldo from fin_saldos() where conta_id = current_setting('fin.cartao')::bigint) = -120, 'financeiro: compra no cartão pessoal = a Nervia deve ao Marco');
+select pg_temp.erro2($$select fin_transferir(jsonb_build_object('de_conta', current_setting('fin.nu')::bigint, 'para_conta', current_setting('fin.nu')::bigint, 'valor', 1))$$, 'mesma', 'financeiro: transferência para a mesma conta recusada');
+select set_config('fin.t1', fin_transferir(jsonb_build_object('de_conta', current_setting('fin.nu')::bigint, 'para_conta', current_setting('fin.cartao')::bigint, 'valor', 120, 'data', '2026-11-20', 'descricao', 'Reembolso ao Marco'))::text, false);
+select pg_temp.ok((select saldo from fin_saldos() where conta_id = current_setting('fin.cartao')::bigint) = 0
+  and (select saldo from fin_saldos() where conta_id = current_setting('fin.nu')::bigint) = 1000 + current_setting('fin.ctr')::numeric - 251.30 - 40 - 120,
+  'financeiro: reembolso zera o cartão e sai do Nubank');
+select fin_transferencia_cancelar(current_setting('fin.t1')::bigint, 'lançada em dobro');
+select pg_temp.ok((select saldo from fin_saldos() where conta_id = current_setting('fin.cartao')::bigint) = -120, 'financeiro: transferência cancelada sai do saldo');
+-- acertar saldo
+select pg_temp.erro2($$select fin_saldo_acertar(current_setting('fin.nu')::bigint, current_date, 5000, '')$$, 'motivo', 'financeiro: acerto exige motivo');
+select pg_temp.ok(fin_saldo_acertar(current_setting('fin.nu')::bigint, current_date, 5000, 'conferido com o app do banco')
+  = 5000 - (1000 + current_setting('fin.ctr')::numeric - 251.30 - 40), 'financeiro: acerto devolve a diferença');
+select pg_temp.ok((select saldo from fin_saldos() where conta_id = current_setting('fin.nu')::bigint) = 5000, 'financeiro: depois do acerto o saldo é o do banco');
+-- movimentos: transferência e acerto fora do resultado (tipo próprio)
+select pg_temp.ok((select count(*) = 0 from fin_movimentos_v where tipo in ('pagar', 'receber') and origem in ('transferencia', 'ajuste')), 'financeiro: transferência e acerto não entram como receita/despesa');
+reset role;
+select pg_temp.erro2($$update fin_ajustes set motivo = 'x'$$, 'somente inclusão', 'financeiro: acerto de saldo é somente inclusão');
+select pg_temp.erro2($$select _fin_carga('{"custos":[]}')$$, 'já há custos', 'financeiro: carga só com o app vazio');
+select pg_temp.ok((select count(distinct acao) >= 9 from auditoria where acao like 'financeiro_%'), 'financeiro: ações gravadas na auditoria');
+
+-- ---------------------------------------------------------------- linum 2.70: Gerencial → Contas a pagar
+reset role; set role authenticated;
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+select pg_temp.ok(lin_ger_pagar_importar(jsonb_build_object('origem', 'nfe', 'arquivo', 'NF 2295556', 'contas', jsonb_build_array(
+  jsonb_build_object('chave', 'nfe|35260000000000000000550010022955561000000001|001', 'fornecedor', 'EXCIM Importação e Exportação Ltda.', 'fornecedor_doc', '01.234.567/0001-89',
+    'documento', '2295556', 'nfe_chave', '35260000000000000000550010022955561000000001', 'parcela', '001', 'vencimento', '2026-12-10', 'valor', '68.60'),
+  jsonb_build_object('chave', 'nfe|35260000000000000000550010022955561000000001|002', 'fornecedor', 'EXCIM Importação e Exportação Ltda.', 'fornecedor_doc', '01234567000189',
+    'documento', '2295556', 'parcela', '002', 'vencimento', '2027-01-10', 'valor', '68.60'))))->>'novos' = '2', 'linum pagar: importa as duplicatas da NF-e');
+select pg_temp.ok((select count(*) = 2 and bool_and(fornecedor_doc = '01234567000189' and situacao = 'aberta' and origem = 'nfe') from lin_ger_pagar), 'linum pagar: CNPJ só dígitos, em aberto');
+select pg_temp.ok((lin_ger_pagar_importar(jsonb_build_object('origem', 'nfe', 'contas', jsonb_build_array(
+  jsonb_build_object('chave', 'nfe|35260000000000000000550010022955561000000001|001', 'fornecedor', 'EXCIM', 'vencimento', '2026-12-10', 'valor', 1)))))->>'repetidos' = '1'
+  and (select count(*) = 2 from lin_ger_pagar), 'linum pagar: a mesma parcela não entra duas vezes');
+select pg_temp.ok((lin_ger_pagar_importar(jsonb_build_object('origem', 'carga', 'contas', jsonb_build_array(
+  jsonb_build_object('chave', 'painel|x1', 'fornecedor', 'Excim importacao', 'documento', '2295556', 'parcela', '2', 'vencimento', '2027-01-10', 'valor', '68.60'),
+  jsonb_build_object('chave', 'painel|x2', 'fornecedor', 'Imobiliária Gralha Azul', 'documento', '', 'vencimento', '2026-10-05', 'valor', '5996.70',
+    'situacao', 'paga', 'pago_em', '2026-10-05')))))->>'novos' = '1', 'linum pagar: carga reconhece a mesma NF e parcela do mesmo fornecedor');
+select pg_temp.ok((select situacao = 'paga' and valor_pago = 5996.70 and pago_em = '2026-10-05' from lin_ger_pagar where chave = 'painel|x2'), 'linum pagar: carga traz a conta já paga');
+select pg_temp.erro2($$select lin_ger_pagar_importar('{"origem":"nfe","contas":[{"fornecedor":"X","valor":10}]}')$$, 'vencimento', 'linum pagar: parcela sem vencimento recusada');
+select pg_temp.erro2($$select lin_ger_pagar_importar('{"origem":"manual","contas":[{"fornecedor":"X","vencimento":"2026-12-01","valor":10}]}')$$, 'Origem', 'linum pagar: origem inválida');
+select pg_temp.ok(lin_ger_pagar_salvar('{"fornecedor":"Imobiliária Gralha Azul","vencimento":"2027-01-31","valor":"5996.70","categoria":"Aluguel","historico":"Aluguel + condomínio","repetir":3}') = 3, 'linum pagar: conta à mão repetida por 3 meses');
+select pg_temp.ok((select array_agg(vencimento order by vencimento) = array['2027-01-31','2027-02-28','2027-03-31']::date[] and count(distinct serie) = 1
+  and array_agg(parcela order by vencimento) = array['1/3','2/3','3/3'] from lin_ger_pagar where origem = 'manual'), 'linum pagar: repetição mensal no fim do mês');
+select pg_temp.ok(lin_ger_pagar_salvar('{"fornecedor":"Light","vencimento":"2026-12-15","valor":"412.37","categoria":"Energia","estimado":true,"repetir":2}') = 2, 'linum pagar: gera a recorrente');
+select pg_temp.ok((select bool_and(estimado) and count(*) = 2 from lin_ger_pagar where fornecedor = 'Light'), 'linum pagar: recorrente com valor estimado (média)');
+select lin_ger_pagar_salvar(jsonb_build_object('id', (select min(id) from lin_ger_pagar where fornecedor = 'Light'), 'fornecedor', 'Light', 'vencimento', '2026-12-15', 'valor', '398.10'));
+select pg_temp.ok((select not estimado and valor = 398.10 from lin_ger_pagar where id = (select min(id) from lin_ger_pagar where fornecedor = 'Light')), 'linum pagar: informar o valor tira o estimado');
+select pg_temp.erro2($$select lin_ger_pagar_salvar('{"fornecedor":"X","vencimento":"2027-01-01","valor":0}')$$, 'maior que zero', 'linum pagar: valor zero recusado');
+select pg_temp.erro2($$select lin_ger_pagar_salvar('{"fornecedor":"X","vencimento":"2027-01-01","valor":1,"repetir":40}')$$, '1 a 36', 'linum pagar: repetir no máximo 36');
+select lin_ger_pagar_salvar(jsonb_build_object('id', (select id from lin_ger_pagar where origem = 'manual' and vencimento = '2027-03-31'), 'fornecedor', 'Imobiliária Gralha Azul', 'vencimento', '2027-03-31', 'valor', '6100'));
+select pg_temp.ok((select valor = 6100 and alterado_nome <> '' from lin_ger_pagar where origem = 'manual' and vencimento = '2027-03-31'), 'linum pagar: editar conta em aberto');
+select pg_temp.erro2($$select lin_ger_pagar_salvar(jsonb_build_object('id', (select id from lin_ger_pagar where chave = 'painel|x2'), 'fornecedor', 'X', 'vencimento', '2026-10-05', 'valor', 1))$$, 'em aberto', 'linum pagar: conta paga não se altera');
+select lin_ger_lancamento_incluir('{"data":"2026-11-20","descricao":"Pix EXCIM","valor":-137.20,"classe":"Insumos","observacao":"pago pela sócia"}');
+select pg_temp.ok(lin_ger_pagar_baixa(jsonb_build_object('ids', (select jsonb_agg(id) from lin_ger_pagar where documento = '2295556'), 'pago_em', '2026-11-20',
+  'lancamento_id', (select id from lin_ger_lancamentos where descricao = 'Pix EXCIM'))) = 2, 'linum pagar: baixa de duas parcelas pelo mesmo lançamento');
+select pg_temp.ok((select bool_and(situacao = 'paga' and valor_pago = 68.60 and lancamento_id is not null) from lin_ger_pagar where documento = '2295556'), 'linum pagar: baixa grava data, valor e lançamento');
+select pg_temp.erro2($$select lin_ger_pagar_baixa(jsonb_build_object('ids', (select jsonb_agg(id) from lin_ger_pagar where documento = '2295556'), 'pago_em', '2026-11-20'))$$, 'não está em aberto', 'linum pagar: não paga duas vezes');
+select pg_temp.erro2($$select lin_ger_pagar_baixa(jsonb_build_object('ids', (select jsonb_agg(id) from lin_ger_pagar where origem = 'manual'), 'pago_em', '2099-01-01'))$$, 'futura', 'linum pagar: pagamento sem data futura');
+select pg_temp.erro2($$select lin_ger_pagar_baixa(jsonb_build_object('ids', (select jsonb_agg(id) from lin_ger_pagar where origem = 'manual'), 'pago_em', '2026-11-20', 'valor_pago', 10))$$, 'uma conta', 'linum pagar: valor diferente só com uma conta');
+select pg_temp.erro2($$select lin_ger_pagar_situacao((select min(id) from lin_ger_pagar where documento = '2295556'), 'reabrir', 'x')$$, 'motivo', 'linum pagar: reabrir exige motivo');
+select lin_ger_pagar_situacao((select min(id) from lin_ger_pagar where documento = '2295556'), 'reabrir', 'baixa no lançamento errado');
+select pg_temp.ok((select situacao = 'aberta' and pago_em is null and lancamento_id is null from lin_ger_pagar where id = (select min(id) from lin_ger_pagar where documento = '2295556')), 'linum pagar: reabrir limpa o pagamento');
+select lin_ger_pagar_situacao((select id from lin_ger_pagar where origem = 'manual' and vencimento = '2027-03-31'), 'cancelar', 'contrato encerrado');
+select pg_temp.ok((select situacao = 'cancelada' and cancelado_motivo = 'contrato encerrado' from lin_ger_pagar where origem = 'manual' and vencimento = '2027-03-31'), 'linum pagar: cancelar com motivo');
+select pg_temp.erro2($$select lin_ger_pagar_situacao((select id from lin_ger_pagar where chave = 'painel|x2'), 'cancelar', 'por engano')$$, 'em aberto', 'linum pagar: conta paga não se cancela');
+select pg_temp.erro2('update lin_ger_pagar set valor = 1', 'permission', 'linum pagar: a tela não altera a tabela direto');
+select pg_temp.como('00000000-0000-0000-0000-00000000000c');
+select pg_temp.ok((select count(*) = 0 from lin_ger_pagar), 'linum pagar: quem não é Dono não vê');
+select pg_temp.erro2($$select lin_ger_pagar_salvar('{"fornecedor":"X","vencimento":"2027-01-01","valor":1}')$$, 'Somente o Dono', 'linum pagar: quem não é Dono não grava');
+reset role;
+select pg_temp.ok((select count(distinct acao) = 6 from auditoria where acao like 'linum_gerencial_pagar_%'), 'linum pagar: auditoria de todas as ações');
+set role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+select lin_ger_pagar_importar('{"origem":"nfe","contas":[{"chave":"nfe|EMI|1","fornecedor":"Linho Emissão","documento":"9","parcela":"1/1","vencimento":"2026-12-20","valor":10,"emissao":"2026-11-20"}]}');
+select pg_temp.ok((select emissao = '2026-11-20' from lin_ger_pagar where chave = 'nfe|EMI|1'), 'linum pagar 2.71: grava a emissão da NF');
+reset role;
+reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'

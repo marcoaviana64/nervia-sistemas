@@ -20,6 +20,11 @@
 <script src="fluxo.js"></script>
 <script src="gerencial.js"></script>
 <script src="gerencial-vendas.js"></script>
+<script src="gerencial-pagar.js"></script>
+<script src="/moeda.js"></script>
+<script src="termica.js"></script>
+<script src="promocoes.js"></script>
+<script src="inicio.js"></script>
 <style>
 /* Sistema Linum (app "linum", tabelas lin_): o sistema da LINUM Roupas de Linho trazido do Lovable para a Plataforma.
    Produtos, estoque das lojas, vendas (boleta) e clientes. Dono: tudo; Estoque: cadastra e movimenta sem custo;
@@ -139,6 +144,8 @@ dialog.vitrine:fullscreen .vplayer{max-height:none;flex:1;aspect-ratio:auto;heig
 .vtam{border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-weight:600}
 @media (max-width:700px){.vcorpo{flex-direction:column}.vplayer{aspect-ratio:9/12;max-height:58vh}.vlista{width:auto;flex-direction:row;flex-wrap:wrap;max-height:none}.vtopo h3{font-size:18px}}
 .chip.cd{border-style:dashed;border-color:#8a4fb3}.chip .cdx{color:#8a4fb3;font-weight:600}.chip.zero.cd{background:#f4ecf9;color:#6d3a92}.chip.zero.cd *{color:#6d3a92}
+.prgrade table{border-collapse:collapse;width:auto}.prgrade th,.prgrade td{padding:3px 4px;text-align:center}.prgrade th:first-child{text-align:left}.prch{font:inherit;font-size:12px;min-width:46px;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--ink);cursor:pointer}.prch.zero{color:var(--ink-soft,#777)}.prch.on{background:#9b1d3a;border-color:#9b1d3a;color:#fff;font-weight:700}.prch.esp{min-width:0}
+.promos{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 2px}.tagpromo{font-size:12px;padding:2px 8px;border-radius:999px;background:#fdecef;color:#9b1d3a;border:1px solid #f3c0cc}.tagpromo.futura{background:var(--surface-2,#f4f4f5);color:var(--ink-soft,#555);border-style:dashed}
 h2.temesp::after{content:"★";color:#c9a227;font-size:.7em;margin-left:5px;vertical-align:.15em}
 .vtag{display:inline-block;font-size:12px;padding:2px 8px;border:1px solid var(--border);border-radius:7px;margin:2px 4px 2px 0}
 .esplinha{margin-top:8px;padding:6px 8px;border-left:3px solid #c9a227;background:rgba(201,162,39,.07);border-radius:0 8px 8px 0}.esptit{font-size:12px;font-weight:700;color:#8a6d12;margin-bottom:4px}.prod .loja .esplinha .chips{margin-top:4px}
@@ -160,6 +167,18 @@ h2.temesp::after{content:"★";color:#c9a227;font-size:.7em;margin-left:5px;vert
 .grade3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 dialog.largo{max-width:860px}
 tr.cancelada td{color:var(--ink-faint);text-decoration:line-through}tr.cancelada td:last-child{text-decoration:none}
+.ingrade{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;align-items:start}
+.ingrade .card{margin-bottom:0}.inq.alerta{border-left:4px solid var(--crit)}
+.inqcab{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px}.inqcab h2{margin:0;font-size:15px}
+.inqn{display:inline-block;min-width:18px;padding:0 6px;border-radius:999px;background:var(--border);font-size:11px;font-weight:700;line-height:18px;text-align:center}
+.inlin{display:flex;justify-content:space-between;gap:8px;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--border);padding:6px 2px;font:inherit;color:inherit;cursor:pointer}
+.inlin:hover{background:var(--bg)}.inlin>span:last-child{text-align:right;font-size:12px}
+.insub{font-size:12px;font-weight:700;color:var(--ink-soft);margin:8px 0 2px;text-transform:uppercase;letter-spacing:.3px}
+.inbig{font-size:22px;font-weight:700}.inbig small{font-size:13px;font-weight:400}
+.ingrade3{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.inbar{display:grid;grid-template-columns:minmax(70px,40%) 1fr auto;gap:6px;align-items:center;font-size:13px;margin:3px 0}
+.inbar span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.inbar i{display:block;height:10px;border-radius:5px;background:var(--accent);min-width:2px}
+#inmais{margin-top:12px}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px}
 .kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px}
 .kpi small{display:block;color:var(--ink-soft)}.kpi b{font-size:22px;display:block;font-variant-numeric:tabular-nums}.kpi span{font-size:12px;color:var(--ink-faint)}
@@ -185,6 +204,10 @@ td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-n
 @media (max-width:520px){.grade2{grid-template-columns:1fr}}
 @media (max-width:520px){.duas{grid-template-columns:1fr}.prod h2{white-space:normal}}
 @media print{.barra,.filtros,.topo,.noprint{display:none!important}body{background:#fff}.prod{break-inside:avoid}}
+/* extrato na térmica (termica.js): prévia no jeito do papel de 80 mm */
+.tmprev{--col:48;margin:10px auto;background:#fff;color:#111;border:1px solid var(--border);border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,.08);padding:10px 8px;
+  font:11px/1.3 "Courier New",ui-monospace,monospace;width:calc(var(--col) * 1ch + 18px);max-width:100%;max-height:46vh;overflow:auto;white-space:pre}
+.tmprev .b{font-weight:700}.tmprev .g{font-size:22px;line-height:1.15}
 </style>
 </head>
 <body>
@@ -194,6 +217,7 @@ td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-n
   <div id="app" class="oculto">
     <div class="barra">
       <div class="grupos">
+        <button type="button" class="grupo" data-g="inicio" id="grp_inicio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg><span>Início</span><span class="gb"></span></button>
         <button type="button" class="grupo oculto" data-g="estoque" id="grp_estoque"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z"/><path d="m3 7.5 9 4.5 9-4.5M12 12v9"/></svg><span>Estoque</span><span class="gb"></span></button>
         <button type="button" class="grupo oculto" data-g="vendas" id="grp_vendas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M5 8h14l-1.2 12H6.2z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg><span>Vendas</span><span class="gb"></span></button>
         <button type="button" class="grupo oculto" data-g="producao" id="grp_producao"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8 7.5 20 18M8 16.5 20 6"/></svg><span>Produção</span><span class="gb"></span></button>
@@ -202,12 +226,14 @@ td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-n
         <div class="dir" id="quem"></div>
       </div>
       <div class="abas">
+        <button class="aba on" data-v="inicio" data-g="inicio" id="abaInicio">Início</button>
         <button class="aba oculto" data-v="produtos" data-g="estoque" id="abaProdutos">Produtos</button>
-        <button class="aba on" data-v="estoque" data-g="estoque">Estoque</button>
+        <button class="aba" data-v="estoque" data-g="estoque">Estoque</button>
         <button class="aba oculto" data-v="movimentos" data-g="estoque" id="abaMovimentos">Movimentações</button>
         <button class="aba oculto" data-v="transferencias" data-g="estoque" id="abaTransf">Transferências</button>
         <button class="aba oculto" data-v="beneficiamento" data-g="estoque" id="abaBenef">Beneficiamento</button>
         <button class="aba oculto" data-v="brindes" data-g="estoque" id="abaBrindes">Brindes</button>
+        <button class="aba oculto" data-v="promocoes" data-g="estoque" id="abaPromo">Promoções</button>
         <button class="aba oculto" data-v="etiquetas" data-g="estoque" id="abaEtiquetas">Etiquetas</button>
         <button class="aba oculto" data-v="vendas" data-g="vendas" id="abaVendas">Vendas</button>
         <button class="aba oculto" data-v="clientes" data-g="vendas" id="abaClientes">Clientes</button>
@@ -228,6 +254,7 @@ td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-n
         <button class="aba oculto ger" data-v="ger_lanc" data-g="gerencial">Lançamentos</button>
         <button class="aba oculto ger" data-v="ger_rede" data-g="gerencial">Vendas Rede</button>
         <button class="aba oculto ger" data-v="ger_analise" data-g="gerencial">Análise de vendas</button>
+        <button class="aba oculto ger" data-v="ger_pagar" data-g="gerencial">Contas a pagar</button>
         <button class="aba oculto ger" data-v="ger_cons" data-g="gerencial">Considerações</button>
         <button class="aba oculto ger" data-v="ger_imp" data-g="gerencial">Importar extratos</button>
       </div>
@@ -255,8 +282,8 @@ const n = v => Number(v || 0).toLocaleString("pt-BR");
 function msg(tipo, texto) { const m = $("msg"); m.className = "msg " + tipo; m.textContent = texto; m.scrollIntoView({ block: "nearest" }); if (tipo === "ok") setTimeout(() => m.classList.add("oculto"), 5000); }
 function limparMsg() { $("msg").className = "msg oculto"; }
 
-let MINHA_LOJA = null, ADMIN = false, PAPEL = null, LOJAS = [], PRODUTOS = [], QTD = new Map(), VISTA = "estoque", EQUIPE = [];
-const F = { q: "", loja: "", cat: "", cor: "", tam: "", zerados: true, prov: false };
+let MINHA_LOJA = null, ADMIN = false, PAPEL = null, LOJAS = [], PRODUTOS = [], QTD = new Map(), VISTA = new URLSearchParams(location.search).get("aba") || "inicio", EQUIPE = [];   // 2.62: o app abre no Início (?aba=estoque abre outra aba)
+const F = { q: "", loja: "", cat: "", cor: "", tam: "", zerados: true, prov: false, promo: false };
 // referência provisória = a automática NOVA-<ano>-<nº> (produto cadastrado sem saber a referência; troca-se depois no Editar)
 const refProvisoria = p => /^NOVA-\d{4}-\d+$/i.test(p.referencia || "");
 const dono = () => PAPEL === "dono";
@@ -307,7 +334,7 @@ async function iniciar() {
     PERM = checar(await sb.rpc("lin_minhas_permissoes")) || PERM;
     $("abaEquipe").classList.toggle("oculto", !ADMIN);
     $("abaProdutos").classList.toggle("oculto", !controla()); $("abaMovimentos").classList.toggle("oculto", !controla());
-    $("abaVendas").classList.toggle("oculto", !vende()); $("abaTransf").classList.toggle("oculto", !vende()); $("abaBenef").classList.toggle("oculto", !controla()); $("abaBrindes").classList.toggle("oculto", !controla()); $("abaClientes").classList.toggle("oculto", !vende()); $("abaFluxo").classList.toggle("oculto", !vende()); $("abaAjustes").classList.toggle("oculto", !vende()); $("abaCond").classList.toggle("oculto", !vende());
+    $("abaVendas").classList.toggle("oculto", !vende()); $("abaTransf").classList.toggle("oculto", !vende()); $("abaBenef").classList.toggle("oculto", !controla()); $("abaBrindes").classList.toggle("oculto", !controla()); $("abaPromo").classList.toggle("oculto", !vende()); $("abaClientes").classList.toggle("oculto", !vende()); $("abaFluxo").classList.toggle("oculto", !vende()); $("abaAjustes").classList.toggle("oculto", !vende()); $("abaCond").classList.toggle("oculto", !vende());
     $("abaComissoes").classList.toggle("oculto", !dono()); $("abaLucro").classList.toggle("oculto", !dono()); $("abaGiro").classList.toggle("oculto", !dono()); $("abaHorarios").classList.toggle("oculto", !dono()); $("abaCreditos").classList.toggle("oculto", !dono()); $("abaCustos").classList.toggle("oculto", !dono()); document.querySelectorAll(".aba.ger").forEach(x => x.classList.toggle("oculto", !dono())); $("abaRanking").classList.toggle("oculto", !vende()); $("abaEtiquetas").classList.toggle("oculto", !vende()); $("abaProducao").classList.toggle("oculto", !PERM.producao);
     $("quem").textContent = ADMIN ? "Equipe Nervia (Dono)" : dono() ? "Dono" : controla() ? "Estoque · sem custos" : "Vendedora" + (MINHA_LOJA ? " · " + loja(MINHA_LOJA).nome : "");
     $("aviso").classList.add("oculto"); $("app").classList.remove("oculto");
@@ -412,6 +439,7 @@ async function carregar() {
   COND_EST = new Map((cd.error ? [] : cd.data || []).map(x => [chave(x.variante_id, x.loja_id), x]));
   if (typeof carregarCond === "function") await carregarCond().catch(() => {});
   if (typeof carregarVideos === "function") await carregarVideos().catch(() => {});
+  if (typeof carregarPromos === "function") await carregarPromos().catch(() => {});   // 2.58: indicação de promoção no Estoque e em Produtos
 }
 function irPara(v) { if (VISTA === "custos" && v !== "custos" && !cuPodeSair()) return; CU_SUJO = false; VISTA = v; limparMsg(); render(); }
 document.querySelectorAll(".barra .aba").forEach(b => b.onclick = () => irPara(b.dataset.v));
@@ -433,12 +461,14 @@ function menu() {
 }
 function render() {
   menu();
+  if (VISTA === "inicio" && vende()) return telaInicio();
   if (VISTA === "equipe" && ADMIN) return telaEquipe();
   if (VISTA === "produtos" && controla()) return telaProdutos();
   if (VISTA === "movimentos" && controla()) return telaMovimentos();
   if (VISTA === "transferencias" && vende()) return telaTransferencias();
   if (VISTA === "beneficiamento" && controla()) return telaBeneficiamento();
   if (VISTA === "brindes" && controla()) return telaBrindes();
+  if (VISTA === "promocoes" && vende()) return telaPromocoes();
   if (VISTA === "vendas" && vende()) return telaVendas();
   if (VISTA === "clientes" && vende()) return telaClientes();
   if (VISTA === "fluxo" && vende()) return telaFluxo();
@@ -451,6 +481,7 @@ function render() {
   if (VISTA === "creditos" && dono()) return telaCreditos();
   if (VISTA === "custos" && dono()) return telaCustos();
   if ((VISTA === "ger_rede" || VISTA === "ger_analise") && dono()) return telaGerencialVendas(VISTA.slice(4));
+  if (VISTA === "ger_pagar" && dono()) return telaGerencialPagar();
   if (VISTA.startsWith("ger_") && dono()) return telaGerencial(VISTA.slice(4));
   if (VISTA === "ranking" && vende()) return telaRanking();
   if (VISTA === "producao" && PERM.producao) return telaProducao();
@@ -475,6 +506,7 @@ function telaEstoque() {
       <select id="ftam" aria-label="Tamanho">${opc(tams, F.tam, "Tamanho")}</select>
       <button class="pilula ${F.zerados ? "on" : ""}" id="fzero" type="button" title="Esconde as variações sem peça na loja">${F.zerados ? "Ocultar zerados: ativo" : "Ocultar zerados: inativo"}</button>
       <button class="pilula ${F.prov ? "on" : ""}" id="fprov" type="button" title="Só as peças com referência provisória (NOVA-…), para trocar pela correta">Referência provisória</button>
+      <button class="pilula ${F.promo ? "on" : ""}" id="fpromo" type="button" title="Só as peças que estão (ou vão entrar) em promoção">🏷 Em promoção</button>
     </div>
     ${avisoTransito()}
     <div class="resumo" id="resumo"></div>
@@ -484,6 +516,7 @@ function telaEstoque() {
   [["floja", "loja"], ["fcat", "cat"], ["fcor", "cor"], ["ftam", "tam"]].forEach(([id, k]) => $(id).onchange = e => { F[k] = e.target.value; lista(); });
   $("fzero").onclick = () => { F.zerados = !F.zerados; telaEstoque(); };
   $("fprov").onclick = () => { F.prov = !F.prov; telaEstoque(); };
+  $("fpromo").onclick = () => { F.promo = !F.promo; telaEstoque(); };
   lista();
 }
 function lista() {
@@ -495,6 +528,7 @@ function lista() {
     if (termo && !semAc(p.descricao).includes(termo) && !semAc(p.referencia).includes(termo)) continue;
     if (F.cat && p.categoria !== F.cat) continue;
     if (F.prov && !refProvisoria(p)) continue;
+    if (F.promo && !(typeof promosDoProduto === "function" && promosDoProduto(p.id).length)) continue;
     const vars = p.variantes.filter(v => (!F.cor || v.cor === F.cor) && (!F.tam || v.tamanho === F.tam)).sort(ordemVar);
     if (!vars.length) continue;
     // um cartão por produto; cada loja numa faixa própria, separadas por linha tracejada (pedido do Marco)
@@ -533,6 +567,7 @@ function cartao(p, grupos) {
   return `<div class="prod">
     <div class="cab"><h2 class="${temEsp ? "temesp" : ""}" title="${esc(p.descricao)}${temEsp ? " · tem peça especial" : ""}">${esc(p.descricao)}</h2><span class="preco">${p.preco_venda != null ? brl(p.preco_venda) : "Preço não cadastrado"}</span></div>
     <div class="info"><span>Ref: ${esc(p.referencia || "—")}${refProvisoria(p) ? '<span class="tag">provisória</span>' : ""}</span><span>·</span><span>Peça: ${esc(p.categoria || "—")}</span>${typeof VIDEOS !== "undefined" && VIDEOS[p.id] ? `<button type="button" class="bt vidbt" data-vid="${p.id}" title="Ficha com os vídeos para mostrar à cliente">▶ Mostrar à cliente</button>` : ""}</div>
+    ${typeof promoSelo === "function" ? promoSelo(p.id) : ""}
     ${grupos.map(([l, vs]) => { const [comuns, esp] = separarEsp(vs);
       return `<div class="loja" data-loja="${l.id}"><span class="selo">${esc(l.nome)}</span>${comuns.length ? `<div class="chips">${chipsLoja(p, l, comuns)}</div>` : ""}
         ${esp.length ? `<div class="esplinha"><div class="esptit">★ Peças especiais</div><div class="chips">${chipsLoja(p, l, esp)}</div></div>` : ""}</div>`; }).join("")}</div>`;
@@ -769,6 +804,7 @@ function listaProdutos() {
       <div class="info"><span>${esc([p.referencia, p.categoria, p.fornecedor].filter(Boolean).join(" · "))}</span>
         ${p.codigo_barras ? `<span>· cód. ${esc(p.codigo_barras)}</span>` : ""}${p.preco_custo != null ? `<span>· custo ${brl(p.preco_custo)}</span>` : ""}
         ${CLASSIF ? (semClassif(p) ? '<span class="semncm">· sem NCM</span>' : `<span title="${esc(rotuloClassif(classifDe(p)))}">· NCM ${esc(fmtNcm(classifDe(p).ncm))}</span>`) : ""}</div>
+      ${typeof promoSelo === "function" ? promoSelo(p.id) : ""}
       ${(() => {
         const [comuns, esp] = separarEsp(vs);
         const tag = v => `<span class="vtag ${v.ativo ? "" : "off"}" title="${v.ativo ? "" : "inativa"}">${esc(nomeVar(v))}${v.preco_venda != null ? " · " + brl(v.preco_venda) : ""}</span>`;
@@ -1032,7 +1068,7 @@ async function telaVendas() {
       <div class="kpi"><small>Trocas</small><b>${n(TROCAS.filter(t => !t.cancelada_em).length)}</b><span>${TROCAS.some(t => !t.cancelada_em && Number(t.diferenca)) ? "diferença " + brl(TROCAS.filter(t => !t.cancelada_em).reduce((s, t) => s + Number(t.diferenca), 0)) : "no período"}</span></div>
       <div class="kpi"><small>Visitas sem compra</small><b>${n(VISITAS.reduce((s, v) => s + v.pessoas, 0))}</b><span>${VISITAS.length ? "conversão " + n(Math.round(100 * ok.length / (ok.length + VISITAS.reduce((s, v) => s + v.pessoas, 0)))) + "%" : "nenhuma registrada"}</span></div>
       <div class="kpi"><small>Ticket médio</small><b>${brl(ok.length ? total / ok.length : 0)}</b></div>
-      <div class="kpi"><small>${dono() ? "Comissões" : "Sua comissão"}</small><b>${brl(ok.reduce((s, v) => s + Number(v.comissao_valor || 0), 0))}</b><span>${dono() ? "das vendas do período" : MINHA_COMISSAO ? decBR(MINHA_COMISSAO) + "% sobre o valor pago" : "sem comissão"}</span></div>
+      <div class="kpi"><small>${dono() ? "Comissões" : "Sua comissão"}</small><b>${brl(ok.reduce((s, v) => s + Number(v.comissao_valor || 0), 0))}</b><span>${dono() ? "das vendas do período" : "das suas vendas do período"}</span></div>
     </div>
     ${dono() && ok.length ? `<div class="grade2" style="margin-bottom:12px">
       <div class="card"><h2>Por loja</h2>${grupo(v => v.loja_id, v => loja(v.loja_id).nome).map(g => `<div class="vlin"><span>${esc(g.nome)} · ${n(g.n)} venda(s)</span><b>${brl(g.t)}</b></div>`).join("")}</div>
@@ -1074,7 +1110,7 @@ function verVenda(id, abrirCv) {
     <div class="mut">${dataBR(v.data)} · ${esc(loja(v.loja_id).nome)} · vendedora ${esc(v.vendedora_nome)}</div>
     <div class="campo"><b>Cliente:</b> ${c ? `${esc(c.nome)}${c.telefone ? " · " + esc(fone(c.telefone)) : ""}` : '<span class="mut">não informado</span>'}</div>
     <div class="campo tw"><table><thead><tr><th>Peça</th><th class="num">Qtd</th><th class="num">Tabela</th><th class="num">Desc.</th><th class="num">Valor</th><th class="num">Total</th>${podeAjuste ? "<th></th>" : ""}</tr></thead><tbody>
-      ${its.map(i => `<tr><td><b>${esc(i.referencia)}</b> ${esc(i.descricao)}<br><span class="mut">${esc([i.cor, i.tamanho, i.edicao].filter(Boolean).join(" · "))}</span></td>
+      ${its.map(i => `<tr><td><b>${esc(i.referencia)}</b> ${esc(i.descricao)}<br><span class="mut">${esc([i.cor, i.tamanho, i.edicao].filter(Boolean).join(" · "))}</span>${i.promocao_nome ? `<br><span class="tag ok"${i.promocao_desconto_geral ? ' title="O preço da promoção veio do desconto geral da venda"' : ""}>Promoção: ${esc(i.promocao_nome)}${i.promocao_desconto_geral ? " (desconto na venda)" : ""}</span>` : ""}</td>
         <td class="num">${n(i.quantidade)}</td><td class="num">${brl(i.preco_tabela)}</td><td class="num">${Number(i.desconto_pct) ? decBR(Number(i.desconto_pct)) + "%" : "—"}</td>
         <td class="num">${brl(i.valor_unitario)}</td><td class="num">${brl(i.valor_total)}</td>${podeAjuste ? `<td><button type="button" class="lnk" data-ajuste="${i.id}" title="Mandar para a costureira (bainha, apertar…)">Ajuste</button></td>` : ""}</tr>`).join("")}
     </tbody></table></div>
@@ -1102,9 +1138,10 @@ function verVenda(id, abrirCv) {
       ${(v.pagamentos || []).some(p => eCartao(p) && p.cv) ? '<div><label for="vcvmot">Motivo (só para corrigir um CV já informado)</label><input id="vcvmot" maxlength="300" placeholder="ex.: digitei um número errado"></div>' : ""}
       <div class="mut">Só o CV muda: formas, valores e comissão ficam como estão. Fica registrado na auditoria.</div>
       <div class="acoes"><button type="button" class="bt pri" id="vcvsalvar">Salvar comprovante</button></div></div>` : ""}
-    <div class="acoes">${podeCv ? `<button type="button" class="bt" id="vcv">${semCv(v) ? "Informar comprovante" : "Corrigir comprovante"}</button>` : ""}${!v.cancelada_em && (controla() || v.vendedora_id === EU) ? `<button type="button" class="bt" id="vcli">${c ? "Trocar cliente" : "Colocar cliente"}</button>` : ""}${dono() && !v.cancelada_em ? '<button type="button" class="bt" id="vdata">Corrigir data</button><button type="button" class="bt" id="vcanc" style="color:var(--crit);border-color:var(--crit)">Cancelar venda</button>' : ""}<button type="button" class="bt" id="vimp">Imprimir ficha</button><button type="button" class="bt pri" id="vfechar">Fechar</button></div>`;
+    <div class="acoes">${podeCv ? `<button type="button" class="bt" id="vcv">${semCv(v) ? "Informar comprovante" : "Corrigir comprovante"}</button>` : ""}${!v.cancelada_em && (controla() || v.vendedora_id === EU) ? `<button type="button" class="bt" id="vcli">${c ? "Trocar cliente" : "Colocar cliente"}</button>` : ""}${dono() && !v.cancelada_em ? '<button type="button" class="bt" id="vdata">Corrigir data</button><button type="button" class="bt" id="vcanc" style="color:var(--crit);border-color:var(--crit)">Cancelar venda</button>' : ""}<button type="button" class="bt" id="vterm" title="Espelho da venda para a cliente na impressora térmica de 80 mm">Extrato (térmica)</button><button type="button" class="bt" id="vimp">Imprimir ficha</button><button type="button" class="bt pri" id="vfechar">Fechar</button></div>`;
   $("vfechar").onclick = () => $("dlg").close();
   $("vimp").onclick = () => imprimirVenda(v, its, c);
+  $("vterm").onclick = () => extratoVenda(v, its, c);
   f.querySelectorAll("[data-ajuste]").forEach(b => b.onclick = () => novoAjuste(v, its.find(i => i.id === +b.dataset.ajuste), () => verVenda(id)));
   sb.from("lin_ajustes").select("*").eq("venda_id", v.id).order("id").then(({ data }) => {
     if (!data || !data.length || !$("vajustes")) return;
@@ -1222,6 +1259,7 @@ async function novaVenda(pre = {}) {
   // 2.46: venda das peças que a cliente comprou da malinha/reserva (CD = {id, tipo, loja, resp, respNome, itens: [{item_id, vid, q}]})
   const CD = pre.condicional || null;
   if (CD) { NV.loja = CD.loja; if (dono()) NV.vend = CD.resp || eu; }
+  try { await carregarPromos(); } catch (e) { PROMOS = []; }   // 2.58: preço de promoção na peça
   const f = $("dlgf");
   const soma = () => r2(NV.itens.reduce((s, i) => s + numV(i.vu) * (Number(i.q) || 0), 0));
   const totalV = () => r2(soma() - numV(NV.desconto));
@@ -1303,7 +1341,7 @@ async function novaVenda(pre = {}) {
   };
   const desenharItens = () => {
     $("nvitens").innerHTML = NV.itens.length ? `<div class="tw"><table><thead><tr><th>Peça</th><th class="num">Qtd</th><th class="num">Tabela</th><th class="num">Desc. %</th><th class="num">Valor</th><th class="num">Total</th><th></th></tr></thead><tbody>
-      ${NV.itens.map((it, i) => `<tr><td><b>${esc(it.ref)}</b> ${esc(it.desc)}<br><span class="mut">${esc(it.var)} · ${n(disp(it.vid))} na loja</span></td>
+      ${NV.itens.map((it, i) => `<tr><td><b>${esc(it.ref)}</b> ${esc(it.desc)}<br><span class="mut">${esc(it.var)} · ${n(disp(it.vid))} na loja</span>${promoTag(it, i)}</td>
         <td class="num"><input data-i="${i}" data-k="q" type="number" min="1" max="${disp(it.vid)}" value="${it.q}" style="width:60px"></td>
         <td class="num">${brl(it.tab)}</td>
         <td class="num"><input data-i="${i}" data-k="pct" inputmode="decimal" value="${esc(it.pct)}" placeholder="0" style="width:64px"></td>
@@ -1311,19 +1349,36 @@ async function novaVenda(pre = {}) {
         <td class="num" data-it-total="${i}"></td><td><button type="button" class="lnk perigo" data-rm="${i}" title="Tirar">×</button></td></tr>`).join("")}
       </tbody></table></div>` : '<div class="mut">Procure a peça acima pela referência, pelo nome ou pelo código de barras.</div>';
     $("nvitens").querySelectorAll("input[data-i]").forEach(inp => inp.oninput = () => {
-      const it = NV.itens[inp.dataset.i], k = inp.dataset.k; it[k] = inp.value;
+      const it = NV.itens[inp.dataset.i], k = inp.dataset.k; it[k] = inp.value; if (k !== "q") it.manual = true;
       if (k === "pct") { it.vu = moeda(r2(it.tab * (1 - Math.min(Math.max(numV(it.pct), 0), 100) / 100))); $("nvitens").querySelector(`[data-i="${inp.dataset.i}"][data-k="vu"]`).value = it.vu; }
       if (k === "vu") { it.pct = it.tab > 0 && numV(it.vu) < it.tab ? decBR(r2((1 - numV(it.vu) / it.tab) * 100)) : ""; $("nvitens").querySelector(`[data-i="${inp.dataset.i}"][data-k="pct"]`).value = it.pct; }
       totais();
     });
     $("nvitens").querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { NV.itens.splice(Number(b.dataset.rm), 1); desenharItens(); });
+    $("nvitens").querySelectorAll('input[data-k="vu"], input[data-k="pct"]').forEach(inp => inp.onchange = () => { if (NV.itens[inp.dataset.i] && NV.itens[inp.dataset.i].prPromo) setTimeout(desenharItens, 0); });
+    $("nvitens").querySelectorAll("[data-usapromo]").forEach(b => b.onclick = () => { const it = NV.itens[b.dataset.usapromo]; it.manual = false; aplicarPromo(it); desenharItens(); });
     totais();
+  };
+  // 2.58: preço da promoção válida na loja e na data da venda (o menor); a peça que a vendedora mudou à mão fica como está
+  // 2.64: a peça em promoção sempre mostra a promoção; preço acima do da promoção = aviso com "Usar o preço da promoção"
+  const promoTag = (it, i) => {
+    const pr = it.prPromo; if (!pr) return "";
+    if (numV(it.vu) <= pr.preco + 0.005) return `<br><span class="tag ok" title="Preço da promoção aplicado">Promoção: ${esc(pr.nome)}</span>`;
+    return `<br><span class="tag lento" title="Dê o desconto pelo preço da peça, não pelo desconto geral, para a venda registrar a promoção">Está na promoção ${esc(pr.nome)}: ${brl(pr.preco)}</span> <button type="button" class="lnk" data-usapromo="${i}">usar o preço da promoção</button>`;
+  };
+  const aplicarPromo = it => {
+    const pr = promoDa(it.vid, NV.loja, NV.data);
+    it.prPromo = pr && pr.preco < it.tab ? pr : null;
+    if (it.manual) return;
+    if (pr && pr.preco < it.tab) { it.promo = pr.nome; it.vu = moeda(pr.preco); it.pct = it.tab > 0 ? decBR(r2((1 - pr.preco / it.tab) * 100)) : ""; }
+    else if (it.promo) { it.promo = ""; it.vu = moeda(it.tab); it.pct = ""; }
   };
   const addItem = (p, v) => {
     const ja = NV.itens.find(i => i.vid === v.id);
     if (ja) { ja.q = String(Math.min((Number(ja.q) || 0) + 1, disp(v.id))); }
     else { const tab = Number(v.preco_venda != null ? v.preco_venda : p.preco_venda) || 0;
-      NV.itens.push({ vid: v.id, ref: p.referencia, desc: p.descricao, var: nomeVar(v), tab, q: "1", pct: "", vu: moeda(tab) }); }
+      const it = { vid: v.id, ref: p.referencia, desc: p.descricao, var: nomeVar(v), tab, q: "1", pct: "", vu: moeda(tab) };
+      aplicarPromo(it); NV.itens.push(it); }
     $("nvpq").value = ""; $("nvres").innerHTML = ""; desenharItens(); $("nvpq").focus();
   };
   const buscaPeca = () => {
@@ -1335,7 +1390,7 @@ async function novaVenda(pre = {}) {
       for (const v of p.variantes) if ((casaP || (v.codigo_barras || "") === t) && disp(v.id) > 0) r.push([p, v]);
       if (r.length > 40) break;
     }
-    $("nvres").innerHTML = r.length ? r.slice(0, 40).map(([p, v], i) => `<div class="vlin"><span><b>${esc(p.referencia)}</b> ${esc(p.descricao)} — ${esc(nomeVar(v))} · ${brl(v.preco_venda != null ? v.preco_venda : p.preco_venda)} · ${n(disp(v.id))} na loja</span>
+    $("nvres").innerHTML = r.length ? r.slice(0, 40).map(([p, v], i) => `<div class="vlin"><span><b>${esc(p.referencia)}</b> ${esc(p.descricao)} — ${esc(nomeVar(v))} · ${(pr => pr && pr.preco < (Number(v.preco_venda != null ? v.preco_venda : p.preco_venda) || 0) ? `<s class="mut">${brl(v.preco_venda != null ? v.preco_venda : p.preco_venda)}</s> <b>${brl(pr.preco)}</b> <span class="tag ok">${esc(pr.nome)}</span>` : brl(v.preco_venda != null ? v.preco_venda : p.preco_venda))(promoDa(v.id, NV.loja, NV.data))} · ${n(disp(v.id))} na loja</span>
         <button type="button" class="lnk" data-add="${i}">Adicionar</button></div>`).join("") : `<div class="mut">Nenhuma peça com estoque em ${esc(loja(NV.loja).nome)} para “${esc(t)}”.</div>`;
     $("nvres").querySelectorAll("[data-add]").forEach(b => b.onclick = () => addItem(...r[b.dataset.add]));
     return r;
@@ -1360,7 +1415,7 @@ async function novaVenda(pre = {}) {
   };
   $("nvmaispag").onclick = () => { NV.pags.forEach(p => p.auto = false); const falta = r2(aPagar() - NV.pags.reduce((s, p) => s + numV(p.valor), 0));
     NV.pags.push({ forma: "pix", valor: falta > 0 ? moeda(falta) : "", parcelas: "1" }); desenharPags(); };
-  $("nvdata").onchange = e => NV.data = e.target.value;
+  $("nvdata").onchange = e => { NV.data = e.target.value; NV.itens.forEach(aplicarPromo); desenharItens(); };
   if ($("nvloja")) $("nvloja").onchange = e => { NV.loja = e.target.value; NV.itens = []; desenharItens(); };
   if ($("nvvend")) $("nvvend").onchange = e => NV.vend = e.target.value;
   $("nvdesc").oninput = e => { NV.desconto = e.target.value; totais(); };
@@ -1385,6 +1440,7 @@ async function novaVenda(pre = {}) {
       if (VISTA === "vendas") await telaVendas();
       if (VISTA === "condicionais") await telaCondicionais();
       msg("ok", `Venda nº ${id} registrada; o estoque de ${loja(NV.loja).nome} foi atualizado.${cu > 0 ? ` Crédito usado: ${brl(cu)}; saldo da cliente: ${brl(r2(NV.cred.saldo - cu))}.` : ""}`);
+      extratoDepoisDaVenda(id, NV.cliente);
     } catch (e) { erro(e.message); $("nvok").disabled = false; $("nvok").textContent = "Registrar venda"; }
   };
   if (CD) CD.itens.forEach(ci => { for (const p of PRODUTOS) { const v = (p.variantes || []).find(x => x.id === ci.vid); if (v) { addItem(p, v);
@@ -1441,6 +1497,8 @@ function andamentoAjuste(a, acao, depois, voltar) {
       checar(await sb.rpc("lin_ajuste_andamento", { p_ajuste: a.id, p_acao: acao, p_motivo: t || null }));
       const { data: novo } = await sb.from("lin_ajustes").select("*").eq("id", a.id).maybeSingle();
       msg("ok", x.ok);
+      // 2.57: na entrega, abre o comprovante (a cliente assina); a tela de trás atualiza quando ele fecha
+      if (acao === "entregue") return comprovanteAjuste(novo || a, { titulo: `Ajuste nº ${a.id} entregue`, aoFechar: () => depois(novo || a) });
       depois(novo || a);
     } catch (e) { $("ajanderr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; $("ajandok").disabled = false; }
   };
@@ -1474,11 +1532,12 @@ async function fichaAjuste(a, depois) {
       ${a.situacao === "na_costureira" ? '<button type="button" class="bt pri" data-fa="pronto">Voltou da costureira</button><button type="button" class="bt" id="fazapc">WhatsApp costureira</button>' : ""}
       ${a.situacao === "pronto" ? '<button type="button" class="bt pri" data-fa="entregue">Entregue à cliente</button><button type="button" class="bt" id="fazapcli">Avisar cliente</button><button type="button" class="bt" data-fa="reabrir">Voltar p/ costureira</button>' : ""}
       ${podeCanc ? '<button type="button" class="bt" data-fa="cancelar" style="color:var(--crit);border-color:var(--crit)">Cancelar</button>' : ""}
-      <button type="button" class="bt" id="faimp">Imprimir / PDF</button><button type="button" class="bt" id="fax">Fechar</button></div>`;
+      ${a.situacao !== "cancelado" ? `<button type="button" class="bt" id="faterm" title="Comprovante na impressora térmica de 80 mm">${a.situacao === "entregue" ? "Comprovante de entrega" : "Comprovante p/ a cliente"} (térmica)</button>` : ""}<button type="button" class="bt" id="faimp">Imprimir / PDF</button><button type="button" class="bt" id="fax">Fechar</button></div>`;
   g.querySelectorAll("[data-fa]").forEach(b => b.onclick = () => andamentoAjuste(a, b.dataset.fa, novo => { fichaAjuste(novo, depois); if (depois) depois(); }, () => fichaAjuste(a, depois)));
   if ($("fazapc")) $("fazapc").onclick = () => zapAjusteCostureira(a);
   if ($("fazapcli")) $("fazapcli").onclick = () => zapAjusteCliente(a);
   $("faimp").onclick = () => imprimirAjustes([a], { [a.id]: evs });
+  if ($("faterm")) $("faterm").onclick = () => comprovanteAjuste(a, { voltar: () => fichaAjuste(a, depois) });
   $("fax").onclick = () => $("dlg2").close();
   if (!$("dlg2").open) $("dlg2").showModal();
 }
@@ -1510,7 +1569,7 @@ function imprimirVenda(v, its, c) {
     <div class="lin">${cx("Endereço", esc(c ? c.endereco : ""), "flex:3")}${cx("E-mail", esc(c ? c.email : ""), "flex:2")}</div>
     <div class="tit">Peças</div>
     <table><thead><tr><th>Referência</th><th>Descrição</th><th>Cor</th><th>Tam.</th><th>Peça especial</th><th class="n">Qtd</th><th class="n">Preço de tabela</th><th class="n">Desc.</th><th class="n">Valor unit.</th><th class="n">Total</th></tr></thead><tbody>
-      ${its.map(i => `<tr><td>${esc(i.referencia)}</td><td>${esc(i.descricao)}</td><td>${esc(i.cor)}</td><td>${esc(i.tamanho)}</td><td>${esc(i.edicao)}</td><td class="n">${n(i.quantidade)}</td>
+      ${its.map(i => `<tr><td>${esc(i.referencia)}</td><td>${esc(i.descricao)}${i.promocao_nome ? `<br><small>Promoção: ${esc(i.promocao_nome)}</small>` : ""}</td><td>${esc(i.cor)}</td><td>${esc(i.tamanho)}</td><td>${esc(i.edicao)}</td><td class="n">${n(i.quantidade)}</td>
         <td class="n">${brl(i.preco_tabela)}</td><td class="n">${Number(i.desconto_pct) ? decBR(Number(i.desconto_pct)) + "%" : "—"}</td><td class="n">${brl(i.valor_unitario)}</td><td class="n">${brl(i.valor_total)}</td></tr>`).join("")}
     </tbody></table>
     <div class="tit">Valores</div>
@@ -1518,7 +1577,7 @@ function imprimirVenda(v, its, c) {
       ${Number(v.credito_usado) ? cx("Crédito da cliente usado", brl(v.credito_usado)) + cx("Valor da nota fiscal", `<b>${brl(v.valor_nf)}</b>`) : ""}</div>
     <div class="tit">Pagamento</div>
     <div class="lin">${(v.pagamentos || []).length ? v.pagamentos.map(p => cx(esc(FORMAS[p.forma] || p.forma) + (p.forma === "credito" ? ` em ${p.parcelas}x` : "") + (eCartao(p) && p.cv ? ` · CV ${esc(p.cv)}` : ""), brl(p.valor))).join("") : cx("Forma", "—")}</div>
-    ${v.observacao ? `<div class="tit">Observações</div><div class="cx obs">${esc(v.observacao)}</div>` : ""}
+    ${""/* 2.65: a observação da venda é só da Linum: não sai na ficha */}
     ${v.cancelada_em ? `<div class="tit">Cancelamento</div><div class="cx">Cancelada por ${esc(v.cancelada_nome || "")} em ${quando(v.cancelada_em)}: ${esc(v.motivo_cancelamento || "")}</div>` : ""}
     <div class="ass"><div>Cliente</div><div>Vendedora</div></div>
     <div class="aviso" style="margin-top:10px">Emitida em ${quando(new Date().toISOString())} · Sistema Linum</div>
@@ -1577,9 +1636,10 @@ async function novoAjuste(v, it, depois) {
       const { data: a } = await sb.from("lin_ajustes").select("*").eq("id", id).maybeSingle();
       g.innerHTML = `<h3>Ajuste nº ${id} registrado</h3><p>${esc(it.referencia)} ${esc(it.descricao)} vai para <b>${esc(a ? a.costureira : "")}</b> e volta até <b>${dataBR($("ajprazo").value)}</b>.</p>
         <p class="mut">Imprima a ficha para ir junto com a peça, ou salve em PDF (na janela de impressão, destino "Salvar como PDF") e mande para a costureira.</p>
-        <div class="acoes"><button type="button" class="bt" id="ajfim">Fechar</button><button type="button" class="bt" id="ajzap">WhatsApp para a costureira</button><button type="button" class="bt pri" id="ajimp">Imprimir / PDF</button></div>`;
+        <div class="acoes"><button type="button" class="bt" id="ajfim">Fechar</button><button type="button" class="bt" id="ajzap">WhatsApp para a costureira</button><button type="button" class="bt" id="ajterm">Comprovante p/ a cliente (térmica)</button><button type="button" class="bt pri" id="ajimp">Imprimir / PDF</button></div>`;
       $("ajfim").onclick = () => $("dlg2").close();
       $("ajimp").onclick = () => a && imprimirAjustes([a]);
+      $("ajterm").onclick = () => a && comprovanteAjuste(a);
       $("ajzap").onclick = () => a && zapAjusteCostureira(a);
     } catch (e) { $("ajerr").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; $("ajok").disabled = false; }
   };
@@ -1655,7 +1715,7 @@ function htmlTrocas() {
 function verTroca(id) {
   $("dlg").classList.add("largo");
   const t = TROCAS.find(x => x.id === id), its = TITENS.filter(i => i.troca_id === id), c = cliente(t.cliente_id), f = $("dlgf");
-  const tab = tipo => its.filter(i => i.tipo === tipo).map(i => `<tr><td><b>${esc(i.referencia)}</b> ${esc(i.descricao)}<br><span class="mut">${esc([i.cor, i.tamanho, i.edicao].filter(Boolean).join(" · "))}</span></td>
+  const tab = tipo => its.filter(i => i.tipo === tipo).map(i => `<tr><td><b>${esc(i.referencia)}</b> ${esc(i.descricao)}<br><span class="mut">${esc([i.cor, i.tamanho, i.edicao].filter(Boolean).join(" · "))}</span>${i.promocao_nome ? `<br><span class="tag ok">Promoção: ${esc(i.promocao_nome)}</span>` : ""}</td>
     <td class="num">${n(i.quantidade)}</td><td class="num">${brl(i.valor_unitario)}</td><td class="num">${brl(i.valor_total)}</td></tr>`).join("");
   f.innerHTML = `<h3>${its.some(i => i.tipo === "nova") ? "Troca" : "Devolução"} T${t.id}${t.cancelada_em ? ' <span class="tag">cancelada</span>' : ""}</h3>
     <div class="mut">${dataBR(t.data)} · ${esc(loja(t.loja_id).nome)} · atendente ${esc(t.atendente_nome)}${t.venda_id ? ` · da venda nº ${t.venda_id}` : " · compra sem venda no sistema"}</div>
@@ -1757,7 +1817,7 @@ async function novaTroca() {
     if (TR.modo === "venda") {
       $("trdevbox").innerHTML = `<div style="display:flex;gap:6px;flex-wrap:wrap"><input id="trvnum" inputmode="numeric" placeholder="Número da venda (na boleta / lista de vendas)" style="flex:1;min-width:200px" value="${TR.venda ? TR.venda.venda : ""}">
         <button type="button" class="bt" id="trvbusca">Buscar venda</button></div>
-        ${TR.venda ? `<div class="mut" style="margin-top:6px">Venda nº ${TR.venda.venda} de ${dataBR(TR.venda.data)} · ${esc(loja(TR.venda.loja_id).nome)} · ${esc(TR.venda.vendedora)}</div>
+        ${TR.venda ? `<div class="mut" style="margin-top:6px">Venda nº ${TR.venda.venda} de ${dataBR(TR.venda.data)} · ${esc(loja(TR.venda.loja_id).nome)} · ${esc(TR.venda.vendedora)}</div>${Number(TR.venda.desconto_geral) > 0 ? `<div class="mut" style="font-size:12px">Esta venda teve desconto geral de ${brl(TR.venda.desconto_geral)}: ele já está repartido entre as peças, e o crédito é o valor líquido pago.</div>` : ""}
           ${TR.venda.itens.map((i, x) => `<div class="vlin"><span><b>${esc(i.referencia)}</b> ${esc(i.descricao)} — ${esc([i.cor, i.tamanho, i.edicao].filter(Boolean).join(" "))} · pago ${brl(i.valor_unitario)} · ${i.trocavel > 0 ? `pode trocar ${i.trocavel}` : "já trocada"}</span>
             ${i.trocavel > 0 ? `<button type="button" class="lnk" data-devv="${x}">Devolver</button>` : ""}</div>`).join("")}` : ""}`;
       $("trvbusca").onclick = async () => {
@@ -2069,8 +2129,9 @@ async function telaComissoes() {
   FCM.mes = FCM.mes || hoje().slice(0, 7);
   const de = somaMes(FCM.mes, -11) + "-01", ate = somaMes(FCM.mes, 1) + "-01", meses = Array.from({ length: 12 }, (_, i) => somaMes(FCM.mes, i - 11));
   $("tela").innerHTML = '<div class="card">Carregando…</div>';
-  let vs;
+  let vs, RG;
   try {
+    RG = checar(await sb.rpc("lin_comissoes_ler")) || { regras: [], pessoas: [] };
     vs = await todas(() => { let x = sb.from("lin_vendas").select("id, data, loja_id, vendedora_id, vendedora_nome, valor_total, comissao_pct, comissao_valor")
       .gte("data", de).lt("data", ate).is("cancelada_em", null).order("data").order("id"); if (FCM.loja) x = x.eq("loja_id", FCM.loja); return x; });
   } catch (e) { $("tela").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; return; }
@@ -2096,6 +2157,7 @@ async function telaComissoes() {
       <div class="kpi"><small>Comissões do mês</small><b>${brl(totC)}</b><span>${n(doMesL.filter(p => p.c > 0).length)} pessoa(s) com comissão</span></div>
       <div class="kpi"><small>Vendido no mês</small><b>${brl(totT)}</b><span>${n(doMes.length)} venda(s)</span></div>
     </div>
+    ${cmRegrasHtml(RG)}
     <div class="card"><h2>Por pessoa</h2><div class="tw"><table id="cmtab"><thead><tr><th>Quem vendeu</th><th class="num">Vendas</th><th class="num">Valor pago</th><th>Comissão (%)</th><th class="num">Comissão</th></tr></thead><tbody>
       ${doMesL.length ? doMesL.map(p => `<tr class="cmrow" data-p="${p.id}" style="cursor:pointer"><td><b>${esc(p.nome)}</b></td><td class="num">${n(p.vendas.length)}</td><td class="num">${brl(p.t)}</td><td>${esc(pct(p))}</td><td class="num"><b>${brl(p.c)}</b></td></tr>
         <tr class="cmdet oculto" data-d="${p.id}"><td colspan="5"><div class="tw"><table><thead><tr><th>Nº</th><th>Data</th><th>Loja</th><th class="num">Valor pago</th><th class="num">%</th><th class="num">Comissão</th></tr></thead><tbody>
@@ -2104,7 +2166,7 @@ async function telaComissoes() {
         + `<tr><td><b>Total</b></td><td class="num"><b>${n(doMes.length)}</b></td><td class="num"><b>${brl(totT)}</b></td><td></td><td class="num"><b>${brl(totC)}</b></td></tr>`
       : '<tr><td colspan="5" class="mut">Nenhuma venda neste mês.</td></tr>'}
     </tbody></table></div>
-    <div class="mut" style="margin-top:6px">Clique na pessoa para ver as vendas. Comissão = o % da pessoa no dia da venda sobre o valor pago. Vendas canceladas não entram; trocas não mudam a comissão.</div></div>
+    <div class="mut" style="margin-top:6px">Clique na pessoa para ver as vendas. Comissão = o % da regra da pessoa na loja e no dia da venda, sobre o valor pago. Vendas canceladas não entram; trocas não mudam a comissão.</div></div>
     <div class="card"><h2>Últimos 12 meses</h2><div class="tw"><table id="cm12"><thead><tr><th>Quem vendeu</th>${meses.map(m => `<th class="num">${mesTxt(m)}</th>`).join("")}<th class="num">Total</th></tr></thead><tbody>
       ${lista.length ? lista.map(p => `<tr><td>${esc(p.nome)}</td>${meses.map(m => `<td class="num">${p.meses[m] ? brl(p.meses[m]) : '<span class="mut">—</span>'}</td>`).join("")}<td class="num"><b>${brl(Object.values(p.meses).reduce((s, x) => s + x, 0))}</b></td></tr>`).join("")
         + `<tr><td><b>Total</b></td>${meses.map(m => `<td class="num"><b>${brl(lista.reduce((s, p) => s + (p.meses[m] || 0), 0))}</b></td>`).join("")}<td class="num"><b>${brl(vs.reduce((s, v) => s + Number(v.comissao_valor || 0), 0))}</b></td></tr>`
@@ -2115,6 +2177,7 @@ async function telaComissoes() {
   $("cmprox").onclick = () => ir(somaMes(FCM.mes, 1));
   $("cmmes").onchange = e => { if (e.target.value) ir(e.target.value); };
   $("cmloja").onchange = e => { FCM.loja = e.target.value; telaComissoes(); };
+  cmRegrasEventos(RG);
   $("cmimp").onclick = () => { document.querySelectorAll(".cmdet").forEach(r => r.classList.remove("oculto")); window.print(); };
   document.querySelectorAll(".cmrow").forEach(r => r.onclick = () => document.querySelector(`.cmdet[data-d="${r.dataset.p}"]`).classList.toggle("oculto"));
   $("cmcsv").onclick = () => {
@@ -2125,6 +2188,69 @@ async function telaComissoes() {
     a.href = URL.createObjectURL(new Blob(["\ufeff" + linhas.join("\r\n")], { type: "text/csv;charset=utf-8" }));
     a.download = `comissoes-linum-${FCM.mes}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   };
+}
+
+// 2.61 (pedido do Marco em 23/11/2026): REGRAS DE COMISSÃO por loja e período. Cada regra = pessoa × % × lojas (uma ou
+// mais) × início × fim (vazio = sem fim). Sem regra na loja e na data = sem comissão. Regra com início no passado recalcula
+// as vendas do período (lin_comissao_salvar / lin_comissao_excluir, com auditoria). Só a Dona e a equipe Nervia.
+const cmLojas = ids => ids.length === LOJAS.length ? "Todas as lojas" : ids.map(id => loja(id).nome).sort((a, b) => a.localeCompare(b, "pt-BR")).join(", ");
+const cmPeriodo = r => r.fim ? `${dataBR(r.inicio)} a ${dataBR(r.fim)}` : `desde ${dataBR(r.inicio)} · sem fim`;
+const cmSituacao = r => r.inicio > hoje() ? ["começa depois", ""] : r.fim && r.fim < hoje() ? ["encerrada", "fora"] : ["valendo", "ok"];
+function cmRegrasHtml(RG) {
+  const porPessoa = {}; RG.regras.forEach(r => (porPessoa[r.user_id] = porPessoa[r.user_id] || { nome: r.nome, rs: [] }).rs.push(r));
+  const sem = RG.pessoas.filter(p => !RG.regras.some(r => r.user_id === p.user_id && cmSituacao(r)[0] === "valendo"));
+  return `<div class="card noprint" id="cmregras"><div class="cabtela" style="margin:0"><h2 style="margin:0">Regras de comissão</h2><button type="button" class="bt pri" id="cmnova">+ Nova regra</button></div>
+    <p class="mut" style="margin:4px 0 8px">Cada regra diz o % de uma pessoa em uma ou mais lojas, num período (ou desde uma data, sem fim). Sem regra na loja e no dia da venda = <b>sem comissão</b>. Ao salvar ou excluir, as vendas do período são recalculadas.</p>
+    ${Object.keys(porPessoa).length ? `<div class="tw"><table id="cmrtab"><thead><tr><th>Pessoa</th><th class="num">%</th><th>Lojas</th><th>Período</th><th>Situação</th><th>Observação</th><th></th></tr></thead><tbody>
+      ${Object.values(porPessoa).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")).flatMap(p => p.rs.map((r, i) => { const s = cmSituacao(r);
+        return `<tr data-cmr="${r.id}"><td>${i ? "" : `<b>${esc(p.nome)}</b>`}</td><td class="num"><b>${decBR(Number(r.pct))}%</b></td><td>${esc(cmLojas(r.lojas))}</td><td>${cmPeriodo(r)}</td>
+          <td><span class="tag ${s[1]}">${s[0]}</span></td><td class="mut">${esc(r.observacao || "")}</td>
+          <td style="white-space:nowrap"><button type="button" class="lnk" data-cmed="${r.id}">Editar</button> <button type="button" class="lnk perigo" data-cmex="${r.id}">Excluir</button></td></tr>`; })).join("")}
+    </tbody></table></div>` : '<div class="mut">Nenhuma regra cadastrada: ninguém tem comissão.</div>'}
+    ${sem.length ? `<div class="mut" style="margin-top:6px">Sem comissão hoje: ${sem.map(p => esc(p.nome)).join(", ")}.</div>` : ""}</div>`;
+}
+function cmRegrasEventos(RG) {
+  if ($("cmnova")) $("cmnova").onclick = () => editarRegraComissao(null, RG);
+  document.querySelectorAll("[data-cmed]").forEach(b => b.onclick = () => editarRegraComissao(RG.regras.find(r => r.id === +b.dataset.cmed), RG));
+  document.querySelectorAll("[data-cmex]").forEach(b => b.onclick = async () => {
+    const r = RG.regras.find(x => x.id === +b.dataset.cmex);
+    const motivo = prompt(`Excluir a regra de ${r.nome}: ${decBR(Number(r.pct))}% em ${cmLojas(r.lojas)}, ${cmPeriodo(r)}?\nAs vendas desse período serão recalculadas sem ela.\n\nMotivo:`);
+    if (motivo == null) return;
+    try { const x = checar(await sb.rpc("lin_comissao_excluir", { p_id: r.id, p_motivo: motivo }));
+      msg("ok", `Regra excluída.${x.recalculadas ? ` ${n(x.recalculadas)} venda(s) recalculada(s).` : ""}`); telaComissoes(); }
+    catch (e) { msg("err", e.message); }
+  });
+}
+function editarRegraComissao(r, RG) {
+  const lojasSel = new Set(r ? r.lojas : LOJAS.map(l => l.id));
+  $("dlgf").innerHTML = `<h2>${r ? "Editar regra de comissão" : "Nova regra de comissão"}</h2>
+    <label for="cmrp">Pessoa</label>
+    ${r ? `<input id="cmrp" value="${esc(r.nome)}" disabled>` : `<select id="cmrp"><option value="">Escolha…</option>${RG.pessoas.map(p => `<option value="${p.user_id}">${esc(p.nome)}</option>`).join("")}</select>`}
+    <label for="cmrpct">Comissão (%)</label><input id="cmrpct" inputmode="decimal" value="${r ? esc(decBR(Number(r.pct))) : ""}" placeholder="ex.: 1,5" style="width:120px">
+    <label>Lojas</label><div class="filtros" id="cmrlojas" style="margin:0">${LOJAS.map(l => `<label class="pilula" style="display:inline-flex;gap:6px;align-items:center;text-transform:none"><input type="checkbox" value="${l.id}" ${lojasSel.has(l.id) ? "checked" : ""} style="width:auto;margin:0"> ${esc(l.nome)}</label>`).join("")}</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap"><span><label for="cmrini">Início</label><input type="date" id="cmrini" value="${r ? r.inicio : hoje()}"></span>
+      <span><label for="cmrfim">Fim (vazio = sem fim)</label><input type="date" id="cmrfim" value="${r && r.fim ? r.fim : ""}"></span></div>
+    <label for="cmrobs">Observação (opcional)</label><input id="cmrobs" maxlength="300" value="${esc(r && r.observacao || "")}">
+    <div class="mut" style="margin-top:6px">Com início no passado, as vendas da pessoa nessas lojas e nesse período são recalculadas ao salvar. Duas regras da mesma pessoa não podem valer na mesma loja no mesmo dia.</div>
+    <div class="msg err oculto" id="cmrerr"></div>
+    <div class="acoes"><button type="button" class="bt" id="cmrx">Cancelar</button><button type="button" class="bt pri" id="cmrok">Salvar regra</button></div>`;
+  $("cmrx").onclick = () => $("dlg").close();
+  $("cmrok").onclick = async () => {
+    const erro = t => { $("cmrerr").textContent = t; $("cmrerr").classList.remove("oculto"); };
+    const pct = Number(numBR($("cmrpct").value)), lojas = [...$("cmrlojas").querySelectorAll("input:checked")].map(i => i.value);
+    const user = r ? r.user_id : $("cmrp").value;
+    if (!user) return erro("Escolha a pessoa.");
+    if (!(pct > 0) || pct > 100) return erro("Informe a comissão em % (maior que zero e até 100). Sem comissão = sem regra.");
+    if (!lojas.length) return erro("Marque pelo menos uma loja.");
+    if (!$("cmrini").value) return erro("Informe o início.");
+    if ($("cmrfim").value && $("cmrfim").value < $("cmrini").value) return erro("O fim não pode ser antes do início.");
+    $("cmrok").disabled = true;
+    try {
+      const x = checar(await sb.rpc("lin_comissao_salvar", { p: { id: r ? r.id : null, user_id: user, pct, lojas, inicio: $("cmrini").value, fim: $("cmrfim").value || null, observacao: $("cmrobs").value } }));
+      $("dlg").close(); msg("ok", `Regra salva.${x.recalculadas ? ` ${n(x.recalculadas)} venda(s) recalculada(s).` : ""}`); telaComissoes();
+    } catch (e) { erro(e.message); $("cmrok").disabled = false; }
+  };
+  if (!$("dlg").open) $("dlg").showModal();
 }
 
 // ---------------------------------------------------------------- lucro das vendas (Dono; pedido do Marco: por quanto vendi, quanto queria vender, custo, lucro direto)
@@ -2354,12 +2480,11 @@ async function telaEquipe() {
   try { EQUIPE = checar(await sb.rpc("lin_equipe")) || []; } catch (e) { $("tela").innerHTML = `<div class="msg err">${esc(e.message)}</div>`; return; }
   const opLoja = sel => `<option value="">—</option>` + LOJAS.map(l => `<option value="${l.id}" ${l.id === sel ? "selected" : ""}>${esc(l.nome)}</option>`).join("");
   $("tela").innerHTML = `<div class="card"><h2>Equipe da Linum</h2>
-    <p class="mut">Aparecem aqui os logins com o app <b>Sistema Linum</b> liberado na Área do Cliente (Administração → Logins). Dono: tudo, inclusive preço de custo. Estoque: cadastra peças, altera o preço de venda e movimenta o estoque, sem ver nem alterar custo. Vendedora: consulta o estoque, sem preço de custo. <b>Todos vendem</b>, em qualquer loja (a loja principal vem marcada na venda), e cada um vê só as próprias vendas; o Dono vê as de todos. <b>Comissão (%)</b>: sobre o valor pago de cada venda da pessoa; 0 = sem comissão. Mudar o % não altera as vendas já feitas. <b>Permissões</b> somam ao papel: <b>Produção</b> opera rolos, fichas e etapas; <b>Valores da produção</b> mostra também o valor pago no linho, o preço por peça dos parceiros e o custo das peças (o Dono já tem as duas). Todas as ações ficam na auditoria. Sem papel: o login não entra no app.</p>
-    ${EQUIPE.length ? `<div class="tw"><table><thead><tr><th>Login</th><th>Papel</th><th>Loja principal</th><th>Comissão (%)</th><th>Permissões</th><th></th></tr></thead><tbody>
+    <p class="mut">Aparecem aqui os logins com o app <b>Sistema Linum</b> liberado na Área do Cliente (Administração → Logins). Dono: tudo, inclusive preço de custo. Estoque: cadastra peças, altera o preço de venda e movimenta o estoque, sem ver nem alterar custo. Vendedora: consulta o estoque, sem preço de custo. <b>Todos vendem</b>, em qualquer loja (a loja principal vem marcada na venda), e cada um vê só as próprias vendas; o Dono vê as de todos. <b>Comissão</b>: por loja e período, em Gestão → Comissões → Regras de comissão (a Dona cadastra). <b>Permissões</b> somam ao papel: <b>Produção</b> opera rolos, fichas e etapas; <b>Valores da produção</b> mostra também o valor pago no linho, o preço por peça dos parceiros e o custo das peças (o Dono já tem as duas). Todas as ações ficam na auditoria. Sem papel: o login não entra no app.</p>
+    ${EQUIPE.length ? `<div class="tw"><table><thead><tr><th>Login</th><th>Papel</th><th>Loja principal</th><th>Permissões</th><th></th></tr></thead><tbody>
       ${EQUIPE.map((u, i) => `<tr><td><b>${esc(u.nome || u.email)}</b><br><span class="mut">${esc(u.email)}</span></td>
         <td><select data-i="${i}" class="eq-papel"><option value="">Sem papel</option><option value="dono" ${u.papel === "dono" ? "selected" : ""}>Dono</option><option value="estoque" ${u.papel === "estoque" ? "selected" : ""}>Estoque</option><option value="vendedora" ${u.papel === "vendedora" ? "selected" : ""}>Vendedora</option></select></td>
         <td><select data-i="${i}" class="eq-loja">${opLoja(u.loja_id)}</select></td>
-        <td><input data-i="${i}" class="eq-comissao" inputmode="decimal" value="${esc(u.comissao_pct != null ? decBR(Number(u.comissao_pct)) : "0")}" style="width:80px" aria-label="Comissão em %"></td>
         <td>${u.papel === "dono" ? '<span class="mut">todas</span>' : `<label class="chk"><input type="checkbox" class="eq-prod" data-i="${i}" ${(u.permissoes || []).includes("producao") ? "checked" : ""}> Produção</label>
           <label class="chk"><input type="checkbox" class="eq-val" data-i="${i}" ${(u.permissoes || []).includes("producao_valores") ? "checked" : ""}> Valores da produção</label>`}</td>
         <td><button class="bt pri eq-salvar" data-i="${i}">Salvar</button></td></tr>`).join("")}
@@ -2367,12 +2492,11 @@ async function telaEquipe() {
   document.querySelectorAll(".eq-salvar").forEach(b => b.onclick = async () => {
     const i = b.dataset.i, u = EQUIPE[i];
     const papel = document.querySelector(`.eq-papel[data-i="${i}"]`).value, lj = document.querySelector(`.eq-loja[data-i="${i}"]`).value || null;
-    const cm = numBR(document.querySelector(`.eq-comissao[data-i="${i}"]`).value) || 0;
     b.disabled = true;
     const prod = document.querySelector(`.eq-prod[data-i="${i}"]`), val = document.querySelector(`.eq-val[data-i="${i}"]`);
     const perms = [prod && prod.checked ? "producao" : "", val && val.checked ? "producao_valores" : ""].filter(Boolean);
     try {
-      checar(await sb.rpc("lin_membro_salvar", { p_user: u.user_id, p_papel: papel, p_loja: lj, p_comissao: Number(cm) }));
+      checar(await sb.rpc("lin_membro_salvar", { p_user: u.user_id, p_papel: papel, p_loja: lj, p_comissao: null }));
       if (papel && papel !== "dono" && prod && perms.join() !== [...(u.permissoes || [])].sort().join()) checar(await sb.rpc("lin_membro_permissoes", { p_user: u.user_id, p_permissoes: perms }));
       msg("ok", `Papel de ${u.nome || u.email} salvo.`); await telaEquipe();
     }

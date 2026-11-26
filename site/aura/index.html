@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#6d3cf0">
+<title>NVAura</title>
+<link rel="manifest" href="/aura/manifest.webmanifest">
+<link rel="icon" href="/aura/icone-192.png">
+<link rel="apple-touch-icon" href="/aura/icone-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<!--
+  NVAura (laboratório da Nervia, pedido do Marco em 24/11/2026): cartão pessoal com foto, nome, estrelas e QR code.
+  Depois de uma interação (conversa, encontro, atendimento): a pessoa lê o QR, vê o cartão e dá de 1 a 5 estrelas, sem conta.
+  Rotas pelo # da URL:  #a-<código> = avaliar um cartão (sem login).  Sem rota: entrar → criar cartão → Cartão, Mapa, Conta.
+  Banco: supabase/migrations/20261125000100_aura.sql (tudo pelas funções aur_*; nenhuma tabela é lida direto).
+  Conta: a mesma chave do NVSintonia (função sintonia-conta com app "aura").
+-->
+<style>
+:root{color-scheme:light dark;--bg:light-dark(#faf8ff,#0c0818);--ink:light-dark(#120b24,#efeaff);--mut:light-dark(#62597a,#a89cc8);--a:#6d3cf0;--a2:#ff5c9a;--a3:#ffb547;--ad:light-dark(#5427d6,#b9a1ff);--mist:light-dark(#f0eaff,#1a1131);--line:light-dark(#e2daf5,#2c2147);--card:light-dark(#fff,#140d26);--red:light-dark(#c8341c,#ff7a5c)}
+*{box-sizing:border-box;min-width:0}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Inter,system-ui,sans-serif;overflow-x:clip}
+h1,h2,h3{font-family:"Space Grotesk",Inter,sans-serif;letter-spacing:-.02em;line-height:1.1;margin:0 0 8px}
+h1{font-size:30px}h2{font-size:24px}h3{font-size:18px}
+p{margin:0 0 10px}
+a{color:var(--ad)}
+.topo{background:linear-gradient(110deg,var(--a),#9a3cf0 55%,var(--a2));color:#fff;padding:max(14px,env(safe-area-inset-top)) 18px 14px;display:flex;align-items:center;gap:10px;justify-content:space-between}
+.topo b{font:700 20px "Space Grotesk",sans-serif}
+.topo small{font-size:13px;opacity:.9}
+main{max-width:560px;margin:0 auto;padding:18px 16px 110px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:14px}
+.card.m{background:var(--mist)}
+.btn{font:600 16px Inter,sans-serif;min-height:48px;padding:10px 16px;border-radius:14px;border:0;background:var(--ink);color:var(--bg);cursor:pointer;width:100%;margin-top:8px}
+.btn.a{background:linear-gradient(110deg,var(--a),var(--a2));color:#fff}
+.btn.o{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn.r{background:transparent;color:var(--red);border:1px solid var(--red)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+button:focus-visible,input:focus-visible,label.foto:focus-within{outline:3px solid var(--ad);outline-offset:2px}
+label{font-size:13px;color:var(--mut);display:block;margin-top:8px}
+input[type=text]{font:16px Inter,sans-serif;width:100%;padding:10px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);min-height:48px}
+input[type=range]{width:100%;accent-color:var(--a)}
+.hint{font-size:13px;color:var(--mut)}
+.err{color:var(--red);font-size:14px;margin-top:8px}
+.okm{color:var(--ad);font-size:14px;margin-top:8px}
+.codigo{font:700 26px ui-monospace,Menlo,monospace;letter-spacing:3px;text-align:center;margin:6px 0}
+.nav{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(3,minmax(0,1fr));padding-bottom:env(safe-area-inset-bottom);z-index:5}
+.nav[hidden]{display:none}
+.nav button{background:none;border:0;color:var(--mut);font:600 12px Inter,sans-serif;padding:8px 0 10px;min-height:56px;cursor:pointer;display:grid;justify-items:center;gap:2px}
+.nav button svg{width:24px;height:24px}
+.nav button[aria-current=page]{color:var(--ad)}
+
+/* ---------- o cartão */
+.aura{position:relative;border-radius:26px;padding:3px;background:conic-gradient(from 210deg,var(--a),var(--a2),var(--a3),var(--a));box-shadow:0 18px 50px -18px #6d3cf0aa,0 0 0 1px #0000;margin:6px auto 16px;max-width:420px}
+.aura .in{border-radius:23px;background:radial-gradient(120% 80% at 0% 0%,#6d3cf033,transparent 60%),radial-gradient(90% 70% at 100% 100%,#ff5c9a33,transparent 60%),var(--card);padding:20px 18px 18px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:16px;align-items:center}
+.aura .ft{width:96px;height:96px;border-radius:50%;padding:3px;background:conic-gradient(var(--a),var(--a2),var(--a3),var(--a))}
+.aura .ft img,.aura .ft span{width:100%;height:100%;border-radius:50%;object-fit:cover;display:grid;place-items:center;background:var(--mist);border:3px solid var(--card);font:700 36px "Space Grotesk",sans-serif;color:var(--ad)}
+.aura .nm{font:700 24px/1.1 "Space Grotesk",sans-serif;overflow-wrap:anywhere}
+.aura .marca{font:700 11px Inter,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:var(--ad);margin-bottom:4px}
+.est{display:flex;gap:2px;font-size:20px;line-height:1;margin:6px 0 2px}
+.est i{font-style:normal;color:var(--line)}
+.est i.on{color:var(--a3)}
+.est i.meia{background:linear-gradient(90deg,var(--a3) 50%,var(--line) 50%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.nota{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.nota b{font:700 30px/1 "Space Grotesk",sans-serif}
+.nota span{font-size:13px;color:var(--mut)}
+.aura .qr{grid-column:1/-1;display:grid;grid-template-columns:120px minmax(0,1fr);gap:14px;align-items:center;border-top:1px dashed var(--line);padding-top:14px}
+.aura .qr .q{background:#fff;border-radius:12px;padding:6px}
+.aura .qr svg{display:block;width:100%;height:auto}
+
+/* ---------- avaliar */
+.grandes{display:flex;justify-content:center;gap:6px;margin:10px 0 4px}
+.grandes button{width:54px;height:58px;border:0;background:none;padding:0;cursor:pointer;font-size:44px;line-height:1;color:var(--line);transition:transform .12s}
+.grandes button.on{color:var(--a3)}
+.grandes button:active{transform:scale(1.2)}
+.rot{text-align:center;font-weight:600;min-height:24px;color:var(--ad)}
+
+/* ---------- foto */
+label.foto{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:center;cursor:pointer;border:1px dashed var(--line);border-radius:14px;padding:10px;color:var(--ink);font-size:15px}
+label.foto img,label.foto span.v{width:64px;height:64px;border-radius:50%;object-fit:cover;background:var(--mist);display:grid;place-items:center;font-size:26px}
+label.foto input{position:absolute;opacity:0;width:1px;height:1px}
+
+/* ---------- mapa */
+.fig{position:relative;height:380px;border-radius:18px;overflow:hidden;border:1px solid var(--line);background:radial-gradient(circle at 50% 50%,var(--mist),var(--card) 75%)}
+.fig svg{position:absolute;inset:0;width:100%;height:100%}
+.lista button{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;text-align:left;padding:10px 4px;border:0;border-bottom:1px solid var(--line);background:none;color:var(--ink);font:14px Inter,sans-serif;cursor:pointer;min-height:44px}
+.dot{width:12px;height:12px;border-radius:50%}
+.leg{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin-top:8px}
+.leg i{display:inline-block;width:12px;height:12px;border-radius:50%;vertical-align:-1px;margin-right:5px}
+dialog{border:0;border-radius:18px;padding:18px;max-width:min(420px,calc(100vw - 24px));background:var(--card);color:var(--ink)}
+dialog::backdrop{background:#0008}
+.lab{font-size:12px;color:var(--mut);text-align:center;margin-top:24px}
+
+/* ---------- impressão: só o cartão de visita (85 × 55 mm) */
+#impr{display:none}
+@media print{
+  @page{size:85mm 55mm;margin:0}
+  body>*:not(#impr){display:none!important}
+  html,body{background:#fff}
+  #impr{display:grid;width:85mm;height:55mm;grid-template-columns:minmax(0,1fr) 30mm;gap:3mm;padding:4mm;color:#120b24;font-family:Inter,sans-serif;
+    background:linear-gradient(135deg,#f3edff,#fff 55%,#ffeef5);-webkit-print-color-adjust:exact;print-color-adjust:exact;border-radius:0}
+  #impr .l{display:flex;flex-direction:column;justify-content:space-between}
+  #impr .m{font:700 7pt Inter,sans-serif;letter-spacing:.18em;color:#6d3cf0}
+  #impr img,#impr .sf{width:19mm;height:19mm;border-radius:50%;object-fit:cover;border:.6mm solid #6d3cf0;display:grid;place-items:center;font:700 20pt "Space Grotesk",sans-serif;color:#6d3cf0;background:#f0eaff}
+  #impr .n{font:700 13pt/1.05 "Space Grotesk",sans-serif;overflow-wrap:anywhere}
+  #impr .d{font-size:6.5pt;color:#62597a}
+  #impr .q{display:flex;flex-direction:column;justify-content:center;gap:1mm;text-align:center}
+  #impr .q svg{width:30mm;height:30mm;display:block}
+  #impr .q span{font-size:6pt;color:#62597a}
+}
+</style>
+</head>
+<body>
+<header class="topo"><b>NVAura</b><small id="topoInfo"></small></header>
+<main id="tela"><p class="hint">Carregando…</p></main>
+<nav class="nav" id="nav" hidden>
+<button data-aba="cartao"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="9" cy="11" r="2.5"/><path d="M5.5 16.5c.8-1.6 2-2.4 3.5-2.4s2.7.8 3.5 2.4M15 10h3M15 13.5h3"/></svg>Cartão</button>
+<button data-aba="mapa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>Radar</button>
+<button data-aba="conta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>Conta</button>
+</nav>
+<div id="impr"></div>
+<dialog id="dlg"></dialog>
+<script>
+{
+const CFG = window.NERVIA_CONFIG || {};
+// sessão PRÓPRIA do NVAura (1.9): nunca usa nem derruba o login da Área do Cliente, que fica na chave padrão do
+// supabase-js no mesmo site. Em 24/11/2026 a página usou a sessão da Nervia do Marco e "Gerar uma chave nova" trocou o login dele.
+const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY, { auth: { storageKey: "nvaura-auth" } });
+const $ = (id) => document.getElementById(id);
+const tela = $("tela");
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const fmt = (x) => x == null ? "—" : Number(x).toFixed(1).replace(".", ",");
+const ENDERECO = location.origin + "/aura/";
+
+// ------------------------------------------------------------ apoio
+async function rpc(nome, args) {
+  const { data, error } = await sb.rpc(nome, args);
+  if (error) throw new Error(error.message);
+  return data;
+}
+const erroTxt = (e) => {
+  const m = (e && e.message) || String(e);
+  return /Failed to fetch|NetworkError|Load failed/i.test(m) ? "Sem conexão com o servidor. Confira a internet e tente de novo." : m;
+};
+function aviso(el, txt, ok) { if (el) el.innerHTML = `<p class="${ok ? "okm" : "err"}">${esc(txt)}</p>`; }
+const guardar = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch { /* ok */ } };
+const ler = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+function aparelho() {
+  let a = ler("aur-aparelho");
+  if (!a) { a = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, "0")).join(""); guardar("aur-aparelho", a); }
+  return a;
+}
+function confirmar(txt, botao, acao) {
+  const d = $("dlg");
+  d.innerHTML = `<p>${esc(txt)}</p><div class="duo"><button class="btn o" id="cNao">Cancelar</button><button class="btn r" id="cSim">${esc(botao)}</button></div>`;
+  d.showModal();
+  $("cNao").onclick = () => d.close();
+  $("cSim").onclick = async () => { d.close(); await acao(); };
+}
+const qrSvg = (url) => {
+  if (!window.qrcode) return "";
+  const q = qrcode(0, "M"); q.addData(url); q.make();
+  return q.createSvgTag({ cellSize: 6, margin: 1, scalable: true });
+};
+
+// ------------------------------------------------------------ o cartão (o mesmo desenho na tela, para quem avalia e no app)
+function estrelas(m) {
+  if (m == null) return `<span class="est" aria-hidden="true">${"<i>★</i>".repeat(5)}</span>`;
+  const v = Math.round(Number(m) * 2) / 2;
+  return `<span class="est" role="img" aria-label="${fmt(m)} de 5 estrelas">${[1, 2, 3, 4, 5].map((i) => `<i class="${v >= i ? "on" : v >= i - 0.5 ? "meia" : ""}">★</i>`).join("")}</span>`;
+}
+const iniciais = (n) => String(n || "?").trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join("").toUpperCase();
+// c.pedidos só vem para o dono (leituras do QR); total = avaliações recebidas, inclusive as que esperam o lote de 5
+const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
+function cartaoHtml(c, qr) {
+  const n = c.nota?.n || 0, total = c.nota?.total ?? n, dono = c.pedidos != null;
+  const contagem = `${plural(total, "avaliação", "avaliações")}${dono ? ` de ${plural(c.pedidos, "pedido", "pedidos")}` : ""}`;
+  const espera = total - n;
+  return `<div class="aura" id="meuCartao"><div class="in">
+    <div class="ft">${c.foto ? `<img src="${esc(c.foto)}" alt="">` : `<span>${esc(iniciais(c.nome))}</span>`}</div>
+    <div><div class="marca">NVAura</div><div class="nm">${esc(c.nome)}</div>
+      ${estrelas(n ? c.nota.media : null)}
+      <div class="nota">${n ? `<b>${fmt(c.nota.media)}</b><span>${contagem}</span>` : `<span><b style="font-size:16px">${contagem}</b></span>`}</div>
+      <p class="hint" style="margin:4px 0 0">${!n ? "A nota aparece quando juntar 5 avaliações." : dono && espera ? `${plural(espera, "avaliação nova entra", "avaliações novas entram")} na nota quando juntar 5.` : ""}</p></div>
+    ${qr ? `<div class="qr"><div class="q">${qr}</div><div><b>Me avalie</b><p class="hint" style="margin:4px 0 0">Aponte a câmera do celular para o QR e dê de 1 a 5 estrelas para a nossa interação. Não precisa de conta e é anônimo.</p></div></div>` : ""}
+  </div></div>`;
+}
+
+// ------------------------------------------------------------ estado
+let SESSAO = null, CART = null, ABA = "cartao", mapaTimer = null, MAPA = null, SEL = null, RAIO = 500;
+let ENTRANDO = false;
+
+async function iniciar() {
+  const h = location.hash;
+  const { data } = await sb.auth.getSession();
+  SESSAO = data.session;
+  if (/^#a-[0-9A-Za-z]{10}$/.test(h)) return telaAvaliar(h.slice(3).toUpperCase());
+  if (!SESSAO) return telaEntrar();
+  CART = await rpc("aur_meu_cartao").catch((e) => { tela.innerHTML = `<p class="err">${esc(erroTxt(e))}</p>`; return null; });
+  if (!CART) return;
+  if (!CART.existe) return telaCriar();
+  if (location.hash) history.replaceState(null, "", location.pathname);
+  abrir(ABA);
+}
+sb.auth.onAuthStateChange((ev) => { if (ev === "SIGNED_IN" && !SESSAO && !ENTRANDO) iniciar(); });
+addEventListener("hashchange", iniciar);
+
+// ------------------------------------------------------------ avaliar (sem conta)
+async function telaAvaliar(codigo) {
+  $("nav").hidden = true; $("topoInfo").textContent = "";
+  tela.innerHTML = `<p class="hint">Carregando o cartão…</p>`;
+  let c;
+  try { c = await rpc("aur_cartao_ler", { p_codigo: codigo, p_marca: aparelho() }); }
+  catch (e) { tela.innerHTML = `<div class="card"><p class="err">${esc(erroTxt(e))}</p></div>`; return; }
+  if (c && c.bloqueado) { tela.innerHTML = `<div class="card"><h2>Cartão indisponível</h2><p>Este cartão está indisponível no momento e não recebe avaliações.</p><button class="btn o" id="bIr">Conhecer o NVAura</button></div>`; $("bIr").onclick = irInicio; return; }
+  if (!c) { tela.innerHTML = `<div class="card"><h2>Cartão não encontrado</h2><p>O QR pode ter sido trocado pela pessoa. Peça para ela mostrar o cartão de novo.</p><button class="btn o" id="bIr">Conhecer o NVAura</button></div>`; $("bIr").onclick = irInicio; return; }
+  if (c.meu) { tela.innerHTML = `${cartaoHtml(c)}<div class="card m"><p>Este é o seu cartão. Mostre o QR para a outra pessoa ler com o celular dela.</p><button class="btn a" id="bIr">Abrir o meu NVAura</button></div>`; $("bIr").onclick = irInicio; return; }
+  let nota = 0;
+  const ROT = ["", "Não foi boa", "Poderia ser melhor", "Foi ok", "Foi muito boa", "Foi incrível"];
+  tela.innerHTML = `${cartaoHtml(c)}
+  <div class="card"><h2 style="text-align:center">Como foi a nossa interação?</h2>
+  <div class="grandes" role="group" aria-label="Sua nota">${[1, 2, 3, 4, 5].map((v) => `<button data-v="${v}" aria-label="${v} ${v === 1 ? "estrela" : "estrelas"}: ${ROT[v]}">★</button>`).join("")}</div>
+  <p class="rot" id="rot"></p>
+  <button class="btn a" id="bEnvia" disabled>Enviar avaliação</button><div id="mEnv"></div>
+  <p class="hint" style="text-align:center;margin-top:10px">É anônimo: ${esc(c.nome)} não fica sabendo quem deu cada nota. O cartão só muda quando juntam 5 avaliações novas.</p></div>
+  <p style="text-align:center"><a href="#" id="lDen" class="hint">Denunciar este cartão (foto ou nome impróprio)</a></p>
+  <p class="lab"><a href="/aura/sobre.html">Como funciona o NVAura</a> · laboratório da Nervia Tecnologia</p>`;
+  $("lDen").onclick = (e) => { e.preventDefault(); denunciar(codigo); };
+  const pinta = () => {
+    tela.querySelectorAll(".grandes button").forEach((b) => b.classList.toggle("on", +b.dataset.v <= nota));
+    $("rot").textContent = ROT[nota]; $("bEnvia").disabled = !nota;
+  };
+  tela.querySelector(".grandes").onclick = (e) => { const b = e.target.closest("button[data-v]"); if (b) { nota = +b.dataset.v; pinta(); } };
+  $("bEnvia").onclick = async () => {
+    $("bEnvia").disabled = true;
+    try { await rpc("aur_avaliar", { p_codigo: codigo, p_marca: aparelho(), p_nota: nota }); telaObrigado(c); }
+    catch (e) { aviso($("mEnv"), erroTxt(e)); $("bEnvia").disabled = false; }
+  };
+}
+function telaObrigado(c) {
+  history.replaceState(null, "", location.pathname);
+  tela.innerHTML = `<div class="card" style="text-align:center;padding:26px 18px"><div style="font-size:46px;line-height:1">✨</div>
+  <h1 style="margin-top:8px">Obrigado pela avaliação!</h1><p>A sua nota para a interação com ${esc(c.nome)} foi registrada, sem o seu nome.</p></div>
+  <div class="card m"><h3>Que tal ter o seu cartão?</h3><p>Com o NVAura você também pede uma avaliação rápida para quem interagiu com você (uma conversa, um encontro, um atendimento): mostra o QR no celular ou entrega o cartão impresso. Grátis, sem e-mail e sem telefone.</p>
+  <button class="btn a" id="bCria">${SESSAO ? "Abrir o meu NVAura" : "Criar o meu cartão"}</button></div>`;
+  $("bCria").onclick = irInicio;
+}
+// 1.8: denúncia de foto ou nome impróprio (anônima; 1 por celular por cartão por dia)
+function denunciar(codigo) {
+  const d = $("dlg");
+  d.innerHTML = `<h3>Denunciar este cartão</h3><p class="hint">A denúncia é anônima e vai para a equipe Nervia, que revisa. Com 3 denúncias de foto, a foto some até a revisão.</p>
+    <div role="radiogroup" style="display:grid;gap:6px;margin:8px 0">
+      ${[["foto", "A foto é imprópria ou não é da pessoa"], ["nome", "O nome é ofensivo ou falso"], ["outro", "Outro motivo"]].map(([v, t]) =>
+        `<label style="display:flex;gap:10px;align-items:center;font-size:15px;color:var(--ink);margin:0"><input type="radio" name="dMot" value="${v}" style="width:20px;height:20px"> ${t}</label>`).join("")}
+    </div>
+    <label for="dTxt">O que aconteceu (opcional; obrigatório em Outro motivo)</label><input type="text" id="dTxt" maxlength="300">
+    <div class="duo"><button class="btn o" id="dNao">Cancelar</button><button class="btn r" id="dEnv">Enviar denúncia</button></div><div id="dM"></div>`;
+  d.showModal();
+  $("dNao").onclick = () => d.close();
+  $("dEnv").onclick = async () => {
+    const m = d.querySelector('input[name="dMot"]:checked');
+    if (!m) return aviso($("dM"), "Escolha o motivo.");
+    $("dEnv").disabled = true;
+    try {
+      await rpc("aur_denunciar", { p_codigo: codigo, p_marca: aparelho(), p_motivo: m.value, p_texto: $("dTxt").value });
+      d.innerHTML = `<h3>Denúncia enviada</h3><p>Obrigado. A equipe Nervia vai olhar este cartão.</p><button class="btn a" id="dOk">Fechar</button>`;
+      $("dOk").onclick = () => d.close();
+    } catch (e) { aviso($("dM"), erroTxt(e)); $("dEnv").disabled = false; }
+  };
+}
+function irInicio() { history.replaceState(null, "", location.pathname); iniciar(); }
+
+// ------------------------------------------------------------ entrar (chave, sem e-mail; a mesma conta do NVSintonia)
+const senhaDaChave = (k) => { const c = String(k).toUpperCase().replace(/[^0-9A-Z]/g, ""); return "Sn!" + c + c.toLowerCase(); };
+async function conta(body) {
+  const r = await sb.functions.invoke("sintonia-conta", { body });
+  if (r.error) {
+    let t = r.error.message; try { t = (await r.error.context.json()).mensagem || t; } catch { /* ok */ }
+    throw new Error(t);
+  }
+  return r.data;
+}
+async function entrarComChave(email, chave) {
+  ENTRANDO = true;
+  const { error } = await sb.auth.signInWithPassword({ email, password: senhaDaChave(chave) });
+  setTimeout(() => { ENTRANDO = false; }, 1500);
+  if (error) throw new Error(/invalid/i.test(error.message) ? "Chave não encontrada. Confira as letras e os números." : error.message);
+  guardar("aur-chave", chave);
+}
+const ANON = [
+  "<b>Você é um número, não um nome.</b> A sua conta é uma chave secreta que só você tem. Não pedimos e-mail, telefone nem documento.",
+  "Nome e foto aparecem só para quem lê o seu QR, para a pessoa saber quem está avaliando.",
+  "Nenhuma nota guarda quem deu nem a hora, e elas entram em lotes de 5: você nunca vê uma nota sozinha.",
+  "No radar, as pessoas aparecem só por um código que muda todo dia e pela nota, nunca por nome ou foto.",
+];
+const anonimato = () => `<div class="card m"><h3>Como funciona o anonimato</h3><ul class="hint" style="padding-left:18px;margin:0">${ANON.map((t) => `<li style="margin-bottom:6px">${t}</li>`).join("")}</ul></div>`;
+
+function telaEntrar() {
+  $("nav").hidden = true; $("topoInfo").textContent = "laboratório";
+  tela.innerHTML = `<h1>A sua aura, em estrelas</h1>
+  <p>Conversou, se encontrou ou atendeu alguém? Mostre o seu cartão: a pessoa lê o QR e dá de 1 a 5 estrelas para a interação. Simples, rápido e anônimo.</p>
+  <form class="card" id="fCriar">
+    <h3>Criar o meu cartão</h3>
+    <label for="eNome">Nome ou apelido (aparece no cartão)</label><input type="text" id="eNome" maxlength="40" autocomplete="nickname">
+    <button class="btn a" id="bCriar">Criar</button><div id="mCriar"></div>
+    <p class="hint" style="margin-top:10px">Sem e-mail, sem telefone, sem senha: você recebe uma chave secreta. Anote; é com ela que você entra de novo.</p>
+  </form>
+  <form class="card" id="fChave">
+    <h3>Já tenho a minha chave</h3>
+    <label for="eChave">Chave (12 letras e números; a do NVSintonia também serve)</label><input type="text" id="eChave" maxlength="16" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX" style="font-family:ui-monospace,Menlo,monospace;letter-spacing:2px">
+    <button class="btn" id="bChave">Entrar</button><div id="mChave"></div>
+  </form>
+  ${anonimato()}
+  <p class="lab"><a href="/aura/sobre.html">Como funciona o NVAura</a> · laboratório da Nervia Tecnologia</p>`;
+  $("fCriar").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const nome = $("eNome").value.trim(), m = $("mCriar"), b = $("bCriar");
+    if (!nome) return aviso(m, "Informe o nome ou apelido do cartão.");
+    b.disabled = true;
+    try {
+      const r = await conta({ acao: "criar", nome, app: "aura" });
+      guardar("aur-nome", nome); guardar("aur-chave", r.chave);   // já fica neste aparelho (Ver a minha chave), mesmo se passar direto
+      telaChave(r.chave, async () => { await entrarComChave(r.email, r.chave); SESSAO = null; await iniciar(); });
+    } catch (e) { aviso(m, erroTxt(e)); b.disabled = false; }
+  });
+  $("fChave").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const chave = $("eChave").value.trim(), m = $("mChave"), b = $("bChave");
+    b.disabled = true;
+    try { const r = await conta({ acao: "entrar", chave }); await entrarComChave(r.email, chave.toUpperCase()); SESSAO = null; iniciar(); }
+    catch (e) { aviso(m, erroTxt(e)); b.disabled = false; }
+  });
+}
+
+// a chave aparece UMA vez: só segue depois de "Anotei"
+function telaChave(chave, depois) {
+  $("nav").hidden = true;
+  const txt = `Minha chave do NVAura (e do NVSintonia): ${chave}\nPara entrar: ${ENDERECO} → "Já tenho a minha chave".\nNão mostre para ninguém. Se perder, perde a conta.`;
+  tela.innerHTML = `<h1>Guarde a sua chave de acesso</h1>
+  <p><b>É com esta chave que você entra no NVAura</b> em outro celular, no computador ou depois de sair. Não existe senha nem e-mail: só ela.</p>
+  <div class="card" style="border:2px solid var(--a)"><p class="hint" style="text-align:center;margin:0">Sua chave de acesso</p><p class="codigo" id="kTexto" style="font-size:30px">${esc(chave)}</p>
+  <div class="duo"><button class="btn o" id="bCopiaK">Copiar</button><button class="btn o" id="bArqK">Salvar num arquivo</button></div>
+  ${navigator.share ? `<button class="btn o" id="bEnvK">Enviar para mim (WhatsApp, e-mail…)</button>` : ""}<div id="mK"></div></div>
+  <div class="card"><p><b>Se perder a chave, perde a conta.</b> Ninguém consegue recuperar, nem a Nervia: ela não fica guardada em lugar nenhum.</p>
+  <p class="hint">Neste celular ela fica em Conta → Mostrar a chave. Não mostre para ninguém: quem tiver a chave entra como você. O código AU-XXXX do Radar é outra coisa: muda todo dia e não serve para entrar.</p>
+  <label style="display:flex;gap:10px;align-items:center;font-size:16px;color:var(--ink)"><input type="checkbox" id="kOk" style="width:22px;height:22px"> Guardei a minha chave</label>
+  <button class="btn a" id="bSegue" disabled>Continuar</button><div id="mSegue"></div></div>`;
+  $("bCopiaK").onclick = async () => { try { await navigator.clipboard.writeText(chave); aviso($("mK"), "Copiada. Cole num lugar seguro (bloco de notas, gerenciador de senhas).", true); } catch { aviso($("mK"), "Não deu para copiar: anote à mão."); } };
+  $("bArqK").onclick = () => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([txt + "\n"], { type: "text/plain" })); a.download = "minha-chave-nvaura.txt";
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    aviso($("mK"), "Arquivo baixado: minha-chave-nvaura.txt. Guarde num lugar seguro.", true);
+  };
+  $("bEnvK")?.addEventListener("click", async () => { try { await navigator.share({ title: "Minha chave do NVAura", text: txt }); } catch { /* cancelou */ } });
+  $("kOk").onchange = () => { $("bSegue").disabled = !$("kOk").checked; };
+  $("bSegue").onclick = async () => { $("bSegue").disabled = true; try { await depois(); } catch (e) { aviso($("mSegue"), erroTxt(e)); $("bSegue").disabled = false; } };
+}
+
+// ------------------------------------------------------------ foto: reduzida no celular (256 px, ~10–30 KB) antes de enviar
+async function reduzirFoto(arq) {
+  const url = URL.createObjectURL(arq);
+  try {
+    const img = await new Promise((ok, falha) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => falha(new Error("Não consegui ler esta imagem. Escolha outra.")); i.src = url; });
+    const L = 256, cv = document.createElement("canvas"); cv.width = cv.height = L;
+    const lado = Math.min(img.naturalWidth, img.naturalHeight);
+    cv.getContext("2d").drawImage(img, (img.naturalWidth - lado) / 2, (img.naturalHeight - lado) / 2, lado, lado, 0, 0, L, L);
+    for (const q of [0.8, 0.65, 0.5, 0.35]) {
+      let d = cv.toDataURL("image/webp", q);
+      if (!d.startsWith("data:image/webp")) d = cv.toDataURL("image/jpeg", q);
+      if (d.length <= 60000) return d;
+    }
+    throw new Error("A foto ficou grande demais. Escolha outra.");
+  } finally { URL.revokeObjectURL(url); }
+}
+function formCartao(nome, foto, botao) {
+  return `<label class="foto" for="fFoto">${foto ? `<img id="fVer" src="${esc(foto)}" alt="">` : `<span class="v" id="fVer">📷</span>`}<span><b>${foto ? "Trocar a foto" : "Escolher uma foto"}</b><br><span class="hint">Rosto bem visível. A foto é reduzida no seu celular antes de enviar.</span></span><input type="file" id="fFoto" accept="image/*"></label>
+  <label for="fNome">Nome ou apelido</label><input type="text" id="fNome" maxlength="40" value="${esc(nome || "")}">
+  <button class="btn a" id="bSalva">${botao}</button><div id="mSalva"></div>`;
+}
+function ligarForm(depois) {
+  let foto = "";
+  $("fFoto").onchange = async () => {
+    const a = $("fFoto").files[0]; if (!a) return;
+    try {
+      foto = await reduzirFoto(a);
+      const v = $("fVer"); const img = document.createElement("img"); img.id = "fVer"; img.src = foto; img.alt = ""; v.replaceWith(img);
+      aviso($("mSalva"), `Foto pronta (${Math.round(foto.length * 0.75 / 1024)} KB).`, true);
+    } catch (e) { aviso($("mSalva"), erroTxt(e)); }
+  };
+  $("bSalva").onclick = async () => {
+    $("bSalva").disabled = true;
+    try { CART = await rpc("aur_cartao_salvar", { p_nome: $("fNome").value, p_foto: foto || null }); await depois(); }
+    catch (e) { aviso($("mSalva"), erroTxt(e)); $("bSalva").disabled = false; }
+  };
+}
+
+function telaCriar() {
+  $("nav").hidden = true;
+  tela.innerHTML = `<h1>Monte o seu cartão</h1><div class="card">${formCartao(ler("aur-nome") || CART.nome, "", "Criar o cartão")}</div>${anonimato()}`;
+  ligarForm(async () => { guardar("aur-nome", null); abrir("cartao"); });
+}
+
+// ------------------------------------------------------------ abas
+function abrir(aba) {
+  ABA = aba; clearInterval(mapaTimer);
+  $("nav").hidden = false;
+  for (const b of document.querySelectorAll("#nav button")) b.dataset.aba === aba ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current");
+  $("topoInfo").textContent = CART.nome;
+  scrollTo(0, 0);
+  return ({ cartao: telaCartao, mapa: telaMapa, conta: telaConta })[aba]();
+}
+$("nav").addEventListener("click", (e) => { const b = e.target.closest("button[data-aba]"); if (b) abrir(b.dataset.aba); });
+
+function telaCartao() {
+  const url = ENDERECO + "#a-" + CART.codigo;
+  const avisoFoto = CART.foto_oculta ? `<div class="card" style="border:2px solid var(--a3)"><h3>Sua foto está em revisão</h3><p class="hint" style="margin:0">Algumas pessoas denunciaram a foto do seu cartão, e ela ficou escondida até a equipe Nervia revisar. Se quiser, troque a foto em "Trocar foto ou nome": a nova aparece na hora.</p></div>` : "";
+  if (CART.bloqueado) {
+    tela.innerHTML = `<div class="card" style="border:2px solid var(--red)"><h2>Seu cartão está bloqueado</h2><p>A equipe Nervia bloqueou este cartão${CART.bloqueado_motivo ? `: <b>${esc(CART.bloqueado_motivo)}</b>` : ""}. Enquanto estiver bloqueado, o QR não recebe avaliações e você não aparece no radar.</p><p class="hint">Para falar sobre o bloqueio: atendimento@nervia.com.br.</p></div>${cartaoHtml(CART)}`;
+    return;
+  }
+  tela.innerHTML = `${avisoFoto}${cartaoHtml(CART, qrSvg(url))}
+  <div class="duo"><button class="btn a" id="bQr">Mostrar o QR grande</button><button class="btn o" id="bImp">Imprimir cartão</button></div>
+  <button class="btn o" id="bEdita">Trocar foto ou nome</button>
+  <div class="card" style="margin-top:14px;border:1px dashed var(--a)"><h3>🔑 Para entrar em outro aparelho</h3><p class="hint" style="margin:0 0 4px">Use a sua chave de acesso (12 letras e números, XXXX-XXXX-XXXX). Ela não aparece aqui por segurança.</p><button class="btn o" id="bVerChave">Ver a minha chave</button></div>
+  <div class="card m" style="margin-top:14px"><h3>Como pedir uma avaliação</h3><p class="hint" style="margin:0">Mostre o QR para a pessoa ler com a câmera do celular dela. Ela vê o seu cartão e dá de 1 a 5 estrelas, sem precisar de conta. O cartão muda quando juntam 5 avaliações novas, para ninguém saber quem deu cada nota.</p></div>`;
+  $("bQr").onclick = () => {
+    const d = $("dlg");
+    d.innerHTML = `<h3 style="text-align:center">Aponte a câmera para o QR</h3><div style="background:#fff;border-radius:16px;padding:12px">${qrSvg(url)}</div>
+      <p class="codigo">${esc(CART.codigo)}</p><button class="btn o" id="bFecha">Fechar</button>`;
+    d.showModal(); $("bFecha").onclick = () => d.close();
+  };
+  $("bImp").onclick = imprimir;
+  $("bVerChave").onclick = verChave;
+  $("bEdita").onclick = () => {
+    tela.innerHTML = `<h2>Trocar foto ou nome</h2><div class="card">${formCartao(CART.nome, CART.foto, "Salvar")}</div><button class="btn o" id="bVolta">Voltar</button>`;
+    ligarForm(async () => abrir("cartao"));
+    $("bVolta").onclick = () => abrir("cartao");
+  };
+}
+// mostra a chave guardada neste aparelho numa janela (1.3: antes levava à Conta e ainda pedia outro toque)
+function verChave() {
+  const k = ler("aur-chave"), d = $("dlg");
+  d.innerHTML = k
+    ? `<h3>Sua chave de acesso</h3><p class="codigo" id="dK" style="font-size:28px">${esc(k)}</p>
+      <p class="hint">Use em outro celular ou no computador: nervia.com.br/aura → Já tenho a minha chave. Não mostre para ninguém.</p>
+      <div class="duo"><button class="btn o" id="dCopia">Copiar</button><button class="btn a" id="dFecha">Fechar</button></div><div id="dM"></div>`
+    : `<h3>A chave não está neste aparelho</h3>
+      <p>Este celular não guardou a sua chave. Isso acontece quando os dados do navegador foram limpos ou, no iPhone, quando a conta foi criada no Safari e você abriu pelo ícone da tela de início (os dois guardam separado).</p>
+      <p class="hint">A chave está onde você anotou ou salvou (arquivo minha-chave-nvaura.txt). Se não tiver anotado, gere uma chave nova agora, enquanto está dentro da conta: o cartão, a foto e as notas continuam; a chave antiga deixa de valer.</p>
+      <button class="btn a" id="dNova">Gerar uma chave nova</button><button class="btn o" id="dFecha">Fechar</button><div id="dM"></div>`;
+  d.showModal();
+  $("dFecha").onclick = () => d.close();
+  $("dNova")?.addEventListener("click", () => { d.close(); chaveNova(); });
+  $("dCopia")?.addEventListener("click", async () => { try { await navigator.clipboard.writeText(k); aviso($("dM"), "Copiada.", true); } catch { aviso($("dM"), "Não deu para copiar: anote à mão."); } });
+}
+// gerar uma chave nova para a mesma conta (1.4: quem não anotou a chave e ainda está dentro da conta)
+function chaveNova() {
+  confirmar("Gerar uma chave nova? A chave antiga deixa de valer. O cartão, a foto e as notas continuam.", "Gerar chave nova", async () => {
+    try {
+      const r = await conta({ acao: "nova_chave", app: "aura" });
+      guardar("aur-chave", r.chave);
+      telaChave(r.chave, async () => { await sb.auth.signOut(); await entrarComChave(r.email, r.chave); SESSAO = null; await iniciar(); });
+    } catch (e) { const d = $("dlg"); d.innerHTML = `<p class="err">${esc(erroTxt(e))}</p><button class="btn o" id="dFecha">Fechar</button>`; d.showModal(); $("dFecha").onclick = () => d.close(); }
+  });
+}
+// cartão de visita impresso: foto, nome e QR (a nota não vai no papel porque muda com o tempo; aparece ao ler o QR)
+function imprimir() {
+  $("impr").innerHTML = `<div class="l"><div class="m">NVAURA</div>
+    ${CART.foto ? `<img src="${esc(CART.foto)}" alt="">` : `<div class="sf">${esc(iniciais(CART.nome))}</div>`}
+    <div><div class="n">${esc(CART.nome)}</div><div class="d">Leia o QR e avalie a nossa interação · anônimo</div></div></div>
+    <div class="q">${qrSvg(ENDERECO + "#a-" + CART.codigo)}<span>${esc(CART.codigo)}</span></div>`;
+  print();
+}
+
+// ------------------------------------------------------------ radar (quem vê, aparece)
+function telaMapa() {
+  if (!CART.mapa_visivel) {
+    tela.innerHTML = `<div class="card"><h2>Radar</h2><p>Veja as auras por perto: cada pessoa visível aparece como um ponto colorido pela nota. Para ver, você também precisa aparecer: <b>quem vê, aparece</b>.</p>
+    <ul class="hint"><li>Só a quadra aproximada (~100 m), nunca o ponto exato.</li><li>Só a última posição, apagada 30 minutos depois.</li><li>Ninguém vê o seu nome nem a sua foto: só um código que muda todo dia e a nota.</li><li>Desligou, a posição é apagada na hora.</li></ul>
+    <button class="btn a" id="bLiga">Aparecer e abrir o radar</button><div id="mMapa"></div></div>`;
+    $("bLiga").onclick = async () => { try { CART = await rpc("aur_mapa_visivel", { p_visivel: true }); telaMapa(); } catch (e) { aviso($("mMapa"), erroTxt(e)); } };
+    return;
+  }
+  tela.innerHTML = `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2 style="margin:0">Por perto</h2><button class="btn o" id="bDesliga" style="width:auto;min-height:38px;margin:0;font-size:14px">Ficar invisível</button></div>
+  <label for="raio">Raio: <b id="raioV">${RAIO >= 1000 ? RAIO / 1000 + " km" : RAIO + " m"}</b></label><input type="range" id="raio" min="0" max="${RAIOS.length - 1}" step="1" value="${RAIOS.indexOf(RAIO)}">
+  <div class="fig"><svg id="mapa" role="img" aria-label="Auras por perto"></svg></div>
+  <div class="leg"><span><i style="background:${cor(4.6)}"></i>4,5 a 5</span><span><i style="background:${cor(4.1)}"></i>4 a 4,4</span><span><i style="background:${cor(3.2)}"></i>3 a 3,9</span><span><i style="background:${cor(2)}"></i>abaixo de 3</span><span><i style="background:${cor(null)}"></i>sem nota</span></div>
+  <div id="mMapa"></div><div class="lista" id="lista"></div><div id="det"></div></div>
+  <p class="hint">Atualiza sozinho a cada minuto com esta tela aberta. O seu código no radar hoje: <b>${esc(CART.id_dia)}</b> (muda todo dia; não é a sua chave).</p>`;
+  $("bDesliga").onclick = async () => { CART = await rpc("aur_mapa_visivel", { p_visivel: false }); MAPA = null; telaMapa(); };
+  $("raio").oninput = () => { RAIO = RAIOS[+$("raio").value]; $("raioV").textContent = RAIO >= 1000 ? RAIO / 1000 + " km" : RAIO + " m"; };
+  $("raio").onchange = buscarMapa;
+  new ResizeObserver(desenharMapa).observe($("mapa"));
+  buscarMapa(); mapaTimer = setInterval(buscarMapa, 60000);
+}
+const RAIOS = [100, 200, 300, 500, 1000, 2000, 5000];
+function buscarMapa() {
+  if (!navigator.geolocation) return aviso($("mMapa"), "Este aparelho não informa a localização.");
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    try { MAPA = await rpc("aur_mapa", { p_lat: pos.coords.latitude, p_lon: pos.coords.longitude, p_raio: RAIO }); desenharMapa(); $("mMapa").innerHTML = ""; }
+    catch (e) { aviso($("mMapa"), erroTxt(e)); }
+  }, (e) => aviso($("mMapa"), e.code === 1 ? "Permita o acesso à localização para este site nas configurações do navegador." : "Não foi possível pegar a localização agora."), { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 });
+}
+const cor = (g) => g == null ? "#9a92b3" : g >= 4.5 ? "#ffb547" : g >= 4 ? "#ff5c9a" : g >= 3 ? "#8d63ff" : "#4b6bd6";
+// mapa de calor: cada aura é um brilho na cor da nota; quanto mais gente junta, mais forte
+function desenharMapa() {
+  const s = $("mapa"); if (!s || !MAPA) return;
+  const W = s.clientWidth, H = s.clientHeight, R = MAPA.raio, cx = W / 2, cy = H / 2, sc = (Math.min(W, H) / 2 - 26) / R;
+  let defs = "", h = "", aneis = "";
+  const passo = R <= 300 ? 100 : R <= 1000 ? 250 : 1000;
+  for (let r = passo; r <= R; r += passo) aneis += `<circle cx="${cx}" cy="${cy}" r="${r * sc}" fill="none" stroke="var(--line)" stroke-dasharray="4 5"/><text x="${cx + 4}" y="${cy - r * sc - 4}" font-size="11" fill="var(--mut)">${r >= 1000 ? r / 1000 + " km" : r + " m"}</text>`;
+  MAPA.pessoas.forEach((p, i) => {
+    const x = cx + p.dx * sc, y = cy - p.dy * sc, g = p.nota.n ? p.nota.media : null, c = cor(g);
+    defs += `<radialGradient id="g${i}"><stop offset="0" stop-color="${c}" stop-opacity=".55"/><stop offset="1" stop-color="${c}" stop-opacity="0"/></radialGradient>`;
+    h += `<circle cx="${x}" cy="${y}" r="46" fill="url(#g${i})" style="mix-blend-mode:screen"/>`;
+  });
+  MAPA.pessoas.forEach((p) => {
+    const x = cx + p.dx * sc, y = cy - p.dy * sc, g = p.nota.n ? p.nota.media : null;
+    h += `<g data-id="${esc(p.id)}" style="cursor:pointer"><circle cx="${x}" cy="${y}" r="${SEL === p.id ? 11 : 8}" fill="${cor(g)}" stroke="var(--card)" stroke-width="3"/><text x="${x + 12}" y="${y + 5}" font-size="13" font-weight="600" fill="var(--ink)" style="paint-order:stroke;stroke:var(--card);stroke-width:4px">${g == null ? "nova" : fmt(g)}</text></g>`;
+  });
+  h += `<circle cx="${cx}" cy="${cy}" r="9" fill="var(--ink)" stroke="#6d3cf0" stroke-width="4"/><text x="${cx}" y="${cy - 16}" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)" style="paint-order:stroke;stroke:var(--card);stroke-width:4px">você</text>`;
+  s.innerHTML = `<defs>${defs}</defs>${aneis}${h}`;
+  $("lista").innerHTML = MAPA.pessoas.length ? MAPA.pessoas.map((p) => `<button data-id="${esc(p.id)}"><span class="dot" style="background:${cor(p.nota.n ? p.nota.media : null)}"></span><span><b>${esc(p.id)}</b> · ~${p.dist >= 1000 ? fmt(p.dist / 1000) + " km" : p.dist + " m"}</span><span>${p.nota.n ? "<b>" + fmt(p.nota.media) + "</b> ★" : "<span class='hint'>sem nota ainda</span>"}</span></button>`).join("")
+    : `<p class="hint" style="margin-top:10px">Ninguém visível nesse raio agora.</p>`;
+  const d = MAPA.pessoas.find((p) => p.id === SEL);
+  $("det").innerHTML = d ? `<div class="card m" style="margin-top:10px"><h3>${esc(d.id)} · ~${d.dist} m</h3>${d.nota.n ? `${estrelas(d.nota.media)}<div class="nota"><b>${fmt(d.nota.media)}</b><span>${d.nota.n} avaliações</span></div>` : `<p class="hint">Ainda não tem 5 avaliações.</p>`}</div>` : "";
+}
+tela.addEventListener("click", (e) => { const g = e.target.closest("[data-id]"); if (g && MAPA) { SEL = g.dataset.id; desenharMapa(); } });
+
+// ------------------------------------------------------------ conta
+function telaConta() {
+  const k = ler("aur-chave");
+  tela.innerHTML = `<div class="card" style="border:2px solid var(--a)"><h2>Sua chave de acesso</h2>
+  <p class="hint">É com ela que você entra em outro celular, no computador ou depois de sair (Já tenho a minha chave). Se perder, perde a conta.</p>
+  ${k ? `<p class="codigo" id="cK" hidden>${esc(k)}</p><button class="btn a" id="bVerK">Mostrar a chave</button>` : `<p class="hint"><b>Este aparelho não guardou a chave</b> (você entrou digitando ou limpou os dados do navegador): ela está onde você anotou.</p>`}
+  <button class="btn o" id="bNovaK">Gerar uma chave nova</button><p class="hint" style="margin-top:6px">Perdeu ou não anotou? Gere outra enquanto está dentro da conta: tudo continua; a antiga deixa de valer.</p></div>
+  <div class="card"><h2>Sua conta</h2>
+  <p class="hint">Código no radar hoje: <b>${esc(CART.id_dia)}</b> (muda todo dia; não é a chave) · radar ${CART.mapa_visivel ? "ligado" : "desligado"}</p>
+  <button class="btn o" id="bSair">Sair</button></div>
+  <div class="card"><h3>Trocar o QR</h3><p class="hint">Se o seu QR (ou o cartão impresso) foi copiado por quem não devia, gere um novo. O antigo deixa de funcionar; as suas notas continuam.</p><button class="btn o" id="bTroca">Gerar QR novo</button><div id="mTroca"></div></div>
+  ${anonimato()}<div class="card"><a href="/aura/sobre.html" target="_blank" rel="noopener">Como funciona o NVAura</a> · <a href="/aura/ajuda/manual.html" target="_blank" rel="noopener">Manual</a> · <a href="/aura/ajuda/cartao.html" target="_blank" rel="noopener">Cartão rápido</a></div>
+  <div class="card"><h3>Apagar meu cartão</h3><p class="hint">Apaga o cartão, a foto, as notas recebidas e a posição no radar. A chave continua valendo (e no NVSintonia, se você usa).</p><button class="btn r" id="bApaga">Apagar tudo do NVAura</button></div>
+  <p class="lab">NVAura <span data-versao="aura"></span> · laboratório da Nervia Tecnologia</p>`;
+  if (window.NERVIA_VERSOES?.aura) tela.querySelector("[data-versao]").textContent = "versão " + window.NERVIA_VERSOES.aura[0][0];
+  $("bNovaK").onclick = chaveNova;
+  $("bVerK")?.addEventListener("click", () => { const c = $("cK"); c.hidden = !c.hidden; $("bVerK").textContent = c.hidden ? "Mostrar a chave" : "Esconder"; });
+  $("bSair").onclick = () => confirmar("Sair? Para voltar você vai precisar da sua chave. Confira se ela está anotada.", "Sair", async () => {
+    await sb.auth.signOut(); guardar("aur-chave", null); SESSAO = null; ABA = "cartao"; telaEntrar();
+  });
+  $("bTroca").onclick = () => confirmar("Gerar um QR novo? O QR antigo e os cartões impressos param de funcionar.", "Gerar QR novo", async () => {
+    try { CART = await rpc("aur_trocar_codigo"); aviso($("mTroca"), "QR novo pronto. Imprima o cartão de novo se você usa o impresso.", true); }
+    catch (e) { aviso($("mTroca"), erroTxt(e)); }
+  });
+  $("bApaga").onclick = () => confirmar("Apagar o seu cartão e as notas? Não dá para desfazer.", "Apagar tudo", async () => { await rpc("aur_excluir_tudo"); iniciar(); });
+}
+
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/aura/sw.js").catch(() => {});
+iniciar().catch((e) => { tela.innerHTML = `<p class="err">${esc(erroTxt(e))}</p>`; });
+}
+</script>
+<script src="/versoes.js"></script>
+</body>
+</html>

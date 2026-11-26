@@ -77,21 +77,24 @@ async function pagina(ctx, papel) {
   const pg = await ctx.newPage(); const erros = [];
   pg.on('pageerror', e => erros.push(String(e.stack || e).slice(0, 300)));
   await pg.route('**/supabase-js@*/**', r => r.fulfill({ body: FALSO.replace('__PAPEL__', papel), contentType: 'text/javascript' }));
-  await pg.goto(`http://127.0.0.1:${PORTA}/apps/linum/`);
+  await pg.goto(`http://127.0.0.1:${PORTA}/apps/linum/?aba=estoque`);
   await pg.waitForSelector('#app:not(.oculto)');
   return { pg, erros };
 }
 async function vendas(pg) {
+  await pg.evaluate(() => { const d = document.getElementById('dlg2'); if (d.open) d.close(); });
   await pg.click('.barra .grupo[data-g="vendas"]'); await pg.waitForTimeout(150);
   await pg.click('#abaVendas'); await pg.waitForSelector('#vnova'); await pg.waitForTimeout(200);
 }
 const print = async (pg, nome) => { if (SAIDA) await pg.screenshot({ path: path.join(SAIDA, nome + '.png'), fullPage: true }); };
 const ultimaRpc = (pg, fn) => pg.evaluate(fn => { const l = window.__S.rpc.filter(x => x[0] === fn); return l.length ? l[l.length - 1][1] : null; }, fn);
 async function vendas(pg) {
+  await pg.evaluate(() => { const d = document.getElementById('dlg2'); if (d.open) d.close(); });
   await pg.click('.barra .grupo[data-g="vendas"]'); await pg.waitForTimeout(150);
   await pg.click('#abaVendas'); await pg.waitForSelector('#vnova'); await pg.waitForTimeout(200);
 }
 async function nova(pg) {
+  await pg.evaluate(() => { const d = document.getElementById('dlg2'); if (d.open) d.close(); });   // extrato da venda anterior (2.56)
   await pg.click('#vnova'); await pg.waitForSelector('#dlg[open] #nvok');
   await pg.fill('#nvpq', 'a25'); await pg.waitForTimeout(200); await pg.locator('#nvres button').first().click(); await pg.waitForTimeout(150);
 }

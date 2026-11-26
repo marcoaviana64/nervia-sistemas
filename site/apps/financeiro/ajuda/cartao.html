@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cartão de referência · Financeiro Nervia | Nervia</title>
+<link rel="stylesheet" href="/ajuda/ajuda.css">
+</head>
+<body>
+<div class="pagina">
+  <div class="cab">
+    <img src="/img/nervia-logo.png" alt="Nervia">
+    <div><div class="t">Financeiro Nervia · Cartão de referência</div><div class="s">Cada campo e botão em uma linha</div></div>
+    <div class="acoes"><a href="manual.html">Manual completo</a><button onclick="print()">Imprimir</button></div>
+  </div>
+
+  <p class="lead">A área financeira da Nervia num lugar só: custos recorrentes, contas a pagar, contas a receber (as cobranças do app Contratos e os recebimentos avulsos) e o saldo de cada conta. Só a equipe Nervia usa.</p>
+
+  <h2>Painel</h2>
+  <table>
+    <tr><td>Saldo das contas</td><td>Nubank PJ, Cartão pessoal do Marco e Dinheiro / fora do banco. No cartão pessoal o número é quanto a Nervia deve ao Marco. Clique para ver os movimentos.</td></tr>
+    <tr><td>Próximos 30 dias</td><td>A pagar, a receber (Contratos + avulsos) e o que já está atrasado. Clique para abrir a lista.</td></tr>
+    <tr><td>Resultado do mês</td><td>O que entrou e saiu de fato no mês (pago e recebido), sem aportes, transferências e acertos de saldo.</td></tr>
+    <tr><td>Custo da plataforma · CNPJs ativos · Custo por CNPJ</td><td>Soma mensal dos custos marcados como da plataforma, em vigor, dividida pelas empresas ativas no Buscador.</td></tr>
+    <tr><td>Vencimentos dos próximos 30 dias</td><td>Lista com o que vence; clique numa conta para abrir a ficha.</td></tr>
+    <tr><td>Margem dos apps</td><td>Preço aprovado de cada item (Administração → Preços) menos o custo por CNPJ.</td></tr>
+  </table>
+
+  <h2>A pagar</h2>
+  <table>
+    <tr><td>+ Nova conta a pagar</td><td>Descrição, fornecedor, vencimento, valor, categoria, conta prevista e se repete (todo mês, todo ano).</td></tr>
+    <tr><td>+ Despesa já paga</td><td>Para o que já foi pago no cartão pessoal ou em dinheiro: entra paga na conta escolhida (o cartão pessoal vem marcado).</td></tr>
+    <tr><td>Situação · Categoria · Conta · De/Até · Buscar</td><td>Filtros da lista. CSV baixa a lista filtrada.</td></tr>
+    <tr><td>Registrar pagamento</td><td>Data, valor pago, conta e observação. Se a conta se repete, a próxima é criada sozinha.</td></tr>
+    <tr><td>Alterar</td><td>Só enquanto não foi paga.</td></tr>
+    <tr><td>Desfazer baixa</td><td>Volta a conta para "em aberto"; pede o motivo.</td></tr>
+    <tr><td>Cancelar</td><td>Conta que não será paga; pede o motivo e fica no histórico (nada se apaga).</td></tr>
+    <tr><td>Anexar (PDF, foto)</td><td>Boleto, nota ou comprovante, até 10 MB, guardado em local privado.</td></tr>
+  </table>
+
+  <h2>A receber</h2>
+  <table>
+    <tr><td>Cobranças dos contratos</td><td>Vêm do app Contratos, só para consulta. A baixa, a NF e o extrato continuam no Contratos.</td></tr>
+    <tr><td>+ Novo recebimento avulso</td><td>Recebimento fora de contrato; mesma ficha das contas a pagar (registrar, desfazer, cancelar, anexar).</td></tr>
+  </table>
+
+  <h2>Custos</h2>
+  <table>
+    <tr><td>+ Novo custo</td><td>Nome, grupo (Plataforma, Buscador, Empresa…), fornecedor, moeda (R$ ou US$ com o câmbio e o IOF, que já vem 3,5%), valor por período, mensal ou anual, desde e até.</td></tr>
+    <tr><td>Entra no custo da plataforma</td><td>Marcado = conta no custo da plataforma, no custo por CNPJ e na margem dos apps; desmarcado = custo da empresa ou de laboratório.</td></tr>
+    <tr><td>Por mês</td><td>Equivalente mensal em reais (anual ÷ 12; dólar × câmbio × (1 + IOF), como a fatura do cartão).</td></tr>
+    <tr><td>Motivo da mudança</td><td>Vai para o histórico do custo, que não se altera.</td></tr>
+    <tr><td>Criar conta a pagar</td><td>Lança a conta do custo no vencimento escolhido; a cada pagamento nasce a próxima (o custo anual gera a do ano seguinte) pelo valor atual do custo.</td></tr>
+    <tr><td>Só os em vigor hoje</td><td>Esconde os custos encerrados ou que ainda não começaram.</td></tr>
+  </table>
+
+  <h2>Contas</h2>
+  <table>
+    <tr><td>Transferência</td><td>Entre contas; o reembolso do cartão pessoal é uma transferência do Nubank para o cartão. Não entra no resultado.</td></tr>
+    <tr><td>Acertar saldo com o banco</td><td>Informe o saldo do banco numa data; a diferença vira um acerto com o motivo.</td></tr>
+    <tr><td>Editar conta · + Nova conta</td><td>Nome, tipo, saldo inicial e o dia em que ele vale.</td></tr>
+    <tr><td>Movimentos</td><td>Pagamentos, recebimentos (inclusive os do Contratos), transferências e acertos da conta no período.</td></tr>
+  </table>
+
+  <h2>Configuração</h2>
+  <table>
+    <tr><td>Conta dos recebimentos</td><td>Em qual conta entram as cobranças pagas no Contratos.</td></tr>
+    <tr><td>Categorias</td><td>Nova ou alterar; "fora do resultado" para aportes do sócio, por exemplo.</td></tr>
+  </table>
+
+  <div class="rodape">Dúvidas: WhatsApp (21) 96686-9374 · atendimento@nervia.com.br<br>Nervia Tecnologia · Cartão do Financeiro Nervia · atualizado em 25/11/2026</div>
+</div>
+<script src="/marca-dagua.js" data-tipo="doc"></script>
+</body>
+</html>

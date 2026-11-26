@@ -1,0 +1,16 @@
+{
+  "name": "NVAura",
+  "short_name": "NVAura",
+  "description": "Seu cartão com QR: quem interagiu com você dá de 1 a 5 estrelas para a interação, de forma anônima. Laboratório da Nervia.",
+  "lang": "pt-BR",
+  "start_url": "/aura/",
+  "scope": "/aura/",
+  "display": "standalone",
+  "background_color": "#faf8ff",
+  "theme_color": "#6d3cf0",
+  "icons": [
+    { "src": "/aura/icone-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/aura/icone-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/aura/icone-512-mascara.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

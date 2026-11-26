@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#00a862">
+<title>NVSintonia</title>
+<link rel="manifest" href="/sintonia/manifest.webmanifest">
+<link rel="icon" href="/sintonia/icone-192.png">
+<link rel="apple-touch-icon" href="/sintonia/icone-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<!--
+  NVSintonia (laboratório da Nervia, pedido do Marco em 24/11/2026): avaliação mútua anônima.
+  Rotas pelo # da URL:  #c-<código> = responder um convite (sem login)  ·  #e-<código> = encontro pelo QR (com login)
+  Sem rota: entrar → criar perfil → abas Início (encontros), Espelho (pessoal e 360°), Mapa e Conta.
+  Banco: supabase/migrations/20261124000100_sintonia.sql (tudo pelas funções sin_*; nenhuma tabela é lida direto).
+-->
+<style>
+:root{color-scheme:light dark;--bg:light-dark(#fff,#07130d);--ink:light-dark(#0b0b10,#e8f3ec);--mut:light-dark(#5b6360,#9bb2a6);--g:#00a862;--gd:light-dark(#007a47,#3fd394);--mist:light-dark(#eafaf2,#0e2419);--line:light-dark(#dfe7e2,#1f3a2c);--card:light-dark(#fff,#0b1d14);--red:light-dark(#c8341c,#ff7a5c);--amb:light-dark(#a86b00,#f0b44a)}
+*{box-sizing:border-box;min-width:0}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Inter,system-ui,sans-serif;overflow-x:clip}
+h1,h2,h3{font-family:"Space Grotesk",Inter,sans-serif;letter-spacing:-.02em;line-height:1.1;margin:0 0 8px}
+h1{font-size:30px}h2{font-size:24px}h3{font-size:18px}
+p{margin:0 0 10px}
+a{color:var(--gd)}
+.topo{background:var(--g);color:#04140c;padding:max(14px,env(safe-area-inset-top)) 18px 14px;display:flex;align-items:center;gap:10px;justify-content:space-between}
+.topo b{font:700 20px "Space Grotesk",sans-serif}
+.topo small{font-size:13px}
+main{max-width:720px;margin:0 auto;padding:18px 16px 110px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:14px}
+.card.m{background:var(--mist)}
+.card.g{border:2px solid var(--g)}
+.btn{font:600 16px Inter,sans-serif;min-height:46px;padding:10px 16px;border-radius:12px;border:0;background:var(--ink);color:var(--bg);cursor:pointer;width:100%;margin-top:8px}
+.btn.g{background:var(--g);color:#04140c}
+.btn.o{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn.r{background:transparent;color:var(--red);border:1px solid var(--red)}
+.btn.p{width:auto;min-height:38px;padding:6px 12px;font-size:14px;margin:0}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,input:focus-visible,select:focus-visible,.tip:focus-visible{outline:3px solid var(--gd);outline-offset:2px}
+label{font-size:13px;color:var(--mut);display:block;margin-top:8px}
+input[type=text],input[type=email],select{font:16px Inter,sans-serif;width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);min-height:46px}
+input[type=range]{width:100%;accent-color:var(--g)}
+.hint{font-size:13px;color:var(--mut)}
+.err{color:var(--red);font-size:14px;margin-top:8px}
+.okm{color:var(--gd);font-size:14px;margin-top:8px}
+.nav{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,minmax(0,1fr));padding-bottom:env(safe-area-inset-bottom);z-index:5}
+.nav[hidden]{display:none}
+.nav button{background:none;border:0;color:var(--mut);font:600 12px Inter,sans-serif;padding:8px 0 10px;min-height:56px;cursor:pointer;display:grid;justify-items:center;gap:2px}
+.nav button svg{width:24px;height:24px}
+.nav button[aria-current=page]{color:var(--gd)}
+.seg{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.seg button{font:600 14px Inter,sans-serif;padding:8px 14px;min-height:40px;border-radius:99px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.big{display:flex;flex-wrap:wrap;gap:10px 26px;margin:4px 0 12px}
+.big div b{display:block;font:700 34px/1 "Space Grotesk",sans-serif}
+.big div span{font-size:13px;color:var(--mut)}
+.crit{display:grid;grid-template-columns:9.6em minmax(0,1fr) 2.6em;gap:8px;align-items:center;font-size:14px;margin:5px 0}
+.bar{height:8px;border-radius:9px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--g);border-radius:9px}
+.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rrow{display:flex;justify-content:space-between;align-items:center;gap:6px;margin:6px 0;font-size:14px}
+.stars{display:flex;gap:1px;flex:none}
+.stars button{width:32px;height:38px;border:0;background:none;padding:0;cursor:pointer;font-size:24px;line-height:1;color:var(--line)}
+.stars button.on{color:var(--g)}
+.stars button.z{font-size:12px;font-weight:700;width:34px;border-radius:8px;border:1px solid var(--line);color:var(--mut);height:28px;margin-right:4px;align-self:center}
+.stars button.z.on{background:var(--red);border-color:var(--red);color:#fff}
+.rq{padding:10px 0;border-bottom:1px solid var(--line)}
+.rq:last-of-type{border-bottom:0}
+.rq .hint{margin:2px 0 6px}
+.na{font:500 13px Inter,sans-serif;border:1px dashed var(--line);background:none;color:var(--mut);border-radius:99px;padding:6px 12px;min-height:34px;margin-top:4px;cursor:pointer}
+.na.on{background:var(--ink);color:var(--bg);border-style:solid;border-color:var(--ink)}
+.circ{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.circ:last-of-type{border-bottom:0}
+.pill{font-size:12px;font-weight:600;padding:3px 9px;border-radius:99px;white-space:nowrap;background:var(--mist);color:var(--gd)}
+.pill.w{background:transparent;border:1px dashed var(--line);color:var(--mut)}
+.acoes{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.chips button{font:500 14px Inter,sans-serif;border:1px dashed var(--line);background:none;color:var(--ink);border-radius:99px;padding:6px 12px;cursor:pointer;min-height:36px}
+.db{display:grid;grid-template-columns:7.5em minmax(0,1fr) 7.6em;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}
+.trk{position:relative;height:28px}
+.trk:before{content:"";position:absolute;left:0;right:0;top:13px;height:2px;background:var(--line)}
+.trk .ln{position:absolute;top:12px;height:4px;background:var(--gd);opacity:.45;border-radius:4px}
+.trk .me,.trk .ot{position:absolute;top:5px;width:18px;height:18px;margin-left:-9px;border-radius:50%}
+.trk .me{border:3px solid var(--ink);background:var(--bg)}
+.trk .ot{background:var(--g);border:3px solid var(--bg)}
+.db .v{font-size:13px;text-align:right;white-space:nowrap}
+.db .v small{display:block;font-weight:600}
+.cego{color:var(--red)}.oculta{color:var(--gd)}.alin{color:var(--mut)}
+.leg{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--mut);margin:4px 0}
+.leg i{display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:-2px;margin-right:6px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:7px 5px;border-bottom:1px solid var(--line);text-align:left}
+th.n,td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.scroll{overflow-x:auto}
+.qr{background:#fff;border-radius:16px;padding:12px;max-width:280px;margin:8px auto}
+.qr svg{display:block;width:100%;height:auto}
+.codigo{font:700 28px ui-monospace,Menlo,monospace;letter-spacing:4px;text-align:center}
+.fig{position:relative;height:360px;border-radius:18px;overflow:hidden;border:1px solid var(--line);background:var(--mist)}
+.fig svg{position:absolute;inset:0;width:100%;height:100%}
+.lista button{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;text-align:left;padding:10px 4px;border:0;border-bottom:1px solid var(--line);background:none;color:var(--ink);font:14px Inter,sans-serif;cursor:pointer;min-height:44px}
+.dot{width:12px;height:12px;border-radius:50%}
+.tip{border-bottom:1.5px dotted currentColor;cursor:help}
+#balao{position:fixed;z-index:50;width:max-content;max-width:min(330px,calc(100vw - 16px));background:var(--ink);color:var(--bg);padding:12px 14px;border-radius:12px;font-size:14px;line-height:1.45;box-shadow:0 6px 24px #0004}
+#balao b{display:block;font:600 16px "Space Grotesk",sans-serif;margin-bottom:4px}
+#balao span{display:block}
+#balao .pq{margin-top:6px;font-style:italic;opacity:.85}
+#balao .bs{margin-top:6px;font-size:12.5px;opacity:.75}
+dialog{border:0;border-radius:18px;padding:18px;max-width:min(420px,calc(100vw - 24px));background:var(--card);color:var(--ink)}
+dialog::backdrop{background:#0007}
+.lab{font-size:12px;color:var(--mut);text-align:center;margin-top:24px}
+@media(max-width:420px){.db{grid-template-columns:minmax(0,1fr) auto}.db .trk{grid-column:1/-1;grid-row:2}.crit{grid-template-columns:8.4em minmax(0,1fr) 2.4em}}
+</style>
+</head>
+<body>
+<header class="topo"><b>NVSintonia</b><small id="topoInfo"></small></header>
+<main id="tela"><p class="hint">Carregando…</p></main>
+<nav class="nav" id="nav" hidden>
+<button data-aba="inicio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6"/></svg>Encontros</button>
+<button data-aba="espelho"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="3" width="12" height="18" rx="6"/><path d="M10 8l3-2"/></svg>Espelho</button>
+<button data-aba="mapa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>Mapa</button>
+<button data-aba="conta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>Conta</button>
+</nav>
+<div id="balao" role="tooltip" hidden></div>
+<dialog id="dlg"></dialog>
+<script>
+{
+const CFG = window.NERVIA_CONFIG || {};
+// sessão PRÓPRIA do NVSintonia (1.5): nunca usa nem derruba o login da Área do Cliente, que fica na chave padrão do
+// supabase-js no mesmo site. Em 23/11/2026 a página usou a sessão da Nervia do Marco e "Trocar o e-mail por uma chave" trocou o login dele.
+const sb = supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY, { auth: { storageKey: "nvsintonia-auth" } });
+const $ = (id) => document.getElementById(id);
+const tela = $("tela");
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const fmt = (x) => x == null ? "—" : Number(x).toFixed(1).replace(".", ",");
+const ENDERECO = location.origin + "/sintonia/";
+
+// ------------------------------------------------------------ itens (os mesmos da demonstração; texto da Nervia a partir das bases citadas)
+const MOD = {
+  // Pessoal (1.2, questionário escolhido pelo Marco em 24/11/2026). Cada item: [nome curto, pergunta do convite (como o
+  // Marco escreveu), o que quer dizer, base, (liderança), pergunta da autoavaliação, pergunta do encontro, título completo].
+  p: { nome: "Pessoal", itens: [
+    ["Respeito", "De 0 a 5, como você avalia minha capacidade de ouvir, respeitar opiniões diferentes e considerar os sentimentos das pessoas?",
+      "Ouvir de verdade, respeitar quem pensa diferente e levar em conta como os outros se sentem.",
+      "fator Amabilidade do Big Five, itens de domínio público do IPIP (Goldberg): respeitar os outros e considerar os sentimentos alheios.", null,
+      "De 0 a 5, como você avalia a sua capacidade de ouvir, respeitar opiniões diferentes e considerar os sentimentos das pessoas?",
+      "De 0 a 5, como você avalia a capacidade dessa pessoa de ouvir, respeitar opiniões diferentes e considerar os sentimentos dos outros?",
+      "Respeito e consideração"],
+    ["Confiança", "De 0 a 5, quanto você me considera uma pessoa confiável, honesta e coerente entre o que fala e o que faz?",
+      "Ser honesto, cumprir o que promete e agir de acordo com o que diz.",
+      "dimensão Calor (confiabilidade) do Modelo do Conteúdo dos Estereótipos — Fiske, Cuddy, Glick e Xu, 2002 — e Conscienciosidade do Big Five (IPIP).", null,
+      "De 0 a 5, quanto você se considera uma pessoa confiável, honesta e coerente entre o que fala e o que faz?",
+      "De 0 a 5, quanto essa pessoa lhe pareceu confiável, honesta e coerente entre o que fala e o que faz?",
+      "Confiança e credibilidade"],
+    ["Empatia", "De 0 a 5, como você avalia minha capacidade de compreender as pessoas, demonstrar empatia e oferecer apoio?",
+      "Perceber como o outro está, colocar-se no lugar dele e ajudar quando ele precisa.",
+      "Amabilidade do Big Five (IPIP: “percebo as emoções dos outros”, “dedico tempo aos outros”) e dimensão Calor do modelo de Fiske e colegas.", null,
+      "De 0 a 5, como você avalia a sua capacidade de compreender as pessoas, demonstrar empatia e oferecer apoio?",
+      "De 0 a 5, como você avalia a capacidade dessa pessoa de compreender os outros, demonstrar empatia e oferecer apoio?",
+      "Empatia e relacionamento"],
+    ["Comunicação", "De 0 a 5, como você avalia minha maneira de me comunicar, receber críticas e lidar com divergências?",
+      "Falar com clareza, ouvir uma crítica sem se fechar e lidar com opiniões contrárias sem brigar.",
+      "Estabilidade emocional e Amabilidade do Big Five (IPIP): manter a calma, aceitar críticas e resolver conflitos.", null,
+      "De 0 a 5, como você avalia a sua maneira de se comunicar, receber críticas e lidar com divergências?",
+      "De 0 a 5, como você avalia a maneira dessa pessoa de se comunicar, receber críticas e lidar com divergências?",
+      "Comunicação e convivência"],
+    ["Contribuição", "De 0 a 5, quanto você considera que minha presença e minhas atitudes contribuem positivamente para as pessoas e os ambientes em que convivo?",
+      "O efeito da pessoa no grupo: o ambiente fica melhor com ela por perto?",
+      "contribuição percebida para o grupo, usada em avaliações 360° para medir o efeito de cada pessoa no ambiente.", null,
+      "De 0 a 5, quanto você considera que a sua presença e as suas atitudes contribuem positivamente para as pessoas e os ambientes em que você convive?",
+      "De 0 a 5, quanto a presença e as atitudes dessa pessoa contribuíram positivamente para as pessoas e para o ambiente do encontro?",
+      "Influência e contribuição"]] },
+  // 360° (1.3, competências propostas pelo Marco em 24/11/2026; mesma escala de 0 a 5 do pessoal). Mesma ordem do pessoal.
+  r: { nome: "Profissional (360°)", itens: [
+    ["Liderança", "De 0 a 5, como você avalia minha capacidade de assumir responsabilidades, tomar decisões e orientar pessoas na busca por resultados?",
+      "Assumir a responsabilidade, decidir no tempo certo e orientar as pessoas até o resultado. Vale também para quem não tem cargo de chefia.",
+      "competências de liderança, autonomia e tomada de decisão, presentes nos modelos de 360° mais usados (ex.: comportamentos 4 e 10 do Project Oxygen, do Google).", null,
+      "De 0 a 5, como você avalia a sua capacidade de assumir responsabilidades, tomar decisões e orientar pessoas na busca por resultados?", null,
+      "Liderança e capacidade de decisão"],
+    ["Comunicação", "De 0 a 5, como você avalia minha capacidade de transmitir informações com clareza, ouvir opiniões e manter um relacionamento profissional construtivo?",
+      "Explicar com clareza, escutar antes de responder e manter uma relação de trabalho boa, mesmo nas divergências.",
+      "comunicação, escuta ativa e relacionamento (ex.: comportamento 5 do Project Oxygen, “bom comunicador”).", null,
+      "De 0 a 5, como você avalia a sua capacidade de transmitir informações com clareza, ouvir opiniões e manter um relacionamento profissional construtivo?", null,
+      "Comunicação e relacionamento interpessoal"],
+    ["Comprometimento", "De 0 a 5, como você avalia meu comprometimento com as responsabilidades assumidas, cumprimento de prazos e qualidade das entregas?",
+      "Fazer o que assumiu, no prazo combinado e com qualidade.",
+      "responsabilidade, disciplina e confiabilidade (Conscienciosidade do Big Five, o traço que mais se liga ao desempenho no trabalho).", null,
+      "De 0 a 5, como você avalia o seu comprometimento com as responsabilidades assumidas, cumprimento de prazos e qualidade das entregas?", null,
+      "Comprometimento e responsabilidade"],
+    ["Iniciativa", "De 0 a 5, como você avalia minha capacidade de identificar problemas, propor soluções e agir proativamente diante dos desafios profissionais?",
+      "Enxergar o problema antes que ele cresça, trazer uma solução e agir sem esperar alguém mandar.",
+      "iniciativa, pensamento crítico e resolução de problemas, competências comuns nos modelos de 360°.", null,
+      "De 0 a 5, como você avalia a sua capacidade de identificar problemas, propor soluções e agir proativamente diante dos desafios profissionais?", null,
+      "Iniciativa e resolução de problemas"],
+    ["Equipe", "De 0 a 5, como você avalia minha capacidade de colaborar com outras pessoas, compartilhar conhecimentos e contribuir para o desenvolvimento da equipe?",
+      "Trabalhar junto, ensinar o que sabe e ajudar os colegas a crescer.",
+      "colaboração e desenvolvimento de pessoas (ex.: comportamentos 6 e 9 do Project Oxygen).", null,
+      "De 0 a 5, como você avalia a sua capacidade de colaborar com outras pessoas, compartilhar conhecimentos e contribuir para o desenvolvimento da equipe?", null,
+      "Trabalho em equipe e desenvolvimento de pessoas"]] },
+};
+// escala do 360° (proposta do Marco): o que cada nota quer dizer
+const ANC = ["Não demonstra essa competência", "Demonstra muito pouco", "Demonstra abaixo do esperado", "Demonstra parcialmente", "Demonstra consistentemente", "É uma referência nessa competência"];
+const tip = (m, i, cheio) => `<span class="tip" tabindex="0" data-m="${m}" data-i="${i}">${cheio ? MOD[m].itens[i][7] || MOD[m].itens[i][0] : MOD[m].itens[i][0]}</span>`;
+// pergunta conforme quem responde: convite (como o Marco escreveu), autoavaliação ou encontro
+const pergunta = (m, i, ctx) => { const it = MOD[m].itens[i]; return (ctx === "auto" && it[5]) || (ctx === "enc" && it[6]) || it[1]; };
+const ESCALA_P = `<p class="hint">0 = nada · 5 = totalmente. "Não tenho condições de avaliar" não conta na média.</p>`;
+const ESCALA_R = `<p class="hint">0 não demonstra essa competência · 1 muito pouco · 2 abaixo do esperado · 3 parcialmente · 4 consistentemente · 5 é uma referência. "Não tenho condições de avaliar" não conta na média.</p>`;
+
+// estrelas: arr[i] undefined = não respondido; null = não tenho condições de avaliar (não conta)
+function estrelas(m, arr, i, grupo, comNa) {
+  const nome = MOD[m].itens[i][0];
+  const z = `<button class="z ${arr[i] === 0 ? "on" : ""}" data-g="${grupo}" data-i="${i}" data-v="0" aria-label="${nome}: 0${m === "r" ? " — " + ANC[0] : ""}" title="${m === "r" ? ANC[0] : 0}">0</button>`;
+  const na = comNa
+    ? `<button class="na ${arr[i] === null ? "on" : ""}" data-g="${grupo}" data-i="${i}" data-v="na" aria-label="${nome}: não tenho condições de avaliar">Não tenho condições de avaliar</button>` : "";
+  return `<span class="stars" role="group" aria-label="${nome}">${z}${[1, 2, 3, 4, 5].map((v) =>
+    `<button class="${arr[i] >= v ? "on" : ""}" data-g="${grupo}" data-i="${i}" data-v="${v}" aria-label="${nome}: ${m === "r" ? ANC[v] : v + " estrelas"}" title="${m === "r" ? ANC[v] : v}">★</button>`).join("")}</span>${na}`;
+}
+// ctx: "convite" | "auto" | "enc" — na autoavaliação não existe "não tenho condições de avaliar"
+const formulario = (m, arr, grupo, ctx) => (ctx === "auto" ? "" : m === "r" ? ESCALA_R : ESCALA_P) + MOD[m].itens.map((_, i) =>
+  `<div class="rq"><div class="rqt"><b>${tip(m, i, true)}</b></div><p class="hint">${pergunta(m, i, ctx)}</p>${estrelas(m, arr, i, grupo, ctx !== "auto")}</div>`).join("");
+const completo = (a) => a.every((x) => x !== undefined) && a.some((x) => x != null);   // tudo respondido e ao menos uma nota
+const NOTAS = {};   // respostas em andamento por grupo
+function marcarEstrela(b) {
+  const g = b.dataset.g, a = NOTAS[g]; if (!a) return false;
+  a[+b.dataset.i] = b.dataset.v === "na" ? null : +b.dataset.v;
+  return true;
+}
+
+// ------------------------------------------------------------ apoio
+async function rpc(nome, args) {
+  const { data, error } = await sb.rpc(nome, args);
+  if (error) throw new Error(error.message);
+  return data;
+}
+const erroTxt = (e) => {
+  const m = (e && e.message) || String(e);
+  return /Failed to fetch|NetworkError|Load failed/i.test(m) ? "Sem conexão com o servidor. Confira a internet e tente de novo." : m;
+};
+function aviso(el, txt, ok) { el.innerHTML = `<p class="${ok ? "okm" : "err"}">${esc(txt)}</p>`; }
+function aparelho() {
+  let a = null;
+  try { a = localStorage.getItem("sin-aparelho"); } catch { /* sem localStorage */ }
+  if (!a) {
+    a = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, "0")).join("");
+    try { localStorage.setItem("sin-aparelho", a); } catch { /* segue sem guardar */ }
+  }
+  return a;
+}
+async function sha256(txt) {
+  const h = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(txt));
+  return Array.from(new Uint8Array(h), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+const guardar = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch { /* ok */ } };
+const ler = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+
+// ------------------------------------------------------------ estado
+let SESSAO = null, PERFIL = null, ABA = "inicio", MODO = "p";
+let mapaTimer = null;
+const porChave = () => String(SESSAO?.user?.email || "").endsWith("@sintonia.nervia.com.br");
+
+async function iniciar() {
+  const h = location.hash;
+  const { data } = await sb.auth.getSession();
+  SESSAO = data.session;
+  if (/^#c-[0-9a-f]{32,128}$/.test(h)) return telaConvite(h.slice(3));
+  if (/^#e-[0-9A-Za-z]{6,12}$/.test(h)) guardar("sin-pendente", h);
+  if (!SESSAO) return telaEntrar();
+  PERFIL = await rpc("sin_perfil").catch((e) => { tela.innerHTML = `<p class="err">${esc(erroTxt(e))}</p>`; return null; });
+  if (!PERFIL) return;
+  if (!PERFIL.existe) return telaPerfil();
+  const pend = ler("sin-pendente");
+  if (pend) { guardar("sin-pendente", null); history.replaceState(null, "", location.pathname); return usarQr(pend.slice(3)); }
+  if (location.hash) history.replaceState(null, "", location.pathname);
+  abrir(ABA);
+}
+let ENTRANDO = false;   // entrada pela chave: quem chama segue o fluxo (evita desenhar a tela duas vezes)
+sb.auth.onAuthStateChange((ev) => { if (ev === "SIGNED_IN" && !SESSAO && !ENTRANDO) iniciar(); });
+addEventListener("hashchange", iniciar);
+
+// ------------------------------------------------------------ entrar (1.1: por CHAVE, sem e-mail)
+const DOMINIO_CHAVE = "@sintonia.nervia.com.br";
+// senha do login derivada da chave (a função sintonia-conta faz a mesma conta)
+const senhaDaChave = (k) => { const c = String(k).toUpperCase().replace(/[^0-9A-Z]/g, ""); return "Sn!" + c + c.toLowerCase(); };
+async function conta(body) {
+  const r = await sb.functions.invoke("sintonia-conta", { body });
+  if (r.error) {
+    let t = r.error.message; try { t = (await r.error.context.json()).mensagem || t; } catch { /* ok */ }
+    throw new Error(t);
+  }
+  return r.data;
+}
+async function entrarComChave(email, chave) {
+  ENTRANDO = true;
+  const { error } = await sb.auth.signInWithPassword({ email, password: senhaDaChave(chave) });
+  setTimeout(() => { ENTRANDO = false; }, 1500);
+  if (error) throw new Error(/invalid/i.test(error.message) ? "Chave não encontrada. Confira as letras e os números." : error.message);
+  guardar("sin-chave", chave);
+}
+
+// como funciona o anonimato (pedido do Marco em 24/11/2026): mesmo texto na entrada (resumo) e na Conta (completo)
+const ANON_ITENS = [
+  "<b>Você é um número, não um nome.</b> A sua conta é uma chave secreta que só quem anotou tem. Não pedimos e-mail, telefone nem documento.",
+  "O nome que você escolhe (pode ser um apelido) aparece só nos convites que você manda e para quem lê o seu QR, para a pessoa saber quem pediu a opinião.",
+  "Tudo o que o sistema guarda fica ligado a esse número: as notas que você recebe, a sua autoavaliação, os seus círculos.",
+  "Com isso o app compara números com números: no mapa, quem está por perto aparece só pelo código do dia; em <b>Você na multidão</b>, você vê onde se enquadra entre todas as pessoas do Sintonia, sem ninguém ver quem é quem.",
+  "Nenhuma nota guarda quem deu nem a hora, e elas entram em lotes (5 no pessoal e nos encontros, 3 no 360°): ninguém vê uma nota sozinha.",
+];
+const anonimato = (curto) => `<div class="card m"><h3>Como funciona o seu anonimato</h3><ul class="hint" style="padding-left:18px;margin:0">${(curto ? ANON_ITENS.slice(0, 3) : ANON_ITENS).map((t) => `<li style="margin-bottom:6px">${t}</li>`).join("")}</ul></div>`;
+
+function telaEntrar(msg) {
+  $("nav").hidden = true; $("topoInfo").textContent = "laboratório";
+  tela.innerHTML = `<h1>Como as pessoas te veem?</h1>
+  <p>No NVSintonia você se avalia, convida família, amigos ou colegas para te avaliarem anonimamente e compara. Depois de um encontro, cada um também pode avaliar o outro pelo QR code.</p>
+  ${msg ? `<div class="card m"><p>${esc(msg)}</p></div>` : ""}
+  <form class="card g" id="fCriar">
+    <h3>Sou novo aqui</h3>
+    <label for="eNome">Como você quer ser chamado? (aparece só no convite que você mandar)</label><input type="text" id="eNome" maxlength="40" autocomplete="nickname">
+    <button class="btn g" id="bCriar">Criar minha conta</button><div id="mCriar"></div>
+    <p class="hint" style="margin-top:10px">Sem e-mail, sem telefone, sem senha: você recebe uma chave secreta. Anote; é com ela que você entra de novo.</p>
+  </form>
+  <form class="card" id="fChave">
+    <h3>Já tenho a minha chave</h3>
+    <label for="eChave">Chave (12 letras e números)</label><input type="text" id="eChave" maxlength="16" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX" style="font-family:ui-monospace,Menlo,monospace;letter-spacing:2px">
+    <button class="btn" id="bChave">Entrar</button><div id="mChave"></div>
+  </form>
+  ${anonimato(true)}
+  <p class="hint"><a href="#" id="lEmail">Entrei antes pelo e-mail</a></p>
+  <p class="lab">Laboratório da Nervia Tecnologia · ninguém vê quem deu cada nota</p>`;
+  $("fCriar").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const nome = $("eNome").value.trim(), m = $("mCriar"), b = $("bCriar");
+    if (!nome) return aviso(m, "Informe como você quer ser chamado.");
+    b.disabled = true;
+    try {
+      const r = await conta({ acao: "criar", nome });
+      telaChave(r.chave, false, async () => {
+        await entrarComChave(r.email, r.chave);
+        await rpc("sin_perfil_salvar", { p_nome: nome });
+        SESSAO = null; iniciar();
+      });
+    } catch (e) { aviso(m, erroTxt(e)); b.disabled = false; }
+  });
+  $("fChave").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const chave = $("eChave").value.trim(), m = $("mChave"), b = $("bChave");
+    b.disabled = true;
+    try { const r = await conta({ acao: "entrar", chave }); await entrarComChave(r.email, chave.toUpperCase()); SESSAO = null; iniciar(); }
+    catch (e) { aviso(m, erroTxt(e)); b.disabled = false; }
+  });
+  $("lEmail").addEventListener("click", (e) => { e.preventDefault(); telaEmail(); });
+}
+
+// a chave aparece UMA vez: só segue depois de "Anotei"
+function telaChave(chave, troca, depois) {
+  $("nav").hidden = true;
+  tela.innerHTML = `<h1>${troca ? "Sua chave nova" : "Esta é a sua chave"}</h1>
+  <div class="card g"><p class="codigo" id="kTexto" style="font-size:30px">${esc(chave)}</p>
+  <button class="btn o" id="bCopiaK">Copiar</button><div id="mK"></div></div>
+  <div class="card"><p><b>Anote em um lugar seguro</b> (papel, gerenciador de senhas ou nota protegida). É com ela que você entra de novo, em qualquer celular.</p>
+  <p><b>Se perder a chave, perde a conta.</b> Ninguém consegue recuperar, nem a Nervia: ela não fica guardada em lugar nenhum. Aí é só criar uma conta nova.</p>
+  ${troca ? "<p>O seu e-mail foi apagado da conta. Os seus dados continuam todos aqui.</p>" : ""}
+  <p class="hint">Não mostre a chave para ninguém: quem tiver a chave entra como você. Para o Sintonia, você é este número: o nome não fica ligado a ele em lugar nenhum além dos seus convites.</p>
+  <label style="display:flex;gap:10px;align-items:center;font-size:16px;color:var(--ink)"><input type="checkbox" id="kOk" style="width:22px;height:22px"> Anotei a minha chave</label>
+  <button class="btn g" id="bSegue" disabled>Continuar</button><div id="mSegue"></div></div>`;
+  $("bCopiaK").onclick = async () => { try { await navigator.clipboard.writeText(chave); aviso($("mK"), "Copiada. Cole num lugar seguro.", true); } catch { aviso($("mK"), "Não deu para copiar: anote à mão."); } };
+  $("kOk").onchange = () => { $("bSegue").disabled = !$("kOk").checked; };
+  $("bSegue").onclick = async () => { $("bSegue").disabled = true; try { await depois(); } catch (e) { aviso($("mSegue"), erroTxt(e)); $("bSegue").disabled = false; } };
+}
+
+// entrada antiga por e-mail (1.0), só para quem já tinha conta assim; depois de entrar, Conta → trocar por chave
+function telaEmail() {
+  tela.innerHTML = `<h1>Entrar pelo e-mail</h1>
+  <form class="card" id="fEntrar"><p class="hint">Só para quem criou a conta antes da chave. Depois de entrar, troque o e-mail pela chave em Conta.</p>
+    <label for="eEmail">Seu e-mail</label><input type="email" id="eEmail" maxlength="254" autocomplete="email" inputmode="email">
+    <button class="btn g" id="bEntrar">Receber link de entrada</button><div id="mEntrar"></div></form>
+  <p class="hint"><a href="#" id="lVolta">Voltar</a></p>`;
+  $("lVolta").onclick = (e) => { e.preventDefault(); telaEntrar(); };
+  $("fEntrar").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const email = $("eEmail").value.trim().toLowerCase(), m = $("mEntrar"), b = $("bEntrar");
+    if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(email)) return aviso(m, "Informe um e-mail válido.");
+    b.disabled = true;
+    const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: ENDERECO } });
+    if (error) { aviso(m, erroTxt(error)); b.disabled = false; return; }
+    aviso(m, `Se este e-mail tem conta, o link chega em ${email} em um minuto (confira o spam). Abra no mesmo aparelho.`, true);
+  });
+}
+
+function telaPerfil() {
+  $("nav").hidden = true;
+  tela.innerHTML = `<h1>Bem-vindo ao NVSintonia</h1>
+  <form class="card" id="fPerfil"><label for="pNome">Como você quer ser chamado?</label>
+  <input type="text" id="pNome" maxlength="40" value="${esc(ler("sin-nome") || PERFIL.nome || "")}">
+  <p class="hint">O nome aparece só no convite que você manda e para quem te encontrar pelo QR. No mapa você aparece só por um código que muda todo dia.</p>
+  <button class="btn g">Começar</button><div id="mPerfil"></div></form>`;
+  $("fPerfil").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    try { PERFIL = await rpc("sin_perfil_salvar", { p_nome: $("pNome").value }); iniciar(); }
+    catch (e) { aviso($("mPerfil"), erroTxt(e)); }
+  });
+}
+
+// ------------------------------------------------------------ abas
+function abrir(aba) {
+  ABA = aba; clearInterval(mapaTimer);
+  $("nav").hidden = false;
+  for (const b of document.querySelectorAll("#nav button")) b.dataset.aba === aba ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current");
+  $("topoInfo").textContent = `${PERFIL.nome} · ${PERFIL.id_dia}`;
+  scrollTo(0, 0);
+  return ({ inicio: telaInicio, espelho: telaEspelho, mapa: telaMapa, conta: telaConta })[aba]();
+}
+$("nav").addEventListener("click", (e) => { const b = e.target.closest("button[data-aba]"); if (b) abrir(b.dataset.aba); });
+
+// ------------------------------------------------------------ encontros
+async function telaInicio() {
+  tela.innerHTML = `<p class="hint">Carregando…</p>`;
+  let nota, fichas, mult;
+  try { [nota, fichas, mult] = await Promise.all([rpc("sin_minha_nota"), rpc("sin_fichas"), rpc("sin_multidao")]); }
+  catch (e) { tela.innerHTML = `<p class="err">${esc(erroTxt(e))}</p>`; return; }
+  const itens = nota.itens;
+  tela.innerHTML = `
+  ${fichas.length ? `<div class="card g"><h3>Avalie quem você encontrou</h3>${fichas.map((f) =>
+    `<div class="circ"><span><b>${esc(f.nome)}</b><br><span class="hint">até ${new Date(f.expira).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span></span><button class="btn p g" data-ficha="${f.id}" data-nome="${esc(f.nome)}">Avaliar</button></div>`).join("")}
+    <p class="hint">${esc("A pessoa não vê a sua nota nem quando ela entrou: as notas entram em lotes de 5.")}</p></div>` : ""}
+  <div class="card m"><h2>Sua nota dos encontros</h2>
+  ${itens ? `<div class="big"><div><b>${fmt(nota.geral)}</b><span>de 5 · ${nota.n} avaliações</span></div></div>
+    ${itens.map((v, i) => `<div class="crit"><span>${tip("p", i)}</span><span class="bar"><i style="width:${v / 5 * 100}%"></i></span><span class="num">${fmt(v)}</span></div>`).join("")}
+    <p class="hint" style="margin-top:8px">Média com “peso da dúvida”: com poucas avaliações a nota fica perto da média de todos; muda só quando um lote de 5 fecha.</p>`
+    : `<p>A sua nota aparece depois das primeiras 5 avaliações de encontros (em lote, para ninguém saber quem deu cada nota).</p>`}</div>
+  ${multidao(mult)}
+  <div class="card"><h3>Encontrou alguém?</h3><p>Um mostra o QR e o outro lê com a câmera do celular. Os dois ganham 48 horas para avaliar um ao outro.</p>
+  <button class="btn g" id="bMeuQr">Mostrar o meu QR</button>
+  <form id="fCodigo" style="margin-top:12px"><label for="cod">Ou digite o código que aparece embaixo do QR da outra pessoa</label>
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px"><input type="text" id="cod" maxlength="12" autocapitalize="characters" autocomplete="off"><button class="btn p">Usar</button></div></form>
+  <div id="mCod"></div></div>`;
+  $("bMeuQr").addEventListener("click", mostrarQr);
+  $("fCodigo").addEventListener("submit", (e) => { e.preventDefault(); usarQr($("cod").value); });
+  tela.querySelectorAll("[data-ficha]").forEach((b) => b.addEventListener("click", () => avaliarFicha(+b.dataset.ficha, b.dataset.nome)));
+}
+
+// Você na multidão: onde a sua nota dos encontros fica entre todas as pessoas do Sintonia (só números, sem nomes)
+function multidao(m) {
+  if (!m) return "";
+  const cab = `<h2>Você na multidão</h2><p class="hint">${m.pessoas} ${m.pessoas === 1 ? "pessoa" : "pessoas"} no Sintonia · ${m.com_nota} com nota dos encontros. Só números: ninguém vê quem é quem.</p>`;
+  if (m.percentil == null) {
+    return `<div class="card">${cab}<p>${m.eu == null ? "Assim que a sua nota aparecer, você vê aqui onde se enquadra entre todo mundo." : ""} A comparação aparece quando ${m.minimo} pessoas tiverem nota (agora: ${m.com_nota}). Antes disso daria para adivinhar a nota de alguém.</p></div>`;
+  }
+  const mx = Math.max(1, ...m.faixas), minha = Math.min(9, Math.floor(Number(m.eu) * 2));
+  const barras = m.faixas.map((n, f) => `<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px;min-width:0">
+      <span style="font-size:11px;color:var(--mut)">${n || ""}</span>
+      <span style="width:100%;height:${Math.max(2, n / mx * 90)}px;border-radius:4px 4px 0 0;background:${f === minha ? "var(--g)" : "var(--line)"}"></span>
+      <span style="font-size:11px;color:${f === minha ? "var(--gd)" : "var(--mut)"};font-weight:${f === minha ? 700 : 400}">${f / 2}</span></div>`).join("");
+  return `<div class="card">${cab}
+    <div class="big"><div><b style="color:var(--gd)">${m.percentil}%</b><span>das pessoas têm nota menor que a sua (${fmt(m.eu)})</span></div></div>
+    <div style="display:flex;gap:4px;align-items:flex-end;height:130px" role="img" aria-label="Quantas pessoas em cada faixa de nota; a sua faixa em verde">${barras}</div>
+    <p class="hint" style="margin-top:4px">Pessoas por faixa de nota (0 a 5). Em verde, a sua faixa.</p>
+    ${m.itens.map((p, i) => `<div class="crit"><span>${tip("p", i)}</span><span class="bar"><i style="width:${p}%"></i></span><span class="num">${p}%</span></div>`).join("")}
+    <p class="hint">Em cada item: quantas pessoas ficam abaixo de você.</p></div>`;
+}
+
+async function mostrarQr() {
+  const d = $("dlg");
+  try {
+    const r = await rpc("sin_qr_gerar");
+    const url = ENDERECO + "#e-" + r.codigo;
+    let svg = "";
+    if (window.qrcode) { const q = qrcode(0, "M"); q.addData(url); q.make(); svg = q.createSvgTag({ cellSize: 6, margin: 2, scalable: true }); }
+    d.innerHTML = `<h3>Mostre para a outra pessoa</h3><div class="qr">${svg || '<p class="hint">QR indisponível agora: use o código abaixo.</p>'}</div>
+      <p class="codigo">${esc(r.codigo)}</p><p class="hint" style="text-align:center">Vale 10 minutos e uma leitura só.</p>
+      <button class="btn o" id="bFechaQr">Fechar</button>`;
+    d.showModal();
+    $("bFechaQr").addEventListener("click", () => { d.close(); telaInicio(); });
+  } catch (e) { aviso($("mCod"), erroTxt(e)); }
+}
+
+async function usarQr(codigo) {
+  let msg;
+  try {
+    const r = await rpc("sin_qr_usar", { p_codigo: String(codigo || "").trim() });
+    msg = r.ok ? [`Encontro com ${r.nome} registrado! Avalie quando quiser (até 48 horas).`, true] : [r.mensagem, false];
+  } catch (e) { msg = [erroTxt(e), false]; }
+  await abrir("inicio");
+  if ($("mCod")) aviso($("mCod"), msg[0], msg[1]);
+}
+
+function avaliarFicha(id, nome) {
+  const d = $("dlg"); NOTAS.f = Array(5).fill(undefined);
+  const pinta = () => {
+    d.innerHTML = `<h3>Como foi encontrar ${esc(nome)}?</h3><p class="hint">0 a 5 estrelas. Toque no nome do item para ver o que ele quer dizer.</p>${formulario("p", NOTAS.f, "f", "enc")}
+    <button class="btn g" id="bEnviaF" ${completo(NOTAS.f) ? "" : "disabled"}>Enviar anonimamente</button><button class="btn o" id="bCancF">Agora não</button><div id="mF"></div>`;
+    $("bCancF").onclick = () => d.close();
+    $("bEnviaF").onclick = async () => {
+      try { await rpc("sin_avaliar", { p_ficha: id, p_notas: NOTAS.f }); d.close(); telaInicio(); }
+      catch (e) { aviso($("mF"), erroTxt(e)); }
+    };
+  };
+  d.onclick = (e) => { const b = e.target.closest("button[data-g]"); if (b && marcarEstrela(b)) pinta(); };
+  pinta(); d.showModal();
+}
+
+// ------------------------------------------------------------ espelho
+async function telaEspelho() {
+  tela.innerHTML = `<p class="hint">Carregando…</p>`;
+  let e;
+  try { e = await rpc("sin_espelho", { p_modelo: MODO }); } catch (x) { tela.innerHTML = `<p class="err">${esc(erroTxt(x))}</p>`; return; }
+  const m = MODO, MI = MOD[m].itens;
+  if (!NOTAS["a" + m] || e.auto) NOTAS["a" + m] = e.auto ? e.auto.slice() : (NOTAS["a" + m] || Array(MI.length).fill(undefined));
+  let h = `<div class="seg"><button data-modo="p" aria-pressed="${m === "p"}">Pessoal</button><button data-modo="r" aria-pressed="${m === "r"}">Profissional (360°)</button></div>`;
+  // 1. autoavaliação
+  if (e.auto) {
+    h += `<div class="card"><h3>Sua autoavaliação</h3><p class="hint">Rodada ${e.rodada}, feita antes de ver qualquer resultado.</p>${e.auto.map((v, i) =>
+      `<div class="crit"><span>${tip(m, i)}</span><span class="bar"><i style="width:${(v || 0) / 5 * 100}%;background:var(--ink)"></i></span><span class="num">${v == null ? "—" : v}</span></div>`).join("")}</div>`;
+  } else {
+    h += `<div class="card g"><h3>1. Como você se vê</h3><p class="hint">Responda antes de ver o que os outros acham. Toque no nome do item para ver o que ele quer dizer.</p>
+    ${formulario(m, NOTAS["a" + m], "a" + m, "auto")}<button class="btn g" id="bAuto" ${completo(NOTAS["a" + m]) ? "" : "disabled"}>Salvar minha autoavaliação</button><div id="mAuto"></div></div>`;
+  }
+  // 2. resultado
+  const vis = e.circulos.filter((c) => c.medias);
+  if (e.auto) h += resultado(m, e.auto, vis);
+  // 3. círculos
+  h += `<div class="card"><h3>${m === "r" ? "Quem avalia (360°)" : "Seus círculos"}</h3>
+  <p class="hint">${m === "r" ? "Grupos clássicos do 360°. Cada grupo aparece com 3 respostas ou mais; o gestor é uma pessoa só e aparece identificado." : "Cada círculo aparece com 5 respostas ou mais. Com família pequena, prefira um círculo maior (ex.: Família e amigos)."} O número de respostas só muda quando um lote fecha.</p>
+  ${e.circulos.length ? e.circulos.map((c) => `<div class="circ"><span><b>${esc(c.nome)}</b><br><span class="hint">${c.gestor ? (c.liberadas ? "respondeu (identificado)" : "ainda sem resposta") : c.liberadas ? c.liberadas + " respostas no resultado" : "aguardando o primeiro lote de " + c.minimo}</span>
+    <span class="acoes"><button class="btn p g" data-conv="${esc(c.codigo)}" data-cn="${esc(c.nome)}" data-gest="${c.gestor ? 1 : 0}">Convidar</button><button class="btn p o" data-exc="${c.id}" data-cn="${esc(c.nome)}">Excluir</button></span></span>
+    <span class="pill ${c.medias || (c.liberadas >= c.minimo) ? "" : "w"}">${c.liberadas >= c.minimo ? "no resultado" : "aguardando"}</span></div>`).join("") : `<p class="hint">Nenhum círculo ainda.</p>`}
+  <form id="fCirc" style="margin-top:10px"><label for="nc">Novo ${m === "r" ? "grupo" : "círculo"}</label><div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px"><input type="text" id="nc" maxlength="30"><button class="btn p">Criar</button></div></form>
+  ${m === "p" ? `<div class="chips">${["Família", "Amigos", "Trabalho", "Família e amigos"].filter((n) => !e.circulos.some((c) => c.nome === n)).map((n) => `<button data-sug="${n}">+ ${n}</button>`).join("")}</div>` : ""}
+  <div id="mCirc"></div></div>`;
+  if (e.auto) h += `<div class="card"><h3>Nova rodada</h3><p class="hint">Zera a autoavaliação e começa a contar respostas do zero (os links continuam os mesmos). ${e.nova_rodada_em ? "Disponível a partir de " + new Date(e.nova_rodada_em + "T12:00").toLocaleDateString("pt-BR") + ": uma rodada a cada 90 dias, para ninguém descobrir quem respondeu comparando." : "Ainda sem respostas nesta rodada: pode abrir agora."}</p>
+    <button class="btn o" id="bRodada" ${e.nova_rodada_em && new Date(e.nova_rodada_em + "T00:00") > new Date() ? "disabled" : ""}>Abrir nova rodada</button><div id="mRod"></div></div>`;
+  tela.innerHTML = h;
+  // eventos
+  tela.querySelectorAll("[data-modo]").forEach((b) => b.addEventListener("click", () => { MODO = b.dataset.modo; telaEspelho(); }));
+  tela.querySelectorAll("button[data-g]").forEach((b) => b.addEventListener("click", () => { if (marcarEstrela(b)) telaEspelhoLocal(e); }));
+  $("bAuto")?.addEventListener("click", async () => {
+    try { await rpc("sin_auto_salvar", { p_modelo: m, p_notas: NOTAS["a" + m] }); telaEspelho(); } catch (x) { aviso($("mAuto"), erroTxt(x)); }
+  });
+  $("fCirc").addEventListener("submit", (ev) => { ev.preventDefault(); criarCirculo($("nc").value); });
+  tela.querySelectorAll("[data-sug]").forEach((b) => b.addEventListener("click", () => criarCirculo(b.dataset.sug)));
+  tela.querySelectorAll("[data-conv]").forEach((b) => b.addEventListener("click", () => convidar(b.dataset.conv, b.dataset.cn, b.dataset.gest === "1")));
+  tela.querySelectorAll("[data-exc]").forEach((b) => b.addEventListener("click", () => confirmar(`Excluir o círculo "${b.dataset.cn}"? As respostas dele são apagadas e o link para de funcionar.`, "Excluir", async () => { await rpc("sin_circulo_excluir", { p_circulo: +b.dataset.exc }); telaEspelho(); })));
+  $("bRodada")?.addEventListener("click", () => confirmar("Abrir uma nova rodada? A autoavaliação e as respostas desta rodada deixam de aparecer.", "Abrir nova rodada", async () => { await rpc("sin_nova_rodada", { p_modelo: m }); NOTAS["a" + m] = null; telaEspelho(); }));
+}
+// redesenha só o formulário da autoavaliação (sem ir ao servidor)
+function telaEspelhoLocal(e) {
+  const m = MODO, card = $("bAuto")?.closest(".card"); if (!card) return;
+  card.innerHTML = `<h3>1. Como você se vê</h3><p class="hint">Responda antes de ver o que os outros acham. Toque no nome do item para ver o que ele quer dizer.</p>
+    ${formulario(m, NOTAS["a" + m], "a" + m, "auto")}<button class="btn g" id="bAuto" ${completo(NOTAS["a" + m]) ? "" : "disabled"}>Salvar minha autoavaliação</button><div id="mAuto"></div>`;
+  card.querySelectorAll("button[data-g]").forEach((b) => b.addEventListener("click", () => { if (marcarEstrela(b)) telaEspelhoLocal(e); }));
+  $("bAuto").addEventListener("click", async () => {
+    try { await rpc("sin_auto_salvar", { p_modelo: m, p_notas: NOTAS["a" + m] }); telaEspelho(); } catch (x) { aviso($("mAuto"), erroTxt(x)); }
+  });
+}
+async function criarCirculo(nome) {
+  try { await rpc("sin_circulo_criar", { p_modelo: MODO, p_nome: nome }); telaEspelho(); } catch (x) { aviso($("mCirc"), erroTxt(x)); }
+}
+
+const media = (a) => { const v = a.filter((x) => x != null); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null; };
+function resultado(m, me, vis) {
+  const MI = MOD[m].itens;
+  if (!vis.length) return `<div class="card m"><h2>Seu resultado</h2><p>Nenhum ${m === "r" ? "grupo" : "círculo"} completou o primeiro lote ainda. Mande os convites: o resultado aparece quando ${m === "r" ? "3 pessoas de um grupo" : "5 pessoas de um círculo"} responderem.</p></div>`;
+  // média geral = média das médias de cada grupo visível, ponderada pelas respostas
+  const ot = MI.map((_, i) => { let s = 0, n = 0; for (const c of vis) if (c.medias[i] != null) { s += c.medias[i] * c.liberadas; n += c.liberadas; } return n ? s / n : null; });
+  const gap = ot.map((o, i) => o == null || me[i] == null ? null : o - me[i]);
+  const tag = (d) => d == null ? ["alin", "sem dado"] : d <= -0.7 ? ["cego", "ponto cego"] : d >= 0.7 ? ["oculta", "força que você não vê"] : ["alin", "alinhado"];
+  const gv = gap.map((d, i) => [d, i]).filter((x) => x[0] != null).sort((a, b) => a[0] - b[0]);
+  const pior = gv[0], melhor = gv[gv.length - 1];
+  let frase = pior && pior[0] <= -0.7 ? `Maior ponto cego: <b>${MI[pior[1]][0]}</b> — você se dá ${me[pior[1]]}, as pessoas te dão ${fmt(ot[pior[1]])}.` : "Nenhum ponto cego forte: você se vê perto de como te veem.";
+  if (melhor && melhor[0] >= 0.7) frase += ` Força que você não vê: <b>${MI[melhor[1]][0]}</b> (${me[melhor[1]]} × ${fmt(ot[melhor[1]])}).`;
+  const am = media(me), ao = media(ot), tot = vis.reduce((s, c) => s + c.liberadas, 0);
+  let h = `<div class="card m"><h2>Como você se vê × como te veem</h2>
+  <div class="big"><div><b>${fmt(am)}</b><span>como você se vê</span></div><div><b style="color:var(--gd)">${fmt(ao)}</b><span>como te veem (${tot})</span></div><div><b>${am == null || ao == null ? "—" : (ao - am >= 0 ? "+" : "") + fmt(ao - am)}</b><span>diferença</span></div></div>
+  <p>${frase}</p><div class="leg"><span><i style="border:3px solid var(--ink)"></i>você</span><span><i style="background:var(--g)"></i>${m === "r" ? "avaliadores" : "as pessoas"}</span></div>
+  ${MI.map((c, i) => { const a = (me[i] ?? 0) / 5 * 100, b = (ot[i] ?? 0) / 5 * 100, t = tag(gap[i]); return `<div class="db"><span><b>${tip(m, i)}</b></span><div class="trk">${me[i] == null || ot[i] == null ? "" : `<span class="ln" style="left:${Math.min(a, b)}%;width:${Math.abs(a - b)}%"></span>`}${me[i] == null ? "" : `<span class="me" style="left:${a}%"></span>`}${ot[i] == null ? "" : `<span class="ot" style="left:${b}%"></span>`}</div><span class="v">${me[i] == null ? "—" : me[i]} × <b>${fmt(ot[i])}</b><small class="${t[0]}">${t[1]}</small></span></div>`; }).join("")}`;
+  if (vis.length > 1 || m === "r") {
+    h += `<h3 style="margin-top:16px">Por ${m === "r" ? "grupo" : "círculo"}</h3><div class="scroll"><table><thead><tr><th>Item</th><th class="n">Você</th>${vis.map((c) => `<th class="n">${esc(c.nome)}${c.gestor ? "*" : ""}</th>`).join("")}</tr></thead>
+    <tbody>${MI.map((it, i) => `<tr><td>${tip(m, i)}</td><td class="n">${me[i] == null ? "—" : me[i]}</td>${vis.map((c) => `<td class="n">${fmt(c.medias[i])}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
+    ${vis.some((c) => c.gestor) ? `<p class="hint">* o gestor é uma pessoa só, por isso aparece identificado.</p>` : ""}`;
+  }
+  h += `<p class="hint" style="margin-top:10px">${m === "r" ? "Use para o seu desenvolvimento, não para salário ou promoção: quando a nota vale dinheiro, as respostas ficam distorcidas. " : ""}Ponto cego = os outros dão 0,7 ou mais abaixo da sua nota.</p></div>`;
+  return h;
+}
+
+function convidar(codigo, circulo, gestor) {
+  const url = ENDERECO + "#c-" + codigo;
+  const txt = MODO === "r"
+    ? `Oi! Estou fazendo uma avaliação 360° no NVSintonia e queria a sua opinião sobre como eu trabalho (grupo: ${circulo}). Leva 2 minutos${gestor ? "" : " e é anônimo: eu só vejo médias"}. ${url}`
+    : `Oi! Estou testando o NVSintonia e queria saber como você me vê. Leva 1 minuto e é anônimo: eu só vejo médias, nunca quem respondeu. ${url}`;
+  const d = $("dlg");
+  d.innerHTML = `<h3>Convite: ${esc(circulo)}</h3><p class="hint">Mande este link só para quem é deste ${MODO === "r" ? "grupo" : "círculo"}. Cada aparelho responde uma vez por rodada.</p>
+    <p style="overflow-wrap:anywhere;font-size:14px;background:var(--mist);padding:10px;border-radius:10px">${esc(txt)}</p>
+    <a class="btn g" style="display:block;text-align:center;text-decoration:none;line-height:26px" href="https://wa.me/?text=${encodeURIComponent(txt)}" target="_blank" rel="noopener">Mandar pelo WhatsApp</a>
+    <button class="btn o" id="bCopia">Copiar mensagem</button><button class="btn o" id="bFecha">Fechar</button><div id="mCop"></div>`;
+  d.showModal();
+  $("bFecha").onclick = () => d.close();
+  $("bCopia").onclick = async () => {
+    try { await navigator.clipboard.writeText(txt); aviso($("mCop"), "Copiado.", true); } catch { aviso($("mCop"), "Não deu para copiar: selecione o texto acima."); }
+  };
+}
+
+function confirmar(texto, botao, acao) {
+  const d = $("dlg");
+  d.innerHTML = `<p>${esc(texto)}</p><button class="btn r" id="bSim">${esc(botao)}</button><button class="btn o" id="bNao">Cancelar</button><div id="mConf"></div>`;
+  d.showModal();
+  $("bNao").onclick = () => d.close();
+  $("bSim").onclick = async () => { try { await acao(); d.close(); } catch (x) { aviso($("mConf"), erroTxt(x)); } };
+}
+
+// ------------------------------------------------------------ responder convite (sem login)
+async function telaConvite(codigo) {
+  $("nav").hidden = true; $("topoInfo").textContent = "convite";
+  let c;
+  try { c = await rpc("sin_convite_ler", { p_codigo: codigo }); }
+  catch (e) { tela.innerHTML = `<div class="card"><p class="err">${esc(erroTxt(e))}</p></div>`; return; }
+  const m = c.modelo, chave = "sin-resp-" + codigo.slice(0, 16);
+  if (c.eu_mesmo) { tela.innerHTML = `<div class="card"><h2>Este convite é seu</h2><p>Mande o link para as pessoas do círculo “${esc(c.circulo)}”. A sua opinião entra pela autoavaliação.</p><a class="btn g" style="display:block;text-align:center;text-decoration:none;line-height:26px" href="${ENDERECO}">Abrir o meu NVSintonia</a></div>`; return; }
+  if (ler(chave)) return fimConvite(c);
+  NOTAS.c = Array(MOD[m].itens.length).fill(undefined);
+  const pinta = () => {
+    tela.innerHTML = `<h1>${esc(c.dono)} pediu a sua opinião</h1>
+    <p>${m === "r" ? `Avaliação 360° (grupo: <b>${esc(c.circulo)}</b>). <b>Como você vê ${esc(c.dono)} no trabalho?</b>` : `Círculo: <b>${esc(c.circulo)}</b>. <b>Como você vê ${esc(c.dono)}?</b>`}
+    ${c.gestor ? "Como gestor, a sua resposta aparece identificada para a pessoa." : `É anônimo: ${esc(c.dono)} só vê médias, e só depois que pelo menos ${m === "r" ? 3 : 5} pessoas responderem.`}</p>
+    <div class="card">${formulario(m, NOTAS.c, "c", "convite")}
+    <button class="btn g" id="bResp" ${completo(NOTAS.c) ? "" : "disabled"}>Enviar${c.gestor ? "" : " anonimamente"}</button><div id="mResp"></div></div>
+    <p class="hint">Toque no nome de cada item para ver o que ele quer dizer. Não precisa criar conta.</p>
+    <p class="lab">NVSintonia · laboratório da Nervia Tecnologia</p>`;
+    tela.querySelectorAll("button[data-g]").forEach((b) => b.addEventListener("click", () => { if (marcarEstrela(b)) pinta(); }));
+    $("bResp").addEventListener("click", async () => {
+      $("bResp").disabled = true;
+      try {
+        const marca = await sha256(aparelho() + ":" + codigo);
+        await rpc("sin_responder", { p_codigo: codigo, p_marca: marca, p_notas: NOTAS.c });
+        guardar(chave, "1"); fimConvite(c);
+      } catch (e) {
+        if (/já respondeu/i.test(e.message)) { guardar(chave, "1"); return fimConvite(c); }
+        aviso($("mResp"), erroTxt(e)); $("bResp").disabled = false;
+      }
+    });
+  };
+  pinta();
+}
+function fimConvite(c) {
+  tela.innerHTML = `<div class="card m"><h2>Obrigado!</h2><p>A sua resposta foi enviada${c.gestor ? "" : " sem o seu nome"}. ${esc(c.dono)} vai ver só as médias.</p></div>
+  <div class="card g"><h3>Quer saber como as pessoas te veem?</h3><p>Crie o seu espelho: você se avalia e convida família, amigos ou colegas. Também pode avaliar e ser avaliado depois de um encontro, pelo QR code.</p>
+  <a class="btn g" style="display:block;text-align:center;text-decoration:none;line-height:26px" href="${ENDERECO}" id="bMeu">Quero o meu também</a></div>`;
+  $("bMeu").addEventListener("click", () => history.replaceState(null, "", location.pathname));
+}
+
+// ------------------------------------------------------------ mapa
+let RAIO = 300, MAPA = null, SEL = null;
+function telaMapa() {
+  if (!PERFIL.mapa_visivel) {
+    tela.innerHTML = `<div class="card"><h2>Mapa do entorno</h2><p>Veja quem está por perto pelo código do dia e a nota dos encontros. Para ver, você também precisa aparecer: <b>quem vê, aparece</b>.</p>
+    <ul class="hint"><li>Só a quadra aproximada (~100 m), nunca o ponto exato.</li><li>Só a última posição, apagada 30 minutos depois.</li><li>No mapa ninguém vê o seu nome; o código muda todo dia.</li><li>Desligou, a posição é apagada na hora.</li></ul>
+    <button class="btn g" id="bLiga">Ficar visível e abrir o mapa</button><div id="mMapa"></div></div>`;
+    $("bLiga").addEventListener("click", async () => {
+      try { PERFIL = await rpc("sin_mapa_visivel", { p_visivel: true }); telaMapa(); } catch (e) { aviso($("mMapa"), erroTxt(e)); }
+    });
+    return;
+  }
+  tela.innerHTML = `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2 style="margin:0">Por perto</h2><button class="btn p o" id="bDesliga">Ficar invisível</button></div>
+  <label for="raio">Raio: <b id="raioV">${RAIO} m</b></label><input type="range" id="raio" min="100" max="1000" step="100" value="${RAIO}">
+  <div class="fig"><svg id="mapa" role="img" aria-label="Pessoas por perto"></svg></div><div id="mMapa"></div>
+  <div class="lista" id="lista"></div><div id="det"></div></div>
+  <p class="hint">Atualiza sozinho a cada minuto enquanto esta tela está aberta. Seu código hoje: <b>${esc(PERFIL.id_dia)}</b>.</p>`;
+  $("bDesliga").addEventListener("click", async () => { PERFIL = await rpc("sin_mapa_visivel", { p_visivel: false }); MAPA = null; telaMapa(); });
+  $("raio").addEventListener("input", () => { RAIO = +$("raio").value; $("raioV").textContent = RAIO + " m"; });
+  $("raio").addEventListener("change", buscarMapa);
+  new ResizeObserver(desenharMapa).observe($("mapa"));
+  buscarMapa(); mapaTimer = setInterval(buscarMapa, 60000);
+}
+function buscarMapa() {
+  if (!navigator.geolocation) return aviso($("mMapa"), "Este aparelho não informa a localização.");
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    try { MAPA = await rpc("sin_mapa", { p_lat: pos.coords.latitude, p_lon: pos.coords.longitude, p_raio: RAIO }); desenharMapa(); $("mMapa").innerHTML = ""; }
+    catch (e) { aviso($("mMapa"), erroTxt(e)); }
+  }, (e) => aviso($("mMapa"), e.code === 1 ? "Permita o acesso à localização para este site nas configurações do navegador." : "Não foi possível pegar a localização agora."), { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 });
+}
+const corNota = (g) => g == null ? "var(--mut)" : g >= 4.5 ? "#00a862" : g >= 4 ? "#4fbf8a" : g >= 3 ? "var(--amb)" : "var(--red)";
+function desenharMapa() {
+  const s = $("mapa"); if (!s || !MAPA) return;
+  const W = s.clientWidth, H = s.clientHeight, R = MAPA.raio, cx = W / 2, cy = H / 2, sc = (Math.min(W, H) / 2 - 24) / R;
+  let h = "";
+  for (let r = 100; r <= R; r += R > 500 ? 200 : 100) h += `<circle cx="${cx}" cy="${cy}" r="${r * sc}" fill="none" stroke="var(--line)" stroke-dasharray="4 5"/><text x="${cx + 4}" y="${cy - r * sc - 4}" font-size="11" fill="var(--mut)">${r} m</text>`;
+  MAPA.pessoas.forEach((p) => {
+    const x = cx + p.dx * sc, y = cy - p.dy * sc, g = p.nota.geral;
+    h += `<g data-id="${esc(p.id)}" style="cursor:pointer"><circle cx="${x}" cy="${y}" r="${SEL === p.id ? 11 : 8}" fill="${corNota(g)}" stroke="var(--bg)" stroke-width="3"/><text x="${x + 12}" y="${y + 5}" font-size="13" font-weight="600" fill="var(--ink)" style="paint-order:stroke;stroke:var(--mist);stroke-width:4px">${g == null ? "nova" : fmt(g)}</text></g>`;
+  });
+  h += `<circle cx="${cx}" cy="${cy}" r="9" fill="var(--ink)" stroke="#00a862" stroke-width="4"/><text x="${cx}" y="${cy - 16}" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)" style="paint-order:stroke;stroke:var(--mist);stroke-width:4px">você</text>`;
+  s.innerHTML = h;
+  $("lista").innerHTML = MAPA.pessoas.length ? MAPA.pessoas.map((p) => `<button data-id="${esc(p.id)}"><span class="dot" style="background:${corNota(p.nota.geral)}"></span><span><b>${esc(p.id)}</b> · ~${p.dist} m</span><span class="num">${p.nota.geral == null ? "sem nota ainda" : "<b>" + fmt(p.nota.geral) + "</b> ★"}</span></button>`).join("")
+    : `<p class="hint" style="margin-top:10px">Ninguém visível nesse raio agora.</p>`;
+  const d = MAPA.pessoas.find((p) => p.id === SEL);
+  $("det").innerHTML = d ? `<div class="card m" style="margin-top:10px"><h3>${esc(d.id)} · ~${d.dist} m</h3>${d.nota.itens ? `<div class="big"><div><b>${fmt(d.nota.geral)}</b><span>nota dos encontros · ${d.nota.n} avaliações</span></div></div>${d.nota.itens.map((v, i) => `<div class="crit"><span>${tip("p", i)}</span><span class="bar"><i style="width:${v / 5 * 100}%"></i></span><span class="num">${fmt(v)}</span></div>`).join("")}` : `<p class="hint">Ainda não tem 5 avaliações de encontros.</p>`}</div>` : "";
+}
+tela.addEventListener("click", (e) => { const g = e.target.closest("[data-id]"); if (g && MAPA) { SEL = g.dataset.id; desenharMapa(); } });
+
+// ------------------------------------------------------------ conta
+function telaConta() {
+  tela.innerHTML = `<div class="card"><h2>Sua conta</h2>
+  <form id="fNome"><label for="cNome">Nome</label><div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px"><input type="text" id="cNome" maxlength="40" value="${esc(PERFIL.nome)}"><button class="btn p">Salvar</button></div></form><div id="mConta"></div>
+  <p class="hint" style="margin-top:10px">Seu código no mapa hoje: <b>${esc(PERFIL.id_dia)}</b> · mapa ${PERFIL.mapa_visivel ? "ligado" : "desligado"}</p>
+  <button class="btn o" id="bSair">Sair</button></div>
+  ${porChave() ? `<div class="card"><h3>Sua chave</h3><p class="hint">É com ela que você entra de novo. Se perder, perde a conta.</p>
+    ${ler("sin-chave") ? `<p class="codigo" id="cK" hidden>${esc(ler("sin-chave"))}</p><button class="btn o" id="bVerK">Mostrar a chave</button>` : `<p class="hint">Este aparelho não guardou a chave: ela está onde você anotou.</p>`}</div>`
+  : `<div class="card g"><h3>Trocar o e-mail por uma chave</h3><p class="hint">Você entrou pelo e-mail. Para ficar anônimo de verdade, troque por uma chave secreta: o e-mail é apagado e os seus dados continuam. Depois, você entra só com a chave.</p><button class="btn g" id="bConv">Trocar por uma chave</button><div id="mConv"></div></div>`}
+  ${anonimato(false)}<div class="card"><a href="/sintonia/ajuda/manual.html" target="_blank" rel="noopener">Manual</a> · <a href="/sintonia/ajuda/cartao.html" target="_blank" rel="noopener">Cartão rápido</a></div>
+  <div class="card"><h3>Apagar meus dados</h3><p class="hint">Apaga os seus espelhos, círculos, respostas recebidas, notas dos encontros e posição. O login continua existindo.</p><button class="btn r" id="bApaga">Apagar tudo do NVSintonia</button></div>
+  <p class="lab">NVSintonia <span data-versao="sintonia"></span> · laboratório da Nervia Tecnologia</p>`;
+  $("fNome").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try { PERFIL = await rpc("sin_perfil_salvar", { p_nome: $("cNome").value }); aviso($("mConta"), "Nome salvo.", true); $("topoInfo").textContent = `${PERFIL.nome} · ${PERFIL.id_dia}`; }
+    catch (x) { aviso($("mConta"), erroTxt(x)); }
+  });
+  $("bSair").addEventListener("click", () => confirmar(porChave() ? "Sair? Para voltar você vai precisar da sua chave. Confira se ela está anotada." : "Sair do NVSintonia?", "Sair", async () => {
+    await sb.auth.signOut(); guardar("sin-chave", null); SESSAO = null; ABA = "inicio"; telaEntrar();
+  }));
+  $("bVerK")?.addEventListener("click", () => { const k = $("cK"); k.hidden = !k.hidden; $("bVerK").textContent = k.hidden ? "Mostrar a chave" : "Esconder"; });
+  $("bConv")?.addEventListener("click", async () => {
+    $("bConv").disabled = true;
+    try {
+      const r = await conta({ acao: "converter" });
+      telaChave(r.chave, true, async () => { await sb.auth.signOut(); await entrarComChave(r.email, r.chave); SESSAO = null; await iniciar(); abrir("conta"); });
+    } catch (e) { aviso($("mConv"), erroTxt(e)); $("bConv").disabled = false; }
+  });
+  $("bApaga").addEventListener("click", () => confirmar("Apagar tudo do NVSintonia? Não dá para desfazer.", "Apagar tudo", async () => { await rpc("sin_excluir_tudo"); iniciar(); }));
+  const v = (window.NERVIA_VERSOES || {}).sintonia; const s = tela.querySelector("[data-versao]"); if (v && s) s.textContent = v[0][0];
+}
+
+// ------------------------------------------------------------ balão de explicação dos itens (mouse ou toque)
+const bal = $("balao"); let balEl = null, antes = null, tipo = "mouse";
+function mostra(el) {
+  const it = MOD[el.dataset.m].itens[+el.dataset.i];
+  bal.innerHTML = `<b>${it[7] || it[0]}</b><span>${it[2]}</span><span class="pq">Pergunta: “${it[1]}”</span><span class="bs">Base: ${it[3]}</span>`;
+  bal.hidden = false; balEl = el;
+  const r = el.getBoundingClientRect(), bw = bal.offsetWidth, bh = bal.offsetHeight;
+  let y = r.bottom + 8; if (y + bh > innerHeight - 8) y = Math.max(8, r.top - bh - 8);
+  bal.style.left = Math.min(Math.max(8, r.left + r.width / 2 - bw / 2), innerWidth - bw - 8) + "px"; bal.style.top = y + "px";
+}
+function esconde() { bal.hidden = true; balEl = null; }
+document.addEventListener("pointerdown", (e) => { antes = balEl; tipo = e.pointerType; }, true);
+document.addEventListener("pointerover", (e) => { if (e.pointerType === "mouse") { const t = e.target.closest(".tip"); if (t) mostra(t); } });
+document.addEventListener("pointerout", (e) => { if (e.pointerType === "mouse") { const t = e.target.closest(".tip"); if (t && !t.contains(e.relatedTarget)) esconde(); } });
+document.addEventListener("click", (e) => {
+  const t = e.target.closest(".tip");
+  if (t) { e.preventDefault(); e.stopPropagation(); if (antes === t && tipo !== "mouse") esconde(); else mostra(t); return; }
+  if (!e.target.closest("#balao")) esconde();
+}, true);
+document.addEventListener("focusin", (e) => { const t = e.target.closest?.(".tip"); if (t) mostra(t); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") esconde(); });
+addEventListener("scroll", () => { if (balEl) mostra(balEl); }, { passive: true });
+// mantém o balão dentro do diálogo aberto (o <dialog> fica por cima do resto)
+new MutationObserver(() => { const d = $("dlg"); if (d.open && bal.parentElement !== d) d.appendChild(bal); else if (!d.open && bal.parentElement !== document.body) document.body.appendChild(bal); }).observe($("dlg"), { attributes: true, attributeFilter: ["open"] });
+
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sintonia/sw.js").catch(() => {});
+iniciar().catch((e) => { tela.innerHTML = `<p class="err">${esc(erroTxt(e))}</p>`; });
+}
+</script>
+<script src="/versoes.js"></script>
+</body>
+</html>

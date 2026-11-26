@@ -104,3 +104,12 @@ Deno.test("gancho: convite, código e troca de e-mail (nomes de hash trocados, c
   assertEquals(um.map((m) => m.para), ["ana@nova.com"]);
   nodeAssert.throws(() => montar(U, { ...D, email_action_type: "outro" }, "https://r"), /não tratado/);
 });
+
+Deno.test("gancho: link de entrada do NVSintonia tem texto próprio; o da Área do Cliente continua igual", () => {
+  const u = { id: "u1", email: "amigo@x.com", user_metadata: { nome: "Caio Lima" } };
+  const d = { token: "1", token_hash: "H1", redirect_to: "https://nervia.com.br/sintonia/", email_action_type: "magiclink", site_url: "https://nervia.com.br" };
+  const [m] = montar(u as never, d as never, "https://sb.co");
+  assert(m.assunto.includes("NVSintonia") && m.html.includes("Olá, Caio!") && m.html.includes("type=magiclink") && m.html.includes(encodeURIComponent("https://nervia.com.br/sintonia/")));
+  const [c] = montar(u as never, { ...d, redirect_to: "https://nervia.com.br/cliente/" } as never, "https://sb.co");
+  assert(c.assunto.includes("Área do Cliente"));
+});

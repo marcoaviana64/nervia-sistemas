@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#6d3cf0">
+<title>NVAura — como funciona</title>
+<link rel="icon" href="/aura/icone-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<!-- Página de apresentação do NVAura (pedido do Marco em 25/11/2026): a ideia, como funciona, o anonimato e a comparação
+     com o episódio "Queda Livre" (Black Mirror, 2016), que inspirou o app. Página estática, sem banco. -->
+<style>
+:root{color-scheme:light dark;--bg:light-dark(#faf8ff,#0c0818);--ink:light-dark(#120b24,#efeaff);--mut:light-dark(#62597a,#a89cc8);--a:#6d3cf0;--a2:#ff5c9a;--a3:#ffb547;--ad:light-dark(#5427d6,#b9a1ff);--mist:light-dark(#f0eaff,#1a1131);--line:light-dark(#e2daf5,#2c2147);--card:light-dark(#fff,#140d26);--ok:light-dark(#1d7f46,#43c07e);--no:light-dark(#b3261e,#f07a72)}
+*{box-sizing:border-box;min-width:0}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.6 Inter,system-ui,sans-serif;overflow-x:clip}
+h1,h2,h3{font-family:"Space Grotesk",Inter,sans-serif;letter-spacing:-.02em;line-height:1.12;margin:0 0 10px}
+h1{font-size:clamp(34px,7vw,56px)}h2{font-size:clamp(24px,4vw,32px);margin-top:8px}h3{font-size:19px}
+p{margin:0 0 12px}a{color:var(--ad)}
+.hero{background:radial-gradient(90% 120% at 0% 0%,#6d3cf0,transparent 60%),radial-gradient(80% 120% at 100% 100%,#ff5c9a,transparent 60%),#2a1060;color:#fff;padding:max(40px,env(safe-area-inset-top)) 20px 56px}
+.hero .in{max-width:880px;margin:0 auto}
+.hero .marca{font:700 13px Inter,sans-serif;letter-spacing:.22em;text-transform:uppercase;opacity:.85;margin-bottom:14px}
+.hero p{font-size:20px;max-width:640px;opacity:.95}
+.cta{display:inline-block;margin-top:14px;background:#fff;color:#2a1060;font-weight:700;text-decoration:none;padding:14px 22px;border-radius:14px}
+main{max-width:880px;margin:0 auto;padding:30px 20px 60px}
+section{margin:34px 0}
+.passos{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:14px}
+.passo{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px}
+.passo b{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--a),var(--a2));color:#fff;font:700 16px "Space Grotesk",sans-serif;margin-bottom:10px}
+.cartao{max-width:380px;margin:18px auto;border-radius:24px;padding:3px;background:conic-gradient(from 210deg,var(--a),var(--a2),var(--a3),var(--a));box-shadow:0 18px 50px -18px #6d3cf0aa}
+.cartao .in{border-radius:21px;background:var(--card);padding:18px;display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center}
+.cartao .ft{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--a),var(--a2));display:grid;place-items:center;color:#fff;font:700 26px "Space Grotesk",sans-serif}
+.cartao .nm{font:700 20px "Space Grotesk",sans-serif}
+.cartao .est{color:var(--a3);font-size:18px;letter-spacing:2px}
+.cartao small{color:var(--mut)}
+table{width:100%;border-collapse:collapse;font-size:15px;background:var(--card);border-radius:16px;overflow:hidden;border:1px solid var(--line)}
+th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:600 13px Inter,sans-serif;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;background:var(--mist)}
+td:first-child{font-weight:600;width:24%}
+.no{color:var(--no)}.ok{color:var(--ok)}
+.lista{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+.lista li{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.lista li b{display:block;margin-bottom:2px}
+.nao{background:var(--mist);border-radius:18px;padding:20px}
+.nao li{margin:6px 0}
+.scroll{overflow-x:auto}
+footer{text-align:center;color:var(--mut);font-size:13px;padding:20px}
+</style>
+</head>
+<body>
+<header class="hero"><div class="in">
+  <div class="marca">NVAura · laboratório da Nervia</div>
+  <h1>A sua aura, em estrelas</h1>
+  <p>Um cartão com a sua foto, o seu nome e um QR code. Depois de uma interação (uma conversa, um encontro, um atendimento), a pessoa lê o QR e diz, de 1 a 5 estrelas, como foi. Sem conta, sem nome, sem comentário.</p>
+  <a class="cta" href="/aura/">Criar o meu cartão</a>
+</div></header>
+<main>
+  <section>
+    <h2>Como funciona</h2>
+    <div class="passos">
+      <div class="passo"><b>1</b><h3>Crie o seu cartão</h3><p>Nome ou apelido e uma foto. Sem e-mail, sem telefone, sem senha: você recebe uma chave secreta, que é a sua conta.</p></div>
+      <div class="passo"><b>2</b><h3>Mostre o QR</h3><p>No fim de uma interação, mostre o QR no celular ou entregue o cartão impresso. A pessoa aponta a câmera.</p></div>
+      <div class="passo"><b>3</b><h3>Ela dá as estrelas</h3><p>"Como foi a nossa interação?" De 1 a 5, e pronto. Ela não precisa de conta e ganha o convite para criar o próprio cartão.</p></div>
+    </div>
+    <div class="cartao" aria-hidden="true"><div class="in"><div class="ft">AL</div><div><div class="nm">Ana Lima</div><div class="est">★★★★☆</div><b>4,6</b> <small>· 38 avaliações de 52 pedidos</small></div></div></div>
+  </section>
+
+  <section>
+    <h2>O anonimato</h2>
+    <ul class="lista">
+      <li><b>Você é um número, não um nome.</b>A conta é uma chave secreta que só você tem. Nome e foto aparecem só para quem lê o seu QR.</li>
+      <li><b>Ninguém sabe quem deu cada nota.</b>A nota não guarda quem avaliou, a hora nem o celular. Nem a equipe Nervia consegue ver.</li>
+      <li><b>As notas entram em lotes de 5.</b>A média muda a cada 5 avaliações novas: você vê que alguém avaliou, mas não descobre quanto essa pessoa deu.</li>
+      <li><b>Só avalia quem esteve com você.</b>A avaliação é pelo QR, lido na hora. Cada celular avalia o mesmo cartão uma vez por dia.</li>
+      <li><b>No radar, ninguém tem rosto.</b>Quem liga o radar vê as notas por perto, cada pessoa só por um código que muda todo dia. Quem não liga, não aparece.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Inspirado em "Queda Livre"</h2>
+    <p>A ideia veio do episódio <b>"Queda Livre"</b> (<i>Nosedive</i>), de <i>Black Mirror</i> (3ª temporada, 2016): todo mundo dá de 1 a 5 estrelas para todo mundo, depois de cada interação. O episódio é um alerta, e o NVAura foi desenhado justamente para não repetir os problemas dele:</p>
+    <div class="scroll"><table>
+      <tr><th></th><th>No episódio</th><th>No NVAura</th></tr>
+      <tr><td>Quem deu a nota</td><td class="no">Todo mundo vê, na cara: as pessoas fingem simpatia.</td><td class="ok">Ninguém vê. A nota não tem autor e entra em lotes de 5.</td></tr>
+      <tr><td>Peso de cada voto</td><td class="no">Nota de quem tem nota alta vale mais: vira corrida por status.</td><td class="ok">Todo voto vale igual.</td></tr>
+      <tr><td>Quem pode avaliar</td><td class="no">Qualquer um, a qualquer momento.</td><td class="ok">Só quem leu o QR na hora, uma vez por dia por celular.</td></tr>
+      <tr><td>O que a nota decide</td><td class="no">Moradia, descontos, serviços, prestígio social.</td><td class="ok">Nada. A nota é um espelho, não um passe.</td></tr>
+      <tr><td>Rosto e nome</td><td class="no">A nota aparece em cima de cada pessoa, para todos.</td><td class="ok">No radar só um código do dia; o cartão completo só para quem esteve com você.</td></tr>
+      <tr><td>Nota injusta</td><td class="no">Sem defesa.</td><td class="ok">Uma nota sozinha não aparece; a média de muitas pessoas dilui o exagero.</td></tr>
+    </table></div>
+  </section>
+
+  <section class="nao">
+    <h2>O que o NVAura não é</h2>
+    <ul>
+      <li>Não é um "placar social": não dá acesso, desconto nem privilégio a ninguém.</li>
+      <li>Não é para expor: nome e foto só aparecem para quem esteve com você.</li>
+      <li>Não é para vigiar: nem a equipe Nervia vê quem deu cada nota.</li>
+      <li>Não guarda comentários: só estrelas, para não virar lugar de ataque.</li>
+      <li>Não aceita foto ou nome impróprio: quem vê o cartão pode denunciar, e com 3 denúncias a foto some até a equipe Nervia revisar.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Para empresas (em estudo)</h2>
+    <p>O mesmo cartão pode servir para cada pessoa de uma equipe pedir uma avaliação rápida depois de um atendimento. Nesse uso, combinamos antes com a empresa que a nota serve para o desenvolvimento das pessoas, não para punir, e seguimos a LGPD (termo de uso, quem vê o quê e como contestar).</p>
+  </section>
+
+  <section style="text-align:center">
+    <a class="cta" style="background:linear-gradient(110deg,var(--a),var(--a2));color:#fff" href="/aura/">Criar o meu cartão</a>
+  </section>
+</main>
+<footer>NVAura · laboratório da Nervia Tecnologia · nervia.com.br</footer>
+</body>
+</html>

@@ -93,7 +93,7 @@ async function aba(pg, sel) { const g = await pg.getAttribute(sel, 'data-g'); aw
     const pg = await ctx.newPage(); const erros = [];
     pg.on('pageerror', e => erros.push(String(e)));
     await pg.route('**/supabase-js@*/**', r => r.fulfill({ body: FALSO, contentType: 'text/javascript' }));
-    await pg.goto(`http://127.0.0.1:${PORTA}/apps/linum/`); await pg.waitForSelector('#app:not(.oculto)');
+    await pg.goto(`http://127.0.0.1:${PORTA}/apps/linum/?aba=estoque`); await pg.waitForSelector('#app:not(.oculto)');
     await aba(pg, '#abaAjustes'); await pg.waitForSelector('#ajtab');
     ok(await pg.locator('#ajtab [data-ficha]').count() === 4, 'cada ajuste tem o número e "Ficha" para abrir a ficha');
 
@@ -108,9 +108,15 @@ async function aba(pg, sel) { const g = await pg.getAttribute(sel, 'data-g'); aw
     // "Entregue" sem observação (opcional)
     await pg.click('#ajtab [data-aj="entregue"][data-id="2"]'); await pg.waitForSelector('#dlg2[open] #ajandobs');
     ok((await pg.locator('#dlg2f label').textContent()).includes('Observação do retorno (opcional)'), '"Entregue" pede a observação do retorno (opcional)');
-    await pg.click('#ajandok'); await pg.waitForTimeout(500);
+    await pg.click('#ajandok'); await pg.waitForSelector('#dlg2[open] #tmprev');
     r = await ultimaRpc(pg, 'lin_ajuste_andamento');
     ok(r.p_ajuste === 2 && r.p_acao === 'entregue' && r.p_motivo === null, 'entregue sem observação também grava');
+    const cent = await pg.locator('#tmprev').innerText();
+    ok(cent.includes('ENTREGA DE AJUSTE Nº 2') && cent.includes('Entregue em') && cent.includes('Recebi a peça com o ajuste feito') && cent.includes('VIA DA LOJA') && cent.split('\n').filter(l => /^\s*_{10,}\s*$/.test(l)).length === 1,
+      '2.57: ao entregar abre o comprovante de entrega (2 vias, a cliente assina a da loja)');
+    ok(!cent.includes('Dona Rosa'), '2.57: o comprovante não mostra a costureira');
+    await print(pg, 'ajuste_comprovante_entrega');
+    await pg.click('#tmfechar'); await pg.waitForTimeout(400);
 
     // "Voltar p/ costureira" exige o motivo
     await pg.click('#ajtab [data-aj="reabrir"][data-id="1"]'); await pg.waitForSelector('#dlg2[open] #ajandobs');
@@ -134,7 +140,12 @@ async function aba(pg, sel) { const g = await pg.getAttribute(sel, 'data-g'); aw
     await pg.click('#ajandx'); await pg.waitForSelector('#dlg2f .ajlinha');
     ok(true, '"Voltar" no formulário volta para a ficha');
     await pg.click('#dlg2f [data-fa="entregue"]'); await pg.waitForSelector('#ajandobs');
-    await pg.fill('#ajandobs', 'cliente provou e gostou'); await pg.click('#ajandok'); await pg.waitForSelector('#dlg2f .ajlinha li.ev-entregue');
+    await pg.fill('#ajandobs', 'cliente provou e gostou'); await pg.click('#ajandok'); await pg.waitForSelector('#dlg2[open] #tmprev');
+    ok((await pg.locator('#tmprev').innerText()).includes('cliente provou e gostou'), '2.57: comprovante de entrega com a observação');
+    await pg.click('#tmfechar'); await pg.waitForSelector('#dlg2f .ajlinha li.ev-entregue');
+    await pg.click('#faterm'); await pg.waitForSelector('#dlg2[open] #tmprev');
+    ok((await pg.locator('#tmprev').innerText()).includes('ENTREGA DE AJUSTE Nº 1') && (await pg.locator('#tmfechar').innerText()) === 'Voltar', '2.57: "Comprovante de entrega" na ficha, com Voltar');
+    await pg.click('#tmfechar'); await pg.waitForSelector('#dlg2f .ajlinha li.ev-entregue');
     f = await pg.locator('#dlg2f').innerText();
     ok(f.includes('Entregue') && f.includes('Entregue à cliente') && f.includes('cliente provou e gostou') && await pg.locator('#dlg2f [data-fa]').count() === 0,
       'depois de entregar, a ficha mostra Entregue, a observação e nenhuma ação');
@@ -158,7 +169,7 @@ async function aba(pg, sel) { const g = await pg.getAttribute(sel, 'data-g'); aw
     const cel = await b.newContext({ viewport: { width: 390, height: 844 } });
     const c = await cel.newPage(); const ce = []; c.on('pageerror', e => ce.push(String(e)));
     await c.route('**/supabase-js@*/**', r => r.fulfill({ body: FALSO, contentType: 'text/javascript' }));
-    await c.goto(`http://127.0.0.1:${PORTA}/apps/linum/`); await c.waitForSelector('#app:not(.oculto)');
+    await c.goto(`http://127.0.0.1:${PORTA}/apps/linum/?aba=estoque`); await c.waitForSelector('#app:not(.oculto)');
     await aba(c, '#abaAjustes'); await c.click('#ajtab [data-ficha="2"] >> nth=0'); await c.waitForSelector('#dlg2[open] .ajlinha');
     ok(await c.evaluate(() => document.getElementById('dlg2').scrollWidth <= document.getElementById('dlg2').clientWidth + 1), 'celular: ficha sem rolagem lateral');
     await print(c, 'ajuste_ficha_celular');

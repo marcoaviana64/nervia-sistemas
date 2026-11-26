@@ -98,7 +98,7 @@ def entrar(b, papel, largura=1300):
     pg.respostas = respostas
     return pg, erros
 
-def abrir(pg, rota="/apps/linum/"):
+def abrir(pg, rota="/apps/linum/?aba=estoque"):
     pg.goto(f"http://127.0.0.1:{PORTA_SITE}{rota}"); pg.wait_for_selector("#app:not(.oculto), #aviso:not(.oculto)"); pg.wait_for_timeout(400)
 
 # menu em dois níveis (2.34): a aba fica dentro do grupo; clica no grupo antes
@@ -149,14 +149,14 @@ try:
         ok("salvo" in pg.text_content("#msg") and psql("select comissao_pct from lin_membros where papel = 'vendedora'", saida=True) == "0.00",
            "vendedora sem loja principal é aceita (vende em qualquer loja), comissão 0% até definir")
         pg.select_option(f'.eq-papel[data-i="{i_vend}"]', "vendedora"); pg.select_option(f'.eq-loja[data-i="{i_vend}"]', label="Ipanema")
-        pg.fill(f'.eq-comissao[data-i="{i_vend}"]', "3,5")
         pg.click(f'.eq-salvar[data-i="{i_vend}"]'); pg.wait_for_timeout(600)
         pg.select_option(f'.eq-papel[data-i="{i_est}"]', "estoque"); pg.click(f'.eq-salvar[data-i="{i_est}"]'); pg.wait_for_timeout(600)
         ok(psql("select string_agg(papel || ':' || coalesce((select nome from lin_lojas where id = loja_id), '-'), ',' order by papel) from lin_membros", saida=True) == "dono:-,estoque:-,vendedora:Ipanema",
            "papéis gravados (dono; estoque; vendedora da Ipanema)")
         ok(int(psql("select count(*) from auditoria where acao = 'linum_papel_definido'", saida=True)) == 4, "papéis na auditoria")
-        ok(psql("select string_agg(papel || ':' || comissao_pct, ',' order by papel) from lin_membros", saida=True) == "dono:0.00,estoque:0.00,vendedora:3.50",
-           "comissão em % gravada pela Equipe (vendedora 3,5%; os outros 0%)")
+        # 2.61: a comissão vem das regras por loja e período (Comissões → Regras); aqui a vendedora ganha 3,5% nas duas lojas
+        psql("insert into lin_comissoes (user_id, pct, lojas, inicio) select user_id, 3.5, (select array_agg(id) from lin_lojas), '2000-01-01' from lin_membros where papel = 'vendedora'")
+        ok(not pg.is_visible(".eq-comissao"), "a Equipe não tem mais o campo de comissão (vai para as regras)")
         pg.screenshot(path=os.path.join(SAIDA, "linum_equipe.png"), full_page=True)
         ok(not erros, "sem erros de JavaScript (admin)")
 
@@ -225,7 +225,7 @@ try:
         pg.fill('#dlgf [data-trq="0"]', "9"); pg.click("#trok"); pg.wait_for_timeout(300)
         ok("só tem 8" in pg.text_content("#dlgf .msg.err"), "envio maior que a origem barrado na tela")
         pg.fill('#dlgf [data-trq="0"]', "3"); pg.fill("#tro", "para a vitrine")
-        pg.once("dialog", lambda d: d.accept()); pg.click("#trok"); pg.wait_for_timeout(900)
+        pg.once("dialog", lambda d: d.accept()); pg.click("#trok"); pg.wait_for_timeout(900); pg.evaluate("() => { const d = document.getElementById('dlg2'); if (d.open) d.close(); }")  # comprovante da transferência (2.63)
         ok(qtd_banco(V_AZUL_P, "Gávea") == 5 and qtd_banco(V_AZUL_P, "Ipanema") == 0 and "em trânsito" in pg.text_content("#msg"),
            "envio: sai da Gávea e ainda não entra em Ipanema")
         ok("1 transferência(s) em trânsito" in pg.text_content("#tela") and pg.text_content("#abaTransf").strip().endswith("1"), "aviso no Estoque e número na aba")
@@ -427,7 +427,7 @@ try:
         pg.select_option('#nvpags [data-k="parcelas"]', "6"); pg.fill("#nvobs", "Niver 21/07")
         pg.screenshot(path=os.path.join(SAIDA, "linum_nova_venda.png"), full_page=True)
         pg.fill(".nvcv", "0189435334")   # 2.54: CV do comprovante do cartão
-        pg.click("#nvok"); pg.wait_for_timeout(1000)
+        pg.click("#nvok"); pg.wait_for_timeout(1000); pg.evaluate("() => { const d = document.getElementById('dlg2'); if (d.open) d.close(); }")  # extrato da venda (2.56)
         ok("registrada" in pg.text_content("#msg") and not pg.is_visible("#dlg"), "venda registrada")
         ok(psql("select valor_bruto || ' ' || valor_total || ' ' || (pagamentos->0->>'parcelas') || ' ' || observacao || ' ' || (pagamentos->0->>'cv') from lin_vendas", saida=True) == "998.00 898.00 6 Niver 21/07 189435334"
            and qtd_banco(V_AZUL_P, "Ipanema") == 1, "venda gravada com tabela, total, parcelas e baixa no estoque da Ipanema")
@@ -500,8 +500,8 @@ try:
         ok(not pg.is_visible("#dlg2") and psql("select count(*) from lin_clientes", saida=True) == "2", "É outra pessoa: cria o cadastro novo")
         pg.select_option("#nvloja", label="Gávea"); pg.fill("#nvpq", "cal-are"); pg.wait_for_timeout(150)
         pg.click('#nvres [data-add="0"]'); pg.wait_for_timeout(150)
-        pg.select_option('#nvpags [data-k="forma"]', "pix"); pg.click("#nvok"); pg.wait_for_timeout(1000)
-        ok("registrada" in pg.text_content("#msg") and "Sua comissão" in pg.text_content(".kpis") and "sem comissão" in pg.text_content(".kpis"), "Estoque registra venda na Gávea; KPI sem comissão")
+        pg.select_option('#nvpags [data-k="forma"]', "pix"); pg.click("#nvok"); pg.wait_for_timeout(1000); pg.evaluate("() => { const d = document.getElementById('dlg2'); if (d.open) d.close(); }")  # extrato da venda (2.56)
+        ok("registrada" in pg.text_content("#msg") and "Sua comissão" in pg.text_content(".kpis"), "Estoque registra venda na Gávea; KPI da comissão")
         ok(psql("select (select nome from lin_lojas where id = loja_id) || ' ' || comissao_pct || ' ' || comissao_valor from lin_vendas order by id desc limit 1", saida=True) == "Gávea 0.00 0.00",
            "venda do Estoque gravada na loja escolhida e sem comissão")
         ok(not any("preco_custo" in r for r in pg.respostas), "Estoque que vende continua sem receber custo")
@@ -519,7 +519,7 @@ try:
         pg.fill("#nvcq", "Carmen"); pg.wait_for_timeout(150); pg.click("#nvcres [data-cli] >> nth=0"); pg.wait_for_timeout(500)
         ok(pg.inner_html("#nvcred") == "", "cliente sem crédito: a caixa de crédito não aparece")
         pg.fill("#nvpq", "ves-mar"); pg.wait_for_timeout(150); pg.click('#nvres [data-add="0"]'); pg.wait_for_timeout(150)
-        pg.select_option('#nvpags [data-k="forma"]', "pix"); pg.click("#nvok"); pg.wait_for_timeout(1000)
+        pg.select_option('#nvpags [data-k="forma"]', "pix"); pg.click("#nvok"); pg.wait_for_timeout(1000); pg.evaluate("() => { const d = document.getElementById('dlg2'); if (d.open) d.close(); }")  # extrato da venda (2.56)
         venda = psql("select max(id) from lin_vendas where cancelada_em is null and loja_id = (select id from lin_lojas where nome = 'Ipanema')", saida=True)
         cli = psql(f"select cliente_id from lin_vendas where id = {venda}", saida=True)
         pago_p = psql(f"select valor_total from lin_venda_itens where venda_id = {venda}", saida=True)
@@ -546,7 +546,7 @@ try:
         pg.fill('#nvitens [data-k="vu"]', "600,00"); pg.wait_for_timeout(150)
         nf = pg.text_content("#nvnf").replace("\xa0", " ")
         ok("Valor da nota fiscal" in nf, f"mostra o que falta pagar e o valor da nota fiscal ({nf.strip()[:80]})")
-        pg.select_option('#nvpags [data-k="forma"]', "pix"); pg.click("#nvok"); pg.wait_for_timeout(1200)
+        pg.select_option('#nvpags [data-k="forma"]', "pix"); pg.click("#nvok"); pg.wait_for_timeout(1200); pg.evaluate("() => { const d = document.getElementById('dlg2'); if (d.open) d.close(); }")  # extrato da venda (2.56)
         vc = psql("select max(id) from lin_vendas", saida=True)
         ok(psql(f"select credito_usado || ' ' || valor_nf || ' ' || (pagamentos @> '[{{\"forma\":\"credito_loja\"}}]') from lin_vendas where id = {vc}", saida=True)
              == f"{pago_p} {round(600 - float(pago_p), 2):.2f} true"
@@ -1048,14 +1048,14 @@ try:
         antes_ipa, antes_gav = qtd_banco(V_AZUL_P, "Ipanema"), qtd_banco(V_AZUL_P, "Gávea")
         chip(pg, V_AZUL_P, "Ipanema").click(); pg.wait_for_selector("#dlg[open] #trq")
         ok(pg.locator('#dlgf [data-trg="origem"].on').text_content() == "Ipanema" and pg.locator('#dlgf [data-trg="destino"].on').text_content() == "Gávea", "vendedora: quadrado abre o envio")
-        pg.once("dialog", lambda d: d.accept()); pg.click("#trok"); pg.wait_for_timeout(900)
+        pg.once("dialog", lambda d: d.accept()); pg.click("#trok"); pg.wait_for_timeout(900); pg.evaluate("() => { const d = document.getElementById('dlg2'); if (d.open) d.close(); }")  # comprovante da transferência (2.63)
         ok(qtd_banco(V_AZUL_P, "Ipanema") == antes_ipa - 1, "vendedora envia 1 peça")
         aba(pg, "#abaTransf"); pg.wait_for_selector("[data-trcan]")
         pg.once("dialog", lambda d: d.accept("cliente desistiu")); pg.click("[data-trcan]"); pg.wait_for_timeout(900)
         ok(qtd_banco(V_AZUL_P, "Ipanema") == antes_ipa and "cancelada" in pg.text_content("#msg"), "vendedora cancela a própria transferência: a peça volta")
         pg.click('.aba[data-v="estoque"]'); pg.wait_for_selector("#lista")
         chip(pg, V_AZUL_P, "Ipanema").click(); pg.wait_for_selector("#dlg[open] #trq")
-        pg.once("dialog", lambda d: d.accept()); pg.click("#trok"); pg.wait_for_timeout(900)
+        pg.once("dialog", lambda d: d.accept()); pg.click("#trok"); pg.wait_for_timeout(900); pg.evaluate("() => { const d = document.getElementById('dlg2'); if (d.open) d.close(); }")  # comprovante da transferência (2.63)
         ok(not erros, "sem erros de JavaScript (vendedora transfere)")
         pg, erros = entrar(b, "estoque"); abrir(pg)
         ok(pg.locator("[data-trcan]").count() == 0 and "1 transferência(s) em trânsito" in pg.text_content("#tela"), "Estoque vê o aviso do que está em trânsito")
