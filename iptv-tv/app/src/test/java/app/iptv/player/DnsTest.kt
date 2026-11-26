@@ -16,9 +16,11 @@ class DnsTest {
         assertEquals(listOf(ip("203.0.113.7")), d.lookup("auth.exemplo.gy"))
     }
 
-    @Test fun operadoraDesviaParaOutroEndereco_alternativoPrimeiro() {
+    // 2.35: quando os dois discordam, o do LOCAL vem primeiro (país certo) e o alternativo fica de reserva —
+    // antes o alternativo vinha na frente e levava a um nó de outro país (provedor bloqueava "país não permitido").
+    @Test fun dnsLocalPrimeiro_alternativoDeReserva() {
         val d = DnsAlternativo(sistema = { listOf(ip("10.0.0.9")) }, alternativo = { listOf(ip("203.0.113.7")) })
-        assertEquals(listOf(ip("203.0.113.7"), ip("10.0.0.9")), d.lookup("auth.exemplo.gy"))
+        assertEquals(listOf(ip("10.0.0.9"), ip("203.0.113.7")), d.lookup("auth.exemplo.gy"))
     }
 
     @Test fun osDoisConcordam_ordemDoSistema() {
