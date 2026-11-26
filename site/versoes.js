@@ -114,6 +114,7 @@ window.NERVIA_VERSOES = {
     ["1.0", "Lançamento na Plataforma: os chamados de suporte de TI da Nervia por empreendimento, com o histórico de andamentos, a ficha do atendimento em PDF e os equipamentos com código e histórico de usuários."],
   ],
   "linum": [
+    ["2.71", "Contas a pagar: ficha do fornecedor (clique no nome) com o que já comprou, pagou e tem em aberto, o que vence nos próximos meses, as notas com as parcelas, os pagamentos no extrato e o espelho da nota, para imprimir ou salvar em PDF. Na grade, filtro “Só com NF” e escolha dos fornecedores que quer ver (por exemplo, só os de linho), que fica guardada no aparelho."],
     ["2.70", "Gerencial: nova aba Contas a pagar. Fornecedores nas linhas e meses no cabeçalho, com o que vence em cada mês; clique no valor para ver as parcelas, dar baixa, corrigir ou cancelar. As parcelas das NF-e de compra entram pelo Buscador de NF ou pelo XML do e-mail, as contas sem nota (aluguel, luz) são lançadas com repetição mensal, e as contas recorrentes saem do histórico dos extratos com a média dos últimos meses (valor estimado)."],
     ["2.69", "Relatório de vendas da promoção mais simples: o resumo no alto e só a lista das peças vendidas, com a linha de total no fim."],
     ["2.68", "Nas peças da promoção, o preço do alto do cartão é o das peças normais e cada peça especial mostra o próprio preço no bloco dela; o preço não sai mais do cartão."],

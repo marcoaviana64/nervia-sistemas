@@ -5,7 +5,8 @@
 // parcelas; baixa com o lançamento do extrato sugerido (mesmo valor e CNPJ); NF-e do Buscador (duplicatas → parcelas, nota só
 // resumo não marca); XML por arquivo (outro CNPJ avisa; sem duplicatas pede o vencimento); contas recorrentes (mensal × várias
 // vezes no mês, fixo × estimado pela média dos 3 últimos meses, gerar 12 meses estimados); conta à mão com valor em reais;
-// cancelar com motivo; CSV; celular.
+// cancelar com motivo; CSV; ficha do fornecedor (2.71: notas por NF, pagamentos do extrato, espelho, impressão); filtros só com NF e
+// fornecedores escolhidos; celular.
 // Uso: node testes/linum/tela_gerencial_pagar_test.js [pasta_prints]
 const path = require('path'), fs = require('fs'), http = require('http');
 const { chromium } = require('playwright');
@@ -177,8 +178,11 @@ const fechado = (pg, d = 'dlg') => pg.waitForFunction(id => !document.querySelec
 
     // cancelar com motivo
     await pg.locator('.gpgrade tbody tr', { hasText: 'Imobiliária' }).locator('.gpforn').click();
+    await pg.waitForSelector('#dlg[open] #gpfab');
+    ok((await pg.locator('#dlgf h3').innerText()) === 'Imobiliária Exemplo' && (await pg.locator('.gpnf').count()) === 2, 'clique no fornecedor abre a ficha dele');
+    await pg.click('#gpfab');
     await pg.waitForSelector('#dlg[open] [data-ca]');
-    ok((await pg.locator('#dlgf tbody tr').count()) === 2, 'clique no fornecedor abre todas as parcelas dele');
+    ok((await pg.locator('#dlgf tbody tr').count()) === 2, 'na ficha, "Pagar parcelas em aberto" abre as parcelas dele');
     pg.__resposta = 'contrato renegociado';
     await pg.locator('#dlgf [data-ca]').last().click();
     await pg.waitForFunction(() => document.querySelector('#dlgf').innerText.includes('cancelada'));
@@ -200,6 +204,7 @@ const fechado = (pg, d = 'dlg') => pg.waitForFunction(id => !document.querySelec
     await fechado(pg);
     r = await rpc(pg, 'lin_ger_pagar_importar');
     const c0 = r[0].p.contas[0];
+    ok(r[0].p.contas.every(c => c.emissao === dia(-3)), 'grava a data de emissão da NF');
     ok(r[0].p.origem === 'nfe' && r[0].p.contas.length === 3 && c0.chave === `nfe|${CH1}|001` && c0.vencimento === mes(1) + '-05' && c0.parcela === '1/3'
       && c0.fornecedor_doc === '98765432000110' && c0.documento === '8888' && c0.categoria === 'Insumos', 'grava as parcelas com chave, vencimento, CNPJ e categoria');
     ok((await pg.locator('#gpimp').innerText()).includes('(1)'), 'a nota importada sai da lista de pendentes');
@@ -268,6 +273,42 @@ const fechado = (pg, d = 'dlg') => pg.waitForFunction(id => !document.querySelec
     const csv = fs.readFileSync(await dl.path(), 'utf8');
     ok(csv.includes('"Contabilidade Exemplo"') && csv.includes('"1234,56"') && csv.split('\r\n').length === 2, 'CSV com as contas da tela');
     await pg.fill('#gpq', '');
+
+    // ficha do fornecedor: resumo, meses, notas por NF, pagamentos do extrato, espelho, imprimir
+    await pg.locator('.gpgrade tbody tr', { hasText: 'Tecidos' }).locator('.gpforn').click();
+    await pg.waitForSelector('#dlg[open] .gpfkpi');
+    await print(pg, 'pagar_ficha');
+    const fk = (await pg.locator('#dlgf .gpfkpi').innerText()).replace(/\s/g, ' ');
+    ok(fk.includes('R$ 2.690,60') && fk.includes('R$ 1.345,30'), 'ficha: comprado, pago e em aberto');
+    const nfcab = await pg.locator('#dlgf .gpnfcab').first().innerText();
+    ok(nfcab.includes('NF nº 5501') && nfcab.includes('2 parcelas') && nfcab.includes(dia(-40).split('-').reverse().join('/')), 'ficha: parcelas agrupadas pela NF, com a emissão da nota do Buscador');
+    ok(await pg.locator('#dlgf a[href="/apps/notas/espelho.html?ids=3"]').count() === 1, 'ficha: link para o espelho da nota');
+    const pagtos = await pg.locator('#dlgf table').last().innerText();
+    ok(pagtos.includes('PIX ENVIADO TECIDOS FICTICIOS') && !pagtos.includes('OUTRA PESSOA') && !pagtos.includes('TRANSFERENCIA'), 'ficha: pagamentos do extrato pelo CNPJ');
+    ok((await pg.locator('#dlgf .gpgrade td').allInnerTexts()).filter(t => t.includes('1.345,30')).length === 1, 'ficha: a pagar nos próximos meses');
+    const [pop] = await Promise.all([pg.waitForEvent('popup'), pg.click('#gpfimp')]);
+    await pop.waitForLoadState();
+    const tp = await pop.evaluate(() => document.body.innerText);
+    ok(tp.includes('Ficha do fornecedor') && tp.includes('NF nº 5501') && !tp.includes('abrir'), 'ficha: impressão sem botões');
+    await pop.close();
+    await pg.click('#gpfx');
+
+    // filtros: só com NF e escolher fornecedores (guardado no aparelho)
+    await pg.selectOption('#gptipo', 'nf');
+    let nomes = await pg.locator('.gpgrade tbody .gpforn').allInnerTexts();
+    ok(nomes.length && nomes.every(x => !/Imobili|Contabilidade|Light/.test(x)), 'só com NF: some aluguel e contas sem nota');
+    await pg.selectOption('#gptipo', '');
+    await pg.click('#gpfs');
+    await pg.waitForSelector('#dlg2[open] .gpfck');
+    await pg.click('#gpfsn');
+    await pg.locator('.gpfck', { has: pg.locator('xpath=..') }).first();
+    await pg.locator('label', { hasText: 'Tecidos Fictícios' }).locator('.gpfck').check();
+    await pg.click('#gpfsok');
+    await fechado(pg, 'dlg2');
+    nomes = await pg.locator('.gpgrade tbody .gpforn').allInnerTexts();
+    ok(nomes.length === 1 && nomes[0].includes('Tecidos') && (await pg.innerText('#gpfs')).includes('(1)')
+      && (await pg.evaluate(() => JSON.parse(localStorage.getItem('linum-pagar-forns')).length)) === 1, 'escolher fornecedores: só os marcados, guardado no aparelho');
+    await pg.click('#gpfs'); await pg.waitForSelector('#gpfslimpa'); await pg.click('#gpfslimpa'); await fechado(pg, 'dlg2');
 
     // celular
     await pg.setViewportSize({ width: 390, height: 844 });
