@@ -327,8 +327,8 @@ const prFaixa = (a, b) => a === b ? brl(a) : `${brl(a)} a ${brl(b)}`;
 // em nada"): só leitura. Um cartão pequeno por peça; em cada loja, um bloco por TAMANHO com as cores e a quantidade dentro.
 const PR_CSS = `<style>.prlista{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px;margin-top:6px}
   .prc{border:1px solid var(--borda,#e3dcd6);border-radius:8px;padding:6px 8px;background:#fff;font-size:12px;line-height:1.3}
-  .prc .t{display:flex;justify-content:space-between;gap:6px;align-items:baseline}.prc .t b{font-size:13px}.prc .ref{color:#888;font-size:11px}
-  .prc .pp{white-space:nowrap}.prc .pp s{color:#999}.prc .pct{color:#1a7f37;font-weight:600}
+  .prc .t{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 6px;align-items:baseline}.prc .t b{font-size:13px}.prc .ref{color:#888;font-size:11px}
+  .prc .pp{white-space:normal;text-align:right;margin-left:auto}.prc .tb em{display:block;font-style:normal;font-size:11px;font-weight:600;white-space:nowrap}.prc .tb em s{color:#999;font-weight:400}.prc .pp s{color:#999}.prc .pct{color:#1a7f37;font-weight:600}
   .prc .lj{margin-top:4px;display:flex;flex-wrap:wrap;gap:4px;align-items:flex-start}.prc .lj>i{font-style:normal;font-size:10px;color:#777;width:100%;text-transform:uppercase;letter-spacing:.04em}
   .prc .tb{border:1px solid #e5dfd9;border-radius:6px;padding:2px 5px;background:#faf7f4}.prc .tb>b{display:block;font-size:11px;color:#9b1d3a}
   .prc .tb span{display:block;white-space:nowrap}.prc .tb.esp{border-color:#c9a227}</style>`;
@@ -338,7 +338,9 @@ function prCartoes(pr) {
   const ps = [...porProd.keys()].map(prProduto).sort((a, b) => semAc(a.descricao || "").localeCompare(semAc(b.descricao || ""), "pt-BR") || (a.referencia || "").localeCompare(b.referencia || "", "pt-BR"));
   const html = ps.map(p => {
     const m = porProd.get(p.id), vars = (p.variantes || []).filter(v => m.has(v.id)).sort(ordemVar);
-    const precos = vars.map(v => m.get(v.id)), tabs = vars.map(v => prTabela(p, v));
+    // 2.68: o preço do alto é o das peças normais; cada peça especial mostra o próprio preço no bloco dela
+    const [normais] = separarEsp(vars), base = normais.length ? normais : vars;
+    const precos = base.map(v => m.get(v.id)), tabs = base.map(v => prTabela(p, v));
     const pMin = Math.min(...precos), pMax = Math.max(...precos), tMin = Math.min(...tabs), tMax = Math.max(...tabs);
     const pct = tMin === tMax && pMin === pMax && tMax > 0 ? ` <span class="pct">−${Math.round((1 - pMin / tMax) * 100)}%</span>` : "";
     const faixas = lojas.map(l => {
@@ -349,7 +351,8 @@ function prCartoes(pr) {
       const bloco = (rot, vs, cls = "") => `<div class="tb${cls}"><b>${esc(rot)}</b>${vs.map(v => { const q = qtd(v.id, l.id);
         return `<span class="${q > 0 ? "" : "z"}">${esc(v.cor || "—")} ${n(q)}</span>`; }).join("")}</div>`;
       return `<div class="lj" data-loja="${l.id}"><i>${esc(l.nome)}</i>${tams.map(t => bloco(t, comuns.filter(v => (v.tamanho || "—") === t))).join("")}
-        ${esp.map(v => bloco(`★ ${v.tamanho || "—"}`, [Object.assign({}, v, { cor: `${v.cor || "—"} (${v.edicao})` })], " esp")).join("")}</div>`;
+        ${esp.map(v => bloco(`★ ${v.tamanho || "—"}`, [Object.assign({}, v, { cor: `${v.cor || "—"} (${v.edicao})` })], " esp")
+          .replace("</div>", `<em><s>${brl(prTabela(p, v))}</s> ${brl(m.get(v.id))}</em></div>`)).join("")}</div>`;
     }).join("");
     if (!faixas) return "";
     return `<div class="prc" title="${esc(p.descricao)}"><div class="t"><span><b>${esc(p.descricao)}</b> <span class="ref">${esc(p.referencia || "")}</span></span>
