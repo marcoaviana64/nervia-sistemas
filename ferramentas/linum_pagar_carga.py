@@ -37,7 +37,7 @@ def main():
     m = re.search(r"FORN_KEYWORDS\s*=\s*(\{.*?\});", s, re.S)
     kws = json.loads(re.sub(r"'", '"', re.sub(r",\s*}", "}", m.group(1))))
 
-    # mesmo casamento do painel antigo (matchContasPagas): pares (conta, lançamento) pela menor diferença de data
+    # casamento do painel antigo (matchContasPagas): pares (conta, lançamento), cada lançamento paga uma conta só
     cand = [(i, r) for i, r in enumerate(raw) if r.get("d", 0) > 0]
     pares = []
     for ci, cp in enumerate(contas):
@@ -51,10 +51,13 @@ def main():
             dif = (br(r["dt"]) - v).days
             if dif < -20 or dif > 60:
                 continue
-            pares.append((abs(dif), ci, ri))
+            # diferente do painel antigo (que olhava só a data e trocava parcelas de NFs diferentes do mesmo fornecedor):
+            # primeiro o pagamento de valor parecido (até 3%), depois a data mais próxima
+            perto = abs(r["d"] - cp["valor"]) <= cp["valor"] * 0.03
+            pares.append((0 if perto else 1, abs(dif), ci, ri))
     pares.sort()
     usc, usr, pago = set(), set(), {}
-    for _, ci, ri in pares:
+    for _, _, ci, ri in pares:
         if ci in usc or ri in usr:
             continue
         usc.add(ci); usr.add(ri); pago[ci] = raw[ri]
