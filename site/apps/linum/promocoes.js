@@ -392,26 +392,19 @@ function pvResumo(pr, rows) {
 }
 function pvHtml(pr, rows, R) {
   const pct = g => g.tab > 0 ? Math.round((1 - g.vend / g.tab) * 100) + "%" : "—";
-  const tab = (tit, l, rot = g => esc(g.rot), extra = null) => l.length ? `<h4>${tit}</h4><table class="pvt"><thead><tr><th>${tit.split(" ").pop() === "dia" ? "Dia" : ""}</th><th class="num">Peças</th><th class="num">Vendas</th><th class="num">Tabela</th><th class="num">Vendido</th><th class="num">Desconto</th>${extra ? `<th class="num">${extra[0]}</th>` : ""}</tr></thead><tbody>
-    ${l.map(g => `<tr><td>${rot(g)}</td><td class="num">${n(g.q)}</td><td class="num">${n(g.vendas.size)}</td><td class="num">${brl(g.tab)}</td><td class="num"><b>${brl(g.vend)}</b></td><td class="num">${brl(g.tab - g.vend)} (${pct(g)})</td>${extra ? `<td class="num">${extra[1](g)}</td>` : ""}</tr>`).join("")}</tbody></table>` : "";
   const k = (rot, val, sub = "") => `<div class="pvk"><small>${rot}</small><b>${val}</b>${sub ? `<span>${sub}</span>` : ""}</div>`;
   return `<div class="pvks">${k("Peças vendidas", n(R.q))}${k("Vendas", n(R.vendas), R.vendas ? "≈ " + (R.q / R.vendas).toFixed(1).replace(".", ",") + " peça(s) por venda" : "")}
       ${k("Preço de tabela", brl(R.tab))}${k("Vendido (líquido)", brl(R.vend), R.vendas ? "ticket médio " + brl(R.vend / R.vendas) : "")}${k("Desconto dado", brl(R.tab - R.vend), pct(R) + " sobre a tabela")}</div>
     ${R.geral ? `<p class="mut">${n(R.geral)} peça(s) com o desconto dado no total da venda (o valor é o líquido, com o desconto geral repartido pelas peças).</p>` : ""}
-    ${tab("Por peça", R.pecas, g => esc(g.rot.t), ["Em estoque hoje", g => g.rot.est == null ? "—" : n(g.rot.est)])}
-    ${tab("Por cor e tamanho", R.cortam)}
-    <div class="pvduas">${tab("Por cor", R.cores)}${tab("Por tamanho", R.tams)}</div>
-    ${tab("Por loja", R.lojas)}
-    ${R.vendedoras ? tab("Por vendedora", R.vendedoras) : ""}
-    ${tab("Por dia", R.dias, g => dataBR(g.rot))}
     <h4>Peças vendidas</h4><table class="pvt"><thead><tr><th>Data</th><th>Venda</th><th>Loja</th>${R.vendedoras ? "<th>Vendedora</th>" : ""}<th>Peça</th><th>Cor / tamanho</th><th class="num">Qtd</th><th class="num">Tabela</th><th class="num">Vendido</th><th class="num">Desc.</th></tr></thead><tbody>
     ${rows.map(r => `<tr><td>${dataBR(r.data)}</td><td>nº ${r.venda}</td><td>${esc(r.loja)}</td>${R.vendedoras ? `<td>${esc(r.vendedora || "")}</td>` : ""}<td>${esc(r.descricao)} <span class="mut">${esc(r.referencia)}</span></td>
       <td>${esc([r.cor, r.tamanho, r.edicao].filter(Boolean).join(" · "))}</td><td class="num">${n(r.quantidade)}</td><td class="num">${brl(r.preco_tabela)}</td><td class="num">${brl(r.liquido)}${r.desconto_geral ? " *" : ""}</td>
-      <td class="num">${r.preco_tabela > 0 ? Math.round((1 - r.liquido / r.preco_tabela) * 100) + "%" : "—"}</td></tr>`).join("")}</tbody></table>
+      <td class="num">${r.preco_tabela > 0 ? Math.round((1 - r.liquido / r.preco_tabela) * 100) + "%" : "—"}</td></tr>`).join("")}</tbody>
+    <tfoot><tr class="pvtot"><td colspan="${R.vendedoras ? 6 : 5}"><b>Total</b> · ${n(R.vendas)} venda(s)</td><td class="num"><b>${n(R.q)}</b></td><td class="num"><b>${brl(R.tab)}</b></td><td class="num"><b>${brl(R.vend)}</b></td><td class="num"><b>${pct(R)}</b></td></tr></tfoot></table>
     ${R.geral ? '<p class="mut">* desconto dado no total da venda.</p>' : ""}`;
 }
 const PV_CSS = `.pvks{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}.pvk{border:1px solid #ddd;border-radius:8px;padding:6px 10px;min-width:130px}.pvk small{display:block;color:#666}.pvk b{font-size:17px;display:block}.pvk span{font-size:11px;color:#666}
-  .pvt{border-collapse:collapse;width:100%;margin-bottom:6px;font-size:12px}.pvt th,.pvt td{border-bottom:1px solid #e5e5e5;padding:3px 5px;text-align:left;vertical-align:top}.pvt th{background:#f6f2f3}.pvt .num{text-align:right;white-space:nowrap}
+  .pvt{border-collapse:collapse;width:100%;margin-bottom:6px;font-size:12px}.pvt th,.pvt td{border-bottom:1px solid #e5e5e5;padding:3px 5px;text-align:left;vertical-align:top}.pvt th{background:#f6f2f3}.pvt .pvtot td{border-top:2px solid #9b1d3a;background:#faf7f4}.pvt .num{text-align:right;white-space:nowrap}
   .pvduas{display:grid;grid-template-columns:1fr 1fr;gap:12px}h4{margin:12px 0 4px;color:#9b1d3a}.mut{color:#777}`;
 async function vendasPromocao(pr) {
   if (!pr) return;

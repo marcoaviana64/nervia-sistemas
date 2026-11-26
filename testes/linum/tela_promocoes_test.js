@@ -179,8 +179,10 @@ const somaD = (d, n) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.g
         quantidade: 1, preco_tabela: 500, valor_unitario: 500, liquido: 399.9, desconto_geral: true }]; });
     await e.pg.click('[data-prvend]'); await e.pg.waitForSelector('#dlg[open] #pvfim');
     const pv = await e.pg.locator('#dlgf').innerText();
-    ok(pv.includes('Peças vendidas') && pv.includes('3') && pv.includes('3.099,70') && pv.includes('Por peça') && pv.includes('Por loja') && pv.includes('Gávea') && pv.includes('Por dia') && !pv.includes('Por vendedora'),
-      '2.65: vendas da promoção com totais, por peça, por loja e por dia (Estoque não vê vendedora)');
+    ok(pv.includes('Peças vendidas') && pv.includes('3.099,70') && pv.includes('Gávea') && !pv.includes('Por peça') && !pv.includes('Por loja') && !pv.includes('Por dia') && !pv.includes('Vendedora'),
+      '2.69: vendas da promoção = resumo + só a lista das peças vendidas (Estoque não vê vendedora)');
+    ok(await e.pg.locator('#dlgf .pvtot').count() === 1 && (await e.pg.locator('#dlgf .pvtot').innerText()).includes('3.099,70') && (await e.pg.locator('#dlgf .pvt tbody tr').count()) === 2,
+      '2.69: linha de total no fim da lista');
     ok(pv.includes('desconto dado no total da venda'), '2.65: marca a peça com desconto geral');
     const [dl] = await Promise.all([e.pg.waitForEvent('download'), e.pg.click('#pvcsv')]);
     const csv = fs.readFileSync(await dl.path(), 'utf8');
