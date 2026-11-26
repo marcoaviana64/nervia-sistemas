@@ -4581,5 +4581,56 @@ reset role;
 select pg_temp.erro2($$update fin_ajustes set motivo = 'x'$$, 'somente inclusão', 'financeiro: acerto de saldo é somente inclusão');
 select pg_temp.erro2($$select _fin_carga('{"custos":[]}')$$, 'já há custos', 'financeiro: carga só com o app vazio');
 select pg_temp.ok((select count(distinct acao) >= 9 from auditoria where acao like 'financeiro_%'), 'financeiro: ações gravadas na auditoria');
+
+-- ---------------------------------------------------------------- linum 2.70: Gerencial → Contas a pagar
+reset role; set role authenticated;
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+select pg_temp.ok(lin_ger_pagar_importar(jsonb_build_object('origem', 'nfe', 'arquivo', 'NF 2295556', 'contas', jsonb_build_array(
+  jsonb_build_object('chave', 'nfe|35260000000000000000550010022955561000000001|001', 'fornecedor', 'EXCIM Importação e Exportação Ltda.', 'fornecedor_doc', '01.234.567/0001-89',
+    'documento', '2295556', 'nfe_chave', '35260000000000000000550010022955561000000001', 'parcela', '001', 'vencimento', '2026-12-10', 'valor', '68.60'),
+  jsonb_build_object('chave', 'nfe|35260000000000000000550010022955561000000001|002', 'fornecedor', 'EXCIM Importação e Exportação Ltda.', 'fornecedor_doc', '01234567000189',
+    'documento', '2295556', 'parcela', '002', 'vencimento', '2027-01-10', 'valor', '68.60'))))->>'novos' = '2', 'linum pagar: importa as duplicatas da NF-e');
+select pg_temp.ok((select count(*) = 2 and bool_and(fornecedor_doc = '01234567000189' and situacao = 'aberta' and origem = 'nfe') from lin_ger_pagar), 'linum pagar: CNPJ só dígitos, em aberto');
+select pg_temp.ok((lin_ger_pagar_importar(jsonb_build_object('origem', 'nfe', 'contas', jsonb_build_array(
+  jsonb_build_object('chave', 'nfe|35260000000000000000550010022955561000000001|001', 'fornecedor', 'EXCIM', 'vencimento', '2026-12-10', 'valor', 1)))))->>'repetidos' = '1'
+  and (select count(*) = 2 from lin_ger_pagar), 'linum pagar: a mesma parcela não entra duas vezes');
+select pg_temp.ok((lin_ger_pagar_importar(jsonb_build_object('origem', 'carga', 'contas', jsonb_build_array(
+  jsonb_build_object('chave', 'painel|x1', 'fornecedor', 'Excim importacao', 'documento', '2295556', 'parcela', '2', 'vencimento', '2027-01-10', 'valor', '68.60'),
+  jsonb_build_object('chave', 'painel|x2', 'fornecedor', 'Imobiliária Gralha Azul', 'documento', '', 'vencimento', '2026-10-05', 'valor', '5996.70',
+    'situacao', 'paga', 'pago_em', '2026-10-05')))))->>'novos' = '1', 'linum pagar: carga reconhece a mesma NF e parcela do mesmo fornecedor');
+select pg_temp.ok((select situacao = 'paga' and valor_pago = 5996.70 and pago_em = '2026-10-05' from lin_ger_pagar where chave = 'painel|x2'), 'linum pagar: carga traz a conta já paga');
+select pg_temp.erro2($$select lin_ger_pagar_importar('{"origem":"nfe","contas":[{"fornecedor":"X","valor":10}]}')$$, 'vencimento', 'linum pagar: parcela sem vencimento recusada');
+select pg_temp.erro2($$select lin_ger_pagar_importar('{"origem":"manual","contas":[{"fornecedor":"X","vencimento":"2026-12-01","valor":10}]}')$$, 'Origem', 'linum pagar: origem inválida');
+select pg_temp.ok(lin_ger_pagar_salvar('{"fornecedor":"Imobiliária Gralha Azul","vencimento":"2027-01-31","valor":"5996.70","categoria":"Aluguel","historico":"Aluguel + condomínio","repetir":3}') = 3, 'linum pagar: conta à mão repetida por 3 meses');
+select pg_temp.ok((select array_agg(vencimento order by vencimento) = array['2027-01-31','2027-02-28','2027-03-31']::date[] and count(distinct serie) = 1
+  and array_agg(parcela order by vencimento) = array['1/3','2/3','3/3'] from lin_ger_pagar where origem = 'manual'), 'linum pagar: repetição mensal no fim do mês');
+select pg_temp.ok(lin_ger_pagar_salvar('{"fornecedor":"Light","vencimento":"2026-12-15","valor":"412.37","categoria":"Energia","estimado":true,"repetir":2}') = 2, 'linum pagar: gera a recorrente');
+select pg_temp.ok((select bool_and(estimado) and count(*) = 2 from lin_ger_pagar where fornecedor = 'Light'), 'linum pagar: recorrente com valor estimado (média)');
+select lin_ger_pagar_salvar(jsonb_build_object('id', (select min(id) from lin_ger_pagar where fornecedor = 'Light'), 'fornecedor', 'Light', 'vencimento', '2026-12-15', 'valor', '398.10'));
+select pg_temp.ok((select not estimado and valor = 398.10 from lin_ger_pagar where id = (select min(id) from lin_ger_pagar where fornecedor = 'Light')), 'linum pagar: informar o valor tira o estimado');
+select pg_temp.erro2($$select lin_ger_pagar_salvar('{"fornecedor":"X","vencimento":"2027-01-01","valor":0}')$$, 'maior que zero', 'linum pagar: valor zero recusado');
+select pg_temp.erro2($$select lin_ger_pagar_salvar('{"fornecedor":"X","vencimento":"2027-01-01","valor":1,"repetir":40}')$$, '1 a 36', 'linum pagar: repetir no máximo 36');
+select lin_ger_pagar_salvar(jsonb_build_object('id', (select id from lin_ger_pagar where origem = 'manual' and vencimento = '2027-03-31'), 'fornecedor', 'Imobiliária Gralha Azul', 'vencimento', '2027-03-31', 'valor', '6100'));
+select pg_temp.ok((select valor = 6100 and alterado_nome <> '' from lin_ger_pagar where origem = 'manual' and vencimento = '2027-03-31'), 'linum pagar: editar conta em aberto');
+select pg_temp.erro2($$select lin_ger_pagar_salvar(jsonb_build_object('id', (select id from lin_ger_pagar where chave = 'painel|x2'), 'fornecedor', 'X', 'vencimento', '2026-10-05', 'valor', 1))$$, 'em aberto', 'linum pagar: conta paga não se altera');
+select lin_ger_lancamento_incluir('{"data":"2026-11-20","descricao":"Pix EXCIM","valor":-137.20,"classe":"Insumos","observacao":"pago pela sócia"}');
+select pg_temp.ok(lin_ger_pagar_baixa(jsonb_build_object('ids', (select jsonb_agg(id) from lin_ger_pagar where documento = '2295556'), 'pago_em', '2026-11-20',
+  'lancamento_id', (select id from lin_ger_lancamentos where descricao = 'Pix EXCIM'))) = 2, 'linum pagar: baixa de duas parcelas pelo mesmo lançamento');
+select pg_temp.ok((select bool_and(situacao = 'paga' and valor_pago = 68.60 and lancamento_id is not null) from lin_ger_pagar where documento = '2295556'), 'linum pagar: baixa grava data, valor e lançamento');
+select pg_temp.erro2($$select lin_ger_pagar_baixa(jsonb_build_object('ids', (select jsonb_agg(id) from lin_ger_pagar where documento = '2295556'), 'pago_em', '2026-11-20'))$$, 'não está em aberto', 'linum pagar: não paga duas vezes');
+select pg_temp.erro2($$select lin_ger_pagar_baixa(jsonb_build_object('ids', (select jsonb_agg(id) from lin_ger_pagar where origem = 'manual'), 'pago_em', '2099-01-01'))$$, 'futura', 'linum pagar: pagamento sem data futura');
+select pg_temp.erro2($$select lin_ger_pagar_baixa(jsonb_build_object('ids', (select jsonb_agg(id) from lin_ger_pagar where origem = 'manual'), 'pago_em', '2026-11-20', 'valor_pago', 10))$$, 'uma conta', 'linum pagar: valor diferente só com uma conta');
+select pg_temp.erro2($$select lin_ger_pagar_situacao((select min(id) from lin_ger_pagar where documento = '2295556'), 'reabrir', 'x')$$, 'motivo', 'linum pagar: reabrir exige motivo');
+select lin_ger_pagar_situacao((select min(id) from lin_ger_pagar where documento = '2295556'), 'reabrir', 'baixa no lançamento errado');
+select pg_temp.ok((select situacao = 'aberta' and pago_em is null and lancamento_id is null from lin_ger_pagar where id = (select min(id) from lin_ger_pagar where documento = '2295556')), 'linum pagar: reabrir limpa o pagamento');
+select lin_ger_pagar_situacao((select id from lin_ger_pagar where origem = 'manual' and vencimento = '2027-03-31'), 'cancelar', 'contrato encerrado');
+select pg_temp.ok((select situacao = 'cancelada' and cancelado_motivo = 'contrato encerrado' from lin_ger_pagar where origem = 'manual' and vencimento = '2027-03-31'), 'linum pagar: cancelar com motivo');
+select pg_temp.erro2($$select lin_ger_pagar_situacao((select id from lin_ger_pagar where chave = 'painel|x2'), 'cancelar', 'por engano')$$, 'em aberto', 'linum pagar: conta paga não se cancela');
+select pg_temp.erro2('update lin_ger_pagar set valor = 1', 'permission', 'linum pagar: a tela não altera a tabela direto');
+select pg_temp.como('00000000-0000-0000-0000-00000000000c');
+select pg_temp.ok((select count(*) = 0 from lin_ger_pagar), 'linum pagar: quem não é Dono não vê');
+select pg_temp.erro2($$select lin_ger_pagar_salvar('{"fornecedor":"X","vencimento":"2027-01-01","valor":1}')$$, 'Somente o Dono', 'linum pagar: quem não é Dono não grava');
+reset role;
+select pg_temp.ok((select count(distinct acao) = 6 from auditoria where acao like 'linum_gerencial_pagar_%'), 'linum pagar: auditoria de todas as ações');
 reset request.jwt.claim.sub;
 \echo 'TODOS OS TESTES SQL OK'

@@ -20,6 +20,8 @@
 <script src="fluxo.js"></script>
 <script src="gerencial.js"></script>
 <script src="gerencial-vendas.js"></script>
+<script src="gerencial-pagar.js"></script>
+<script src="/moeda.js"></script>
 <script src="termica.js"></script>
 <script src="promocoes.js"></script>
 <script src="inicio.js"></script>
@@ -252,6 +254,7 @@ td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-n
         <button class="aba oculto ger" data-v="ger_lanc" data-g="gerencial">Lançamentos</button>
         <button class="aba oculto ger" data-v="ger_rede" data-g="gerencial">Vendas Rede</button>
         <button class="aba oculto ger" data-v="ger_analise" data-g="gerencial">Análise de vendas</button>
+        <button class="aba oculto ger" data-v="ger_pagar" data-g="gerencial">Contas a pagar</button>
         <button class="aba oculto ger" data-v="ger_cons" data-g="gerencial">Considerações</button>
         <button class="aba oculto ger" data-v="ger_imp" data-g="gerencial">Importar extratos</button>
       </div>
@@ -478,6 +481,7 @@ function render() {
   if (VISTA === "creditos" && dono()) return telaCreditos();
   if (VISTA === "custos" && dono()) return telaCustos();
   if ((VISTA === "ger_rede" || VISTA === "ger_analise") && dono()) return telaGerencialVendas(VISTA.slice(4));
+  if (VISTA === "ger_pagar" && dono()) return telaGerencialPagar();
   if (VISTA.startsWith("ger_") && dono()) return telaGerencial(VISTA.slice(4));
   if (VISTA === "ranking" && vende()) return telaRanking();
   if (VISTA === "producao" && PERM.producao) return telaProducao();
