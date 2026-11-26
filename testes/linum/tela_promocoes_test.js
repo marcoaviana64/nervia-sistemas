@@ -151,7 +151,7 @@ const somaD = (d, n) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.g
       'grava nome, todas as lojas, 7 dias a partir de hoje e a peça com o preço');
     const t = await e.pg.locator('#tela').innerText();
     ok(t.includes('Semana do Linho') && t.includes('Valendo') && t.includes('Todas as lojas'), 'lista mostra a promoção valendo');
-    // 2.66: peças da promoção em blocos pequenos, só leitura: por loja, um bloco por tamanho com as cores
+    // 2.66/2.67: blocos pequenos, só leitura, por loja um bloco por tamanho; só cor/tamanho com peça na loja
     const cards = e.pg.locator('.prlista .prc');
     ok(await cards.count() === 2 && (await cards.first().innerText()).startsWith('Blusa') && (await cards.nth(1).innerText()).includes('1.349,90')
       && await cards.nth(1).locator('.lj').count() === 2 && await cards.nth(1).locator('.lj[data-loja="l-ipa"] .tb').count() === 1,
@@ -159,11 +159,9 @@ const somaD = (d, n) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.g
     const blusaIpa = await cards.first().locator('.lj[data-loja="l-ipa"]').innerText();
     ok(await cards.first().locator('.lj[data-loja="l-ipa"] .tb').count() === 2 && blusaIpa.includes('Cru 2') && blusaIpa.includes('Preto 1'),
       '2.66: tamanhos P e M em blocos separados, com as cores e a quantidade');
-    ok(await e.pg.locator('.prlista button, .prlista [data-p], .prlista .chip').count() === 0, '2.66: só visualização, sem botão de movimentar');
-    await e.pg.click('#przero'); await e.pg.waitForTimeout(150);
-    ok(await cards.first().locator('.lj[data-loja="l-gav"]').count() === 0 && await cards.nth(1).locator('.lj[data-loja="l-gav"]').count() === 1,
-      '2.65: "Ocultar zerados" tira a loja sem peça');
-    await e.pg.click('#przero'); await e.pg.waitForTimeout(150);
+    ok(await e.pg.locator('.prlista button, .prlista [data-p], .prlista .chip').count() === 0 && await e.pg.locator('#przero').count() === 0, '2.66: só visualização, sem botão');
+    ok(await cards.first().locator('.lj[data-loja="l-gav"]').count() === 0 && !(await cards.first().innerText()).includes(' 0'),
+      '2.67: cor/tamanho sem peça não aparece (a loja sem peça some)');
     // 2.65: vendas da promoção (consulta + PDF + CSV), Dono e Estoque
     await e.pg.evaluate(() => { window.__S.pvRows = [
       { venda: 31, data: '2026-11-24', loja_id: 'l-ipa', loja: 'Ipanema', vendedora: null, variante_id: 'v1', produto_id: 'p1', referencia: 'A25', descricao: 'Vestido Artesanal', cor: 'Natural', tamanho: 'G', edicao: '',

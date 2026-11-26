@@ -60,7 +60,7 @@ async function telaPromocoes() {
   };
   $("tela").innerHTML = `<div class="cabtela"><h2>Promoções</h2>${controla() ? '<button type="button" class="bt pri" id="prnova">+ Nova promoção</button>' : ""}</div>
     <p class="mut" style="margin-top:0">Peças com preço de promoção por um período. Na venda, a peça entra sozinha com o preço da promoção da loja e da data da venda; se houver mais de uma promoção valendo, vale o <b>menor preço</b>. ${controla() ? "" : "Quem cadastra é a Dona ou o Estoque."}</p>
-    <div class="filtros">${pil("vigentes", `Valendo e próximas (${cont("vigente") + cont("futura")})`)}${pil("encerrada", `Encerradas (${cont("encerrada")})`)}${pil("cancelada", `Canceladas (${cont("cancelada")})`)}${pil("todas", "Todas")}<button type="button" class="pilula ${FPROMO.zerados ? "on" : ""}" id="przero" title="Esconde as cores/tamanhos sem peça na loja">${FPROMO.zerados ? "Ocultar zerados: ativo" : "Ocultar zerados: inativo"}</button></div>
+    <div class="filtros">${pil("vigentes", `Valendo e próximas (${cont("vigente") + cont("futura")})`)}${pil("encerrada", `Encerradas (${cont("encerrada")})`)}${pil("cancelada", `Canceladas (${cont("cancelada")})`)}${pil("todas", "Todas")}</div>
     ${vis.length ? vis.map(p => { const s = prSituacao(p), r = res[p.id];
       return `<div class="card" style="margin-bottom:10px">
         <div class="vlin" style="border:0"><span><b style="font-size:16px">${esc(p.nome)}</b> <span class="tag ${PR_SIT[s][1]}">${PR_SIT[s][0]}</span></span>
@@ -77,7 +77,6 @@ async function telaPromocoes() {
   document.querySelectorAll("[data-fpr]").forEach(b => b.onclick = () => { FPROMO.sit = b.dataset.fpr; telaPromocoes(); });
   if ($("prnova")) $("prnova").onclick = () => editarPromocao(null);
   document.querySelectorAll("[data-prrel]").forEach(b => b.onclick = () => relatorioPromocao(PROMOS.find(p => p.id === +b.dataset.prrel)));
-  $("przero").onclick = () => { FPROMO.zerados = !FPROMO.zerados; telaPromocoes(); };
   document.querySelectorAll("[data-prvend]").forEach(b => b.onclick = () => vendasPromocao(PROMOS.find(p => p.id === +b.dataset.prvend)));
   document.querySelectorAll("[data-pred]").forEach(b => b.onclick = () => editarPromocao(PROMOS.find(p => p.id === +b.dataset.pred)));
   document.querySelectorAll("[data-prenc]").forEach(b => b.onclick = async () => {
@@ -332,7 +331,7 @@ const PR_CSS = `<style>.prlista{display:grid;grid-template-columns:repeat(auto-f
   .prc .pp{white-space:nowrap}.prc .pp s{color:#999}.prc .pct{color:#1a7f37;font-weight:600}
   .prc .lj{margin-top:4px;display:flex;flex-wrap:wrap;gap:4px;align-items:flex-start}.prc .lj>i{font-style:normal;font-size:10px;color:#777;width:100%;text-transform:uppercase;letter-spacing:.04em}
   .prc .tb{border:1px solid #e5dfd9;border-radius:6px;padding:2px 5px;background:#faf7f4}.prc .tb>b{display:block;font-size:11px;color:#9b1d3a}
-  .prc .tb span{display:block;white-space:nowrap}.prc .tb span.z{color:#bbb}.prc .tb.esp{border-color:#c9a227}</style>`;
+  .prc .tb span{display:block;white-space:nowrap}.prc .tb.esp{border-color:#c9a227}</style>`;
 function prCartoes(pr) {
   const porProd = prVarsDaPromo(pr);
   const lojas = pr.loja_id ? LOJAS.filter(l => l.id === pr.loja_id) : LOJAS;
@@ -343,7 +342,7 @@ function prCartoes(pr) {
     const pMin = Math.min(...precos), pMax = Math.max(...precos), tMin = Math.min(...tabs), tMax = Math.max(...tabs);
     const pct = tMin === tMax && pMin === pMax && tMax > 0 ? ` <span class="pct">−${Math.round((1 - pMin / tMax) * 100)}%</span>` : "";
     const faixas = lojas.map(l => {
-      const vis = FPROMO.zerados ? vars.filter(v => qtd(v.id, l.id) > 0) : vars;
+      const vis = vars.filter(v => qtd(v.id, l.id) > 0);   // 2.67: só o que tem peça na loja (pedido do Marco)
       if (!vis.length) return "";
       const [comuns, esp] = separarEsp(vis);
       const tams = [...new Set(comuns.map(v => v.tamanho || "—"))].sort(ordemTam);
@@ -356,7 +355,7 @@ function prCartoes(pr) {
     return `<div class="prc" title="${esc(p.descricao)}"><div class="t"><span><b>${esc(p.descricao)}</b> <span class="ref">${esc(p.referencia || "")}</span></span>
       <span class="pp"><s>${prFaixa(tMin, tMax)}</s> <b>${prFaixa(pMin, pMax)}</b>${pct}</span></div>${faixas}</div>`;
   }).join("");
-  return PR_CSS + (html || `<div class="mut">${FPROMO.zerados ? "Nenhuma peça em estoque nesta promoção. Desligue “Ocultar zerados” para ver todas." : "Nenhuma peça."}</div>`);
+  return PR_CSS + (html || '<div class="mut">Nenhuma peça desta promoção tem estoque agora.</div>');
 }
 
 // 2.65 (pedido do Marco: "consulta gerencial das vendas nas promoções, com relatório em PDF"): Dono e Estoque.
