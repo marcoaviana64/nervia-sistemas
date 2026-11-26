@@ -151,14 +151,17 @@ const somaD = (d, n) => { const x = new Date(d + 'T12:00:00Z'); x.setUTCDate(x.g
       'grava nome, todas as lojas, 7 dias a partir de hoje e a peça com o preço');
     const t = await e.pg.locator('#tela').innerText();
     ok(t.includes('Semana do Linho') && t.includes('Valendo') && t.includes('Todas as lojas'), 'lista mostra a promoção valendo');
-    // 2.65: peças da promoção em quadros, como no Estoque, uma faixa por loja
-    ok(await e.pg.locator('.prlista .prod').count() === 2 && await e.pg.locator('.prlista .prod').nth(1).locator('.loja').count() === 2
-      && await e.pg.locator('.prlista .prod').nth(1).locator('.chip').count() === 2 && (await e.pg.locator('.prlista .prod').nth(1).innerText()).includes('1.349,90')
-      && (await e.pg.locator('.prlista .prod').first().innerText()).startsWith('Blusa'),
-      '2.65: peças da promoção em quadros por loja (só as cores/tamanhos da promoção, com o preço)');
-    ok(await e.pg.locator('.prlista .prod').first().locator('.loja[data-loja="l-ipa"] .chip').count() === 2, '2.65: peça com cores marcadas mostra só elas');
+    // 2.66: peças da promoção em blocos pequenos, só leitura: por loja, um bloco por tamanho com as cores
+    const cards = e.pg.locator('.prlista .prc');
+    ok(await cards.count() === 2 && (await cards.first().innerText()).startsWith('Blusa') && (await cards.nth(1).innerText()).includes('1.349,90')
+      && await cards.nth(1).locator('.lj').count() === 2 && await cards.nth(1).locator('.lj[data-loja="l-ipa"] .tb').count() === 1,
+      '2.66: um cartão pequeno por peça, faixa por loja, bloco por tamanho');
+    const blusaIpa = await cards.first().locator('.lj[data-loja="l-ipa"]').innerText();
+    ok(await cards.first().locator('.lj[data-loja="l-ipa"] .tb').count() === 2 && blusaIpa.includes('Cru 2') && blusaIpa.includes('Preto 1'),
+      '2.66: tamanhos P e M em blocos separados, com as cores e a quantidade');
+    ok(await e.pg.locator('.prlista button, .prlista [data-p], .prlista .chip').count() === 0, '2.66: só visualização, sem botão de movimentar');
     await e.pg.click('#przero'); await e.pg.waitForTimeout(150);
-    ok(await e.pg.locator('.prlista .loja[data-loja="l-gav"]').count() === 1 && await e.pg.locator('.prlista .prod').first().locator('.loja[data-loja="l-gav"]').count() === 0,
+    ok(await cards.first().locator('.lj[data-loja="l-gav"]').count() === 0 && await cards.nth(1).locator('.lj[data-loja="l-gav"]').count() === 1,
       '2.65: "Ocultar zerados" tira a loja sem peça');
     await e.pg.click('#przero'); await e.pg.waitForTimeout(150);
     // 2.65: vendas da promoção (consulta + PDF + CSV), Dono e Estoque
