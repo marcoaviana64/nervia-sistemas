@@ -114,6 +114,7 @@ window.NERVIA_VERSOES = {
     ["1.0", "Lançamento na Plataforma: os chamados de suporte de TI da Nervia por empreendimento, com o histórico de andamentos, a ficha do atendimento em PDF e os equipamentos com código e histórico de usuários."],
   ],
   "linum": [
+    ["2.66", "Peças da promoção em cartões pequenos, só para consulta: em cada loja, um bloco por tamanho com as cores e a quantidade, cabendo muito mais peças na tela."],
     ["2.65", "A observação da venda passa a ser só para a Linum: não sai mais no extrato da térmica nem na ficha impressa. Na aba Promoções, as peças aparecem em quadros como no Estoque, com cada loja separada e o estoque de cada cor e tamanho. Nova consulta Vendas da promoção (Dona e Estoque): peças vendidas, valor, desconto dado, por peça, cor, tamanho, loja e dia, com relatório para imprimir ou salvar em PDF e planilha CSV."],
     ["2.64", "Promoção reconhecida também quando o desconto é dado no total da venda: se a peça fica no preço da promoção, a venda mostra a promoção na boleta, no extrato da térmica e na ficha. Na nova venda, peça em promoção com o preço mudado à mão mostra o aviso da promoção e o botão para usar o preço dela."],
     ["2.63", "Comprovante na impressora térmica também para a transferência entre lojas e para o envio ao beneficiamento, em 2 vias: na transferência, uma fica na loja e a outra vai com as peças para quem recebe conferir e assinar; no beneficiamento, quem faz o serviço assina a via da loja e leva a dele. Abre sozinho depois do envio e pode ser impresso de novo a qualquer momento."],

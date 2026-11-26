@@ -79,11 +79,6 @@ async function telaPromocoes() {
   document.querySelectorAll("[data-prrel]").forEach(b => b.onclick = () => relatorioPromocao(PROMOS.find(p => p.id === +b.dataset.prrel)));
   $("przero").onclick = () => { FPROMO.zerados = !FPROMO.zerados; telaPromocoes(); };
   document.querySelectorAll("[data-prvend]").forEach(b => b.onclick = () => vendasPromocao(PROMOS.find(p => p.id === +b.dataset.prvend)));
-  // quadrados como no Estoque: Dono/Estoque movimenta; vendedora transfere (com peça)
-  document.querySelectorAll(".prlista button.chip").forEach(b => b.onclick = () => controla() ? movimentar(b.dataset.p, b.dataset.v, b.dataset.l)
-    : novaTransferencia({ variante: b.dataset.v, loja: b.dataset.l }));
-  document.querySelectorAll(".prlista div.chip[data-bfinfo]").forEach(d => d.onclick = () => msg("info", d.dataset.bfinfo));
-  document.querySelectorAll(".prlista [data-vid]").forEach(b => b.onclick = () => mostrarCliente(b.dataset.vid));
   document.querySelectorAll("[data-pred]").forEach(b => b.onclick = () => editarPromocao(PROMOS.find(p => p.id === +b.dataset.pred)));
   document.querySelectorAll("[data-prenc]").forEach(b => b.onclick = async () => {
     const p = PROMOS.find(x => x.id === +b.dataset.prenc);
@@ -329,27 +324,39 @@ function prVarsDaPromo(pr) {
   return porProd;
 }
 const prFaixa = (a, b) => a === b ? brl(a) : `${brl(a)} a ${brl(b)}`;
+// 2.66 (pedido do Marco: "ficou muito grande e tem clique de movimentação; só uma amostra, em blocos menores, sem clicar
+// em nada"): só leitura. Um cartão pequeno por peça; em cada loja, um bloco por TAMANHO com as cores e a quantidade dentro.
+const PR_CSS = `<style>.prlista{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px;margin-top:6px}
+  .prc{border:1px solid var(--borda,#e3dcd6);border-radius:8px;padding:6px 8px;background:#fff;font-size:12px;line-height:1.3}
+  .prc .t{display:flex;justify-content:space-between;gap:6px;align-items:baseline}.prc .t b{font-size:13px}.prc .ref{color:#888;font-size:11px}
+  .prc .pp{white-space:nowrap}.prc .pp s{color:#999}.prc .pct{color:#1a7f37;font-weight:600}
+  .prc .lj{margin-top:4px;display:flex;flex-wrap:wrap;gap:4px;align-items:flex-start}.prc .lj>i{font-style:normal;font-size:10px;color:#777;width:100%;text-transform:uppercase;letter-spacing:.04em}
+  .prc .tb{border:1px solid #e5dfd9;border-radius:6px;padding:2px 5px;background:#faf7f4}.prc .tb>b{display:block;font-size:11px;color:#9b1d3a}
+  .prc .tb span{display:block;white-space:nowrap}.prc .tb span.z{color:#bbb}.prc .tb.esp{border-color:#c9a227}</style>`;
 function prCartoes(pr) {
   const porProd = prVarsDaPromo(pr);
   const lojas = pr.loja_id ? LOJAS.filter(l => l.id === pr.loja_id) : LOJAS;
   const ps = [...porProd.keys()].map(prProduto).sort((a, b) => semAc(a.descricao || "").localeCompare(semAc(b.descricao || ""), "pt-BR") || (a.referencia || "").localeCompare(b.referencia || "", "pt-BR"));
   const html = ps.map(p => {
     const m = porProd.get(p.id), vars = (p.variantes || []).filter(v => m.has(v.id)).sort(ordemVar);
-    const grupos = lojas.map(l => [l, FPROMO.zerados ? vars.filter(v => qtd(v.id, l.id) > 0 || bfFora(v.id, l.id) > 0 || cdFora(v.id, l.id) > 0) : vars]).filter(([, vs]) => vs.length);
-    if (!grupos.length) return "";
     const precos = vars.map(v => m.get(v.id)), tabs = vars.map(v => prTabela(p, v));
     const pMin = Math.min(...precos), pMax = Math.max(...precos), tMin = Math.min(...tabs), tMax = Math.max(...tabs);
-    const pct = tMin === tMax && pMin === pMax && tMax > 0 ? ` <span class="tag ok">−${Math.round((1 - pMin / tMax) * 100)}%</span>` : "";
-    const pecas = lojas.reduce((s, l) => s + vars.reduce((t, v) => t + qtd(v.id, l.id), 0), 0);
-    const temEsp = vars.some(v => (v.edicao || "").trim());
-    return `<div class="prod">
-      <div class="cab"><h2 class="${temEsp ? "temesp" : ""}" title="${esc(p.descricao)}">${esc(p.descricao)}</h2><span class="preco"><s class="mut">${prFaixa(tMin, tMax)}</s> <b>${prFaixa(pMin, pMax)}</b>${pct}</span></div>
-      <div class="info"><span>Ref: ${esc(p.referencia || "—")}</span><span>·</span><span>${n(pecas)} peça(s) em estoque${pr.loja_id ? " em " + esc(loja(pr.loja_id).nome) : ""}</span>${pMin !== pMax ? '<span>·</span><span class="mut">preços diferentes por cor/tamanho</span>' : ""}${typeof VIDEOS !== "undefined" && VIDEOS[p.id] ? `<button type="button" class="bt vidbt" data-vid="${p.id}" title="Ficha com os vídeos para mostrar à cliente">▶ Mostrar à cliente</button>` : ""}</div>
-      ${grupos.map(([l, vs]) => { const [comuns, esp] = separarEsp(vs);
-        return `<div class="loja" data-loja="${l.id}"><span class="selo">${esc(l.nome)}</span>${comuns.length ? `<div class="chips">${chipsLoja(p, l, comuns)}</div>` : ""}
-          ${esp.length ? `<div class="esplinha"><div class="esptit">★ Peças especiais</div><div class="chips">${chipsLoja(p, l, esp)}</div></div>` : ""}</div>`; }).join("")}</div>`;
+    const pct = tMin === tMax && pMin === pMax && tMax > 0 ? ` <span class="pct">−${Math.round((1 - pMin / tMax) * 100)}%</span>` : "";
+    const faixas = lojas.map(l => {
+      const vis = FPROMO.zerados ? vars.filter(v => qtd(v.id, l.id) > 0) : vars;
+      if (!vis.length) return "";
+      const [comuns, esp] = separarEsp(vis);
+      const tams = [...new Set(comuns.map(v => v.tamanho || "—"))].sort(ordemTam);
+      const bloco = (rot, vs, cls = "") => `<div class="tb${cls}"><b>${esc(rot)}</b>${vs.map(v => { const q = qtd(v.id, l.id);
+        return `<span class="${q > 0 ? "" : "z"}">${esc(v.cor || "—")} ${n(q)}</span>`; }).join("")}</div>`;
+      return `<div class="lj" data-loja="${l.id}"><i>${esc(l.nome)}</i>${tams.map(t => bloco(t, comuns.filter(v => (v.tamanho || "—") === t))).join("")}
+        ${esp.map(v => bloco(`★ ${v.tamanho || "—"}`, [Object.assign({}, v, { cor: `${v.cor || "—"} (${v.edicao})` })], " esp")).join("")}</div>`;
+    }).join("");
+    if (!faixas) return "";
+    return `<div class="prc" title="${esc(p.descricao)}"><div class="t"><span><b>${esc(p.descricao)}</b> <span class="ref">${esc(p.referencia || "")}</span></span>
+      <span class="pp"><s>${prFaixa(tMin, tMax)}</s> <b>${prFaixa(pMin, pMax)}</b>${pct}</span></div>${faixas}</div>`;
   }).join("");
-  return html || `<div class="mut">${FPROMO.zerados ? "Nenhuma peça em estoque nesta promoção. Desligue “Ocultar zerados” para ver todas." : "Nenhuma peça."}</div>`;
+  return PR_CSS + (html || `<div class="mut">${FPROMO.zerados ? "Nenhuma peça em estoque nesta promoção. Desligue “Ocultar zerados” para ver todas." : "Nenhuma peça."}</div>`);
 }
 
 // 2.65 (pedido do Marco: "consulta gerencial das vendas nas promoções, com relatório em PDF"): Dono e Estoque.
