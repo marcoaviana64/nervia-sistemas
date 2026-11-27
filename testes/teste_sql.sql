@@ -3557,6 +3557,7 @@ select pg_temp.ok((select (nv_sinal(jsonb_build_object(
   'lista', jsonb_build_object('tipo', 'xtream', 'servidor', 'http://p.exemplo.gy', 'usuario', 'marco', 'status', 'Active',
                               'validade', (extract(epoch from now() + interval '20 hours') * 1000)::bigint, 'telas', '2', 'canais', 1500),
   'assistindo', jsonb_build_object('nome', 'Globo RJ', 'tipo', 'vivo', 'grupo', 'Abertos', 'desde', (extract(epoch from now()) * 1000)::bigint),
+  'rede', jsonb_build_object('dns', 'Google', 'bloqueio', true, 'ip', '104.20.5.6'),
   'problemas', jsonb_build_array('19/11 10:00  Globo RJ: a imagem parou; reconectado sozinho'),
   'sessoes', jsonb_build_array(
      jsonb_build_object('dia', (now() at time zone 'America/Sao_Paulo')::date, 'tipo', 'vivo', 'nome', 'Globo RJ', 'grupo', 'Abertos', 's', 1800, 'vezes', 2),
@@ -3564,6 +3565,10 @@ select pg_temp.ok((select (nv_sinal(jsonb_build_object(
      jsonb_build_object('dia', '2001-01-01', 'tipo', 'vivo', 'nome', 'Velho', 's', 100),
      jsonb_build_object('dia', (now() at time zone 'America/Sao_Paulo')::date, 'tipo', 'outro', 'nome', 'X', 's', 100))
 )) ->> 'gravados')::int = 2), 'nvplayer: grava o resumo e ignora dia antigo e tipo estranho');
+reset role;
+select pg_temp.ok((select rede_dns = 'Google' and rede_bloqueio = true and rede_servidor_ip = '104.20.5.6'
+  from nv_aparelhos where id = '11111111-2222-3333-4444-555555555555'), 'nvplayer: diagnóstico de rede gravado (DNS, possível bloqueio, IP)');
+set role anon;
 select pg_temp.ok((select (nv_sinal(jsonb_build_object('id', '11111111-2222-3333-4444-555555555555')) ->> 'cedo')::boolean), 'nvplayer: 1 resumo a cada 20 s por aparelho');
 select pg_temp.ok(not exists (select 1 from information_schema.role_table_grants where grantee = 'anon' and table_name like 'nv\_%'), 'nvplayer: anônimo não lê nem grava as tabelas');
 reset role;

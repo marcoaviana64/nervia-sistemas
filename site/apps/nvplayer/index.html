@@ -157,6 +157,7 @@ function vAparelhos() {
   const at = APS.filter(ativo), vendo = at.filter(a => a.assistindo);
   const vencendo = APS.filter(a => a.lista_validade && (new Date(a.lista_validade) - Date.now()) / 864e5 <= 10);
   const velhos = APS.filter(a => VERSAO && VERSAO.codigo && a.versao_codigo && a.versao_codigo < VERSAO.codigo);
+  const bloq = APS.filter(a => a.rede_bloqueio).length;
   const total = usoFiltrado().reduce((s, u) => s + u.segundos, 0);
   return `<div class="kpis">
       <div class="kpi"><b>${APS.length}</b><span>aparelhos</span></div>
@@ -164,6 +165,7 @@ function vAparelhos() {
       <div class="kpi"><b>${vendo.length}</b><span>assistindo agora</span></div>
       <div class="kpi"><b>${horas(total)}</b><span>assistidas no período</span></div>
       <div class="kpi ${vencendo.length ? "warn" : ""}"><b>${vencendo.length}</b><span>listas vencendo em 10 dias</span></div>
+      <div class="kpi ${bloq ? "crit" : ""}"><b>${bloq}</b><span>com possível bloqueio de IPTV (saindo pelo DNS alternativo)</span></div>
       <div class="kpi ${velhos.length ? "warn" : ""}"><b>${velhos.length}</b><span>com o app desatualizado${VERSAO && VERSAO.nome ? " (atual " + esc(VERSAO.nome) + ")" : ""}</span></div>
     </div>
     <div class="card"><h2>Aparelhos</h2><div class="tw"><table>
@@ -180,14 +182,18 @@ function vAparelhos() {
           <td>${esc(a.lista_usuario || "—")}<div class="mut">${esc(a.lista_servidor || "")}${a.lista_tipo ? " · " + (a.lista_tipo === "xtream" ? "login e senha" : "link M3U") : ""}</div>
             <div class="mut">${a.canais != null ? `${a.canais.toLocaleString("pt-BR")} canais · ${(a.filmes || 0).toLocaleString("pt-BR")} filmes · ${(a.series || 0).toLocaleString("pt-BR")} séries` : ""}</div>
             ${a.lista_telas ? `<div class="mut">telas: ${esc(a.lista_telas_uso || "?")} em uso de ${esc(a.lista_telas)}</div>` : ""}
-            ${a.lista_status && !/^active$/i.test(a.lista_status) ? tag(a.lista_status, "t-crit") : ""}</td>
+            ${a.lista_status && !/^active$/i.test(a.lista_status) ? tag(a.lista_status, "t-crit") : ""}
+            ${a.rede_dns ? (a.rede_bloqueio
+              ? `<div class="mut">${tag("⚠ possível bloqueio de IPTV", "t-crit")} saindo pelo ${esc(a.rede_dns)}${a.rede_servidor_ip ? " · " + esc(a.rede_servidor_ip) : ""}</div>`
+              : `<div class="mut">saída: ${esc(a.rede_dns)}${a.rede_servidor_ip ? " · " + esc(a.rede_servidor_ip) : ""}</div>`) : ""}</td>
           <td>${validade(a)}</td>
           <td class="esc-m">${esc(a.versao_app || "—")} ${desat ? tag("desatualizado", "t-warn") : ""}</td>
           <td class="num">${horas(seg)}</td>
           <td style="white-space:nowrap"><button class="bt peq" data-ren="${a.id}">Apelido</button> <button class="bt peq perigo" data-exc="${a.id}">Excluir</button></td></tr>`;
       }).join("")}
     </table></div>
-    <p class="mut">O app manda um resumo ao abrir, a cada 30 minutos e ao fechar: "Agora" pode estar até 30 min atrasado. Sem resumo há mais de ${ATIVO_MIN} min = app fechado ou aparelho desligado. Nenhuma senha de lista chega aqui.</p></div>`;
+    <p class="mut">O app manda um resumo ao abrir, a cada 30 minutos e ao fechar: "Agora" pode estar até 30 min atrasado. Sem resumo há mais de ${ATIVO_MIN} min = app fechado ou aparelho desligado. Nenhuma senha de lista chega aqui.</p>
+    <p class="mut">Em "Lista", a saída mostra por onde o aparelho achou o servidor: <b>saída: DNS do local</b> = tudo certo, sai pelo país certo. <b>⚠ possível bloqueio de IPTV</b> = a internet daquele local bloqueou o endereço do IPTV, então o app usou o DNS alternativo (Google/Cloudflare), que pode cair em outro país e o provedor bloquear por "país não permitido" — a solução é liberar o acesso no painel do provedor ou trocar o DNS do roteador daquele local.</p></div>`;
 }
 
 // ---------------------------------------------------------------- Mais assistidos

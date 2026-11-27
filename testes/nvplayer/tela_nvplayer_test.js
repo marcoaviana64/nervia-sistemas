@@ -16,10 +16,12 @@ const TABELAS = `const H = new Date().toLocaleDateString("en-CA", { timeZone: "A
         lista_tipo: "xtream", lista_servidor: "p.exemplo.gy", lista_usuario: "marco", lista_status: "Active",
         lista_validade: new Date(Date.now() + 2 * 864e5).toISOString(), lista_telas: "2", lista_telas_uso: "1", canais: 1500, filmes: 8000, series: 900,
         assistindo: "Globo RJ FHD", assistindo_tipo: "vivo", assistindo_grupo: "Abertos", assistindo_desde: min(50), problemas: ["19/11 10:00  SporTV: a imagem parou; reconectado sozinho"],
+        rede_dns: "DNS do local", rede_bloqueio: false, rede_servidor_ip: "45.1.2.3",
         primeiro_sinal: min(5000), ultimo_sinal: min(5), sinais: 40 },
       { id: "a2", apelido: "", modelo: "TCL Smart TV", android: "14", versao_app: "2.11", versao_codigo: 13, ip: "189.9.9.9", pais: "BR",
         lista_tipo: "xtream", lista_servidor: "p.exemplo.gy", lista_usuario: "joana", lista_status: "Active",
         lista_validade: new Date(Date.now() + 40 * 864e5).toISOString(), canais: 1500, filmes: 8000, series: 900,
+        rede_dns: "Google", rede_bloqueio: true, rede_servidor_ip: "104.20.5.6",
         assistindo: null, problemas: [], primeiro_sinal: min(9000), ultimo_sinal: min(300), sinais: 10 }],
     nv_assistido: [
       { aparelho_id: "a1", dia: diaMenos(0), tipo: "vivo", nome: "Globo RJ FHD", grupo: "Abertos", segundos: 7200, vezes: 3 },
@@ -74,6 +76,7 @@ const ok = (c, nome) => { console.log((c ? 'ok  ' : 'FALHOU ') + nome); if (!c) 
   ok(/vence \d\d\/\d\d\/\d{4}/.test(t), 'validade perto de vencer em destaque');
   ok((t.match(/desatualizado/g) || []).length >= 2 && t.includes('fechado'), 'app desatualizado (versão publicada) e aparelho fechado');
   ok(/1\s+listas vencendo/.test(t) && /1\s+assistindo agora/.test(t), 'números do topo');
+  ok(t.includes('saída: DNS do local') && t.includes('possível bloqueio de IPTV') && /1\s+com possível bloqueio/.test(t), 'diagnóstico de rede: saída e possível bloqueio');
   if (PRINTS) await pg.screenshot({ path: path.join(PRINTS, 'nvplayer-aparelhos.png'), fullPage: true });
 
   await pg.click('.aba[data-v="mais"]');

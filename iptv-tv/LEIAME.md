@@ -115,6 +115,17 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
   configuração sempre relê o `nvplayer.json` ao abrir — então o portal mostra o endereço atual se o provedor trocou
   (antes ficava fixo no embutido). A TV já ligada continua trocando sozinha pelo failover (2.5): quando o servidor
   salvo não responde, relê o `nvplayer.json` e passa para o 1º que faz login. Teste `TelaTest.portalMostraServidorDoSite`.
+- **Diagnóstico de rede (app + portal)** (2.37, 27/11/2026, o Marco: "informar em algum local, no app ou no portal, por
+  onde o equipamento está saindo e se está acontecendo este bloqueio e o link está sendo desviado"): o objeto
+  `Diagnostico` (em `Rede.kt`) guarda, por nome de servidor, QUAL DNS resolveu (o da internet do local, o Google ou o
+  Cloudflare) e se o DNS do local FALHOU — sinal de possível bloqueio de IPTV naquela internet. **Ajustes → "Diagnóstico
+  de rede"**: mostra se o DNS do local respondeu, por qual DNS o servidor foi resolvido (com o IP) e, quando o local
+  falhou, o aviso "⚠ Possível bloqueio de IPTV nesta internet" com a saída (liberar o país no painel do provedor ou
+  trocar o DNS do roteador). O mesmo resumo (`rede: {dns, bloqueio, ip}`) vai no `nv_sinal` (Telemetria) para o painel
+  **NVPlayer — uso** (aba Aparelhos: KPI "com possível bloqueio de IPTV" e, em cada aparelho, "saída: DNS do local" ou
+  "⚠ possível bloqueio… saindo pelo Google/Cloudflare"). Sem geolocalização (decisão do Marco: só a rota, zero tráfego
+  extra). Migração `20261127000100_nvplayer_rede.sql` (colunas `rede_*` em `nv_aparelhos`; `nv_sinal` lê `p->'rede'`).
+  Testes `DnsTest.diagnostico_registraARota`, SQL e a tela do portal.
 - **DNS alternativo com a região (Google primeiro)** (2.36, 27/11/2026, o Marco: "continuou não aparecendo os canais; o
   provedor disse que o login é dos EUA; acho que a internet do local tem bloqueio de IPTV"): quando a internet do local
   bloqueia o nome do IPTV, o DNS do local falha e o app é obrigado a usar o alternativo (DoH). O `resolvedores` passou a
