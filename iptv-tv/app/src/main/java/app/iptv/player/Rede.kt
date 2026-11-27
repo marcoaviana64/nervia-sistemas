@@ -67,12 +67,14 @@ class DnsAlternativo(
 
         private val semDns = OkHttpClient.Builder().connectTimeout(6, TimeUnit.SECONDS).readTimeout(6, TimeUnit.SECONDS).build()
         private fun ip(s: String) = InetAddress.getByName(s) // literal: não consulta DNS
+        // 2.36: o Google vem primeiro porque informa ao servidor de IPTV a região de quem pediu (EDNS Client Subnet),
+        // tendendo a devolver um nó do Brasil; o Cloudflare (que não informa a região e pode cair nos EUA) fica de reserva.
         private val resolvedores by lazy {
             listOf(
-                DnsOverHttps.Builder().client(semDns).url("https://cloudflare-dns.com/dns-query".toHttpUrl())
-                    .bootstrapDnsHosts(ip("1.1.1.1"), ip("1.0.0.1")).includeIPv6(false).build(),
                 DnsOverHttps.Builder().client(semDns).url("https://dns.google/dns-query".toHttpUrl())
                     .bootstrapDnsHosts(ip("8.8.8.8"), ip("8.8.4.4")).includeIPv6(false).build(),
+                DnsOverHttps.Builder().client(semDns).url("https://cloudflare-dns.com/dns-query".toHttpUrl())
+                    .bootstrapDnsHosts(ip("1.1.1.1"), ip("1.0.0.1")).includeIPv6(false).build(),
             )
         }
 

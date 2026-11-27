@@ -3,9 +3,9 @@
     "http://p.urldata.gy"
   ],
   "versao": {
-    "codigo": 37,
-    "nome": "2.35",
+    "codigo": 38,
+    "nome": "2.36",
     "apk": "https://nervia.com.br/nvplayer.apk",
-    "novidades": "O app passa a usar primeiro o DNS da internet do local para achar o servidor (o DNS alternativo fica só de reserva). Isso evita cair num servidor de outro país, que fazia alguns provedores bloquearem a conta por \"país não permitido\"."
+    "novidades": "Quando a internet do local bloqueia o IPTV e o app precisa do DNS alternativo, ele agora informa a sua região para achar um servidor do Brasil, reduzindo o bloqueio da conta por \"país não permitido\"."
   }
 }
