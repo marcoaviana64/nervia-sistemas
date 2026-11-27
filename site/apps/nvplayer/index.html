@@ -124,6 +124,8 @@ const TIPO = { vivo: "Canal", filme: "Filme", serie: "Série" };
 const ATIVO_MIN = 40;
 
 let APS = [], USO = [], SERVS = [], VISTA = "aparelhos", VERSAO = null, CONFIG = { trial_dias: 7 }, BUSCA = "";
+// Ordenar a lista de aparelhos por coluna (clique no cabeçalho) e agrupar (pedido do Marco)
+let ORD = { col: "sinal", dir: -1 }, GRUPO = localStorage.getItem("nv-grupo") || "";
 
 // Situação da liberação de um aparelho (licença; o app só avisa, não bloqueia)
 const dataDia = iso => iso ? iso.split("-").reverse().join("/") : "";
@@ -135,6 +137,48 @@ function licSituacao(a) {
   const cls = dias <= 3 ? "t-warn" : "t-ok";
   return { txt: `${a.em_teste ? "em teste" : "liberado"} · ${dias}d`, cls, vencida: false, dias };
 }
+
+// Valor de cada coluna para ordenar (número = tempo/segundos; texto = nome, sem acento)
+const semAc = s => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+function valorCol(a, col) {
+  const seg = USO.filter(u => u.aparelho_id === a.id).reduce((s, u) => s + u.segundos, 0);
+  switch (col) {
+    case "aparelho": return semAc(nomeAp(a));
+    case "modelo": return semAc(a.modelo || "~");                       // ~ joga "sem modelo" para o fim em A→Z
+    case "sinal": return a.ultimo_sinal ? new Date(a.ultimo_sinal).getTime() : 0;
+    case "usuario": return semAc(a.lista_usuario || "~");
+    case "validade": return a.lista_validade ? new Date(a.lista_validade).getTime() : 8.64e15;
+    case "licenca": return a.isento ? 8.64e15 : (a.valida_ate ? new Date(a.valida_ate + "T12:00:00").getTime() : -1);
+    case "app": return a.versao_codigo || 0;
+    case "periodo": return seg;
+    default: return 0;
+  }
+}
+function ordenar(lista) {
+  const num = typeof valorCol(lista[0] || {}, ORD.col) === "number";
+  return [...lista].sort((a, b) => {
+    const x = valorCol(a, ORD.col), y = valorCol(b, ORD.col);
+    const c = num ? x - y : String(x).localeCompare(String(y), "pt");
+    return (c || (new Date(b.ultimo_sinal) - new Date(a.ultimo_sinal))) * ORD.dir;
+  });
+}
+// Rótulo do grupo de um aparelho, conforme "Agrupar por"
+function grupoDe(a) {
+  if (GRUPO === "usuario") return a.lista_usuario || "(sem lista)";
+  if (GRUPO === "modelo") return a.modelo || "(sem modelo)";
+  if (GRUPO === "licenca") {
+    const l = licSituacao(a);
+    if (a.isento) return "Liberado (grátis)";
+    if (!a.valida_ate) return "Sem licença";
+    if (l.vencida) return "Vencida";
+    if (a.em_teste) return "Em teste";
+    return l.dias <= 7 ? "Vence em ≤ 7 dias" : "Em dia";
+  }
+  return "";
+}
+const COLS = { aparelho: "Aparelho", sinal: "Agora", usuario: "Lista", validade: "Validade", licenca: "Licença", app: "App", periodo: "No período" };
+// Cabeçalho clicável de uma coluna (mostra ▲/▼ na coluna ativa)
+const th = (col, extra = "") => `<th data-sort="${col}" style="cursor:pointer;user-select:none"${extra}>${COLS[col]}${ORD.col === col ? (ORD.dir > 0 ? " ▲" : " ▼") : ""}</th>`;
 
 async function iniciar() {
   const { data: { session } } = await sb.auth.getSession();
@@ -194,24 +238,8 @@ function vAparelhos() {
   const b = BUSCA.trim().toLowerCase();
   const lista = b ? APS.filter(a => [a.codigo, a.apelido, a.modelo, a.lista_usuario].some(x => (x || "").toLowerCase().includes(b))) : APS;
   const total = usoFiltrado().reduce((s, u) => s + u.segundos, 0);
-  return `<div class="card" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
-      <label>Dias de teste de quem baixa o app: <input id="inpTrial" type="number" min="0" max="365" value="${CONFIG.trial_dias}" style="width:70px"></label>
-      <button class="bt peq" id="btTrial">Salvar</button>
-      <input id="buscaAp" placeholder="buscar por código ou nome" value="${esc(BUSCA)}" style="margin-left:auto;width:230px">
-    </div>
-    <div class="kpis">
-      <div class="kpi ${venc ? "warn" : ""}"><b>${venc}</b><span>com licença vencida (fora os grátis)</span></div>
-      <div class="kpi"><b>${APS.length}</b><span>aparelhos</span></div>
-      <div class="kpi ${at.length ? "ok" : ""}"><b>${at.length}</b><span>com o app aberto (últimos ${ATIVO_MIN} min)</span></div>
-      <div class="kpi"><b>${vendo.length}</b><span>assistindo agora</span></div>
-      <div class="kpi"><b>${horas(total)}</b><span>assistidas no período</span></div>
-      <div class="kpi ${vencendo.length ? "warn" : ""}"><b>${vencendo.length}</b><span>listas vencendo em 10 dias</span></div>
-      <div class="kpi ${bloq ? "crit" : ""}"><b>${bloq}</b><span>com possível bloqueio de IPTV (saindo pelo DNS alternativo)</span></div>
-      <div class="kpi ${velhos.length ? "warn" : ""}"><b>${velhos.length}</b><span>com o app desatualizado${VERSAO && VERSAO.nome ? " (atual " + esc(VERSAO.nome) + ")" : ""}</span></div>
-    </div>
-    <div class="card"><h2>Aparelhos</h2><div class="tw"><table>
-      <tr><th>Aparelho</th><th>Agora</th><th>Lista</th><th>Validade</th><th>Licença</th><th class="esc-m">App</th><th class="num">No período</th><th></th></tr>
-      ${lista.map(a => {
+  const op = (v, t) => `<option value="${v}"${GRUPO === v ? " selected" : ""}>${t}</option>`;
+  const linhaAp = a => {
         const lic = licSituacao(a);
         const seg = USO.filter(u => u.aparelho_id === a.id).reduce((s, u) => s + u.segundos, 0);
         const agora = !ativo(a) ? `<span class="dot" style="background:var(--ink-faint)"></span>fechado<div class="mut">último resumo ${desde(a.ultimo_sinal)}</div>`
@@ -235,7 +263,39 @@ function vAparelhos() {
           <td class="esc-m">${esc(a.versao_app || "—")} ${desat ? tag("desatualizado", "t-warn") : ""}</td>
           <td class="num">${horas(seg)}</td>
           <td style="white-space:nowrap"><button class="bt peq" data-ren="${a.id}">Apelido</button> <button class="bt peq perigo" data-exc="${a.id}">Excluir</button></td></tr>`;
-      }).join("")}
+  };
+  const ordem = ordenar(lista);
+  let corpo;
+  if (GRUPO) {
+    const grupos = new Map();
+    ordem.forEach(a => { const g = grupoDe(a); if (!grupos.has(g)) grupos.set(g, []); grupos.get(g).push(a); });
+    const rankLic = { "Vencida": 0, "Sem licença": 1, "Vence em ≤ 7 dias": 2, "Em teste": 3, "Em dia": 4, "Liberado (grátis)": 5 };
+    const labels = [...grupos.keys()].sort((x, y) => GRUPO === "licenca" ? (rankLic[x] ?? 9) - (rankLic[y] ?? 9) : x.localeCompare(y, "pt"));
+    corpo = labels.map(g => {
+      const its = grupos.get(g);
+      const segG = its.reduce((s, a) => s + USO.filter(u => u.aparelho_id === a.id).reduce((t, u) => t + u.segundos, 0), 0);
+      return `<tr><td colspan="8" style="background:var(--surface-2);font-weight:600">${esc(g)} <span class="mut">· ${its.length} aparelho(s)${segG ? " · " + horas(segG) : ""}</span></td></tr>${its.map(linhaAp).join("")}`;
+    }).join("");
+  } else corpo = ordem.map(linhaAp).join("");
+  return `<div class="card" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+      <label>Dias de teste de quem baixa o app: <input id="inpTrial" type="number" min="0" max="365" value="${CONFIG.trial_dias}" style="width:70px"></label>
+      <button class="bt peq" id="btTrial">Salvar</button>
+      <label>Agrupar por: <select id="selGrupo">${op("", "Sem agrupar")}${op("usuario", "Pessoa (lista)")}${op("modelo", "Tipo de aparelho")}${op("licenca", "Situação da licença")}</select></label>
+      <input id="buscaAp" placeholder="buscar por código ou nome" value="${esc(BUSCA)}" style="margin-left:auto;width:230px">
+    </div>
+    <div class="kpis">
+      <div class="kpi ${venc ? "warn" : ""}"><b>${venc}</b><span>com licença vencida (fora os grátis)</span></div>
+      <div class="kpi"><b>${APS.length}</b><span>aparelhos</span></div>
+      <div class="kpi ${at.length ? "ok" : ""}"><b>${at.length}</b><span>com o app aberto (últimos ${ATIVO_MIN} min)</span></div>
+      <div class="kpi"><b>${vendo.length}</b><span>assistindo agora</span></div>
+      <div class="kpi"><b>${horas(total)}</b><span>assistidas no período</span></div>
+      <div class="kpi ${vencendo.length ? "warn" : ""}"><b>${vencendo.length}</b><span>listas vencendo em 10 dias</span></div>
+      <div class="kpi ${bloq ? "crit" : ""}"><b>${bloq}</b><span>com possível bloqueio de IPTV (saindo pelo DNS alternativo)</span></div>
+      <div class="kpi ${velhos.length ? "warn" : ""}"><b>${velhos.length}</b><span>com o app desatualizado${VERSAO && VERSAO.nome ? " (atual " + esc(VERSAO.nome) + ")" : ""}</span></div>
+    </div>
+    <div class="card"><h2>Aparelhos</h2><div class="tw"><table>
+      <tr>${th("aparelho")}${th("sinal")}${th("usuario")}${th("validade")}${th("licenca")}${th("app", ' class="esc-m"')}${th("periodo", ' class="num"')}<th></th></tr>
+      ${corpo}
     </table></div>
     <p class="mut">O app manda um resumo ao abrir, a cada 30 minutos e ao fechar: "Agora" pode estar até 30 min atrasado. Sem resumo há mais de ${ATIVO_MIN} min = app fechado ou aparelho desligado. Nenhuma senha de lista chega aqui.</p>
     <p class="mut">Em "Lista", a saída mostra por onde o aparelho achou o servidor: <b>saída: DNS do local</b> = tudo certo, sai pelo país certo. <b>⚠ possível bloqueio de IPTV</b> = a internet daquele local bloqueou o endereço do IPTV, então o app usou o DNS alternativo (Google/Cloudflare), que pode cair em outro país e o provedor bloquear por "país não permitido" — a solução é liberar o acesso no painel do provedor ou trocar o DNS do roteador daquele local.</p>
@@ -365,7 +425,18 @@ function abrirLiberar(id) {
   $("libValor").value = ""; $("libObs").value = "";
   $("dlgLib").showModal();
 }
-document.addEventListener("change", e => { if (e.target.id === "libPer") $("libDataL").classList.toggle("oculto", e.target.value !== "data"); });
+document.addEventListener("change", e => {
+  if (e.target.id === "libPer") $("libDataL").classList.toggle("oculto", e.target.value !== "data");
+  else if (e.target.id === "selGrupo") { GRUPO = e.target.value; localStorage.setItem("nv-grupo", GRUPO); render(); }
+});
+// Clique no cabeçalho ordena por aquela coluna (clicar de novo inverte)
+document.addEventListener("click", e => {
+  const h = e.target.closest("[data-sort]"); if (!h || VISTA !== "aparelhos") return;
+  const col = h.dataset.sort;
+  if (ORD.col === col) ORD.dir = -ORD.dir;
+  else ORD = { col, dir: ["aparelho", "usuario", "modelo", "licenca", "validade"].includes(col) ? 1 : -1 };
+  render();
+});
 document.addEventListener("input", e => {
   if (e.target.id !== "buscaAp") return;
   BUSCA = e.target.value; const pos = e.target.selectionStart; render();
