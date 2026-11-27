@@ -82,6 +82,26 @@ td.num,th.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-n
     <div id="tela"></div>
   </div>
 </div>
+<dialog id="dlgLib" style="border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--ink);max-width:380px;width:92%;padding:16px">
+  <h2 style="margin:0 0 10px;font-size:16px">Liberar uso</h2>
+  <div id="libAp" class="mut" style="margin-bottom:10px"></div>
+  <label style="display:block;margin-bottom:8px">Período
+    <select id="libPer" style="width:100%;margin-top:4px">
+      <option value="1">Diário (1 dia)</option>
+      <option value="7">Semanal (7 dias)</option>
+      <option value="30" selected>Mensal (30 dias)</option>
+      <option value="90">Trimestral (90 dias)</option>
+      <option value="data">Até uma data</option>
+    </select>
+  </label>
+  <label id="libDataL" class="oculto" style="display:block;margin-bottom:8px">Até o dia <input id="libData" type="date" style="width:100%;margin-top:4px"></label>
+  <label style="display:block;margin-bottom:8px">Valor pago (opcional) <input id="libValor" inputmode="decimal" placeholder="R$" style="width:100%;margin-top:4px"></label>
+  <label style="display:block;margin-bottom:12px">Observação (opcional) <input id="libObs" maxlength="300" style="width:100%;margin-top:4px"></label>
+  <div style="display:flex;gap:8px;justify-content:flex-end">
+    <button class="bt" id="libCancelar">Cancelar</button>
+    <button class="bt pri" id="libConfirmar" style="background:var(--accent);border-color:var(--accent);color:#fff">Confirmar</button>
+  </div>
+</dialog>
 <script>
 const CFG = window.NERVIA_CONFIG || {};
 const EMBUTIDO = window.self !== window.top;
@@ -103,7 +123,18 @@ const TIPO = { vivo: "Canal", filme: "Filme", serie: "Série" };
 // O app manda a cada 30 min: sem resumo há mais de 40 min = app fechado ou aparelho desligado
 const ATIVO_MIN = 40;
 
-let APS = [], USO = [], SERVS = [], VISTA = "aparelhos", VERSAO = null;
+let APS = [], USO = [], SERVS = [], VISTA = "aparelhos", VERSAO = null, CONFIG = { trial_dias: 7 }, BUSCA = "";
+
+// Situação da liberação de um aparelho (licença; o app só avisa, não bloqueia)
+const dataDia = iso => iso ? iso.split("-").reverse().join("/") : "";
+function licSituacao(a) {
+  if (a.isento) return { txt: "liberado (grátis)", cls: "t-ok", vencida: false };
+  if (!a.valida_ate) return { txt: "sem licença", cls: "t-crit", vencida: true };
+  const dias = Math.round((new Date(a.valida_ate + "T12:00:00") - new Date(hojeBR() + "T12:00:00")) / 864e5);
+  if (dias < 0) return { txt: "vencida", cls: "t-crit", vencida: true, dias };
+  const cls = dias <= 3 ? "t-warn" : "t-ok";
+  return { txt: `${a.em_teste ? "em teste" : "liberado"} · ${dias}d`, cls, vencida: false, dias };
+}
 
 async function iniciar() {
   const { data: { session } } = await sb.auth.getSession();
@@ -121,6 +152,7 @@ async function iniciar() {
 async function carregar() {
   APS = checar(await sb.from("nv_aparelhos").select("*").order("ultimo_sinal", { ascending: false }));
   SERVS = checar(await sb.from("nv_servidores").select("*").order("ordem"));
+  CONFIG = checar(await sb.from("nv_config").select("trial_dias").maybeSingle()) || { trial_dias: 7 };
   const de = diaMenos(Number($("selPer").value) - 1);
   USO = [];
   for (let i = 0; ; i += 1000) {
@@ -158,8 +190,17 @@ function vAparelhos() {
   const vencendo = APS.filter(a => a.lista_validade && (new Date(a.lista_validade) - Date.now()) / 864e5 <= 10);
   const velhos = APS.filter(a => VERSAO && VERSAO.codigo && a.versao_codigo && a.versao_codigo < VERSAO.codigo);
   const bloq = APS.filter(a => a.rede_bloqueio).length;
+  const venc = APS.filter(a => licSituacao(a).vencida).length;
+  const b = BUSCA.trim().toLowerCase();
+  const lista = b ? APS.filter(a => [a.codigo, a.apelido, a.modelo, a.lista_usuario].some(x => (x || "").toLowerCase().includes(b))) : APS;
   const total = usoFiltrado().reduce((s, u) => s + u.segundos, 0);
-  return `<div class="kpis">
+  return `<div class="card" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+      <label>Dias de teste de quem baixa o app: <input id="inpTrial" type="number" min="0" max="365" value="${CONFIG.trial_dias}" style="width:70px"></label>
+      <button class="bt peq" id="btTrial">Salvar</button>
+      <input id="buscaAp" placeholder="buscar por código ou nome" value="${esc(BUSCA)}" style="margin-left:auto;width:230px">
+    </div>
+    <div class="kpis">
+      <div class="kpi ${venc ? "warn" : ""}"><b>${venc}</b><span>com licença vencida (fora os grátis)</span></div>
       <div class="kpi"><b>${APS.length}</b><span>aparelhos</span></div>
       <div class="kpi ${at.length ? "ok" : ""}"><b>${at.length}</b><span>com o app aberto (últimos ${ATIVO_MIN} min)</span></div>
       <div class="kpi"><b>${vendo.length}</b><span>assistindo agora</span></div>
@@ -169,8 +210,9 @@ function vAparelhos() {
       <div class="kpi ${velhos.length ? "warn" : ""}"><b>${velhos.length}</b><span>com o app desatualizado${VERSAO && VERSAO.nome ? " (atual " + esc(VERSAO.nome) + ")" : ""}</span></div>
     </div>
     <div class="card"><h2>Aparelhos</h2><div class="tw"><table>
-      <tr><th>Aparelho</th><th>Agora</th><th>Lista</th><th>Validade</th><th class="esc-m">App</th><th class="num">No período</th><th></th></tr>
-      ${APS.map(a => {
+      <tr><th>Aparelho</th><th>Agora</th><th>Lista</th><th>Validade</th><th>Licença</th><th class="esc-m">App</th><th class="num">No período</th><th></th></tr>
+      ${lista.map(a => {
+        const lic = licSituacao(a);
         const seg = USO.filter(u => u.aparelho_id === a.id).reduce((s, u) => s + u.segundos, 0);
         const agora = !ativo(a) ? `<span class="dot" style="background:var(--ink-faint)"></span>fechado<div class="mut">último resumo ${desde(a.ultimo_sinal)}</div>`
           : a.assistindo ? `<span class="dot" style="background:var(--ok)"></span><b>${esc(a.assistindo)}</b><div class="mut">${esc(TIPO[a.assistindo_tipo] || "")}${a.assistindo_grupo ? " · " + esc(a.assistindo_grupo) : ""}${a.assistindo_desde ? " · desde " + dataHora(a.assistindo_desde).slice(-5) : ""}</div>`
@@ -187,13 +229,17 @@ function vAparelhos() {
               ? `<div class="mut">${tag("⚠ possível bloqueio de IPTV", "t-crit")} saindo pelo ${esc(a.rede_dns)}${a.rede_servidor_ip ? " · " + esc(a.rede_servidor_ip) : ""}</div>`
               : `<div class="mut">saída: ${esc(a.rede_dns)}${a.rede_servidor_ip ? " · " + esc(a.rede_servidor_ip) : ""}</div>`) : ""}</td>
           <td>${validade(a)}</td>
+          <td>${tag(lic.txt, lic.cls)}<div class="mut">código <b>${esc(a.codigo || "—")}</b>${a.valida_ate ? " · até " + dataDia(a.valida_ate) : ""}</div>
+            <button class="bt peq" data-lib="${a.id}">Liberar</button>
+            <button class="bt peq" data-isento="${a.id}" data-on="${a.isento ? 1 : 0}">${a.isento ? "Cobrar" : "Grátis"}</button></td>
           <td class="esc-m">${esc(a.versao_app || "—")} ${desat ? tag("desatualizado", "t-warn") : ""}</td>
           <td class="num">${horas(seg)}</td>
           <td style="white-space:nowrap"><button class="bt peq" data-ren="${a.id}">Apelido</button> <button class="bt peq perigo" data-exc="${a.id}">Excluir</button></td></tr>`;
       }).join("")}
     </table></div>
     <p class="mut">O app manda um resumo ao abrir, a cada 30 minutos e ao fechar: "Agora" pode estar até 30 min atrasado. Sem resumo há mais de ${ATIVO_MIN} min = app fechado ou aparelho desligado. Nenhuma senha de lista chega aqui.</p>
-    <p class="mut">Em "Lista", a saída mostra por onde o aparelho achou o servidor: <b>saída: DNS do local</b> = tudo certo, sai pelo país certo. <b>⚠ possível bloqueio de IPTV</b> = a internet daquele local bloqueou o endereço do IPTV, então o app usou o DNS alternativo (Google/Cloudflare), que pode cair em outro país e o provedor bloquear por "país não permitido" — a solução é liberar o acesso no painel do provedor ou trocar o DNS do roteador daquele local.</p></div>`;
+    <p class="mut">Em "Lista", a saída mostra por onde o aparelho achou o servidor: <b>saída: DNS do local</b> = tudo certo, sai pelo país certo. <b>⚠ possível bloqueio de IPTV</b> = a internet daquele local bloqueou o endereço do IPTV, então o app usou o DNS alternativo (Google/Cloudflare), que pode cair em outro país e o provedor bloquear por "país não permitido" — a solução é liberar o acesso no painel do provedor ou trocar o DNS do roteador daquele local.</p>
+    <p class="mut"><b>Licença:</b> quem baixa o app ganha os dias de teste acima. Para liberar, a pessoa te passa o <b>código</b> que aparece nos Ajustes do app dela; ache o aparelho pelo código, confirme o pagamento e clique <b>Liberar</b> (dia/semana/mês/trimestre ou uma data). <b>Grátis</b> deixa liberado sem prazo (amigos). O app só <b>avisa</b> quando vence — nada é bloqueado.</p></div>`;
 }
 
 // ---------------------------------------------------------------- Mais assistidos
@@ -284,7 +330,46 @@ document.addEventListener("click", async e => {
       checar(await sb.rpc("nv_aparelho_excluir", { p_id: a.id }));
       await carregar(); render();
     }
-  } catch (err) { const m = $("msg"); m.className = "msg err"; m.textContent = err.message; }
+    else if (b.id === "btTrial") {
+      const t = Number($("inpTrial").value);
+      checar(await sb.rpc("nv_config_salvar", { p_trial: t }));
+      await carregar(); render();
+      const m = $("msg"); m.className = "msg ok"; m.textContent = `Dias de teste: ${t}. Vale para quem baixar o app a partir de agora.`; m.classList.remove("oculto"); setTimeout(() => m.classList.add("oculto"), 6000);
+    }
+    else if (b.dataset.lib) { abrirLiberar(b.dataset.lib); }
+    else if (b.id === "libCancelar") { $("dlgLib").close(); }
+    else if (b.id === "libConfirmar") {
+      const per = $("libPer").value, valorTxt = $("libValor").value.trim(), obs = $("libObs").value.trim();
+      const valor = valorTxt ? Number(valorTxt.replace(/[^\d,.-]/g, "").replace(".", "").replace(",", ".")) : null;
+      const args = { p_ids: [LIB_ID], p_dias: null, p_ate: null, p_valor: (valor != null && !isNaN(valor)) ? valor : null, p_obs: obs };
+      if (per === "data") { if (!$("libData").value) { alert("Escolha a data."); return; } args.p_ate = $("libData").value; }
+      else args.p_dias = Number(per);
+      checar(await sb.rpc("nv_licenca_liberar", args));
+      $("dlgLib").close(); await carregar(); render();
+      const m = $("msg"); m.className = "msg ok"; m.textContent = "Uso liberado."; m.classList.remove("oculto"); setTimeout(() => m.classList.add("oculto"), 6000);
+    }
+    else if (b.dataset.isento != null) {
+      const liberar = b.dataset.on !== "1";   // estava cobrando → vira grátis; estava grátis → volta a cobrar
+      if (!confirm(liberar ? "Deixar este aparelho liberado sem prazo (grátis, amigo)?" : "Voltar a cobrar deste aparelho? Ele passa a valer pela data de liberação.")) return;
+      checar(await sb.rpc("nv_licenca_isento", { p_id: b.dataset.isento, p_isento: liberar, p_motivo: "" }));
+      await carregar(); render();
+    }
+  } catch (err) { const m = $("msg"); m.className = "msg err"; m.textContent = err.message; m.classList.remove("oculto"); }
+});
+let LIB_ID = null;
+function abrirLiberar(id) {
+  LIB_ID = id;
+  const a = APS.find(x => x.id === id);
+  $("libAp").textContent = `${nomeAp(a)} · código ${a.codigo || "—"}`;
+  $("libPer").value = "30"; $("libDataL").classList.add("oculto"); $("libData").value = "";
+  $("libValor").value = ""; $("libObs").value = "";
+  $("dlgLib").showModal();
+}
+document.addEventListener("change", e => { if (e.target.id === "libPer") $("libDataL").classList.toggle("oculto", e.target.value !== "data"); });
+document.addEventListener("input", e => {
+  if (e.target.id !== "buscaAp") return;
+  BUSCA = e.target.value; const pos = e.target.selectionStart; render();
+  const n = $("buscaAp"); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch {} }
 });
 $("selPer").addEventListener("change", () => carregar().then(render).catch(err => { const m = $("msg"); m.className = "msg err"; m.textContent = err.message; }));
 $("selAp").addEventListener("change", render);

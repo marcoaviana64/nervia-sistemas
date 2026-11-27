@@ -61,6 +61,7 @@ window.NERVIA_VERSOES = {
     ["1.0", "Laboratório: espelho pessoal e 360° profissional (você se avalia e compara com como os seus círculos te veem, sem saber quem respondeu), avaliação depois de um encontro pelo QR code e mapa de quem está por perto."],
   ],
   "nvplayer": [
+    ["1.3", "Liberação de uso: campo \"dias de teste\" para quem baixa o app, coluna Licença com o código e a situação de cada aparelho, botão Liberar (dia/semana/mês/trimestre ou data) depois de confirmar o pagamento e botão Grátis para amigos; busca por código. O app só avisa quando vence, não bloqueia."],
     ["1.2", "Diagnóstico de rede na aba Aparelhos: por onde cada aparelho está saindo (DNS do local, Google ou Cloudflare) e um aviso quando a internet do local parece estar bloqueando o IPTV, com um KPI de quantos aparelhos estão nessa situação."],
     ["1.1", "Nova aba Servidores: a equipe Nervia escolhe por aqui o endereço de servidor que o NVPlayer usa; os aparelhos pegam sozinhos, sem mexer em arquivo."],
     ["1.0", "Lançamento: painel de uso do NVPlayer, só para a equipe Nervia — aparelhos, o que está passando, lista e validade, canais, filmes e séries mais assistidos, horas por dia e problemas de vídeo de cada aparelho."],

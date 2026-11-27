@@ -3595,6 +3595,45 @@ select pg_temp.ok((select apelido = 'TV sala' from nv_aparelhos) and (select cou
 select nv_aparelho_excluir('11111111-2222-3333-4444-555555555555');
 reset role;
 select pg_temp.ok(not exists (select 1 from nv_assistido) and exists (select 1 from auditoria where acao = 'nvplayer_aparelho_excluido'), 'nvplayer: excluir leva o histórico e fica na auditoria');
+
+-- licença: dias de teste, liberar, isento (pedido do Marco em 27/11/2026; o app só avisa, não bloqueia)
+set role authenticated;  -- admin 0000...000a ainda no request.jwt.claim.sub
+select nv_config_salvar(10);
+reset role;
+set role anon;
+set request.headers = '{"x-forwarded-for":"200.9.9.9"}';
+select pg_temp.ok((select ((nv_sinal(jsonb_build_object('id','22222222-3333-4444-5555-666666666666')) -> 'licenca' ->> 'em_teste')::boolean)), 'nvplayer licença: aparelho novo entra em teste');
+reset role; reset request.headers;
+select pg_temp.ok((select em_teste and not isento and valida_ate = (now() at time zone 'America/Sao_Paulo')::date - 1 + 10 and codigo ~ '^[A-Z2-9]{5}$'
+  from nv_aparelhos where id = '22222222-3333-4444-5555-666666666666'), 'nvplayer licença: teste de 10 dias e código curto');
+-- liberar por dias (em teste = em dia, continua do fim do teste)
+set role authenticated;
+select nv_licenca_liberar(array['22222222-3333-4444-5555-666666666666']::uuid[], 30, null, 49.90, 'pix março');
+reset role;
+select pg_temp.ok((select not em_teste and not isento and valida_ate = (now() at time zone 'America/Sao_Paulo')::date - 1 + 10 + 30
+  from nv_aparelhos where id = '22222222-3333-4444-5555-666666666666')
+  and exists (select 1 from nv_licenca_hist where acao = 'liberado' and valor = 49.90)
+  and exists (select 1 from auditoria where acao = 'nvplayer_licenca_liberada'), 'nvplayer licença: liberar 30 dias soma ao fim do teste, grava extrato e auditoria');
+-- liberar por data exata
+set role authenticated;
+select nv_licenca_liberar(array['22222222-3333-4444-5555-666666666666']::uuid[], null, (now() at time zone 'America/Sao_Paulo')::date + 90, null, '');
+reset role;
+select pg_temp.ok((select valida_ate = (now() at time zone 'America/Sao_Paulo')::date + 90 from nv_aparelhos where id = '22222222-3333-4444-5555-666666666666'), 'nvplayer licença: liberar por data exata');
+-- isento (amigo): nunca vence
+set role authenticated;
+select nv_licenca_isento('22222222-3333-4444-5555-666666666666', true, 'amigo');
+reset role;
+select pg_temp.ok((select isento from nv_aparelhos where id = '22222222-3333-4444-5555-666666666666'), 'nvplayer licença: liberado de graça (isento)');
+-- cliente comum não libera nem muda a configuração
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+set role authenticated;
+select pg_temp.erro($$select nv_licenca_liberar(array['22222222-3333-4444-5555-666666666666']::uuid[], 7, null, null, '')$$, 'Somente a equipe', 'nvplayer licença: cliente não libera');
+select pg_temp.erro($$select nv_config_salvar(5)$$, 'Somente a equipe', 'nvplayer licença: cliente não muda os dias de teste');
+reset role;
+select pg_temp.erro($$update nv_licenca_hist set valor = 0 where acao = 'liberado'$$, 'somente inclusão', 'nvplayer licença: extrato não se altera');
+select pg_temp.ok(not exists (select 1 from information_schema.role_table_grants where grantee = 'anon' and table_name in ('nv_config','nv_licenca_hist')), 'nvplayer licença: anônimo não lê config nem extrato');
+delete from nv_aparelhos where id = '22222222-3333-4444-5555-666666666666';
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
 reset request.jwt.claim.sub;
 -- ================================================================ NVPlayer servidores (nv_servidores, lista do painel)
 set role anon;

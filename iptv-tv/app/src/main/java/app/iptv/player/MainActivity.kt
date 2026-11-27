@@ -208,6 +208,8 @@ class MainActivity : ComponentActivity() {
         h.postDelayed(vigiar, 2000)
         h.postDelayed(conferirVencimento, 5000)
         h.postDelayed(conferirLembretes, 10000)
+        Licenca.carregar(getSharedPreferences("licenca", MODE_PRIVATE))   // 2.38: liberação de uso (só avisa, não bloqueia)
+        h.postDelayed(conferirLicenca, 15000)
         FORMATOS[repo.formatoTela.coerceIn(0, FORMATOS.size - 1)].second.let { videoCheio.resizeMode = it; videoPrevia.resizeMode = it }
         player.addListener(ouvinte)
 
@@ -506,6 +508,19 @@ class MainActivity : ComponentActivity() {
         }
     }
     private val esconderLembrete = Runnable { lembrete.visibility = View.GONE }
+
+    /** 2.38: a licença vem no resumo (nv_sinal). Aqui só AVISA uma vez se estiver vencida — nada bloqueia. */
+    private var licencaAvisada = false
+    private val conferirLicenca = object : Runnable {
+        override fun run() {
+            if (!licencaAvisada && Licenca.avisarVencida()) {
+                licencaAvisada = true
+                toast("Seu acesso ao NVPlayer venceu. Fale com a Nervia para renovar (código ${Licenca.codigo}).")
+            }
+            if (aba == Aba.AJUSTES) atualizarInfoAjustes()
+            h.postDelayed(this, 6 * 60 * 60 * 1000L)   // reconfere de tempos em tempos; a licença chega pelo resumo
+        }
+    }
 
     /** 2.10: a cada 2 s confere se o canal ao vivo travou; se travou, reconecta sozinho. */
     private val vigiar = object : Runnable {
@@ -1967,6 +1982,8 @@ class MainActivity : ComponentActivity() {
         sb.append("\nNo controle, assistindo TV: ▲▼ troca de canal · OK ou ◀▶ abre a lista · Menu: áudio, legenda, tela e guia.\n")
         sb.append("Assistindo filme ou série: OK pausa · ◀ volta 10 s · ▶ avança 30 s · Menu: áudio, legenda e tela · Voltar: sai e guarda onde parou.\n")
         sb.append("Na lista: segure OK (ou aperte Menu) num item para marcar como favorito.\n")
+        // 2.38: situação da liberação de uso (só informa; nada bloqueia)
+        sb.append('\n').append(Licenca.resumo()).append('\n')
         // 2.37: diagnóstico de rede — por onde o app está saindo e se há possível bloqueio de IPTV neste local
         val servHost = (x?.endereco ?: repo.urlLista ?: "").substringAfter("://").substringBefore("/").substringBefore(":")
         if (servHost.isNotBlank()) Diagnostico.servidorHost = servHost
