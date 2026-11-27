@@ -32,6 +32,7 @@ class Telemetria(ctx: Context, private val url: String, private val chave: Strin
     }
 
     private val prefs = ctx.getSharedPreferences("telemetria", Context.MODE_PRIVATE)
+    private val prefsLic = ctx.getSharedPreferences("licenca", Context.MODE_PRIVATE)   // 2.38: situação da liberação
     val id: String = prefs.getString("id", null) ?: UUID.randomUUID().toString().also { prefs.edit().putString("id", it).apply() }
     private val dia = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { timeZone = TimeZone.getTimeZone("America/Sao_Paulo") }
 
@@ -87,7 +88,13 @@ class Telemetria(ctx: Context, private val url: String, private val chave: Strin
         val ok = try {
             cliente.newCall(Request.Builder().url("$url/rest/v1/rpc/nv_sinal")
                 .header("apikey", chave).header("Content-Type", "application/json")
-                .post(JSONObject().put("p", corpo).toString().toRequestBody(JSON)).build()).execute().use { it.isSuccessful }
+                .post(JSONObject().put("p", corpo).toString().toRequestBody(JSON)).build()).execute().use { resp ->
+                // 2.38: a resposta traz a licença (código + situação); o app só avisa, não bloqueia
+                if (resp.isSuccessful) resp.body?.string()?.let {
+                    try { Licenca.atualizar(JSONObject(it)); Licenca.salvar(prefsLic) } catch (_: Exception) {}
+                }
+                resp.isSuccessful
+            }
         } catch (_: Exception) { false }
         synchronized(this) {
             if (ok) enviado.forEach { (k, v) ->

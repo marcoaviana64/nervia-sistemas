@@ -115,6 +115,17 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
   configuração sempre relê o `nvplayer.json` ao abrir — então o portal mostra o endereço atual se o provedor trocou
   (antes ficava fixo no embutido). A TV já ligada continua trocando sozinha pelo failover (2.5): quando o servidor
   salvo não responde, relê o `nvplayer.json` e passa para o 1º que faz login. Teste `TelaTest.portalMostraServidorDoSite`.
+- **Liberação de uso (licença)** (2.38, 27/11/2026, pedido do Marco: "uma forma de liberação de uso do app; o admin,
+  depois de confirmar o pagamento, libera no painel; no futuro cobrar por uso (mensal/trimestral/semanal/diário); deixar
+  liberado sem pagamento para amigos; dias de teste para quem baixa"). Decisões do Marco: **liberação pelo painel** (sem
+  digitar chave — o app mostra um **código curto** e a pessoa o informa à Nervia); o app **só avisa quando vence, NÃO
+  bloqueia**; checagem leve — a licença **pega carona no resumo que o app já manda** (`nv_sinal`), sem chamada nova.
+  `Licenca.kt` guarda código + situação (isento/em teste/liberado até/vencida) vinda da resposta do `nv_sinal`; Ajustes
+  mostra a linha "Licença: …"; ao abrir, um toast avisa uma vez se estiver vencida (código para renovar). Aparelhos que
+  já existiam entram **isentos** (nada muda para o Marco); aparelho novo começa **em teste** por `nv_config.trial_dias`
+  dias. No painel (NVPlayer — uso): campo "Dias de teste", coluna **Licença** com o código e a situação, **Liberar**
+  (dia/semana/mês/trimestre ou data, valor opcional) e **Grátis/Cobrar**, busca por código. Migração
+  `20261127000200_nvplayer_licenca.sql`. Testes `LicencaTest` (Robolectric), SQL e tela do portal.
 - **Diagnóstico de rede (app + portal)** (2.37, 27/11/2026, o Marco: "informar em algum local, no app ou no portal, por
   onde o equipamento está saindo e se está acontecendo este bloqueio e o link está sendo desviado"): o objeto
   `Diagnostico` (em `Rede.kt`) guarda, por nome de servidor, QUAL DNS resolveu (o da internet do local, o Google ou o

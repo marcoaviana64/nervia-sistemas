@@ -3,9 +3,9 @@
     "http://p.urldata.gy"
   ],
   "versao": {
-    "codigo": 39,
-    "nome": "2.37",
+    "codigo": 40,
+    "nome": "2.38",
     "apk": "https://nervia.com.br/nvplayer.apk",
-    "novidades": "Novo \"Diagnóstico de rede\" em Ajustes: mostra por onde o app está saindo (DNS do local, Google ou Cloudflare) e avisa quando a internet do local parece estar bloqueando o IPTV. O mesmo resumo aparece no painel da Nervia."
+    "novidades": "Liberação de uso: quem baixa ganha dias de teste e o app mostra a situação da licença em Ajustes (com um código para informar à Nervia). Quando vence, o app apenas avisa — nada é bloqueado."
   }
 }

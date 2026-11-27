@@ -237,6 +237,7 @@ Ao publicar mudança num app: linha nova no topo do app aqui (com a data) e em `
 
 | Versão | Data | O que mudou |
 |---|---|---|
+| 1.3 | 27/11/2026 | Liberação de uso: campo "dias de teste", coluna Licença (código + situação por aparelho), Liberar (dia/semana/mês/trimestre ou data, valor opcional) e Grátis (amigos), busca por código. Migração `20261127000200_nvplayer_licenca.sql` (`nv_config.trial_dias`; `nv_aparelhos.codigo/valida_ate/isento/em_teste`; `nv_sinal` cria teste e devolve `licenca`; `nv_licenca_liberar/_isento`, `nv_config_salvar`, `nv_licenca_hist`). O app só avisa quando vence. |
 | 1.2 | 27/11/2026 | Diagnóstico de rede na aba Aparelhos: por onde cada aparelho está saindo (DNS do local, Google ou Cloudflare) e aviso de possível bloqueio de IPTV na internet do local, com KPI. Vem do bloco `rede` do `nv_sinal` (migração `20261127000100_nvplayer_rede.sql`, colunas `rede_*` em `nv_aparelhos`). |
 | 1.1 | 19/11/2026 | Nova aba Servidores: a equipe Nervia escolhe por aqui o endereço de servidor que o NVPlayer usa (tabela `nv_servidores`, rpc `nv_servidores_salvar`); o app lê a lista do painel em vez do `nvplayer.json`, e a TV já ligada troca pelo failover quando o endereço salvo para de responder. |
 | 1.0 | 19/11/2026 | Lançamento: painel de uso do NVPlayer, só para a equipe Nervia — aparelhos, o que está passando, lista e validade, canais, filmes e séries mais assistidos, horas por dia e problemas de vídeo de cada aparelho. |

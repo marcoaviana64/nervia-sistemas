@@ -17,12 +17,15 @@ const TABELAS = `const H = new Date().toLocaleDateString("en-CA", { timeZone: "A
         lista_validade: new Date(Date.now() + 2 * 864e5).toISOString(), lista_telas: "2", lista_telas_uso: "1", canais: 1500, filmes: 8000, series: 900,
         assistindo: "Globo RJ FHD", assistindo_tipo: "vivo", assistindo_grupo: "Abertos", assistindo_desde: min(50), problemas: ["19/11 10:00  SporTV: a imagem parou; reconectado sozinho"],
         rede_dns: "DNS do local", rede_bloqueio: false, rede_servidor_ip: "45.1.2.3",
+        codigo: "AB2CD", isento: true, em_teste: false, valida_ate: null,
         primeiro_sinal: min(5000), ultimo_sinal: min(5), sinais: 40 },
       { id: "a2", apelido: "", modelo: "TCL Smart TV", android: "14", versao_app: "2.11", versao_codigo: 13, ip: "189.9.9.9", pais: "BR",
         lista_tipo: "xtream", lista_servidor: "p.exemplo.gy", lista_usuario: "joana", lista_status: "Active",
         lista_validade: new Date(Date.now() + 40 * 864e5).toISOString(), canais: 1500, filmes: 8000, series: 900,
         rede_dns: "Google", rede_bloqueio: true, rede_servidor_ip: "104.20.5.6",
+        codigo: "XY7ZK", isento: false, em_teste: true, valida_ate: new Date(Date.now() + 5 * 864e5).toISOString().slice(0, 10),
         assistindo: null, problemas: [], primeiro_sinal: min(9000), ultimo_sinal: min(300), sinais: 10 }],
+    nv_config: [{ trial_dias: 7 }],
     nv_assistido: [
       { aparelho_id: "a1", dia: diaMenos(0), tipo: "vivo", nome: "Globo RJ FHD", grupo: "Abertos", segundos: 7200, vezes: 3 },
       { aparelho_id: "a2", dia: diaMenos(1), tipo: "vivo", nome: "Globo RJ FHD", grupo: "Abertos", segundos: 1800, vezes: 1 },
@@ -38,13 +41,16 @@ const RPC = `
     if (nome === "nv_aparelho_apelido") { db.nv_aparelhos.find((a) => a.id === args.p_id).apelido = args.p_apelido; return { data: null, error: null }; }
     if (nome === "nv_aparelho_excluir") { db.nv_aparelhos = db.nv_aparelhos.filter((a) => a.id !== args.p_id); db.nv_assistido = db.nv_assistido.filter((a) => a.aparelho_id !== args.p_id); return { data: null, error: null }; }
     if (nome === "nv_servidores_salvar") { const l = (args.p_lista || []).map((e) => e.trim()).filter(Boolean).map((e) => e.startsWith("http") ? e : "http://" + e).map((e) => e.replace(/[/]+$/, "")); const u = [...new Set(l)]; if (!u.length) return { data: null, error: { message: "Informe ao menos um endereço de servidor." } }; db.nv_servidores = u.map((e, i) => ({ ordem: i + 1, endereco: e })); return { data: u, error: null }; }
+    if (nome === "nv_config_salvar") { db.nv_config[0].trial_dias = args.p_trial; return { data: null, error: null }; }
+    if (nome === "nv_licenca_liberar") { const a = db.nv_aparelhos.find((x) => args.p_ids.includes(x.id)); if (a) { a.isento = false; a.em_teste = false; a.valida_ate = args.p_ate || new Date(Date.now() + args.p_dias * 864e5).toISOString().slice(0, 10); } return { data: null, error: null }; }
+    if (nome === "nv_licenca_isento") { const a = db.nv_aparelhos.find((x) => x.id === args.p_id); if (a) a.isento = !!args.p_isento; return { data: null, error: null }; }
     return { data: null, error: { message: "rpc desconhecida " + nome } };
   };`;
 for (const t of ['const db = {', 'from: consulta,', 'window.__chamadas = [];', 'tel_arquivos: () => papel === "admin" };'])
   if (!FALSO.includes(t)) throw new Error('supabase_falso.js mudou: ' + t);
 FALSO = FALSO.replace('const db = {', TABELAS).replace('window.__chamadas = [];', 'window.__chamadas = [];' + RPC)
   .replace('from: consulta,', 'from: consulta, rpc: (n, a) => window.__rpc(n, a),')
-  .replace('tel_arquivos: () => papel === "admin" };', 'tel_arquivos: () => papel === "admin", nv_aparelhos: () => papel === "admin", nv_assistido: () => papel === "admin", nv_servidores: () => papel === "admin" };')
+  .replace('tel_arquivos: () => papel === "admin" };', 'tel_arquivos: () => papel === "admin", nv_aparelhos: () => papel === "admin", nv_assistido: () => papel === "admin", nv_servidores: () => papel === "admin", nv_config: () => papel === "admin" };')
   .replace('const t = db[tabela];', 'const t = db[tabela] || [];');
 const CONFIG = 'window.NERVIA_CONFIG={SUPABASE_URL:"https://teste.supabase.co",SUPABASE_ANON_KEY:"x"};';
 
@@ -77,6 +83,20 @@ const ok = (c, nome) => { console.log((c ? 'ok  ' : 'FALHOU ') + nome); if (!c) 
   ok((t.match(/desatualizado/g) || []).length >= 2 && t.includes('fechado'), 'app desatualizado (versão publicada) e aparelho fechado');
   ok(/1\s+listas vencendo/.test(t) && /1\s+assistindo agora/.test(t), 'números do topo');
   ok(t.includes('saída: DNS do local') && t.includes('possível bloqueio de IPTV') && /1\s+com possível bloqueio/.test(t), 'diagnóstico de rede: saída e possível bloqueio');
+  ok(t.includes('liberado (grátis)') && t.includes('AB2CD') && t.includes('em teste') && t.includes('XY7ZK'), 'licença: situação e código por aparelho');
+  await pg.click('[data-lib="a2"]');
+  await pg.waitForSelector('#dlgLib[open]');
+  await pg.click('#libConfirmar');
+  await pg.waitForFunction(() => !document.querySelector('#dlgLib[open]'));
+  let ch = await pg.evaluate(() => window.__chamadas.map(c => c[0]));
+  ok(ch.includes('rpc:nv_licenca_liberar'), 'licença: Liberar chama nv_licenca_liberar');
+  await pg.click('[data-isento="a2"]');
+  await pg.waitForFunction(() => window.__chamadas.some(c => c[0] === 'rpc:nv_licenca_isento'));
+  ok(true, 'licença: botão Grátis chama nv_licenca_isento');
+  await pg.fill('#inpTrial', '10');
+  await pg.click('#btTrial');
+  await pg.waitForFunction(() => window.__chamadas.some(c => c[0] === 'rpc:nv_config_salvar'));
+  ok(true, 'licença: salvar dias de teste');
   if (PRINTS) await pg.screenshot({ path: path.join(PRINTS, 'nvplayer-aparelhos.png'), fullPage: true });
 
   await pg.click('.aba[data-v="mais"]');
