@@ -97,6 +97,17 @@ const ok = (c, nome) => { console.log((c ? 'ok  ' : 'FALHOU ') + nome); if (!c) 
   await pg.click('#btTrial');
   await pg.waitForFunction(() => window.__chamadas.some(c => c[0] === 'rpc:nv_config_salvar'));
   ok(true, 'licença: salvar dias de teste');
+  // ordenar por coluna e agrupar
+  await pg.click('[data-sort="usuario"]');
+  let ids = await pg.$$eval('[data-lib]', els => els.map(e => e.dataset.lib));
+  ok(ids[0] === 'a2' && ids[1] === 'a1', 'ordenar por coluna (Lista) põe joana antes de marco');
+  await pg.click('[data-sort="usuario"]');
+  ids = await pg.$$eval('[data-lib]', els => els.map(e => e.dataset.lib));
+  ok(ids[0] === 'a1' && ids[1] === 'a2', 'clicar de novo inverte a ordem');
+  await pg.selectOption('#selGrupo', 'modelo');
+  t = await pg.innerText('#tela');
+  ok(t.includes('Amazon AFTKM') && t.includes('TCL Smart TV') && t.includes('aparelho(s)'), 'agrupar por tipo de aparelho mostra os grupos');
+  await pg.selectOption('#selGrupo', '');
   if (PRINTS) await pg.screenshot({ path: path.join(PRINTS, 'nvplayer-aparelhos.png'), fullPage: true });
 
   await pg.click('.aba[data-v="mais"]');
