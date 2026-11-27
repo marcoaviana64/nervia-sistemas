@@ -115,6 +115,14 @@ ligação com a Plataforma Nervia**: não usa o Supabase, não aparece na Área 
   configuração sempre relê o `nvplayer.json` ao abrir — então o portal mostra o endereço atual se o provedor trocou
   (antes ficava fixo no embutido). A TV já ligada continua trocando sozinha pelo failover (2.5): quando o servidor
   salvo não responde, relê o `nvplayer.json` e passa para o 1º que faz login. Teste `TelaTest.portalMostraServidorDoSite`.
+- **DNS alternativo com a região (Google primeiro)** (2.36, 27/11/2026, o Marco: "continuou não aparecendo os canais; o
+  provedor disse que o login é dos EUA; acho que a internet do local tem bloqueio de IPTV"): quando a internet do local
+  bloqueia o nome do IPTV, o DNS do local falha e o app é obrigado a usar o alternativo (DoH). O `resolvedores` passou a
+  tentar o **Google (`dns.google`) primeiro**, que informa ao servidor de IPTV a região de quem pediu (EDNS Client
+  Subnet) e tende a devolver um nó do **Brasil**; o Cloudflare (`cloudflare-dns.com`, que não informa a região e pode
+  cair nos EUA) ficou de reserva. Complementa a 2.35: lá o local vem primeiro; aqui, quando só sobra o alternativo, ele
+  busca um servidor brasileiro. Nos locais com bloqueio de IPTV, a garantia continua sendo liberar o país/acesso no
+  painel do provedor. Testes `DnsTest` seguem válidos (injetam o alternativo direto; a ordem dos DoH não os afeta).
 - **DNS do local primeiro** (2.35, 26/11/2026, o Marco com foto do painel do provedor (bitpanel.vip): a conta foi
   bloqueada por "país não permitido", acesso visto de **Los Angeles, EUA**, aparelho **Android TV**, tentando canal ao
   vivo; as violações começaram em 19/11, logo depois do DNS alternativo da 2.4): `DnsAlternativo.lookup` passou a pôr o
