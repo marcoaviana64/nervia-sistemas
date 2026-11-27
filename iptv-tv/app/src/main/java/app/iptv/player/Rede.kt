@@ -38,6 +38,7 @@ class DnsAlternativo(
         val doAlternativo = guardado ?: try {
             futuro!!.get(if (doSistema.isEmpty()) 15_000 else espera, TimeUnit.MILLISECONDS)
         } catch (_: Exception) { emptyList() }
+        Diagnostico.registrar(hostname, doSistema, doAlternativo, agora())
         if (doSistema.isEmpty() && doAlternativo.isEmpty())
             throw UnknownHostException("$hostname não foi encontrado (nem pelo DNS da internet deste local, nem pelo DNS alternativo)")
         // 2.35: o endereço do DNS do LOCAL vem sempre primeiro; o alternativo fica só de reserva (usado quando o do
@@ -71,15 +72,18 @@ class DnsAlternativo(
         // tendendo a devolver um nó do Brasil; o Cloudflare (que não informa a região e pode cair nos EUA) fica de reserva.
         private val resolvedores by lazy {
             listOf(
-                DnsOverHttps.Builder().client(semDns).url("https://dns.google/dns-query".toHttpUrl())
+                "Google" to DnsOverHttps.Builder().client(semDns).url("https://dns.google/dns-query".toHttpUrl())
                     .bootstrapDnsHosts(ip("8.8.8.8"), ip("8.8.4.4")).includeIPv6(false).build(),
-                DnsOverHttps.Builder().client(semDns).url("https://cloudflare-dns.com/dns-query".toHttpUrl())
+                "Cloudflare" to DnsOverHttps.Builder().client(semDns).url("https://cloudflare-dns.com/dns-query".toHttpUrl())
                     .bootstrapDnsHosts(ip("1.1.1.1"), ip("1.0.0.1")).includeIPv6(false).build(),
             )
         }
 
         fun porHttps(host: String): List<InetAddress> {
-            for (r in resolvedores) try { return r.lookup(host) } catch (_: Exception) {}
+            for ((nome, r) in resolvedores) try {
+                val res = r.lookup(host)
+                if (res.isNotEmpty()) { Diagnostico.resolvedorPorHost[host] = nome; return res }   // 2.37: qual DNS resolveu
+            } catch (_: Exception) {}
             return emptyList()
         }
     }
@@ -104,4 +108,58 @@ object Rede {
         is IOException -> "a conexão caiu (${e.message ?: e.javaClass.simpleName})"
         else -> e.message ?: e.javaClass.simpleName
     }
+}
+
+/**
+ * Diagnóstico de rede (2.37, pedido do Marco: "informar em algum local, no app ou no portal, por onde o equipamento
+ * está saindo e se está acontecendo o bloqueio / desvio do link"). Guarda, por nome de servidor, QUAL DNS resolveu
+ * (o da internet do local, o Google ou o Cloudflare) e se o DNS do local FALHOU — que é o sinal de possível bloqueio
+ * de IPTV na internet daquele lugar (aí o app foi obrigado a usar o DNS alternativo, que pode cair em outro país).
+ * Nada sai do aparelho por isso: a tela de Ajustes mostra, e o resumo que o app já manda (Telemetria) leva um bloco
+ * pequeno para o portal. Sem consulta de geolocalização (decisão do Marco: só a rota, zero tráfego extra).
+ */
+object Diagnostico {
+    /** Preenchido por porHttps: host → nome do DNS alternativo que respondeu ("Google"/"Cloudflare"). */
+    val resolvedorPorHost = ConcurrentHashMap<String, String>()
+
+    data class Rota(
+        val host: String,
+        val localRespondeu: Boolean,     // o DNS da internet do local achou o nome?
+        val usouAlternativo: Boolean,    // precisou do DNS alternativo (local falhou e o alternativo achou)
+        val resolvedor: String,          // "DNS do local" | "Google" | "Cloudflare" | "—"
+        val endereco: String,            // 1º IP a que o app vai se conectar
+        val quando: Long,
+    ) {
+        /** DNS do local falhou = possível bloqueio de IPTV na internet deste lugar. */
+        val possivelBloqueio get() = !localRespondeu
+    }
+
+    private val porHost = ConcurrentHashMap<String, Rota>()
+    @Volatile var ultima: Rota? = null
+        private set
+
+    /** O nome do servidor da lista (host), para o Ajustes/portal destacarem a rota dele. */
+    @Volatile var servidorHost: String = ""
+
+    fun registrar(host: String, doLocal: List<InetAddress>, doAlternativo: List<InetAddress>, quando: Long) {
+        val localOk = doLocal.isNotEmpty()
+        val altOk = doAlternativo.isNotEmpty()
+        val resolvedor = when {
+            localOk -> "DNS do local"
+            altOk -> resolvedorPorHost[host] ?: "DNS alternativo"
+            else -> "—"
+        }
+        val ip = (if (localOk) doLocal else doAlternativo).firstOrNull()?.hostAddress ?: ""
+        val r = Rota(host, localOk, !localOk && altOk, resolvedor, ip, quando)
+        porHost[host] = r
+        ultima = r
+    }
+
+    /** Rota do servidor da lista (ou a última observada, se o servidor ainda não foi consultado). */
+    fun doServidor(): Rota? = porHost[servidorHost] ?: ultima
+
+    fun rota(host: String): Rota? = porHost[host]
+
+    /** Só para os testes. */
+    fun limpar() { porHost.clear(); resolvedorPorHost.clear(); ultima = null; servidorHost = "" }
 }

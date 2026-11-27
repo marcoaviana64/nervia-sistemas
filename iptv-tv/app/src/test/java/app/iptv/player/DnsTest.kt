@@ -1,6 +1,7 @@
 package app.iptv.player
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -41,6 +42,23 @@ class DnsTest {
         val d = DnsAlternativo(sistema = { listOf(ip("127.0.0.1")) }, alternativo = { consultas++; emptyList() })
         d.lookup("127.0.0.1"); d.lookup("localhost")
         assertEquals(0, consultas)
+    }
+
+    // 2.37: a rota fica registrada no Diagnostico (por onde o app saiu e se houve possível bloqueio).
+    @Test fun diagnostico_registraARota() {
+        Diagnostico.limpar()
+        // DNS do local respondeu → sem bloqueio
+        DnsAlternativo(sistema = { listOf(ip("10.0.0.9")) }, alternativo = { listOf(ip("203.0.113.7")) }).lookup("srv.exemplo.gy")
+        Diagnostico.rota("srv.exemplo.gy")!!.let {
+            assertTrue(it.localRespondeu); assertFalse(it.possivelBloqueio)
+            assertEquals("DNS do local", it.resolvedor); assertEquals("10.0.0.9", it.endereco)
+        }
+        // DNS do local falhou → possível bloqueio, saiu pelo alternativo
+        DnsAlternativo(sistema = bloqueado, alternativo = { listOf(ip("203.0.113.7")) }).lookup("bloq.exemplo.gy")
+        Diagnostico.rota("bloq.exemplo.gy")!!.let {
+            assertFalse(it.localRespondeu); assertTrue(it.possivelBloqueio); assertTrue(it.usouAlternativo)
+            assertEquals("203.0.113.7", it.endereco)
+        }
     }
 
     @Test fun alternativoGuardadoPor10Minutos() {

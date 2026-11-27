@@ -3,9 +3,9 @@
     "http://p.urldata.gy"
   ],
   "versao": {
-    "codigo": 38,
-    "nome": "2.36",
+    "codigo": 39,
+    "nome": "2.37",
     "apk": "https://nervia.com.br/nvplayer.apk",
-    "novidades": "Quando a internet do local bloqueia o IPTV e o app precisa do DNS alternativo, ele agora informa a sua região para achar um servidor do Brasil, reduzindo o bloqueio da conta por \"país não permitido\"."
+    "novidades": "Novo \"Diagnóstico de rede\" em Ajustes: mostra por onde o app está saindo (DNS do local, Google ou Cloudflare) e avisa quando a internet do local parece estar bloqueando o IPTV. O mesmo resumo aparece no painel da Nervia."
   }
 }

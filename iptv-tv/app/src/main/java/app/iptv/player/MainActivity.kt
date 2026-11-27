@@ -555,6 +555,11 @@ class MainActivity : ComponentActivity() {
         k?.ativas?.let { l.put("telas_uso", it) }
         val o = JSONObject().put("versao", versao()).put("codigo", codigoVersao()).put("lista", l)
             .put("problemas", JSONArray(eventos().take(12)))
+        // 2.37: rota do servidor da lista (por onde o app está saindo; possível bloqueio de IPTV)
+        Diagnostico.servidorHost = l.getString("servidor").substringAfter("://").substringBefore("/").substringBefore(":")
+        Diagnostico.doServidor()?.let { r ->
+            o.put("rede", JSONObject().put("dns", r.resolvedor).put("bloqueio", r.possivelBloqueio).put("ip", r.endereco))
+        }
         val c = atual
         if (c != null && !parado && player.playWhenReady) {
             val (n, g) = uso(c)
@@ -1962,6 +1967,19 @@ class MainActivity : ComponentActivity() {
         sb.append("\nNo controle, assistindo TV: ▲▼ troca de canal · OK ou ◀▶ abre a lista · Menu: áudio, legenda, tela e guia.\n")
         sb.append("Assistindo filme ou série: OK pausa · ◀ volta 10 s · ▶ avança 30 s · Menu: áudio, legenda e tela · Voltar: sai e guarda onde parou.\n")
         sb.append("Na lista: segure OK (ou aperte Menu) num item para marcar como favorito.\n")
+        // 2.37: diagnóstico de rede — por onde o app está saindo e se há possível bloqueio de IPTV neste local
+        val servHost = (x?.endereco ?: repo.urlLista ?: "").substringAfter("://").substringBefore("/").substringBefore(":")
+        if (servHost.isNotBlank()) Diagnostico.servidorHost = servHost
+        val rota = Diagnostico.doServidor()
+        sb.append("\nDiagnóstico de rede: ")
+        if (rota == null) sb.append("ainda sem dados (abra um canal para o app consultar o servidor)\n")
+        else {
+            sb.append('\n')
+            sb.append("   DNS da internet do local: ${if (rota.localRespondeu) "respondeu" else "NÃO respondeu"}\n")
+            sb.append("   Servidor ${rota.host}: resolvido pelo ${rota.resolvedor}${if (rota.endereco.isNotBlank()) " → ${rota.endereco}" else ""}\n")
+            if (rota.possivelBloqueio) sb.append("   ⚠ Possível bloqueio de IPTV nesta internet: o DNS do local não achou o servidor, então o app usou o DNS alternativo (${rota.resolvedor}). Se o provedor bloquear por país, libere o acesso no painel dele ou troque o DNS do seu roteador.\n")
+            else sb.append("   ✓ Saindo pelo DNS do local (país certo); sem sinal de bloqueio.\n")
+        }
         val ev = eventos()
         sb.append("\nProblemas no vídeo (os mais recentes primeiro): ")
         if (ev.isEmpty()) sb.append("nenhum registrado\n")
